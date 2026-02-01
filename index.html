@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Retirement Planner Pro</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <div class="container-fluid py-4" style="max-width: 1700px;">
+
+    <div class="main-header d-flex justify-content-between align-items-center shadow-sm">
+      <div class="d-flex align-items-center">
+        <h4 class="mb-0 text-white"><i class="bi bi-graph-up-arrow text-primary me-2"></i>Retirement Planner
+          <span class="badge bg-dark border border-secondary text-secondary ms-2" style="font-size: 0.6em; vertical-align: middle;">v6.4 UX</span>
+        </h4>
+      </div>
+
+      <div class="d-none d-md-block text-end">
+        <div class="d-flex align-items-center gap-3">
+          <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" id="useRealDollars">
+            <label class="form-check-label text-white small" for="useRealDollars">Show in Today's $</label>
+          </div>
+          <div class="border-start border-secondary ps-3">
+            <span class="text-muted small">Simulation Mode:</span>
+            <span class="text-white fw-bold ms-1">Player 1 & Player 2</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-4 align-items-start">
+
+      <div class="col-auto" id="sidebarCol" style="width: 320px; transition: width 0.3s; z-index: 1000;">
+
+        <div id="sidebarExpanded" class="card bg-card border-secondary sticky-sidebar">
+          <div
+            class="card-header border-bottom border-secondary bg-opacity-10 bg-black d-flex justify-content-between align-items-center">
+            <h5 class="text-info mb-0"><i class="bi bi-lightning-charge me-2"></i>Quick Adjust</h5>
+            <button class="btn btn-sm btn-outline-secondary border-0 text-muted" id="btnCollapseSidebar" title="Collapse Sidebar">
+              <i class="bi bi-arrow-bar-left"></i>
+            </button>
+          </div>
+          <div class="card-body">
+            <p class="small text-muted mb-4">Tweak key variables to see instant impacts on your charts.</p>
+
+            <div class="mb-3">
+              <label class="form-label text-white">P1 Retirement Age</label>
+              <input type="range" class="form-range" min="45" max="80" id="qa_p1_retireAge_range">
+              <div class="d-flex justify-content-between">
+                <span class="small text-muted">45</span>
+                <span class="fw-bold text-info" id="qa_p1_retireAge_val">60</span>
+                <span class="small text-muted">80</span>
+              </div>
+            </div>
+
+            <div class="mb-3 p2-column">
+              <label class="form-label text-purple">P2 Retirement Age</label>
+              <input type="range" class="form-range" min="45" max="80" id="qa_p2_retireAge_range">
+              <div class="d-flex justify-content-between">
+                <span class="small text-muted">45</span>
+                <span class="fw-bold text-purple" id="qa_p2_retireAge_val">60</span>
+                <span class="small text-muted">80</span>
+              </div>
+            </div>
+
+            <hr class="border-secondary">
+
+            <div class="mb-3">
+              <label class="form-label text-white">Inflation Rate (%)</label>
+              <input type="range" class="form-range" min="1" max="8" step="0.1" id="qa_inflation_range">
+              <div class="d-flex justify-content-between">
+                <span class="small text-muted">1%</span>
+                <span class="fw-bold text-warning" id="qa_inflation_val">2.1%</span>
+                <span class="small text-muted">8%</span>
+              </div>
+            </div>
+
+            <hr class="border-secondary">
+
+            <div class="mb-3">
+              <label class="form-label text-white">Market Return (TFSA/RRSP)</label>
+              <input type="range" class="form-range" min="1" max="12" step="0.1" id="qa_return_range">
+              <div class="d-flex justify-content-between">
+                <span class="small text-muted">1%</span>
+                <span class="fw-bold text-success" id="qa_return_val">6.0%</span>
+                <span class="small text-muted">12%</span>
+              </div>
+              <p class="small text-muted mt-1" style="font-size: 0.7rem;">*Updates P1 & P2 TFSA/RRSP rates.</p>
+            </div>
+
+            <hr class="border-secondary">
+            <div class="mb-3">
+              <label class="form-label text-white small text-uppercase fw-bold ls-1">Risk Simulation</label>
+              <div class="form-check form-switch bg-black bg-opacity-25 p-2 rounded border border-secondary">
+                <input class="form-check-input live-calc" type="checkbox" role="switch" id="stressTestEnabled" style="margin-left: 0.5em;">
+                <label class="form-check-label text-white ps-2" for="stressTestEnabled">
+                  Stress Test <br><span class="text-danger small" style="font-size: 0.75rem;">(-15% Crash in Yr 1-2)</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="sidebarCollapsed" class="sticky-sidebar" style="display: none;">
+          <div class="sidebar-collapsed-btn" id="btnExpandSidebar" title="Open Quick Adjust">
+            <i class="bi bi-lightning-charge-fill"></i>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="col" id="mainCol" style="min-width: 0;">
+
+        <ul class="nav nav-tabs" id="myTab" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="plan-tab" data-bs-toggle="tab" data-bs-target="#plan-pane" type="button" role="tab"><i class="bi bi-pencil-square me-2"></i>Plan Inputs</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="summary-tab" data-bs-toggle="tab" data-bs-target="#summary-pane" type="button" role="tab"><i class="bi bi-table me-2"></i>Projection Table</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="strategy-tab" data-bs-toggle="tab" data-bs-target="#strategy-pane" type="button" role="tab"><i class="bi bi-sliders me-2"></i>Strategy</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="cashflow-tab" data-bs-toggle="tab" data-bs-target="#cashflow-pane" type="button" role="tab"><i class="bi bi-diagram-3 me-2"></i>Cash Flow</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="scenarios-tab" data-bs-toggle="tab" data-bs-target="#scenarios-pane" type="button" role="tab"><i class="bi bi-save me-2"></i>Scenarios</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="compare-tab" data-bs-toggle="tab" data-bs-target="#compare-pane" type="button" role="tab"><i class="bi bi-bar-chart-line me-2"></i>Compare</button>
+          </li>
+        </ul>
+
+        <div class="card shadow-sm mb-5">
+          <div class="card-body p-0">
+            <div class="tab-content" id="myTabContent">
+
+              <div class="tab-pane fade show active p-3 p-md-4" id="plan-pane" role="tabpanel">
+
+                <div class="d-flex justify-content-end mb-4">
+                  <div class="btn-group" role="group">
+                    <input type="radio" class="btn-check" name="planMode" id="modeSingle" autocomplete="off">
+                    <label class="btn btn-outline-secondary px-4" for="modeSingle"><i class="bi bi-person me-1"></i> Single</label>
+                    <input type="radio" class="btn-check" name="planMode" id="modeCouple" autocomplete="off" checked>
+                    <label class="btn btn-outline-secondary px-4" for="modeCouple"><i class="bi bi-people me-1"></i> Couple</label>
+                  </div>
+                </div>
+
+                <form id="financialForm">
+                  <div class="card mb-4">
+                    <div class="card-header d-flex align-items-center">
+                      <i class="bi bi-person-vcard text-info fs-5 me-2"></i>
+                      <h5>1. Personal Information</h5>
+                    </div>
+                    <div class="card-body">
+                      <div class="row g-4">
+                        <div class="col-12 col-xl-6">
+                          <div class="p-3 border border-secondary rounded-3 bg-black bg-opacity-25 h-100">
+                            <h6 class="text-info mb-3"><i class="bi bi-person-fill me-2"></i>Player 1 (P1)</h6>
+                            <div class="mb-3">
+                              <label class="form-label">Date of Birth</label>
+                              <div class="d-flex align-items-center gap-3">
+                                <input type="month" class="form-control live-calc" id="p1_dob" value="1988-09" required style="max-width: 200px;">
+                                <span class="age-display" id="p1_age">-- years old</span>
+                              </div>
+                            </div>
+                            <div class="row g-3">
+                              <div class="col-6">
+                                <label class="form-label">Retirement Age</label>
+                                <input type="text" class="form-control live-calc formatted-num" id="p1_retireAge" value="60">
+                              </div>
+                              <div class="col-6">
+                                <label class="form-label">Life Expectancy</label>
+                                <input type="text" class="form-control live-calc formatted-num" id="p1_lifeExp" value="90">
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="col-12 col-xl-6 p2-column">
+                          <div class="p-3 border border-secondary rounded-3 bg-black bg-opacity-25 h-100">
+                            <h6 class="text-purple mb-3" style="color: var(--purple)">
+                              <i class="bi bi-person-fill me-2"></i>Player 2 (P2)
+                            </h6>
+                            <div class="mb-3">
+                              <label class="form-label">Date of Birth</label>
+                              <div class="d-flex align-items-center gap-3">
+                                <input type="month" class="form-control live-calc" id="p2_dob" value="1992-07" style="max-width: 200px;">
+                                <span class="age-display" id="p2_age" style="color: var(--purple)">-- years old</span>
+                              </div>
+                            </div>
+                            <div class="row g-3">
+                              <div class="col-6">
+                                <label class="form-label">Retirement Age</label>
+                                <input type="text" class="form-control live-calc formatted-num" id="p2_retireAge" value="60">
+                              </div>
+                              <div class="col-6">
+                                <label class="form-label">Life Expectancy</label>
+                                <input type="text" class="form-control live-calc formatted-num" id="p2_lifeExp" value="95">
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="card mb-4">
+                    <div class="card-header d-flex align-items-center"><i class="bi bi-wallet2 text-success fs-5 me-2"></i>
+                      <h5>2. Portfolio Assets</h5>
+                    </div>
+                    <div class="card-body">
+                      <div class="row g-4">
+                        <div class="col-12 col-xl-6">
+                          <div class="card border-0 bg-black bg-opacity-25">
+                            <div class="card-body">
+                              <h6 class="text-info mb-3">Player 1 Assets & Returns</h6>
+                              <div class="row g-2 align-items-end mb-2">
+                                <div class="col-3"><label class="form-label mb-1">Account</label></div>
+                                <div class="col-5"><label class="form-label mb-1">Balance ($)</label></div>
+                                <div class="col-4"><label class="form-label mb-1">Return (%)</label></div>
+                              </div>
+                              <div class="row g-2 mb-2">
+                                <div class="col-3 pt-2 text-white small">Cash</div>
+                                <div class="col-5"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p1_cash" value="20,000"></div>
+                                <div class="col-4">
+                                  <div class="input-group input-group-sm"><input type="text" class="form-control live-calc" id="p1_cash_ret" value="2.0"><span class="input-group-text">%</span></div>
+                                </div>
+                              </div>
+                              <div class="row g-2 mb-2">
+                                <div class="col-3 pt-2 text-white small">TFSA</div>
+                                <div class="col-5"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p1_tfsa" value="52,000"></div>
+                                <div class="col-4">
+                                  <div class="input-group input-group-sm"><input type="text" class="form-control live-calc" id="p1_tfsa_ret" value="6.0"><span class="input-group-text">%</span></div>
+                                </div>
+                              </div>
+                              <div class="row g-2 mb-2">
+                                <div class="col-3 pt-2 text-white small">RRSP</div>
+                                <div class="col-5"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p1_rrsp" value="85,000"></div>
+                                <div class="col-4">
+                                  <div class="input-group input-group-sm"><input type="text" class="form-control live-calc" id="p1_rrsp_ret" value="6.0"><span class="input-group-text">%</span></div>
+                                </div>
+                              </div>
+                              <div class="row g-2 mb-2">
+                                <div class="col-3 pt-2 text-white small">Non-Reg</div>
+                                <div class="col-5"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p1_nonreg" value="10,000"></div>
+                                <div class="col-4">
+                                  <div class="input-group input-group-sm"><input type="text" class="form-control live-calc" id="p1_nonreg_ret" value="5.0"><span class="input-group-text">%</span></div>
+                                </div>
+                              </div>
+                              <div class="row g-2">
+                                <div class="col-3 pt-2 text-white small">Crypto</div>
+                                <div class="col-5"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p1_crypto" value="5,000"></div>
+                                <div class="col-4">
+                                  <div class="input-group input-group-sm"><input type="text" class="form-control live-calc" id="p1_crypto_ret" value="8.0"><span class="input-group-text">%</span></div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="col-12 col-xl-6 p2-column">
+                          <div class="card border-0 bg-black bg-opacity-25">
+                            <div class="card-body">
+                              <h6 class="text-purple mb-3" style="color: var(--purple)">Player 2 Assets & Returns</h6>
+                              <div class="row g-2 align-items-end mb-2">
+                                <div class="col-3"><label class="form-label mb-1">Account</label></div>
+                                <div class="col-5"><label class="form-label mb-1">Balance ($)</label></div>
+                                <div class="col-4"><label class="form-label mb-1">Return (%)</label></div>
+                              </div>
+                              <div class="row g-2 mb-2">
+                                <div class="col-3 pt-2 text-white small">Cash</div>
+                                <div class="col-5"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p2_cash" value="15,000"></div>
+                                <div class="col-4">
+                                  <div class="input-group input-group-sm"><input type="text" class="form-control live-calc" id="p2_cash_ret" value="2.0"><span class="input-group-text">%</span></div>
+                                </div>
+                              </div>
+                              <div class="row g-2 mb-2">
+                                <div class="col-3 pt-2 text-white small">TFSA</div>
+                                <div class="col-5"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p2_tfsa" value="35,000"></div>
+                                <div class="col-4">
+                                  <div class="input-group input-group-sm"><input type="text" class="form-control live-calc" id="p2_tfsa_ret" value="6.0"><span class="input-group-text">%</span></div>
+                                </div>
+                              </div>
+                              <div class="row g-2 mb-2">
+                                <div class="col-3 pt-2 text-white small">RRSP</div>
+                                <div class="col-5"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p2_rrsp" value="42,000"></div>
+                                <div class="col-4">
+                                  <div class="input-group input-group-sm"><input type="text" class="form-control live-calc" id="p2_rrsp_ret" value="6.0"><span class="input-group-text">%</span></div>
+                                </div>
+                              </div>
+                              <div class="row g-2 mb-2">
+                                <div class="col-3 pt-2 text-white small">Non-Reg</div>
+                                <div class="col-5"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p2_nonreg" value="5,000"></div>
+                                <div class="col-4">
+                                  <div class="input-group input-group-sm"><input type="text" class="form-control live-calc" id="p2_nonreg_ret" value="5.0"><span class="input-group-text">%</span></div>
+                                </div>
+                              </div>
+                              <div class="row g-2">
+                                <div class="col-3 pt-2 text-white small">Crypto</div>
+                                <div class="col-5"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p2_crypto" value="2,000"></div>
+                                <div class="col-4">
+                                  <div class="input-group input-group-sm"><input type="text" class="form-control live-calc" id="p2_crypto_ret" value="8.0"><span class="input-group-text">%</span></div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="card mb-4">
+                    <div class="card-header d-flex align-items-center"><i class="bi bi-house-heart text-danger fs-5 me-2"></i>
+                      <h5>3. Real Estate & Mortgage</h5>
+                    </div>
+                    <div class="card-body">
+                      <div class="row g-3">
+                        <div class="col-6 col-md-3"><label class="form-label">Property Value</label>
+                          <div class="input-group"><span class="input-group-text">$</span><input type="text" class="form-control live-calc formatted-num" id="home_value" value="1,000,000"></div>
+                        </div>
+                        <div class="col-6 col-md-3"><label class="form-label">Mortgage Balance</label>
+                          <div class="input-group"><span class="input-group-text">$</span><input type="text" class="form-control live-calc formatted-num" id="mortgage_amt" value="430,000"></div>
+                        </div>
+                        <div class="col-6 col-md-3"><label class="form-label">Appreciation Rate</label>
+                          <div class="input-group"><input type="text" class="form-control live-calc formatted-num" id="home_growth" value="3.0"><span class="input-group-text">%</span></div>
+                        </div>
+                        <div class="col-6 col-md-3"><label class="form-label">Mortgage Rate</label>
+                          <div class="input-group"><input type="text" class="form-control live-calc formatted-num" id="mortgage_rate" value="3.29"><span class="input-group-text">%</span></div>
+                        </div>
+                        <div class="col-12 col-md-4 mt-4"><label class="form-label text-warning">Monthly Payment</label>
+                          <div class="input-group"><span class="input-group-text bg-warning text-black border-warning fw-bold">$</span><input type="text" class="form-control live-calc formatted-num mortgage-payment-input border-warning" id="mortgage_payment" value="0"></div>
+                          <div class="mt-2" id="mortgage_payoff_display"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="card mb-4">
+                    <div class="card-header d-flex align-items-center"><i class="bi bi-cash-coin text-warning fs-5 me-2"></i>
+                      <h5>4. Income & Taxation</h5>
+                    </div>
+                    <div class="card-body">
+                      <div class="row mb-3">
+                        <div class="col-12 col-md-4"><label class="form-label">Province of Residence</label><select class="form-select live-calc" id="tax_province">
+                            <option value="ON" selected>Ontario</option>
+                            <option value="AB">Alberta</option>
+                            <option value="BC">British Columbia</option>
+                            <option value="MB">Manitoba</option>
+                            <option value="NB">New Brunswick</option>
+                            <option value="NL">Newfoundland & Labrador</option>
+                            <option value="NS">Nova Scotia</option>
+                            <option value="PE">Prince Edward Island</option>
+                            <option value="QC">Quebec</option>
+                            <option value="SK">Saskatchewan</option>
+                          </select>
+                          <div class="mt-1"><a href="https://www.canada.ca/en/revenue-agency/services/tax/individuals/frequently-asked-questions-individuals/canadian-income-tax-rates-individuals-current-previous-years.html" target="_blank" class="small text-muted text-decoration-underline" style="font-size: 0.75rem;">Source: CRA 2026</a></div>
+                        </div>
+                      </div>
+                      <div class="row g-4 mb-4">
+                        <div class="col-12 col-xl-6">
+                          <div class="card h-100 border-0 bg-black bg-opacity-25">
+                            <div class="card-body">
+                              <h6 class="text-info">Player 1 Income</h6>
+                              <div class="row g-2 mb-3">
+                                <div class="col-8"><label class="form-label">Gross Annual Income</label>
+                                  <div class="input-group"><span class="input-group-text">$</span><input type="text" class="form-control live-calc formatted-num" id="p1_income" value="95,000"></div>
+                                </div>
+                                <div class="col-4"><label class="form-label">Growth</label>
+                                  <div class="input-group"><input type="text" class="form-control live-calc formatted-num" id="p1_income_growth" value="2.0"><span class="input-group-text">%</span></div>
+                                </div>
+                              </div>
+                              <div class="tax-details-box" id="p1_tax_details"></div>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="col-12 col-xl-6 p2-column">
+                          <div class="card h-100 border-0 bg-black bg-opacity-25">
+                            <div class="card-body">
+                              <h6 class="text-purple" style="color: var(--purple)">Player 2 Income</h6>
+                              <div class="row g-2 mb-3">
+                                <div class="col-8"><label class="form-label">Gross Annual Income</label>
+                                  <div class="input-group"><span class="input-group-text">$</span><input type="text" class="form-control live-calc formatted-num" id="p2_income" value="70,000"></div>
+                                </div>
+                                <div class="col-4"><label class="form-label">Growth</label>
+                                  <div class="input-group"><input type="text" class="form-control live-calc formatted-num" id="p2_income_growth" value="2.0"><span class="input-group-text">%</span></div>
+                                </div>
+                              </div>
+                              <div class="tax-details-box" id="p2_tax_details"></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="card bg-black border-secondary">
+                        <div class="card-body py-3">
+                          <div class="row text-center">
+                            <div class="col-md-6 border-end border-secondary">
+                              <div class="household-total-label mb-1">Total Household (Gross)</div>
+                              <div class="household-total-val" id="household_gross_display">$0</div>
+                            </div>
+                            <div class="col-md-6">
+                              <div class="household-total-label mb-1">Total Household (Net)</div>
+                              <div class="household-total-val text-success" id="household_net_display">$0</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="card mb-4">
+                    <div class="card-header d-flex align-items-center"><i class="bi bi-cart4 text-white fs-5 me-2"></i>
+                      <h5>5. Living Expenses</h5>
+                    </div>
+                    <div class="card-body">
+                      <div class="table-responsive rounded-3 border border-secondary mb-3">
+                        <table class="table table-dark table-sm align-middle mb-0">
+                          <thead>
+                            <tr class="table-secondary">
+                              <th style="width: 25%" class="text-uppercase text-muted small ps-3">Category / Item</th>
+                              <th style="width: 37.5%" class="text-uppercase text-muted small">Current Spending</th>
+                              <th style="width: 37.5%" class="text-uppercase text-muted small">Retirement Spending</th>
+                            </tr>
+                          </thead>
+                          <tbody id="expenseTableBody" class="border-top-0"></tbody>
+                        </table>
+                      </div>
+                      <div class="card bg-black border-secondary">
+                        <div class="card-body py-3 text-center">
+                          <div class="row">
+                            <div class="col-md-6 border-end border-secondary"><span class="household-total-label me-2">Annual Expenses (Now):</span><span class="expense-total-val text-danger" id="total_annual_current">$0</span></div>
+                            <div class="col-md-6"><span class="household-total-label me-2">Annual Expenses (Retirement):</span><span class="expense-total-val text-warning" id="total_annual_retirement">$0</span></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="card mb-4">
+                    <div class="card-header d-flex align-items-center"><i class="bi bi-credit-card-2-front text-danger fs-5 me-2"></i>
+                      <h5>6. Other Liabilities</h5>
+                    </div>
+                    <div class="card-body">
+                      <div id="debt-container" class="mb-3"></div><button type="button" class="btn btn-outline-secondary btn-sm" id="btnAddDebt"><i class="bi bi-plus-lg me-1"></i>Add Liability</button>
+                    </div>
+                  </div>
+
+                  <div class="card mb-4">
+                    <div class="card-header d-flex align-items-center"><i class="bi bi-bank text-primary fs-5 me-2"></i>
+                      <h5>7. Government Benefits (CPP / OAS)</h5>
+                    </div>
+                    <div class="card-body">
+                      <div class="row g-4">
+                        <div class="col-12 col-md-6">
+                          <div class="p-3 border border-secondary rounded-3">
+                            <h6 class="text-info mb-3">Player 1 Optimization</h6>
+                            <div class="row g-3">
+                              <div class="col-6"><label class="form-label">CPP Start Age</label><select class="form-select live-calc cpp-age-select" id="p1_cpp_start"></select>
+                                <div class="d-flex flex-column mt-2"><span class="est-benefit small text-muted" id="p1_cpp_est"></span><span class="opt-benefit small" id="p1_cpp_opt"></span><input type="hidden" id="p1_cpp_pct" value="100"></div>
+                              </div>
+                              <div class="col-6"><label class="form-label">OAS Start Age</label><select class="form-select live-calc oas-age-select" id="p1_oas_start"></select>
+                                <div class="d-flex flex-column mt-2"><span class="est-benefit small text-muted" id="p1_oas_est"></span><span class="opt-benefit small" id="p1_oas_opt"></span><input type="hidden" id="p1_oas_pct" value="100"></div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="col-12 col-md-6 p2-column">
+                          <div class="p-3 border border-secondary rounded-3">
+                            <h6 class="text-purple mb-3" style="color: var(--purple)">Player 2 Optimization</h6>
+                            <div class="row g-3">
+                              <div class="col-6"><label class="form-label">CPP Start Age</label><select class="form-select live-calc cpp-age-select" id="p2_cpp_start"></select>
+                                <div class="d-flex flex-column mt-2"><span class="est-benefit small text-muted" id="p2_cpp_est"></span><span class="opt-benefit small" id="p2_cpp_opt"></span><input type="hidden" id="p2_cpp_pct" value="100"></div>
+                              </div>
+                              <div class="col-6"><label class="form-label">OAS Start Age</label><select class="form-select live-calc oas-age-select" id="p2_oas_start"></select>
+                                <div class="d-flex flex-column mt-2"><span class="est-benefit small text-muted" id="p2_oas_est"></span><span class="opt-benefit small" id="p2_oas_opt"></span><input type="hidden" id="p2_oas_pct" value="100"></div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="card mb-4">
+                    <div class="card-header d-flex align-items-center"><i class="bi bi-graph-up-arrow text-secondary fs-5 me-2"></i>
+                      <h5>8. Economic Assumptions</h5>
+                    </div>
+                    <div class="card-body">
+                      <div class="row">
+                        <div class="col-md-4"><label class="form-label">Inflation Rate</label>
+                          <div class="input-group"><input type="number" step="0.01" class="form-control live-calc" id="inflation_rate" value="2.1"><span class="input-group-text">%</span></div>
+                          <div class="mt-1"><a href="https://www.bankofcanada.ca/core-functions/monetary-policy/inflation/" target="_blank" class="small text-muted text-decoration-underline" style="font-size: 0.75rem;">BoC Target: 2%</a></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                </form>
+              </div>
+
+              <div class="tab-pane fade p-0" id="summary-pane" role="tabpanel">
+                <div class="card">
+                  <div class="card-body p-0">
+                    <div class="table-container" id="summaryTableContainer" style="max-height: 85vh; overflow-y: auto;">
+                      <div id="projectionGrid"></div>
+                      <table class="summary-table" id="oldSummaryTable" style="display:none;">
+                        <thead>
+                          <tr class="super-header">
+                            <th colspan="3" class="sticky-left text-center border-end border-secondary">Timeline</th>
+                            <th colspan="5" class="text-center border-end border-secondary">Net Income Sources</th>
+                            <th colspan="4" class="text-center border-end border-secondary">Outflows</th>
+                            <th colspan="9" class="text-center border-end border-secondary">Assets & Investments</th>
+                            <th class="sticky-right text-center">Summary</th>
+                          </tr>
+
+                          <tr>
+                            <th class="sticky-left col-events">Events</th>
+                            <th class="sticky-left col-year">Year</th>
+                            <th class="sticky-left col-age">Age</th>
+
+                            <th style="min-width: 90px;" id="inc-header" class="text-center">
+                              Total Net
+                              <br><span class="badge bg-secondary cursor-pointer toggle-btn" data-type="inc" style="cursor:pointer">[+]</span>
+                            </th>
+                            <th class="col-detail-inc">P1 Net</th>
+                            <th class="col-detail-inc p2-column">P2 Net</th>
+                            <th class="col-detail-inc">CPP</th>
+                            <th class="col-detail-inc">OAS</th>
+
+                            <th style="min-width: 90px;" id="exp-header" class="text-center">
+                              Total Exp
+                              <br><span class="badge bg-secondary cursor-pointer toggle-btn" data-type="exp" style="cursor:pointer">[+]</span>
+                            </th>
+                            <th class="col-detail-exp">Living</th>
+                            <th class="col-detail-exp">Debt Pmt</th>
+                            <th style="min-width: 80px;" class="col-detail-exp">Mortg Bal</th>
+
+                            <th style="min-width: 80px;">Surplus</th>
+
+                            <th style="min-width: 90px;" id="inv-header" class="text-center">
+                              Investments
+                              <br><span class="badge bg-secondary cursor-pointer toggle-btn" data-type="inv" style="cursor:pointer">[+]</span>
+                            </th>
+                            <th style="min-width: 80px;">Inv. Growth</th>
+
+                            <th class="col-detail-inv">P1 TFSA</th>
+                            <th class="col-detail-inv">P1 RRSP</th>
+                            <th class="col-detail-inv">P1 Cash</th>
+                            <th class="col-detail-inv">P1 NReg</th>
+                            <th class="col-detail-inv p2-column">P2 TFSA</th>
+                            <th class="col-detail-inv p2-column">P2 RRSP</th>
+                            <th class="col-detail-inv p2-column">P2 Cash</th>
+                            <th class="col-detail-inv p2-column">P2 NReg</th>
+                            <th class="col-detail-inv">P1 Cryp</th>
+                            <th class="col-detail-inv p2-column">P2 Cryp</th>
+
+                            <th style="min-width: 90px;">Liquid NW</th>
+                            <th class="sticky-right text-end text-warning" style="min-width: 110px; font-weight: 700;">Net Worth</th>
+                          </tr>
+                        </thead>
+                        <tbody id="projectionTableBody"></tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="tab-pane fade p-3 p-md-5" id="strategy-pane" role="tabpanel">
+                <div class="row g-5">
+                  <div class="col-md-6">
+                    <div class="d-flex align-items-center mb-3"><i class="bi bi-piggy-bank text-success fs-3 me-2"></i>
+                      <h5 class="text-success mb-0">Accumulation Strategy (Surplus)</h5>
+                    </div>
+                    <p class="small text-muted">Drag to prioritize where surplus cash is saved. Top items fill first.</p>
+                    <div id="strat-accum-container" class="mb-4"></div>
+                    <div class="strategy-opt-box">
+                      <div class="strategy-opt-header">Exceptions</div>
+                      <div class="form-check mb-2"><input class="form-check-input live-calc" type="checkbox" id="skip_first_tfsa_p1"><label class="form-check-label small" for="skip_first_tfsa_p1">P1: Skip 1st Year TFSA Contrib.</label></div>
+                      <div class="form-check mb-2"><input class="form-check-input live-calc" type="checkbox" id="skip_first_rrsp_p1"><label class="form-check-label small" for="skip_first_rrsp_p1">P1: Skip 1st Year RRSP Contrib.</label></div>
+                      <div class="p2-column">
+                        <div class="form-check mb-2"><input class="form-check-input live-calc" type="checkbox" id="skip_first_tfsa_p2"><label class="form-check-label small" for="skip_first_tfsa_p2">P2: Skip 1st Year TFSA Contrib.</label></div>
+                        <div class="form-check mb-2"><input class="form-check-input live-calc" type="checkbox" id="skip_first_rrsp_p2"><label class="form-check-label small" for="skip_first_rrsp_p2">P2: Skip 1st Year RRSP Contrib.</label></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="d-flex align-items-center mb-3"><i class="bi bi-wallet2 text-warning fs-3 me-2"></i>
+                      <h5 class="text-warning mb-0">Decumulation Strategy (Deficit)</h5>
+                    </div>
+                    <p class="small text-muted">Drag to prioritize withdrawal sources during retirement/deficits.</p>
+                    <div id="strat-decumulation" class="mb-4"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="tab-pane fade p-3 p-md-5" id="cashflow-pane" role="tabpanel">
+                <div class="card border-0 bg-transparent shadow-none" style="overflow: hidden; width: 100%;">
+                  <div class="card-body p-0">
+                    <div class="d-flex align-items-center justify-content-center mb-4"><label class="form-label me-3 mb-0 text-white">Timeline:</label><input type="range" class="form-range" id="yearSlider" min="0" max="40" value="0" style="max-width: 400px;">
+                      <div class="ms-4 text-center">
+                        <div class="fs-4 fw-bold text-info" id="sliderYearDisplay">2026</div>
+                        <div class="text-muted small" id="cfAgeDisplay">(Age: --)</div>
+                      </div>
+                    </div>
+                    <div id="sankey_chart" style="width: 100%; height: 600px;"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="tab-pane fade p-3 p-md-5" id="scenarios-pane" role="tabpanel">
+                <div class="row g-5">
+                  <div class="col-md-5">
+                    <h5 class="text-info mb-3">Save Current State</h5>
+                    <div class="card p-3"><label class="form-label">Scenario Name</label>
+                      <div class="input-group mb-3"><input type="text" id="scenarioName" class="form-control" placeholder="e.g. Early Retirement"><button class="btn btn-primary" id="btnSaveScenario"><i class="bi bi-save"></i> Save</button></div>
+                      <p class="small text-muted">Saves all inputs, expenses, and debt configurations.</p>
+                    </div>
+                  </div>
+                  <div class="col-md-7">
+                    <h5 class="text-info mb-3">Load Saved Scenarios</h5>
+                    <ul class="list-group" id="scenarioList"></ul>
+                  </div>
+                </div>
+              </div>
+
+              <div class="tab-pane fade p-3 p-md-5" id="compare-pane" role="tabpanel">
+                <div class="row mb-4">
+                  <div class="col-12">
+                    <h5 class="text-info mb-3">Comparison Controls</h5>
+                    <div class="card p-3 mb-3">
+                      <p class="small text-muted mb-2">Check scenarios to compare. Chart updates automatically on toggle.</p>
+                      <div class="d-flex flex-wrap gap-2" id="compareSelectionArea"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="row g-4">
+                  <div class="col-12">
+                    <div class="card p-3">
+                      <h6 class="text-center text-success mb-3">Net Worth Trajectory Comparison</h6>
+                      <div style="height: 500px; position: relative; width: 100%;"><canvas id="chartNW"></canvas></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-center text-muted small pb-4">
+      Retirement Planner Pro &copy; 2026. Data is processed locally in your browser.
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="script.js"></script>
+</body>
+
+</html>
