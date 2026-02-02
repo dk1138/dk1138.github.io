@@ -1488,35 +1488,36 @@ class RetirementPlanner {
              html += `
              <tr class="expense-row">
                 <td class="ps-3 align-middle border-bottom border-secondary">
-                    <div class="d-flex align-items-center">
-                        <button type="button" class="btn btn-sm btn-link text-danger p-0 me-2" onclick="app.removeExpense('${category}', ${index})">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                        <input type="text" class="form-control form-control-sm bg-transparent border-0 text-white-50 expense-update" 
-                               value="${item.name}" data-cat="${category}" data-idx="${index}" data-field="name">
-                    </div>
+                    <input type="text" class="form-control form-control-sm bg-transparent border-0 text-white-50 expense-update" 
+                           value="${item.name}" data-cat="${category}" data-idx="${index}" data-field="name">
                 </td>
                 <td class="align-middle border-bottom border-secondary">
                     <div class="input-group input-group-sm">
                         <span class="input-group-text bg-black border-secondary text-muted">$</span>
                         <input type="text" class="form-control bg-black border-secondary text-white formatted-num expense-update" 
                                style="max-width: 100px;" value="${item.curr.toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="curr">
-                        <select class="form-select bg-black border-secondary text-white expense-update" style="width: 75px;"
+                        <select class="form-select bg-black border-secondary text-white expense-update" style="width: auto; min-width: 85px;"
                                 data-cat="${category}" data-idx="${index}" data-field="freq">
-                            <option value="12" ${item.freq===12?'selected':''}>/mo</option>
-                            <option value="1" ${item.freq===1?'selected':''}>/yr</option>
+                            <option value="12" ${item.freq===12?'selected':''}>/month</option>
+                            <option value="1" ${item.freq===1?'selected':''}>/year</option>
                         </select>
                     </div>
                 </td>
                 <td class="align-middle border-bottom border-secondary">
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text bg-black border-secondary text-muted">$</span>
-                        <input type="text" class="form-control bg-black border-secondary text-white formatted-num expense-update" 
-                               style="max-width: 100px;" value="${item.ret.toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="ret">
-                        <select class="form-select bg-black border-secondary text-white expense-update" style="width: 75px;"
-                                data-cat="${category}" data-idx="${index}" data-field="freq"> <option value="12" ${item.freq===12?'selected':''}>/mo</option>
-                            <option value="1" ${item.freq===1?'selected':''}>/yr</option>
-                        </select>
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-black border-secondary text-muted">$</span>
+                            <input type="text" class="form-control bg-black border-secondary text-white formatted-num expense-update" 
+                                   style="max-width: 100px;" value="${item.ret.toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="ret">
+                            <select class="form-select bg-black border-secondary text-white expense-update" style="width: auto; min-width: 85px;"
+                                    data-cat="${category}" data-idx="${index}" data-field="freq"> 
+                                <option value="12" ${item.freq===12?'selected':''}>/month</option>
+                                <option value="1" ${item.freq===1?'selected':''}>/year</option>
+                            </select>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2" title="Delete Line" onclick="app.removeExpense('${category}', ${index})">
+                            <i class="bi bi-trash"></i>
+                        </button>
                     </div>
                 </td>
              </tr>`;
@@ -1979,11 +1980,6 @@ class RetirementPlanner {
             this.expensesByCategory = data.expensesData;
         } 
         this.renderExpenseRows();
-
-        if (data.properties) {
-            this.state.properties = data.properties;
-            this.renderProperties();
-        }
 
         const debtContainer = document.getElementById('debt-container');
         debtContainer.innerHTML = '';
