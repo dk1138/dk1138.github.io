@@ -385,7 +385,8 @@ class RetirementPlanner {
             p1_rrsp_ret: '6.0', p2_rrsp_ret: '6.0',
             p1_nonreg_ret: '5.0', p2_nonreg_ret: '5.0',
             p1_crypto_ret: '8.0', p2_crypto_ret: '8.0',
-            p1_income_growth: '2.0', p2_income_growth: '2.0'
+            p1_income_growth: '2.0', p2_income_growth: '2.0',
+            p1_db_pension: '0', p2_db_pension: '0'
         };
 
         // Reset Inputs
@@ -628,6 +629,8 @@ class RetirementPlanner {
         if (d.incomeP2 > 0) rows.push([`Employment P2\n${fmt(d.incomeP2)}`, potName, Math.round(d.incomeP2)]);
         if (d.benefitsP1 > 0) rows.push([`Gov Benefits P1\n${fmt(d.benefitsP1)}`, potName, Math.round(d.benefitsP1)]);
         if (d.benefitsP2 > 0) rows.push([`Gov Benefits P2\n${fmt(d.benefitsP2)}`, potName, Math.round(d.benefitsP2)]);
+        if (d.pensionP1 > 0) rows.push([`Work Pension P1\n${fmt(d.pensionP1)}`, potName, Math.round(d.pensionP1)]);
+        if (d.pensionP2 > 0) rows.push([`Work Pension P2\n${fmt(d.pensionP2)}`, potName, Math.round(d.pensionP2)]);
 
         if (d.flows && d.flows.withdrawals) {
             for (const [source, amount] of Object.entries(d.flows.withdrawals)) {
@@ -659,7 +662,8 @@ class RetirementPlanner {
             let color = '#a8a29e'; 
             if (node.includes("Available Cash")) color = '#f59e0b'; 
             else if (node.includes("Employment")) color = '#10b981'; 
-            else if (node.includes("Gov Benefits")) color = '#06b6d4'; 
+            else if (node.includes("Gov Benefits")) color = '#06b6d4';
+            else if (node.includes("Work Pension")) color = '#8b5cf6';
             else if (node.includes("RRIF") || node.includes("TFSA") || node.includes("RRSP") || node.includes("Non-Reg") || node.includes("Crypto") || node.includes("Cash")) {
                 if(node.startsWith("To ")) color = '#3b82f6'; else color = '#8b5cf6';
             }
@@ -734,6 +738,10 @@ class RetirementPlanner {
         const p1_oas_start = parseInt(this.getRaw('p1_oas_start'));
         const p2_cpp_start = parseInt(this.getRaw('p2_cpp_start'));
         const p2_oas_start = parseInt(this.getRaw('p2_oas_start'));
+
+        // DB Pension Initialization
+        let p1_db_current = this.getVal('p1_db_pension') * 12;
+        let p2_db_current = this.getVal('p2_db_pension') * 12;
 
         let expCurrentStart = 0; let expRetireStart = 0;
         for (const cat in this.expensesByCategory) {
@@ -824,21 +832,28 @@ class RetirementPlanner {
             let p1_gross = 0, p2_gross = 0;
             let p1_cpp_inc = 0, p1_oas_inc = 0;
             let p2_cpp_inc = 0, p2_oas_inc = 0;
+            let p1_pension_inc = 0, p2_pension_inc = 0;
 
             if(p1_alive) {
                 if(!p1_isRetired) { p1_gross += p1.inc; p1.inc *= (1 + currentRatesP1.inc); }
+                else { p1_pension_inc = p1_db_current; } // DB Pension kicks in at retirement
+
                 if(p1_age >= p1_cpp_start) p1_cpp_inc = this.calcBen(cpp_max_p1, p1_cpp_start, 1.0, p1.retAge);
                 if(p1_age >= p1_oas_start) p1_oas_inc = this.calcBen(oas_max_p1, p1_oas_start, 1.0, 65);
             }
 
             if(mode === 'Couple' && p2_alive) {
                 if(!p2_isRetired) { p2_gross += p2.inc; p2.inc *= (1 + currentRatesP2.inc); }
+                else { p2_pension_inc = p2_db_current; }
+
                 if(p2_age >= p2_cpp_start) p2_cpp_inc = this.calcBen(cpp_max_p2, p2_cpp_start, 1.0, p2.retAge);
                 if(p2_age >= p2_oas_start) p2_oas_inc = this.calcBen(oas_max_p2, p2_oas_start, 1.0, 65);
             }
 
+            // Inflate Benefits & Pension for next year
             cpp_max_p1 *= (1 + inflation); oas_max_p1 *= (1 + inflation); 
             cpp_max_p2 *= (1 + inflation); oas_max_p2 *= (1 + inflation);
+            p1_db_current *= (1 + inflation); p2_db_current *= (1 + inflation);
 
             // Mandatory RRIF
             let p1_rrif_inc = 0;
@@ -869,8 +884,8 @@ class RetirementPlanner {
                 }
             }
 
-            let p1_total_taxable = p1_gross + p1_cpp_inc + p1_oas_inc + p1_rrif_inc;
-            let p2_total_taxable = p2_gross + p2_cpp_inc + p2_oas_inc + p2_rrif_inc;
+            let p1_total_taxable = p1_gross + p1_cpp_inc + p1_oas_inc + p1_rrif_inc + p1_pension_inc;
+            let p2_total_taxable = p2_gross + p2_cpp_inc + p2_oas_inc + p2_rrif_inc + p2_pension_inc;
 
             if (rrspMeltdown) {
                 const lowBracketLimit = currentFedBrackets[0]; 
@@ -1123,13 +1138,14 @@ class RetirementPlanner {
                     p1Alive: p1_alive, p2Alive: p2_alive,
                     incomeP1: p1_gross, incomeP2: p2_gross, 
                     benefitsP1: p1_cpp_inc + p1_oas_inc, benefitsP2: p2_cpp_inc + p2_oas_inc, 
+                    pensionP1: p1_pension_inc, pensionP2: p2_pension_inc,
                     cppP1: p1_cpp_inc, cppP2: p2_cpp_inc,
                     oasP1: p1_oas_inc, oasP2: p2_oas_inc,
                     taxP1: t1.totalTax, taxP2: t2.totalTax,
                     p1Net: p1_net, p2Net: p2_net,
                     expenses: annualExp, mortgagePay: totalActualMortgageOutflow, debtPay: debtRepayment, 
                     surplus: surplus, drawdown: surplus < 0 ? Math.abs(surplus) : 0,
-                    debugNW: nw, debugTotalInflow: (p1_gross + p2_gross + p1_cpp_inc + p1_oas_inc + p2_cpp_inc + p2_oas_inc + totalWithdrawal),
+                    debugNW: nw, debugTotalInflow: (p1_gross + p2_gross + p1_cpp_inc + p1_oas_inc + p2_cpp_inc + p2_oas_inc + totalWithdrawal + p1_pension_inc + p2_pension_inc),
                     assetsP1: {...p1}, assetsP2: {...p2},
                     wdBreakdown: wdBreakdown,
                     inv_tfsa: p1.tfsa + p2.tfsa, inv_rrsp: p1.rrsp + p2.rrsp, inv_cash: p1.cash + p2.cash, inv_nreg: p1.nreg + p2.nreg, inv_crypto: p1.crypto + p2.crypto,
@@ -1221,6 +1237,9 @@ class RetirementPlanner {
                 incomeLines += line("Employment P1", d.incomeP1);
                 if(mode==='Couple') incomeLines += line("Employment P2", d.incomeP2);
                 
+                incomeLines += subLine("Pension (DB) P1", d.pensionP1);
+                if(mode==='Couple') incomeLines += subLine("Pension (DB) P2", d.pensionP2);
+
                 if (d.benefitsP1 + d.benefitsP2 > 0) {
                     incomeLines += subLine("CPP/OAS P1", d.cppP1 + d.oasP1);
                     if(mode==='Couple') incomeLines += subLine("CPP/OAS P2", d.cppP2 + d.oasP2);
