@@ -1500,8 +1500,8 @@ class RetirementPlanner {
                     <div class="input-group input-group-sm">
                         <span class="input-group-text bg-black border-secondary text-muted">$</span>
                         <input type="text" class="form-control bg-black border-secondary text-white formatted-num expense-update" 
-                               style="max-width: 100px;" value="${item.curr.toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="curr">
-                        <select class="form-select bg-black border-secondary text-white expense-update" style="width: 75px;"
+                               value="${item.curr.toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="curr">
+                        <select class="form-select bg-black border-secondary text-muted expense-update" style="max-width: 65px;"
                                 data-cat="${category}" data-idx="${index}" data-field="freq">
                             <option value="12" ${item.freq===12?'selected':''}>/mo</option>
                             <option value="1" ${item.freq===1?'selected':''}>/yr</option>
@@ -1512,8 +1512,8 @@ class RetirementPlanner {
                     <div class="input-group input-group-sm">
                         <span class="input-group-text bg-black border-secondary text-muted">$</span>
                         <input type="text" class="form-control bg-black border-secondary text-white formatted-num expense-update" 
-                               style="max-width: 100px;" value="${item.ret.toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="ret">
-                        <select class="form-select bg-black border-secondary text-white expense-update" style="width: 75px;"
+                               value="${item.ret.toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="ret">
+                        <select class="form-select bg-black border-secondary text-muted expense-update" style="max-width: 65px;"
                                 data-cat="${category}" data-idx="${index}" data-field="freq"> <option value="12" ${item.freq===12?'selected':''}>/mo</option>
                             <option value="1" ${item.freq===1?'selected':''}>/yr</option>
                         </select>
@@ -1980,11 +1980,6 @@ class RetirementPlanner {
         } 
         this.renderExpenseRows();
 
-        if (data.properties) {
-            this.state.properties = data.properties;
-            this.renderProperties();
-        }
-
         const debtContainer = document.getElementById('debt-container');
         debtContainer.innerHTML = '';
         if (data.debt) {
@@ -2025,7 +2020,6 @@ class RetirementPlanner {
             inputs: {...this.state.inputs},
             strategies: {...this.state.strategies},
             debt: [], 
-            properties: JSON.parse(JSON.stringify(this.state.properties)),
             expensesData: JSON.parse(JSON.stringify(this.expensesByCategory))
         };
         document.querySelectorAll('.debt-amount').forEach(el => snapshot.debt.push(el.value));
