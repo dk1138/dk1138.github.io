@@ -7,6 +7,7 @@
  * 4. UI: $0 lines hidden, Red Expenses, Aligned Details, Split Assets/Taxes preserved.
  */
 
+
 class RetirementPlanner {
     constructor() {
         // --- CENTRAL STATE ---
