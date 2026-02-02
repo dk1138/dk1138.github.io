@@ -178,6 +178,19 @@ body {
   font-weight: bold;
 }
 
+/* Custom Green Button to match Theme */
+.btn-success {
+  background-color: var(--success);
+  border-color: var(--success);
+  color: #000;
+  font-weight: 600;
+}
+.btn-success:hover, .btn-success:focus, .btn-success:active {
+  background-color: #059669; /* Slightly darker Emerald */
+  border-color: #059669;
+  color: #fff;
+}
+
 /* Summary Table Styling */
 .table-container { 
   border-radius: var(--radius); 
