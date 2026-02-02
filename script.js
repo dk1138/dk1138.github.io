@@ -13,12 +13,15 @@ class RetirementPlanner {
         this.state = {
             inputs: {}, 
             debt: [],
+            // Default Property:
+            properties: [
+                { name: "Primary Home", value: 1000000, mortgage: 430000, growth: 3.0, rate: 3.29, payment: 0, manual: false }
+            ],
             strategies: {
                 accum: ['tfsa', 'rrsp', 'nreg', 'cash', 'crypto'],
                 decum: ['rrsp', 'crypto', 'nreg', 'tfsa', 'cash']
             },
             mode: 'Couple',
-            manualMortgage: false,
             projectionData: []
         };
 
@@ -113,6 +116,7 @@ class RetirementPlanner {
             this.setupGridContainer(); // Ensure Grid Exists
             this.populateAgeSelects();
             this.renderExpenseRows(); 
+            this.renderProperties();
             this.addDebtRow(); 
             this.renderStrategy();
             this.loadScenariosList();
@@ -122,7 +126,7 @@ class RetirementPlanner {
 
             this.updateAgeDisplay('p1'); 
             this.updateAgeDisplay('p2');
-            this.updateMortgagePayment(); 
+            this.updateAllMortgages(); 
             this.findOptimal(); 
              
             this.bindEvents();
@@ -132,7 +136,7 @@ class RetirementPlanner {
             setTimeout(() => { 
                 this.syncStateFromDOM(); 
                 this.run(); 
-                // this.renderComparisonChart(); // Removed as it requires external Chart.js logic
+                // this.renderComparisonChart(); 
             }, 500); 
         };
 
@@ -145,7 +149,6 @@ class RetirementPlanner {
     }
 
     setupGridContainer() {
-        // Auto-replace the old table with the new grid container
         const gridId = 'projectionGrid';
         if (document.getElementById(gridId)) return; // Already exists
 
@@ -164,7 +167,6 @@ class RetirementPlanner {
             }
         }
         
-        // Fallback: If no table found, append to the likely main container
         if (!inserted) {
             const container = document.querySelector('.card-body') || document.body;
             const gridContainer = document.createElement('div');
@@ -177,7 +179,8 @@ class RetirementPlanner {
     // --- DOM / STATE SYNC ---
     syncStateFromDOM() {
         document.querySelectorAll('input, select').forEach(el => {
-            if (el.id && !el.id.startsWith('comp_')) {
+            // Skip property inputs as they are handled by array state now
+            if (el.id && !el.id.startsWith('comp_') && !el.classList.contains('property-update')) {
                 if (el.type === 'checkbox' || el.type === 'radio') {
                     this.state.inputs[el.id] = el.checked;
                 } else {
@@ -238,7 +241,7 @@ class RetirementPlanner {
     // --- EVENT LISTENERS ---
     bindEvents() {
         const toggle = document.getElementById('useRealDollars');
-        if(toggle) toggle.addEventListener('change', () => { this.run(); /* this.renderComparisonChart(); */ });
+        if(toggle) toggle.addEventListener('change', () => { this.run(); });
 
         document.getElementById('btnClearAll').addEventListener('click', () => {
              if(confirm("Are you sure you want to clear all data? This cannot be undone.")) {
@@ -246,13 +249,14 @@ class RetirementPlanner {
              }
         });
 
+        document.getElementById('btnAddProperty').addEventListener('click', () => this.addProperty());
+
         document.body.addEventListener('input', (e) => {
             if (e.target.classList.contains('live-calc')) {
                 if (e.target.classList.contains('formatted-num')) this.formatInput(e.target);
-                if (e.target.id && !e.target.id.startsWith('comp_')) {
+                
+                if (e.target.id && !e.target.id.startsWith('comp_') && !e.target.classList.contains('property-update')) {
                     this.state.inputs[e.target.id] = (e.target.type === 'checkbox' ? e.target.checked : e.target.value);
-                    
-                    // --- SYNC TRIGGER ---
                     this.updateSidebarSync(e.target.id, e.target.value);
                 }
                 this.debouncedRun();
@@ -269,6 +273,31 @@ class RetirementPlanner {
                 if (this.expensesByCategory[cat] && this.expensesByCategory[cat].items[idx]) {
                     this.expensesByCategory[cat].items[idx][field] = val;
                 }
+                if (e.target.classList.contains('formatted-num')) this.formatInput(e.target);
+                this.debouncedRun();
+            }
+            // Property Update Listener
+            if (e.target.classList.contains('property-update')) {
+                const idx = parseInt(e.target.dataset.idx);
+                const field = e.target.dataset.field;
+                let val = e.target.value;
+
+                if (field === 'value' || field === 'mortgage' || field === 'payment') {
+                    val = Number(val.replace(/,/g, '')) || 0;
+                } else if (field === 'growth' || field === 'rate') {
+                    val = parseFloat(val) || 0;
+                }
+
+                if (this.state.properties[idx]) {
+                    this.state.properties[idx][field] = val;
+                    if(field === 'payment') this.state.properties[idx].manual = true;
+                    // Auto-recalc mortgage payment if other fields change
+                    if(field !== 'payment' && field !== 'name') {
+                        this.state.properties[idx].manual = false;
+                        this.calculateSingleMortgage(idx);
+                    }
+                }
+                
                 if (e.target.classList.contains('formatted-num')) this.formatInput(e.target);
                 this.debouncedRun();
             }
@@ -297,23 +326,6 @@ class RetirementPlanner {
 
         document.getElementById('btnCollapseSidebar').addEventListener('click', () => this.toggleSidebar());
         document.getElementById('btnExpandSidebar').addEventListener('click', () => this.toggleSidebar());
-
-        ['mortgage_amt', 'mortgage_rate'].forEach(id => {
-            document.getElementById(id).addEventListener('input', () => { 
-                this.state.manualMortgage = false; 
-                this.state.inputs[id] = document.getElementById(id).value;
-                this.updateMortgagePayment(); 
-                this.debouncedRun(); 
-            });
-        });
-
-        document.getElementById('mortgage_payment').addEventListener('input', (e) => {
-            this.state.manualMortgage = true;
-            this.formatInput(e.target);
-            this.state.inputs['mortgage_payment'] = e.target.value;
-            this.updateMortgagePayoffDate();
-            this.debouncedRun();
-        });
 
         document.getElementById('yearSlider').addEventListener('input', (e) => {
             const index = parseInt(e.target.value);
@@ -362,15 +374,12 @@ class RetirementPlanner {
     }
 
     resetAllData() {
-        // Safe defaults so date calculations don't break
         const defaults = {
             p1_dob: '1990-01', p2_dob: '1990-01',
             p1_retireAge: '65', p2_retireAge: '65',
             p1_lifeExp: '90', p2_lifeExp: '90',
             inflation_rate: '2.0',
             tax_province: 'ON',
-            home_growth: '3.0',
-            mortgage_rate: '4.0',
             p1_cash_ret: '2.0', p2_cash_ret: '2.0',
             p1_tfsa_ret: '6.0', p2_tfsa_ret: '6.0',
             p1_rrsp_ret: '6.0', p2_rrsp_ret: '6.0',
@@ -381,19 +390,23 @@ class RetirementPlanner {
 
         // Reset Inputs
         document.querySelectorAll('input, select').forEach(el => {
-            if(el.id && !el.id.startsWith('comp_')) {
+            if(el.id && !el.id.startsWith('comp_') && !el.classList.contains('property-update')) {
                 if(defaults[el.id]) {
                     el.value = defaults[el.id];
                 } else if (el.type === 'checkbox' || el.type === 'radio') {
-                    // Don't reset Plan Mode radio buttons, keep checkboxes unchecked
                     if(el.name !== 'planMode') el.checked = false;
                 } else {
-                    // Numeric inputs set to 0
                     el.value = '0';
                 }
                  this.state.inputs[el.id] = (el.type === 'checkbox' ? el.checked : el.value);
             }
         });
+
+        // Reset Properties to default
+        this.state.properties = [
+            { name: "Primary Home", value: 0, mortgage: 0, growth: 3.0, rate: 3.5, payment: 0, manual: false }
+        ];
+        this.renderProperties();
 
         // Clear Expenses
         for (const cat in this.expensesByCategory) {
@@ -405,20 +418,142 @@ class RetirementPlanner {
         document.getElementById('debt-container').innerHTML = '';
         this.state.debt = [];
 
-        // Sync Sidebar Sliders with new defaults
+        // Sync Sidebar
         this.updateSidebarSync('p1_retireAge', 65);
         this.updateSidebarSync('p2_retireAge', 65);
         this.updateSidebarSync('inflation_rate', 2.0);
         this.updateSidebarSync('p1_tfsa_ret', 6.0);
 
-        // Update displays
         this.updateAgeDisplay('p1'); 
         this.updateAgeDisplay('p2');
-        this.state.manualMortgage = false;
-        this.updateMortgagePayment();
-
         this.run();
     }
+
+    // --- PROPERTY LOGIC ---
+    renderProperties() {
+        const container = document.getElementById('real-estate-container');
+        container.innerHTML = '';
+        
+        this.state.properties.forEach((prop, idx) => {
+            const div = document.createElement('div');
+            div.className = 'property-row p-3 border border-secondary rounded bg-black bg-opacity-10 mb-3';
+            div.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <input type="text" class="form-control form-control-sm bg-transparent border-0 text-white fw-bold property-update" 
+                           style="max-width:200px;" value="${prop.name}" data-idx="${idx}" data-field="name">
+                    ${idx > 0 ? `<button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="app.removeProperty(${idx})"><i class="bi bi-x-lg"></i></button>` : ''}
+                </div>
+                <div class="row g-3">
+                    <div class="col-6 col-md-3">
+                        <label class="form-label text-muted small">Value</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-black border-secondary text-muted">$</span>
+                            <input type="text" class="form-control bg-black border-secondary text-white formatted-num property-update" 
+                                   value="${prop.value.toLocaleString()}" data-idx="${idx}" data-field="value">
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label text-muted small">Mortgage</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-black border-secondary text-muted">$</span>
+                            <input type="text" class="form-control bg-black border-secondary text-white formatted-num property-update" 
+                                   value="${prop.mortgage.toLocaleString()}" data-idx="${idx}" data-field="mortgage">
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label text-muted small">Growth %</label>
+                        <div class="input-group input-group-sm">
+                            <input type="number" step="0.01" class="form-control bg-black border-secondary text-white property-update" 
+                                   value="${prop.growth}" data-idx="${idx}" data-field="growth">
+                            <span class="input-group-text bg-black border-secondary text-muted">%</span>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label text-muted small">Rate %</label>
+                        <div class="input-group input-group-sm">
+                            <input type="number" step="0.01" class="form-control bg-black border-secondary text-white property-update" 
+                                   value="${prop.rate}" data-idx="${idx}" data-field="rate">
+                            <span class="input-group-text bg-black border-secondary text-muted">%</span>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label text-warning small">Monthly Pmt</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-warning text-black border-warning fw-bold">$</span>
+                            <input type="text" class="form-control bg-black border-warning text-white formatted-num property-update" 
+                                   value="${Math.round(prop.payment).toLocaleString()}" data-idx="${idx}" data-field="payment">
+                        </div>
+                        <div class="mt-1 small" id="prop-payoff-${idx}"></div>
+                    </div>
+                </div>
+            `;
+            container.appendChild(div);
+            // Re-apply listeners for formatted inputs
+            div.querySelectorAll('.formatted-num').forEach(el => {
+                el.addEventListener('input', (e) => this.formatInput(e.target));
+            });
+        });
+        
+        this.updateAllMortgages();
+    }
+
+    addProperty() {
+        this.state.properties.push({ name: "New Property", value: 500000, mortgage: 400000, growth: 3.0, rate: 4.0, payment: 0, manual: false });
+        this.renderProperties();
+        this.run();
+    }
+
+    removeProperty(index) {
+        if(confirm("Remove this property?")) {
+            this.state.properties.splice(index, 1);
+            this.renderProperties();
+            this.run();
+        }
+    }
+
+    updateAllMortgages() {
+        this.state.properties.forEach((p, idx) => {
+            if(!p.manual) this.calculateSingleMortgage(idx);
+            this.updatePropPayoffDisplay(idx);
+        });
+    }
+
+    calculateSingleMortgage(idx) {
+        const p = this.state.properties[idx];
+        const P = p.mortgage;
+        const annualRate = p.rate / 100;
+        let monthlyPayment = 0;
+        
+        if (P > 0 && annualRate > 0) {
+            const r = annualRate / 12; const n = 25 * 12;
+            monthlyPayment = P * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+        } else if (P > 0) { monthlyPayment = P / (25*12); }
+        
+        this.state.properties[idx].payment = monthlyPayment;
+        
+        // Update DOM input to match calc
+        const inputs = document.querySelectorAll(`.property-update[data-idx="${idx}"][data-field="payment"]`);
+        if(inputs.length > 0) inputs[0].value = Math.round(monthlyPayment).toLocaleString();
+    }
+
+    updatePropPayoffDisplay(idx) {
+        const p = this.state.properties[idx];
+        const el = document.getElementById(`prop-payoff-${idx}`);
+        if(!el) return;
+        
+        if(p.mortgage <= 0) { el.innerHTML = ""; return; }
+        const r = (p.rate/100) / 12;
+        if(p.payment <= p.mortgage * r) { el.innerHTML = `<span class="text-danger fw-bold">Payment too low</span>`; return; }
+        
+        const nMonths = -Math.log(1 - (r * p.mortgage) / p.payment) / Math.log(1 + r);
+        if(!isNaN(nMonths) && isFinite(nMonths)) {
+            const yrs = Math.floor(nMonths/12); const mos = Math.round(nMonths%12);
+            el.innerHTML = `<span class="text-success fw-bold">Payoff: ${yrs}y ${mos}m</span>`;
+        }
+    }
+
+    // Replace old single updateMortgagePayment
+    updateMortgagePayment() { this.updateAllMortgages(); }
 
     // --- ACCORDION HELPER ---
     toggleRow(el) {
@@ -569,19 +704,16 @@ class RetirementPlanner {
         return rates[age] || 0.0528; 
     }
 
-    // --- PROJECTION GENERATOR (REFACTORED FOR MODERN GRID) ---
+    // --- PROJECTION GENERATOR (REFACTORED FOR MULTIPLE PROPERTIES) ---
     generateProjectionTable(onlyCalcNW = false) {
         if (!onlyCalcNW) this.state.projectionData = [];
         
-        // --- PREP DATA ---
         const mode = this.state.mode;
         const province = this.getRaw('tax_province');
         const inflation = this.getVal('inflation_rate') / 100;
         let tfsa_limit = 7000;
-        const homeGrowth = this.getVal('home_growth') / 100;
         const taxEfficient = this.state.inputs['taxEfficient']; 
         const stressTest = this.state.inputs['stressTestEnabled'];
-        // --- RRSP Meltdown Toggle ---
         const rrspMeltdown = this.state.inputs['strat_rrsp_topup']; 
 
         const s1_tfsa = this.state.inputs['skip_first_tfsa_p1'];
@@ -611,12 +743,10 @@ class RetirementPlanner {
             });
         }
 
-        let homeValue = this.getVal('home_value');
-        let mortgage = this.getVal('mortgage_amt');
-        let mortgagePayment = this.getVal('mortgage_payment') * 12;
-        let mortgageRate = this.getVal('mortgage_rate') / 100;
-        let otherDebt = this.getTotalDebt();
+        // Clone Properties so we don't mutate state directly during projection
+        let simProperties = JSON.parse(JSON.stringify(this.state.properties));
 
+        let otherDebt = this.getTotalDebt();
         let expCurrent = expCurrentStart; let expRetire = expRetireStart;
         
         const currentYear = new Date().getFullYear();
@@ -630,16 +760,14 @@ class RetirementPlanner {
         let cpp_max_p2 = this.CONSTANTS.MAX_CPP_2026, oas_max_p2 = this.CONSTANTS.MAX_OAS_2026;
         let finalNW = 0;
 
-        // --- CALCULATION LOOP ---
         for (let i = 0; i <= yearsToRun; i++) {
             const year = currentYear + i;
             const p1_age = p1_startAge + i; const p2_age = p2_startAge + i;
             
-            // Check Mortality (Alive Status)
             const p1_alive = p1_age <= p1.lifeExp;
             const p2_alive = (mode === 'Couple') ? (p2_age <= p2.lifeExp) : false;
 
-            if(!p1_alive && !p2_alive) break; // Everyone is dead, stop projection.
+            if(!p1_alive && !p2_alive) break;
 
             const bracketInflator = Math.pow(1 + inflation, i);
             const currentFedBrackets = this.CONSTANTS.TAX_BRACKETS.FED.map(b => b * bracketInflator);
@@ -657,9 +785,7 @@ class RetirementPlanner {
 
             let yearContributions = { tfsa: 0, rrsp: 0, nreg: 0, cash: 0, crypto: 0 };
             let yearWithdrawals = {}; 
-            // Track withdrawals by person/type for detailed breakdown
             let wdBreakdown = { p1: {}, p2: {} }; 
-
             let w_p1 = { rrsp: 0 }; let w_p2 = { rrsp: 0 }; 
 
             let events = [];
@@ -681,13 +807,16 @@ class RetirementPlanner {
                 }
             }
 
-            if(mortgage <= 0 && !triggeredEvents.has('Mortgage Paid')) { events.push(this.eventIcons['Mortgage Paid']); triggeredEvents.add('Mortgage Paid'); }
+            // Calc Total Mortgage & check payoff event
+            let totalMortgageBalance = simProperties.reduce((acc, p) => acc + p.mortgage, 0);
+            if(totalMortgageBalance <= 0 && !triggeredEvents.has('Mortgage Paid')) { 
+                events.push(this.eventIcons['Mortgage Paid']); triggeredEvents.add('Mortgage Paid'); 
+            }
             if(isCrashYear) events.push(this.eventIcons['Crash']);
 
             const p1_isRetired = p1_age >= p1.retAge;
             const p2_isRetired = (mode === 'Couple') ? (p2_age >= p2.retAge) : true;
             
-            // Fully Retired Logic: Only if ALL living partners are retired
             let fullyRetired = true;
             if(p1_alive && !p1_isRetired) fullyRetired = false;
             if(p2_alive && !p2_isRetired) fullyRetired = false;
@@ -718,11 +847,10 @@ class RetirementPlanner {
                 p1_rrif_inc = p1.rrsp * factor;
                 p1.rrsp -= p1_rrif_inc; 
                 if(p1_rrif_inc > 0) {
-                      let typeLabel = "RRIF"; // Always RRIF if age >= 72
+                      let typeLabel = "RRIF";
                       if(!yearWithdrawals['P1 RRIF']) yearWithdrawals['P1 RRIF'] = 0;
                       yearWithdrawals['P1 RRIF'] += p1_rrif_inc;
                       w_p1.rrsp += p1_rrif_inc;
-                      // Track granular
                       wdBreakdown.p1[typeLabel] = (wdBreakdown.p1[typeLabel] || 0) + p1_rrif_inc;
                 }
             }
@@ -744,11 +872,9 @@ class RetirementPlanner {
             let p1_total_taxable = p1_gross + p1_cpp_inc + p1_oas_inc + p1_rrif_inc;
             let p2_total_taxable = p2_gross + p2_cpp_inc + p2_oas_inc + p2_rrif_inc;
 
-            // --- 4. RRSP MELTDOWN LOGIC (New) ---
             if (rrspMeltdown) {
-                const lowBracketLimit = currentFedBrackets[0]; // ~55k adjusted
+                const lowBracketLimit = currentFedBrackets[0]; 
                 
-                // P1 Meltdown
                 if (p1_alive && p1.rrsp > 0 && p1_total_taxable < lowBracketLimit) {
                     let room = lowBracketLimit - p1_total_taxable;
                     let draw = Math.min(room, p1.rrsp);
@@ -757,12 +883,10 @@ class RetirementPlanner {
                         p1_total_taxable += draw;
                         if(!yearWithdrawals['RRSP Top-Up']) yearWithdrawals['RRSP Top-Up'] = 0;
                         yearWithdrawals['RRSP Top-Up'] += draw;
-                        // Consolidate label
                         let label = p1_age >= this.CONSTANTS.RRIF_START_AGE ? 'RRIF' : 'RRSP';
                         wdBreakdown.p1[label] = (wdBreakdown.p1[label] || 0) + draw;
                     }
                 }
-                // P2 Meltdown
                 if (mode === 'Couple' && p2_alive && p2.rrsp > 0 && p2_total_taxable < lowBracketLimit) {
                     let room = lowBracketLimit - p2_total_taxable;
                     let draw = Math.min(room, p2.rrsp);
@@ -777,8 +901,6 @@ class RetirementPlanner {
                 }
             }
 
-            // Calc Tax only if alive
-            // We calculate INITIAL tax here. We re-calculate later if withdrawals occur.
             let t1 = p1_alive ? this.calculateTaxDetailed(p1_total_taxable, province, currentFedBrackets, currentOntBrackets) : { totalTax: 0 };
             let t2 = p2_alive ? this.calculateTaxDetailed(p2_total_taxable, province, currentFedBrackets, currentOntBrackets) : { totalTax: 0 };
 
@@ -788,28 +910,43 @@ class RetirementPlanner {
 
             let annualExp = fullyRetired ? expRetire : expCurrent;
             
-            let principalPaid = 0; let actualMortgageOutflow = 0;
-            if(mortgage > 0) {
-                const annualInterest = mortgage * mortgageRate;
-                actualMortgageOutflow = Math.min(mortgage + annualInterest, mortgagePayment);
-                if(actualMortgageOutflow >= annualInterest) {
-                    principalPaid = actualMortgageOutflow - annualInterest;
-                    mortgage -= principalPaid;
-                } else { mortgage += (annualInterest - actualMortgageOutflow); }
-            }
+            // --- Property Calculations (Loop all properties) ---
+            let totalActualMortgageOutflow = 0;
             
+            simProperties.forEach(prop => {
+                if(prop.mortgage > 0) {
+                    // Monthly Calc logic embedded here for annual steps
+                    // Annual Interest Approx
+                    const annualRate = prop.rate / 100;
+                    const annualInterest = prop.mortgage * annualRate;
+                    // Annual Payment
+                    const annualPmt = prop.payment * 12;
+                    
+                    let actualOutflow = Math.min(prop.mortgage + annualInterest, annualPmt);
+                    
+                    if(actualOutflow >= annualInterest) {
+                        let principal = actualOutflow - annualInterest;
+                        prop.mortgage -= principal;
+                    } else {
+                        prop.mortgage += (annualInterest - actualOutflow);
+                    }
+                    totalActualMortgageOutflow += actualOutflow;
+                }
+                // Growth
+                prop.value *= (1 + (prop.growth/100));
+            });
+
             let debtRepayment = 0;
             if(otherDebt > 0) {
                 debtRepayment = Math.min(otherDebt, otherDebt * 0.10); 
                 otherDebt -= debtRepayment;
             }
 
-            let visualExpenses = annualExp + actualMortgageOutflow + debtRepayment;
+            let visualExpenses = annualExp + totalActualMortgageOutflow + debtRepayment;
             let surplus = householdNet - visualExpenses;
 
             // Growth
             const grow = (bal, rate) => ({ start: bal, growth: bal*rate, end: bal*(1+rate) });
-            // Grow accounts even if dead (Estate)
             let g_p1 = { tfsa: grow(p1.tfsa, currentRatesP1.tfsa), rrsp: grow(p1.rrsp, currentRatesP1.rrsp), cryp: grow(p1.crypto, currentRatesP1.cryp), nreg: grow(p1.nreg, currentRatesP1.nreg), cash: grow(p1.cash, currentRatesP1.cash) };
             p1.tfsa=g_p1.tfsa.end; p1.rrsp=g_p1.rrsp.end; p1.crypto=g_p1.cryp.end; p1.nreg=g_p1.nreg.end; p1.cash=g_p1.cash.end;
             
@@ -842,41 +979,32 @@ class RetirementPlanner {
                 });
             } else {
                 let deficit = Math.abs(surplus);
-                // Consolidated Drain Helper
                 const drain = (acct, amount, type, owner, isRRSP=false) => { 
                     let take = Math.min(acct, amount); 
                     if(take > 0) {
                         if(!yearWithdrawals[type]) yearWithdrawals[type] = 0;
                         yearWithdrawals[type] += take;
-                        
-                        // Smart Labeling: RRSP -> RRIF if age >= 72
                         let label = type.replace('P1 ', '').replace('P2 ', '');
                         if(isRRSP) {
                             const age = owner === 'p1' ? p1_age : p2_age;
                             if(age >= this.CONSTANTS.RRIF_START_AGE) label = 'RRIF';
                             else label = 'RRSP';
                         }
-                        
                         wdBreakdown[owner][label] = (wdBreakdown[owner][label] || 0) + take;
                     }
                     return { rem_acct: acct - take, rem_need: amount - take, taken: take }; 
                 };
                 
-                // Household Deficit Handling (Smart Logic)
                 let remainingDeficit = deficit; 
                 let taxBracketLimit = currentFedBrackets[0];
 
                 this.state.strategies.decum.forEach(type => {
                     if(remainingDeficit > 0 && p1.cash + p1.tfsa + p1.rrsp + p1.nreg + p1.crypto + (mode==='Couple'?(p2.cash+p2.tfsa+p2.rrsp+p2.nreg+p2.crypto):0) > 0) { 
-                        
-                        // --- SMART RRSP LOGIC ---
                         if (type === 'rrsp') {
-                            // 1. Identify Lowest Income Earner
                             let p1_lower = p1_total_taxable < p2_total_taxable;
                             let p1_room = Math.max(0, taxBracketLimit - p1_total_taxable);
                             let p2_room = Math.max(0, taxBracketLimit - p2_total_taxable);
 
-                            // 2. Withdraw from Lowest Income First (up to limit)
                             if (p1_lower && p1_alive && p1.rrsp > 0) {
                                 let take = Math.min(p1.rrsp, remainingDeficit, p1_room);
                                 if(take > 0) {
@@ -893,7 +1021,6 @@ class RetirementPlanner {
                                 }
                             }
 
-                            // 3. If deficit remains, withdraw from Higher Income (up to limit)
                             if (remainingDeficit > 0) {
                                 if (p1_lower && mode==='Couple' && p2_alive && p2.rrsp > 0) {
                                     let take = Math.min(p2.rrsp, remainingDeficit, p2_room);
@@ -912,7 +1039,6 @@ class RetirementPlanner {
                                 }
                             }
 
-                            // 4. If deficit STILL remains (both above limit), split remaining need 50/50
                             if (remainingDeficit > 0) {
                                 let split = remainingDeficit / 2;
                                 if (mode === 'Single') split = remainingDeficit;
@@ -923,7 +1049,6 @@ class RetirementPlanner {
                                     p1_total_taxable += res.taken;
                                 }
                                 if (mode === 'Couple' && p2_alive && p2.rrsp > 0) {
-                                    // Take whatever is left required
                                     let res = drain(p2.rrsp, remainingDeficit, 'P2 RRSP', 'p2', true);
                                     p2.rrsp = res.rem_acct; w_p2.rrsp += res.taken; remainingDeficit -= res.taken;
                                     p2_total_taxable += res.taken;
@@ -931,11 +1056,9 @@ class RetirementPlanner {
                             }
                         } 
                         else {
-                           // Standard Logic for Non-RRSP (Split 50/50)
                            let split = remainingDeficit / 2;
                            if (mode === 'Single') split = remainingDeficit;
                            
-                           // P1
                            let d1_part = split;
                            let res1 = {rem_acct: 0, rem_need: d1_part, taken: 0};
                            if(type==='crypto') { res1 = drain(p1.crypto, d1_part, 'P1 Crypto', 'p1'); p1.crypto = res1.rem_acct; }
@@ -944,10 +1067,9 @@ class RetirementPlanner {
                            else if(type==='cash') { res1 = drain(p1.cash, d1_part, 'P1 Cash', 'p1'); p1.cash = res1.rem_acct; }
                            remainingDeficit -= res1.taken;
 
-                           // P2
                            if (mode === 'Couple') {
-                               let d2_part = remainingDeficit; // Take rest if P1 failed or standard split
-                               if(d1_part > 0 && res1.taken >= d1_part) d2_part = split; // If P1 covered share, P2 covers share
+                               let d2_part = remainingDeficit;
+                               if(d1_part > 0 && res1.taken >= d1_part) d2_part = split;
 
                                let res2 = {rem_acct: 0, rem_need: d2_part, taken: 0};
                                if(type==='crypto') { res2 = drain(p2.crypto, d2_part, 'P2 Crypto', 'p2'); p2.crypto = res2.rem_acct; }
@@ -960,7 +1082,6 @@ class RetirementPlanner {
                     }
                 });
                 
-                // Forced RRSP if still short
                 if (remainingDeficit > 0) { 
                     if (p1_alive && p1.rrsp > 0) {
                         let res = drain(p1.rrsp, remainingDeficit, 'P1 RRSP (Forced)', 'p1', true); 
@@ -973,19 +1094,20 @@ class RetirementPlanner {
                 }
             }
 
-            // --- 5. RE-CALCULATE TAXES AFTER WITHDRAWALS ---
-            // Because RRSP withdrawals added to p1_total_taxable, we must update the tax figures
             t1 = p1_alive ? this.calculateTaxDetailed(p1_total_taxable, province, currentFedBrackets, currentOntBrackets) : { totalTax: 0 };
             t2 = p2_alive ? this.calculateTaxDetailed(p2_total_taxable, province, currentFedBrackets, currentOntBrackets) : { totalTax: 0 };
-            // Note: We don't change 'surplus' here because the money was already spent (drained).
-            // But visually the tax bill goes up. In reality, this creates a secondary deficit loop, but for visualization we stop here.
 
-            homeValue *= (1 + homeGrowth); 
+            // Calc End Year Net Worth
             const p1_tot = p1.tfsa + p1.rrsp + p1.crypto + p1.nreg + p1.cash;
             const p2_tot = mode === 'Couple' ? (p2.tfsa + p2.rrsp + p2.crypto + p2.nreg + p2.cash) : 0;
             const investTot = p1_tot + p2_tot;
             const liquidNW = investTot - otherDebt;
-            const nw = liquidNW + (homeValue - mortgage);
+            
+            // Total Real Estate Equity
+            let totalREValue = simProperties.reduce((acc, p) => acc + p.value, 0);
+            let totalREMortgage = simProperties.reduce((acc, p) => acc + p.mortgage, 0);
+            
+            const nw = liquidNW + (totalREValue - totalREMortgage);
             finalNW = nw;
 
             if(!onlyCalcNW) {
@@ -1001,26 +1123,22 @@ class RetirementPlanner {
                     p1Alive: p1_alive, p2Alive: p2_alive,
                     incomeP1: p1_gross, incomeP2: p2_gross, 
                     benefitsP1: p1_cpp_inc + p1_oas_inc, benefitsP2: p2_cpp_inc + p2_oas_inc, 
-                    // SEPARATE DATA FOR COLUMNS
                     cppP1: p1_cpp_inc, cppP2: p2_cpp_inc,
                     oasP1: p1_oas_inc, oasP2: p2_oas_inc,
-                    
                     taxP1: t1.totalTax, taxP2: t2.totalTax,
                     p1Net: p1_net, p2Net: p2_net,
-                    expenses: annualExp, mortgagePay: actualMortgageOutflow, debtPay: debtRepayment, 
+                    expenses: annualExp, mortgagePay: totalActualMortgageOutflow, debtPay: debtRepayment, 
                     surplus: surplus, drawdown: surplus < 0 ? Math.abs(surplus) : 0,
                     debugNW: nw, debugTotalInflow: (p1_gross + p2_gross + p1_cpp_inc + p1_oas_inc + p2_cpp_inc + p2_oas_inc + totalWithdrawal),
-                    // Granular Asset Balances for Breakdown
                     assetsP1: {...p1}, assetsP2: {...p2},
-                    wdBreakdown: wdBreakdown, // Pass granular withdrawals
-                    
+                    wdBreakdown: wdBreakdown,
                     inv_tfsa: p1.tfsa + p2.tfsa, inv_rrsp: p1.rrsp + p2.rrsp, inv_cash: p1.cash + p2.cash, inv_nreg: p1.nreg + p2.nreg, inv_crypto: p1.crypto + p2.crypto,
                     flows: { contributions: yearContributions, withdrawals: yearWithdrawals },
                     totalGrowth: totalGrowth, growthPct: growthPct,
                     events: events,
                     householdNet: householdNet, visualExpenses: visualExpenses, 
-                    mortgage: mortgage, 
-                    homeValue: homeValue, 
+                    mortgage: totalREMortgage, 
+                    homeValue: totalREValue, 
                     investTot: investTot, liquidNW: liquidNW, isCrashYear: isCrashYear
                 });
             }
@@ -1028,7 +1146,6 @@ class RetirementPlanner {
         }
 
         if (!onlyCalcNW) {
-            // --- 2ND PASS: RENDER MODERN GRID ---
             let html = `
                 <div class="grid-header">
                     <div class="col-start col-timeline">Timeline</div>
@@ -1043,7 +1160,6 @@ class RetirementPlanner {
             
             this.state.projectionData.forEach((d, idx) => {
                 const df = this.getDiscountFactor(idx);
-                // Smart Formatter: Blank if 0, k/M if large
                 const fmtK = (num) => { 
                     const val = num / df; 
                     const abs = Math.abs(val); 
@@ -1057,7 +1173,6 @@ class RetirementPlanner {
                 const p1AgeDisplay = d.p1Alive ? d.p1Age : '†';
                 const p2AgeDisplay = mode==='Couple' ? (d.p2Alive ? d.p2Age : '†') : '';
                 
-                // --- STATUS LOGIC ---
                 let status = '';
                 const p1Ret = d.p1Age >= p1.retAge;
                 const p2Ret = mode === 'Couple' ? (d.p2Age >= p2.retAge) : true; 
@@ -1068,7 +1183,6 @@ class RetirementPlanner {
                     } else if ((p1Ret && !p2Ret) || (!p1Ret && p2Ret)) {
                         status = `<span class="status-pill status-semi">Transition</span>`;
                     } else {
-                        // Both Retired
                         if (d.p1Age < 70) {
                             status = `<span class="status-pill status-gogo">Go-go Phase</span>`;
                         } else if (d.p1Age < 80) {
@@ -1078,7 +1192,6 @@ class RetirementPlanner {
                         }
                     }
                 } else {
-                    // Single
                     if (!p1Ret) {
                         status = `<span class="status-pill status-working">Working</span>`;
                     } else {
@@ -1095,9 +1208,6 @@ class RetirementPlanner {
                 const surplusClass = d.surplus < 0 ? 'val-negative' : 'val-positive';
                 const surplusSign = d.surplus > 0 ? '+' : '';
 
-                // --- BUILD GRANULAR DETAILS (HIDE $0 LINES) ---
-                
-                // Helper to render line or nothing
                 const line = (label, val, className='') => {
                     if(!val || Math.round(val) === 0) return '';
                     return `<div class="detail-item"><span>${label}</span> <span class="${className}">${fmtK(val)}</span></div>`;
@@ -1107,7 +1217,6 @@ class RetirementPlanner {
                     return `<div class="detail-item sub"><span>${label}</span> <span>${fmtK(val)}</span></div>`;
                 };
 
-                // Income
                 let incomeLines = '';
                 incomeLines += line("Employment P1", d.incomeP1);
                 if(mode==='Couple') incomeLines += line("Employment P2", d.incomeP2);
@@ -1117,7 +1226,6 @@ class RetirementPlanner {
                     if(mode==='Couple') incomeLines += subLine("CPP/OAS P2", d.cppP2 + d.oasP2);
                 }
                 
-                // Withdrawals
                 for(const [type, amt] of Object.entries(d.wdBreakdown.p1)) {
                     incomeLines += subLine(`${type} W/D P1`, amt);
                 }
@@ -1136,7 +1244,6 @@ class RetirementPlanner {
                         </div>
                     </div>`;
 
-                // Outflows
                 let expenseLines = '';
                 expenseLines += line("Living Exp", d.expenses);
                 expenseLines += line("Mortgage", d.mortgagePay);
@@ -1153,7 +1260,6 @@ class RetirementPlanner {
                         </div>
                     </div>`;
 
-                // Assets
                 let p1Assets = d.assetsP1;
                 let p2Assets = d.assetsP2;
                 let p1R_Label = d.p1Age >= this.CONSTANTS.RRIF_START_AGE ? 'RRIF P1' : 'RRSP P1';
@@ -1173,7 +1279,7 @@ class RetirementPlanner {
                 if(mode==='Couple') assetLines += line("Cash P2", p2Assets.cash);
                 
                 assetLines += line("Liquid Net Worth", d.liquidNW, "text-info fw-bold"); 
-                assetLines += line("Home Equity", d.homeValue - d.mortgage);
+                assetLines += line("Real Estate Eq.", d.homeValue - d.mortgage);
 
                 let assetDetails = `
                     <div class="detail-box">
@@ -1348,7 +1454,7 @@ class RetirementPlanner {
                            <i class="bi ${meta.icon} ${meta.color} me-2 fs-6"></i>
                            <span class="text-uppercase fw-bold ${meta.color} small" style="letter-spacing: 1px;">${category}</span>
                        </div>
-                       <button class="btn btn-sm btn-link text-white p-0 me-3" title="Add Row" onclick="app.addExpense('${category}')">
+                       <button type="button" class="btn btn-sm btn-link text-white p-0 me-3" title="Add Row" onclick="app.addExpense('${category}')">
                            <i class="bi bi-plus-circle-fill text-success fs-5"></i>
                        </button>
                    </div>
@@ -1360,7 +1466,7 @@ class RetirementPlanner {
              <tr class="expense-row">
                 <td class="ps-3 align-middle border-bottom border-secondary">
                     <div class="d-flex align-items-center">
-                        <button class="btn btn-sm btn-link text-danger p-0 me-2" onclick="app.removeExpense('${category}', ${index})">
+                        <button type="button" class="btn btn-sm btn-link text-danger p-0 me-2" onclick="app.removeExpense('${category}', ${index})">
                             <i class="bi bi-trash"></i>
                         </button>
                         <input type="text" class="form-control form-control-sm bg-transparent border-0 text-white-50 expense-update" 
@@ -1680,41 +1786,6 @@ class RetirementPlanner {
         } else { container.innerHTML = `<span class="text-muted text-center d-block small">No Income Entered</span>`; }
     }
 
-    updateMortgagePayment() {
-        if (this.state.manualMortgage) return;
-        const P = this.getVal('mortgage_amt');
-        const annualRate = this.getVal('mortgage_rate') / 100;
-        let monthlyPayment = 0;
-        if (P > 0 && annualRate > 0) {
-            const r = annualRate / 12; const n = 25 * 12;
-            monthlyPayment = P * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
-        } else if (P > 0) { monthlyPayment = P / (25*12); }
-        
-        const val = Math.round(monthlyPayment).toLocaleString('en-US');
-        document.getElementById('mortgage_payment').value = val;
-        this.state.inputs['mortgage_payment'] = val;
-        
-        this.updateMortgagePayoffDate();
-    }
-
-    updateMortgagePayoffDate() {
-        const P = this.getVal('mortgage_amt');
-        const annualRate = this.getVal('mortgage_rate') / 100;
-        const pmt = this.getVal('mortgage_payment');
-        const el = document.getElementById('mortgage_payoff_display');
-        if(P <= 0) { el.innerHTML = ""; return; }
-        const r = annualRate / 12;
-        if(pmt <= P * r) { el.innerHTML = `<span class="text-danger small fw-bold">Payment too low</span>`; return; }
-        const nMonths = -Math.log(1 - (r * P) / pmt) / Math.log(1 + r);
-        if(!isNaN(nMonths) && isFinite(nMonths)) {
-            const now = new Date();
-            const futureDate = new Date(now.setMonth(now.getMonth() + nMonths));
-            const dateStr = futureDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-            const yrs = Math.floor(nMonths/12); const mos = Math.round(nMonths%12);
-            el.innerHTML = `<span class="small text-success fw-bold"><i class="bi bi-check-circle me-1"></i>Payoff: ${dateStr} (${yrs}y ${mos}m)</span>`;
-        } else { el.innerHTML = ""; }
-    }
-
     getRawExpenseTotals() {
         let cur = 0, ret = 0;
         for (const cat in this.expensesByCategory) {
@@ -1851,6 +1922,11 @@ class RetirementPlanner {
         } 
         this.renderExpenseRows();
 
+        if (data.properties) {
+            this.state.properties = data.properties;
+            this.renderProperties();
+        }
+
         const debtContainer = document.getElementById('debt-container');
         debtContainer.innerHTML = '';
         if (data.debt) {
@@ -1890,7 +1966,8 @@ class RetirementPlanner {
         const snapshot = {
             inputs: {...this.state.inputs},
             strategies: {...this.state.strategies},
-            debt: [], 
+            debt: [],
+            properties: JSON.parse(JSON.stringify(this.state.properties)), 
             expensesData: JSON.parse(JSON.stringify(this.expensesByCategory))
         };
         document.querySelectorAll('.debt-amount').forEach(el => snapshot.debt.push(el.value));
