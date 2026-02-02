@@ -240,6 +240,12 @@ class RetirementPlanner {
         const toggle = document.getElementById('useRealDollars');
         if(toggle) toggle.addEventListener('change', () => { this.run(); /* this.renderComparisonChart(); */ });
 
+        document.getElementById('btnClearAll').addEventListener('click', () => {
+             if(confirm("Are you sure you want to clear all data? This cannot be undone.")) {
+                 this.resetAllData();
+             }
+        });
+
         document.body.addEventListener('input', (e) => {
             if (e.target.classList.contains('live-calc')) {
                 if (e.target.classList.contains('formatted-num')) this.formatInput(e.target);
@@ -353,6 +359,65 @@ class RetirementPlanner {
             }
             if(e.target.classList.contains('opt-apply')) this.applyOpt(e.target.dataset.target);
         });
+    }
+
+    resetAllData() {
+        // Safe defaults so date calculations don't break
+        const defaults = {
+            p1_dob: '1990-01', p2_dob: '1990-01',
+            p1_retireAge: '65', p2_retireAge: '65',
+            p1_lifeExp: '90', p2_lifeExp: '90',
+            inflation_rate: '2.0',
+            tax_province: 'ON',
+            home_growth: '3.0',
+            mortgage_rate: '4.0',
+            p1_cash_ret: '2.0', p2_cash_ret: '2.0',
+            p1_tfsa_ret: '6.0', p2_tfsa_ret: '6.0',
+            p1_rrsp_ret: '6.0', p2_rrsp_ret: '6.0',
+            p1_nonreg_ret: '5.0', p2_nonreg_ret: '5.0',
+            p1_crypto_ret: '8.0', p2_crypto_ret: '8.0',
+            p1_income_growth: '2.0', p2_income_growth: '2.0'
+        };
+
+        // Reset Inputs
+        document.querySelectorAll('input, select').forEach(el => {
+            if(el.id && !el.id.startsWith('comp_')) {
+                if(defaults[el.id]) {
+                    el.value = defaults[el.id];
+                } else if (el.type === 'checkbox' || el.type === 'radio') {
+                    // Don't reset Plan Mode radio buttons, keep checkboxes unchecked
+                    if(el.name !== 'planMode') el.checked = false;
+                } else {
+                    // Numeric inputs set to 0
+                    el.value = '0';
+                }
+                 this.state.inputs[el.id] = (el.type === 'checkbox' ? el.checked : el.value);
+            }
+        });
+
+        // Clear Expenses
+        for (const cat in this.expensesByCategory) {
+            this.expensesByCategory[cat].items = [];
+        }
+        this.renderExpenseRows();
+
+        // Clear Debt
+        document.getElementById('debt-container').innerHTML = '';
+        this.state.debt = [];
+
+        // Sync Sidebar Sliders with new defaults
+        this.updateSidebarSync('p1_retireAge', 65);
+        this.updateSidebarSync('p2_retireAge', 65);
+        this.updateSidebarSync('inflation_rate', 2.0);
+        this.updateSidebarSync('p1_tfsa_ret', 6.0);
+
+        // Update displays
+        this.updateAgeDisplay('p1'); 
+        this.updateAgeDisplay('p2');
+        this.state.manualMortgage = false;
+        this.updateMortgagePayment();
+
+        this.run();
     }
 
     // --- ACCORDION HELPER ---
