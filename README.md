@@ -10,3 +10,4 @@ NEW FEATURES
 
 UI FIX/Update
 1. Made pop up box more polished
+2. General UI cleanup
