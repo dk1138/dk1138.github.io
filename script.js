@@ -1,11 +1,10 @@
 // Total Lines: 1391
 /**
- * Retirement Planner Pro - Logic v8.2 (Visual Alignment Fix)
+ * Retirement Planner Pro - Logic v8.3 (CPP/OAS Toggles)
  * * CHANGE LOG:
- * 1. UI: Enforced strict column widths in `renderExpenseRows` (Header) and `calcExpenses` (Footer).
- * - Simple Mode: 40% Name, 30% Current, 30% Retirement.
- * - Advanced Mode: 20% Name, 16% for each of the 5 data columns.
- * 2. UI: Added 'table-layout: fixed' to footer generation to guarantee alignment.
+ * 1. LOGIC: Added CPP/OAS enable/disable toggles in `generateProjectionTable` and `estimateCPPOAS`.
+ * 2. UI: HTML structure updated in index.html to include switches.
+ * 3. LOGIC: Smart Decumulation preserved.
  */
 
 class RetirementPlanner {
@@ -421,14 +420,17 @@ class RetirementPlanner {
             p1_nonreg_ret: '5.0', p2_nonreg_ret: '5.0',
             p1_crypto_ret: '8.0', p2_crypto_ret: '8.0',
             p1_income_growth: '2.0', p2_income_growth: '2.0',
-            p1_db_pension: '0', p2_db_pension: '0'
+            p1_db_pension: '0', p2_db_pension: '0',
+            p1_cpp_enabled: true, p1_oas_enabled: true,
+            p2_cpp_enabled: true, p2_oas_enabled: true
         };
 
         // Reset Inputs
         document.querySelectorAll('input, select').forEach(el => {
             if(el.id && !el.id.startsWith('comp_') && !el.classList.contains('property-update')) {
-                if(defaults[el.id]) {
-                    el.value = defaults[el.id];
+                if(defaults[el.id] !== undefined) {
+                    if (el.type === 'checkbox') el.checked = defaults[el.id];
+                    else el.value = defaults[el.id];
                 } else if (el.type === 'checkbox' || el.type === 'radio') {
                     if(el.name !== 'planMode') el.checked = false;
                 } else {
@@ -763,6 +765,12 @@ class RetirementPlanner {
         const s2_tfsa = this.state.inputs['skip_first_tfsa_p2'];
         const s2_rrsp = this.state.inputs['skip_first_rrsp_p2'];
 
+        // Get Toggle States
+        const p1_cpp_on = this.state.inputs['p1_cpp_enabled'];
+        const p1_oas_on = this.state.inputs['p1_oas_enabled'];
+        const p2_cpp_on = this.state.inputs['p2_cpp_enabled'];
+        const p2_oas_on = this.state.inputs['p2_oas_enabled'];
+
         let p1 = { tfsa: this.getVal('p1_tfsa'), rrsp: this.getVal('p1_rrsp'), cash: this.getVal('p1_cash'), nreg: this.getVal('p1_nonreg'), crypto: this.getVal('p1_crypto'), inc: this.getVal('p1_income'), dob: new Date(this.getRaw('p1_dob')), retAge: this.getVal('p1_retireAge'), lifeExp: this.getVal('p1_lifeExp') };
         let p2 = { tfsa: this.getVal('p2_tfsa'), rrsp: this.getVal('p2_rrsp'), cash: this.getVal('p2_cash'), nreg: this.getVal('p2_nonreg'), crypto: this.getVal('p2_crypto'), inc: this.getVal('p2_income'), dob: new Date(this.getRaw('p2_dob')), retAge: this.getVal('p2_retireAge'), lifeExp: this.getVal('p2_lifeExp') };
 
@@ -847,8 +855,8 @@ class RetirementPlanner {
             let events = [];
             if(p1_alive) {
                 if(p1_age === p1.retAge && !triggeredEvents.has('P1 Retires')) { events.push(this.eventIcons['P1 Retires']); triggeredEvents.add('P1 Retires'); }
-                if(p1_age === p1_cpp_start) events.push(this.eventIcons['P1 CPP']);
-                if(p1_age === p1_oas_start) events.push(this.eventIcons['P1 OAS']);
+                if(p1_age === p1_cpp_start && p1_cpp_on) events.push(this.eventIcons['P1 CPP']);
+                if(p1_age === p1_oas_start && p1_oas_on) events.push(this.eventIcons['P1 OAS']);
             } else if (!triggeredEvents.has('P1 Dies')) {
                 events.push(this.eventIcons['P1 Dies']); triggeredEvents.add('P1 Dies');
             }
@@ -856,8 +864,8 @@ class RetirementPlanner {
             if(mode==='Couple') {
                 if(p2_alive) {
                     if(p2_age === p2.retAge && !triggeredEvents.has('P2 Retires')) { events.push(this.eventIcons['P2 Retires']); triggeredEvents.add('P2 Retires'); }
-                    if(p2_age === p2_cpp_start) events.push(this.eventIcons['P2 CPP']);
-                    if(p2_age === p2_oas_start) events.push(this.eventIcons['P2 OAS']);
+                    if(p2_age === p2_cpp_start && p2_cpp_on) events.push(this.eventIcons['P2 CPP']);
+                    if(p2_age === p2_oas_start && p2_oas_on) events.push(this.eventIcons['P2 OAS']);
                 } else if (!triggeredEvents.has('P2 Dies')) {
                     events.push(this.eventIcons['P2 Dies']); triggeredEvents.add('P2 Dies');
                 }
@@ -888,8 +896,8 @@ class RetirementPlanner {
                     // Retired: Add DB Pension (Indexed)
                     p1_db_inc = p1_db_base * bracketInflator;
                 }
-                if(p1_age >= p1_cpp_start) p1_cpp_inc = this.calcBen(cpp_max_p1, p1_cpp_start, 1.0, p1.retAge);
-                if(p1_age >= p1_oas_start) p1_oas_inc = this.calcBen(oas_max_p1, p1_oas_start, 1.0, 65);
+                if(p1_cpp_on && p1_age >= p1_cpp_start) p1_cpp_inc = this.calcBen(cpp_max_p1, p1_cpp_start, 1.0, p1.retAge);
+                if(p1_oas_on && p1_age >= p1_oas_start) p1_oas_inc = this.calcBen(oas_max_p1, p1_oas_start, 1.0, 65);
             }
 
             if(mode === 'Couple' && p2_alive) {
@@ -898,8 +906,8 @@ class RetirementPlanner {
                     // Retired: Add DB Pension (Indexed)
                     p2_db_inc = p2_db_base * bracketInflator;
                 }
-                if(p2_age >= p2_cpp_start) p2_cpp_inc = this.calcBen(cpp_max_p2, p2_cpp_start, 1.0, p2.retAge);
-                if(p2_age >= p2_oas_start) p2_oas_inc = this.calcBen(oas_max_p2, p2_oas_start, 1.0, 65);
+                if(p2_cpp_on && p2_age >= p2_cpp_start) p2_cpp_inc = this.calcBen(cpp_max_p2, p2_cpp_start, 1.0, p2.retAge);
+                if(p2_oas_on && p2_age >= p2_oas_start) p2_oas_inc = this.calcBen(oas_max_p2, p2_oas_start, 1.0, 65);
             }
 
             cpp_max_p1 *= (1 + inflation); oas_max_p1 *= (1 + inflation); 
@@ -1822,41 +1830,65 @@ class RetirementPlanner {
         let maxNW = -Infinity; let bestC = 65; let bestO = 65;
         const origC = p1CPP.value; const origO = p1OAS.value;
 
-        for(let c=60; c<=70; c+=5) {
-            for(let o=65; o<=70; o+=5) {
-                this.state.inputs['p1_cpp_start'] = c;
-                this.state.inputs['p1_oas_start'] = o;
-                const nw = this.generateProjectionTable(true);
-                if(nw > maxNW) { maxNW = nw; bestC = c; bestO = o; }
-            }
-        }
-        this.optimalAges.p1_cpp = bestC; this.optimalAges.p1_oas = bestO;
-        this.state.inputs['p1_cpp_start'] = origC;
-        this.state.inputs['p1_oas_start'] = origO;
+        // Check if benefits are enabled before optimizing
+        const p1_cpp_on = this.state.inputs['p1_cpp_enabled'];
+        const p1_oas_on = this.state.inputs['p1_oas_enabled'];
 
-        document.getElementById('p1_cpp_opt').innerHTML = `Optimal: Age ${bestC} (<a href="javascript:void(0)" class="text-success text-decoration-none fw-bold opt-apply" data-target="p1_cpp">Apply</a>)`;
-        document.getElementById('p1_oas_opt').innerHTML = `Optimal: Age ${bestO} (<a href="javascript:void(0)" class="text-success text-decoration-none fw-bold opt-apply" data-target="p1_oas">Apply</a>)`;
+        if (p1_cpp_on || p1_oas_on) {
+            for(let c=60; c<=70; c+=5) {
+                for(let o=65; o<=70; o+=5) {
+                    if (p1_cpp_on) this.state.inputs['p1_cpp_start'] = c;
+                    if (p1_oas_on) this.state.inputs['p1_oas_start'] = o;
+                    
+                    const nw = this.generateProjectionTable(true);
+                    if(nw > maxNW) { maxNW = nw; bestC = c; bestO = o; }
+                }
+            }
+            if (p1_cpp_on) this.optimalAges.p1_cpp = bestC;
+            if (p1_oas_on) this.optimalAges.p1_oas = bestO;
+            
+            // Restore originals for display
+            this.state.inputs['p1_cpp_start'] = origC;
+            this.state.inputs['p1_oas_start'] = origO;
+        }
+
+        const cppOptText = p1_cpp_on ? `Optimal: Age ${this.optimalAges.p1_cpp} (<a href="javascript:void(0)" class="text-success text-decoration-none fw-bold opt-apply" data-target="p1_cpp">Apply</a>)` : `Optimization Disabled`;
+        const oasOptText = p1_oas_on ? `Optimal: Age ${this.optimalAges.p1_oas} (<a href="javascript:void(0)" class="text-success text-decoration-none fw-bold opt-apply" data-target="p1_oas">Apply</a>)` : `Optimization Disabled`;
+
+        document.getElementById('p1_cpp_opt').innerHTML = cppOptText;
+        document.getElementById('p1_oas_opt').innerHTML = oasOptText;
 
         if(this.state.mode === 'Couple') {
             const p2CPP = document.getElementById('p2_cpp_start');
             const p2OAS = document.getElementById('p2_oas_start');
             const origC2 = p2CPP.value; const origO2 = p2OAS.value;
             
-            maxNW = -Infinity; bestC = 65; bestO = 65;
-            for(let c=60; c<=70; c+=5) {
-                for(let o=65; o<=70; o+=5) {
-                    this.state.inputs['p2_cpp_start'] = c;
-                    this.state.inputs['p2_oas_start'] = o;
-                    const nw = this.generateProjectionTable(true);
-                    if(nw > maxNW) { maxNW = nw; bestC = c; bestO = o; }
-                }
-            }
-            this.optimalAges.p2_cpp = bestC; this.optimalAges.p2_oas = bestO;
-            this.state.inputs['p2_cpp_start'] = origC2;
-            this.state.inputs['p2_oas_start'] = origO2;
+            const p2_cpp_on = this.state.inputs['p2_cpp_enabled'];
+            const p2_oas_on = this.state.inputs['p2_oas_enabled'];
 
-            document.getElementById('p2_cpp_opt').innerHTML = `Optimal: Age ${bestC} (<a href="javascript:void(0)" class="text-success text-decoration-none fw-bold opt-apply" data-target="p2_cpp">Apply</a>)`;
-            document.getElementById('p2_oas_opt').innerHTML = `Optimal: Age ${bestO} (<a href="javascript:void(0)" class="text-success text-decoration-none fw-bold opt-apply" data-target="p2_oas">Apply</a>)`;
+            if (p2_cpp_on || p2_oas_on) {
+                maxNW = -Infinity; bestC = 65; bestO = 65;
+                for(let c=60; c<=70; c+=5) {
+                    for(let o=65; o<=70; o+=5) {
+                        if (p2_cpp_on) this.state.inputs['p2_cpp_start'] = c;
+                        if (p2_oas_on) this.state.inputs['p2_oas_start'] = o;
+                        
+                        const nw = this.generateProjectionTable(true);
+                        if(nw > maxNW) { maxNW = nw; bestC = c; bestO = o; }
+                    }
+                }
+                if (p2_cpp_on) this.optimalAges.p2_cpp = bestC;
+                if (p2_oas_on) this.optimalAges.p2_oas = bestO;
+                
+                this.state.inputs['p2_cpp_start'] = origC2;
+                this.state.inputs['p2_oas_start'] = origO2;
+            }
+
+            const cppOptText2 = p2_cpp_on ? `Optimal: Age ${this.optimalAges.p2_cpp} (<a href="javascript:void(0)" class="text-success text-decoration-none fw-bold opt-apply" data-target="p2_cpp">Apply</a>)` : `Optimization Disabled`;
+            const oasOptText2 = p2_oas_on ? `Optimal: Age ${this.optimalAges.p2_oas} (<a href="javascript:void(0)" class="text-success text-decoration-none fw-bold opt-apply" data-target="p2_oas">Apply</a>)` : `Optimization Disabled`;
+
+            document.getElementById('p2_cpp_opt').innerHTML = cppOptText2;
+            document.getElementById('p2_oas_opt').innerHTML = oasOptText2;
         }
     }
 
@@ -1873,6 +1905,8 @@ class RetirementPlanner {
             const retAge = this.getVal(prefix+'_retireAge');
             const cppStart = parseInt(this.getRaw(prefix+'_cpp_start'));
             const oasStart = parseInt(this.getRaw(prefix+'_oas_start'));
+            const cppEnabled = this.state.inputs[prefix+'_cpp_enabled'];
+            const oasEnabled = this.state.inputs[prefix+'_oas_enabled'];
             
             let cppVal = this.CONSTANTS.MAX_CPP_2026;
             let mDiff = (cppStart - 65) * 12;
@@ -1886,13 +1920,19 @@ class RetirementPlanner {
                 cppVal *= Math.max(0, factor);
             }
             const elCPP = document.getElementById(prefix+'_cpp_est');
-            if(elCPP) elCPP.innerText = `Est: $${Math.round(cppVal).toLocaleString()}/yr`;
+            if(elCPP) {
+                elCPP.innerText = cppEnabled ? `Est: $${Math.round(cppVal).toLocaleString()}/yr` : "Disabled";
+                if (!cppEnabled) elCPP.classList.add('text-danger'); else elCPP.classList.remove('text-danger');
+            }
 
             let oasVal = this.CONSTANTS.MAX_OAS_2026;
             let oDiff = (oasStart - 65) * 12;
             if(oDiff > 0) oasVal *= (1 + (oDiff * 0.006));
             const elOAS = document.getElementById(prefix+'_oas_est');
-            if(elOAS) elOAS.innerText = `Est: $${Math.round(oasVal).toLocaleString()}/yr`;
+            if(elOAS) {
+                elOAS.innerText = oasEnabled ? `Est: $${Math.round(oasVal).toLocaleString()}/yr` : "Disabled";
+                if (!oasEnabled) elOAS.classList.add('text-danger'); else elOAS.classList.remove('text-danger');
+            }
         }
         update('p1');
         update('p2');
