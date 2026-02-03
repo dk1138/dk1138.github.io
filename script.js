@@ -1,10 +1,11 @@
-// Total Lines: 1395
+// Total Lines: 1391
 /**
- * Retirement Planner Pro - Logic v8.5 (Expense Phase Inflation Fix)
+ * Retirement Planner Pro - Logic v8.5 (Inflation & Footer Alignment Fix)
  * * CHANGE LOG:
- * 1. FIX: `generateProjectionTable` now correctly inflates `expTrans`, `expGoGo`, `expSlow`, and `expNoGo` annually.
- * This ensures that the "Real Dollars" view in the projection table matches the totals shown in the Expense footer.
- * 2. LOGIC: Maintained all previous toggle, slider, and phase logic.
+ * 1. LOGIC: `generateProjectionTable` now correctly inflates ALL expense phase variables (Trans, GoGo, Slow, NoGo) annually. 
+ * Previously, only 'Simple' mode variables were inflating.
+ * 2. UI: `calcExpenses` (Footer) now calculates the "Start Year" for each phase relative to now.
+ * 3. UI: If "Show in Today's $" is UNCHECKED, the Footer displays the Nominal Future Value at the start of that phase, matching the Projection Table.
  */
 
 class RetirementPlanner {
@@ -265,7 +266,11 @@ class RetirementPlanner {
     // --- EVENT LISTENERS ---
     bindEvents() {
         const toggle = document.getElementById('useRealDollars');
-        if(toggle) toggle.addEventListener('change', () => { this.run(); });
+        if(toggle) toggle.addEventListener('change', () => { 
+            // Re-calc expenses footer to adjust for inflation toggle
+            this.calcExpenses(); 
+            this.run(); 
+        });
 
         document.body.addEventListener('change', (e) => {
             if (e.target.id === 'expense_mode_advanced') {
@@ -288,6 +293,7 @@ class RetirementPlanner {
                     document.getElementById(labelId).innerText = e.target.value;
                     this.state.inputs[id] = e.target.value;
                     this.renderExpenseRows(); // Update headers
+                    this.calcExpenses(); // Update footer totals with new years
                     this.debouncedRun();
                 });
             }
@@ -363,6 +369,7 @@ class RetirementPlanner {
                 }
                 this.findOptimal();
                 this.run();
+                this.calcExpenses(); // Update footer in case retirement age changed
             }
         });
 
@@ -375,6 +382,7 @@ class RetirementPlanner {
             if(coupleEl) this.state.mode = coupleEl.checked ? 'Couple' : 'Single';
             this.toggleModeDisplay(); 
             this.run();
+            this.calcExpenses();
         }));
 
         document.getElementById('btnCollapseSidebar').addEventListener('click', () => this.toggleSidebar());
@@ -1014,11 +1022,7 @@ class RetirementPlanner {
             if(expMode === 'Simple') {
                 annualExp = fullyRetired ? expRetire : expCurrent;
             } else {
-                // Advanced Mode Logic
-                // 1. Working: If not fully retired
-                // 2. Transition: (Couple) One retired, one working.
-                // 3. Fully Retired Phases (GoGo < 75, SlowGo 75-84, NoGo 85+) - Based on P1 age
-                
+                // Advanced Mode Logic using dynamic limits
                 if (!fullyRetired) {
                     // Check for transition in couples
                     if (mode === 'Couple' && ((p1_isRetired && !p2_isRetired) || (!p1_isRetired && p2_isRetired))) {
@@ -1027,7 +1031,7 @@ class RetirementPlanner {
                         annualExp = expCurrent;
                     }
                 } else {
-                    // Fully Retired
+                    // Fully Retired - Dynamic Phase Logic
                     if (p1_age < goGoLimit) annualExp = expGoGo;
                     else if (p1_age < slowGoLimit) annualExp = expSlow;
                     else annualExp = expNoGo;
@@ -1269,12 +1273,11 @@ class RetirementPlanner {
             }
             expCurrent *= (1 + inflation); expRetire *= (1 + inflation); tfsa_limit *= (1 + inflation);
             
-            // --- FIX START: INFLATE PHASE EXPENSES ---
+            // Inflate Advanced Mode Vars as well! (Fix for previous issue)
             expTrans *= (1 + inflation);
             expGoGo *= (1 + inflation);
             expSlow *= (1 + inflation);
             expNoGo *= (1 + inflation);
-            // --- FIX END ---
         }
 
         if (!onlyCalcNW) {
@@ -2069,6 +2072,41 @@ class RetirementPlanner {
     calcExpenses() {
         const footer = document.getElementById('expenseFooter');
         
+        // --- 1. Get Settings ---
+        const useReal = document.getElementById('useRealDollars') ? document.getElementById('useRealDollars').checked : false;
+        const inflation = this.getVal('inflation_rate') / 100;
+        
+        const p1_age = this.getVal('p1_age') || 0; // Current age (approx, derived from updateAgeDisplay is text, use logic)
+        const p1_dob_val = this.getRaw('p1_dob');
+        const dob = new Date(p1_dob_val + "-01");
+        const currentAge = new Date(Date.now() - dob.getTime()).getUTCFullYear() - 1970;
+        
+        const p1_ret = this.getVal('p1_retireAge');
+        const p2_ret = this.state.mode === 'Couple' ? this.getVal('p2_retireAge') : 999;
+        
+        const goGoLimit = parseInt(this.getRaw('exp_gogo_age')) || 75;
+        const slowGoLimit = parseInt(this.getRaw('exp_slow_age')) || 85;
+
+        // --- 2. Calculate Start Years relative to now ---
+        const yearsToTrans = Math.max(0, Math.min(p1_ret, p2_ret) - currentAge);
+        const yearsToFullRet = Math.max(0, Math.max(p1_ret, this.state.mode==='Couple'?p2_ret:0) - currentAge);
+        const yearsToSlow = Math.max(0, slowGoLimit - currentAge); // Wait, Slow phase starts AFTER GoGo ends? Or at Slow limit? 
+        // Logic check: "Go-Go (<75)" means GoGo ends at 75. So Slow starts at 75.
+        // Slider value is the END of the phase. 
+        const yearsToSlowStart = Math.max(0, goGoLimit - currentAge);
+        const yearsToNoGoStart = Math.max(0, slowGoLimit - currentAge);
+
+        // --- 3. Inflation Factors ---
+        // If "Today's $", factor is 1. If nominal, factor is (1+r)^n
+        const getFactor = (years) => useReal ? 1.0 : Math.pow(1 + inflation, years);
+
+        const f_now = 1.0;
+        const f_trans = getFactor(yearsToTrans);
+        const f_gogo = getFactor(yearsToFullRet); // GoGo starts at full retirement
+        const f_slow = getFactor(yearsToSlowStart);
+        const f_nogo = getFactor(yearsToNoGoStart);
+
+        // --- 4. Sum raw inputs ---
         let totals = { curr: 0, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0 };
         for (const cat in this.expensesByCategory) {
             this.expensesByCategory[cat].items.forEach(item => {
@@ -2088,26 +2126,27 @@ class RetirementPlanner {
         const labelStyle = "border:none; text-align:right; padding-right:12px; color: #94a3b8; font-weight:bold; font-size: 0.75rem; text-transform:uppercase;";
 
         if (this.state.expenseMode === 'Simple') {
+            const simpleRetFactor = useReal ? 1.0 : Math.pow(1 + inflation, yearsToFullRet);
             footer.innerHTML = `
                 <table class="table table-sm table-borderless mb-0 bg-transparent" style="table-layout: fixed;">
                     <tr>
                         <td width="40%" style="${labelStyle}">Total Annual</td>
                         <td width="30%" style="${cellStyle}"><span class="text-danger fw-bold fs-6">${fmt(totals.curr)}</span></td>
-                        <td width="30%" style="${cellStyle}"><span class="text-warning fw-bold fs-6">${fmt(totals.ret)}</span></td>
+                        <td width="30%" style="${cellStyle}"><span class="text-warning fw-bold fs-6">${fmt(totals.ret * simpleRetFactor)}</span></td>
                     </tr>
                 </table>
             `;
         } else {
-            // Advanced Footer Layout
+            // Advanced Footer Layout - Applying Factors
             footer.innerHTML = `
                 <table class="table table-sm table-borderless mb-0 bg-transparent" style="table-layout: fixed;">
                     <tr>
                         <td width="20%" style="${labelStyle}">Total</td>
                         <td width="16%" style="${cellStyle}"><div class="text-danger fw-bold">${fmt(totals.curr)}</div><div class="small text-muted" style="font-size:0.7rem">Now</div></td>
-                        <td width="16%" style="${cellStyle}"><div class="text-warning fw-bold">${fmt(totals.trans)}</div><div class="small text-muted" style="font-size:0.7rem">Trans</div></td>
-                        <td width="16%" style="${cellStyle}"><div class="text-info fw-bold">${fmt(totals.gogo)}</div><div class="small text-muted" style="font-size:0.7rem">Go-Go</div></td>
-                        <td width="16%" style="${cellStyle}"><div class="text-primary fw-bold">${fmt(totals.slow)}</div><div class="small text-muted" style="font-size:0.7rem">Slow</div></td>
-                        <td width="16%" style="${cellStyle}"><div class="text-secondary fw-bold">${fmt(totals.nogo)}</div><div class="small text-muted" style="font-size:0.7rem">No-Go</div></td>
+                        <td width="16%" style="${cellStyle}"><div class="text-warning fw-bold">${fmt(totals.trans * f_trans)}</div><div class="small text-muted" style="font-size:0.7rem">Trans</div></td>
+                        <td width="16%" style="${cellStyle}"><div class="text-info fw-bold">${fmt(totals.gogo * f_gogo)}</div><div class="small text-muted" style="font-size:0.7rem">Go-Go</div></td>
+                        <td width="16%" style="${cellStyle}"><div class="text-primary fw-bold">${fmt(totals.slow * f_slow)}</div><div class="small text-muted" style="font-size:0.7rem">Slow</div></td>
+                        <td width="16%" style="${cellStyle}"><div class="text-secondary fw-bold">${fmt(totals.nogo * f_nogo)}</div><div class="small text-muted" style="font-size:0.7rem">No-Go</div></td>
                     </tr>
                 </table>
             `;
