@@ -1,10 +1,11 @@
 // Total Lines: 1391
 /**
- * Retirement Planner Pro - Logic v8.1 (Fixed Expense Alignment)
+ * Retirement Planner Pro - Logic v8.2 (Visual Alignment Fix)
  * * CHANGE LOG:
- * 1. UI: Fixed Expense Footer Alignment. Now uses explicit column widths in both header and footer to ensure totals line up.
- * 2. FIX: Rendering Issue. 'init()' now checks document.readyState.
- * 3. LOGIC: Smart Decumulation preserved.
+ * 1. UI: Enforced strict column widths in `renderExpenseRows` (Header) and `calcExpenses` (Footer).
+ * - Simple Mode: 40% Name, 30% Current, 30% Retirement.
+ * - Advanced Mode: 20% Name, 16% for each of the 5 data columns.
+ * 2. UI: Added 'table-layout: fixed' to footer generation to guarantee alignment.
  */
 
 class RetirementPlanner {
@@ -1525,9 +1526,9 @@ class RetirementPlanner {
         let headerHTML = ``;
         if(this.state.expenseMode === 'Simple') {
             headerHTML = `
-                <th class="text-uppercase text-muted small ps-3" style="width: 35%;">Category / Item</th>
+                <th class="text-uppercase text-muted small ps-3" style="width: 40%;">Category / Item</th>
                 <th class="text-uppercase text-muted small" style="width: 30%;">Current Spending</th>
-                <th class="text-uppercase text-muted small" style="width: 35%;">Retirement Spending</th>
+                <th class="text-uppercase text-muted small" style="width: 30%;">Retirement Spending</th>
             `;
         } else {
             headerHTML = `
@@ -2009,20 +2010,20 @@ class RetirementPlanner {
 
         if (this.state.expenseMode === 'Simple') {
             footer.innerHTML = `
-                <table class="table table-sm table-borderless mb-0 bg-transparent">
+                <table class="table table-sm table-borderless mb-0 bg-transparent" style="table-layout: fixed;">
                     <tr>
-                        <td width="35%" style="${labelStyle}">Total Annual</td>
+                        <td width="40%" style="${labelStyle}">Total Annual</td>
                         <td width="30%" style="${cellStyle}"><span class="text-danger fw-bold fs-6">${fmt(totals.curr)}</span></td>
-                        <td width="35%" style="${cellStyle}"><span class="text-warning fw-bold fs-6">${fmt(totals.ret)}</span></td>
+                        <td width="30%" style="${cellStyle}"><span class="text-warning fw-bold fs-6">${fmt(totals.ret)}</span></td>
                     </tr>
                 </table>
             `;
         } else {
             // Advanced Footer Layout
             footer.innerHTML = `
-                <table class="table table-sm table-borderless mb-0 bg-transparent">
+                <table class="table table-sm table-borderless mb-0 bg-transparent" style="table-layout: fixed;">
                     <tr>
-                        <td width="16%" style="${labelStyle}">Total</td>
+                        <td width="20%" style="${labelStyle}">Total</td>
                         <td width="16%" style="${cellStyle}"><div class="text-danger fw-bold">${fmt(totals.curr)}</div><div class="small text-muted" style="font-size:0.7rem">Now</div></td>
                         <td width="16%" style="${cellStyle}"><div class="text-warning fw-bold">${fmt(totals.trans)}</div><div class="small text-muted" style="font-size:0.7rem">Trans</div></td>
                         <td width="16%" style="${cellStyle}"><div class="text-info fw-bold">${fmt(totals.gogo)}</div><div class="small text-muted" style="font-size:0.7rem">Go-Go</div></td>
