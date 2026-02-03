@@ -312,6 +312,16 @@ input[type=range]::-webkit-slider-thumb { margin-top: -5px; }
     font-size: 0.8rem;
 }
 
+/* MODAL STYLING */
+.modal-content {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+}
+.modal-header { border-bottom-color: var(--border-color); }
+.modal-footer { border-top-color: var(--border-color); }
+.btn-close-white { filter: invert(1) grayscale(100%) brightness(200%); }
+
 @media (max-width: 768px) {
   .nav-tabs { flex-wrap: nowrap; overflow-x: scroll; justify-content: flex-start; }
   .nav-item { min-width: 100px; }
