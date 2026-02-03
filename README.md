@@ -7,6 +7,10 @@ NEW FEATURES
 2. Add a button for real estate to let user add additional property
 3. Added DB pension in retirement income section
 4. Added Excel export in Projection Table tab
+5. Added Simple/Advance toggle for expenses for more granular control
+6. Added CPP/OAS toggle
+7. Added New section Windfalls & Inheritance
+8. Added Post-Retirement Income
 
 UI FIX/Update
 1. Made pop up box more polished
