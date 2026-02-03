@@ -1,11 +1,10 @@
 // Total Lines: 1391
 /**
- * Retirement Planner Pro - Logic v8.0 (Robust Rendering & Fixes)
+ * Retirement Planner Pro - Logic v8.1 (Fixed Expense Alignment)
  * * CHANGE LOG:
- * 1. FIX: Rendering Issue. 'init()' now checks document.readyState to ensure it runs even if loaded late.
- * 2. FIX: Grid Container creation is now forced if the old table isn't found.
- * 3. LOGIC: Smart Decumulation (Lowest Income First) preserved and verified.
- * 4. UI: $0 lines hidden, Red Expenses, Aligned Details, Split Assets/Taxes preserved.
+ * 1. UI: Fixed Expense Footer Alignment. Now uses explicit column widths in both header and footer to ensure totals line up.
+ * 2. FIX: Rendering Issue. 'init()' now checks document.readyState.
+ * 3. LOGIC: Smart Decumulation preserved.
  */
 
 class RetirementPlanner {
@@ -1502,15 +1501,6 @@ class RetirementPlanner {
         el.innerHTML = Math.abs(age) + " years old";
     }
 
-    toggleModeDisplay() {
-        const isCouple = this.state.mode === 'Couple';
-        document.body.classList.toggle('is-couple', isCouple);
-        document.querySelectorAll('.p2-column').forEach(el => {
-            if(el.tagName === 'TH' || el.tagName === 'TD') return; 
-            el.style.display = isCouple ? 'block' : 'none';
-        });
-    }
-
     toggleSidebar() {
         const expanded = document.getElementById('sidebarExpanded');
         const collapsed = document.getElementById('sidebarCollapsed');
@@ -1532,19 +1522,21 @@ class RetirementPlanner {
         const thead = document.getElementById('expenseTableHeader');
         const footer = document.getElementById('expenseFooter');
         
-        let headerHTML = `<th class="text-uppercase text-muted small ps-3">Category / Item</th>`;
+        let headerHTML = ``;
         if(this.state.expenseMode === 'Simple') {
-            headerHTML += `
-                <th class="text-uppercase text-muted small">Current Spending</th>
-                <th class="text-uppercase text-muted small">Retirement Spending</th>
+            headerHTML = `
+                <th class="text-uppercase text-muted small ps-3" style="width: 35%;">Category / Item</th>
+                <th class="text-uppercase text-muted small" style="width: 30%;">Current Spending</th>
+                <th class="text-uppercase text-muted small" style="width: 35%;">Retirement Spending</th>
             `;
         } else {
-            headerHTML += `
-                <th class="text-uppercase text-muted small">Current</th>
-                <th class="text-uppercase text-muted small">Transition</th>
-                <th class="text-uppercase text-muted small">Go-Go Phase</th>
-                <th class="text-uppercase text-muted small">Slow-Go Phase</th>
-                <th class="text-uppercase text-muted small">No-Go Phase</th>
+            headerHTML = `
+                <th class="text-uppercase text-muted small ps-3" style="width: 20%;">Item</th>
+                <th class="text-uppercase text-muted small" style="width: 16%;">Current</th>
+                <th class="text-uppercase text-muted small" style="width: 16%;">Trans</th>
+                <th class="text-uppercase text-muted small" style="width: 16%;">Go-Go</th>
+                <th class="text-uppercase text-muted small" style="width: 16%;">Slow-Go</th>
+                <th class="text-uppercase text-muted small" style="width: 16%;">No-Go</th>
             `;
         }
         thead.innerHTML = headerHTML;
@@ -2012,23 +2004,32 @@ class RetirementPlanner {
 
         const fmt = (n) => '$' + Math.round(n).toLocaleString();
         
+        const cellStyle = "border:none; border-left: 1px solid #444; padding-left:12px;";
+        const labelStyle = "border:none; text-align:right; padding-right:12px; color: #94a3b8; font-weight:bold; font-size: 0.75rem; text-transform:uppercase;";
+
         if (this.state.expenseMode === 'Simple') {
             footer.innerHTML = `
-                <div class="row">
-                    <div class="col-md-6 border-end border-secondary"><span class="household-total-label me-2">Annual (Now):</span><span class="expense-total-val text-danger">${fmt(totals.curr)}</span></div>
-                    <div class="col-md-6"><span class="household-total-label me-2">Annual (Retirement):</span><span class="expense-total-val text-warning">${fmt(totals.ret)}</span></div>
-                </div>
+                <table class="table table-sm table-borderless mb-0 bg-transparent">
+                    <tr>
+                        <td width="35%" style="${labelStyle}">Total Annual</td>
+                        <td width="30%" style="${cellStyle}"><span class="text-danger fw-bold fs-6">${fmt(totals.curr)}</span></td>
+                        <td width="35%" style="${cellStyle}"><span class="text-warning fw-bold fs-6">${fmt(totals.ret)}</span></td>
+                    </tr>
+                </table>
             `;
         } else {
             // Advanced Footer Layout
             footer.innerHTML = `
-                <div class="d-flex justify-content-between text-start small overflow-auto">
-                    <div class="px-2 border-end border-secondary"><div class="text-muted">Now</div><div class="fw-bold text-danger">${fmt(totals.curr)}</div></div>
-                    <div class="px-2 border-end border-secondary"><div class="text-muted">Trans</div><div class="fw-bold text-warning">${fmt(totals.trans)}</div></div>
-                    <div class="px-2 border-end border-secondary"><div class="text-muted">Go-Go</div><div class="fw-bold text-info">${fmt(totals.gogo)}</div></div>
-                    <div class="px-2 border-end border-secondary"><div class="text-muted">Slow</div><div class="fw-bold text-primary">${fmt(totals.slow)}</div></div>
-                    <div class="px-2"><div class="text-muted">No-Go</div><div class="fw-bold text-secondary">${fmt(totals.nogo)}</div></div>
-                </div>
+                <table class="table table-sm table-borderless mb-0 bg-transparent">
+                    <tr>
+                        <td width="16%" style="${labelStyle}">Total</td>
+                        <td width="16%" style="${cellStyle}"><div class="text-danger fw-bold">${fmt(totals.curr)}</div><div class="small text-muted" style="font-size:0.7rem">Now</div></td>
+                        <td width="16%" style="${cellStyle}"><div class="text-warning fw-bold">${fmt(totals.trans)}</div><div class="small text-muted" style="font-size:0.7rem">Trans</div></td>
+                        <td width="16%" style="${cellStyle}"><div class="text-info fw-bold">${fmt(totals.gogo)}</div><div class="small text-muted" style="font-size:0.7rem">Go-Go</div></td>
+                        <td width="16%" style="${cellStyle}"><div class="text-primary fw-bold">${fmt(totals.slow)}</div><div class="small text-muted" style="font-size:0.7rem">Slow</div></td>
+                        <td width="16%" style="${cellStyle}"><div class="text-secondary fw-bold">${fmt(totals.nogo)}</div><div class="small text-muted" style="font-size:0.7rem">No-Go</div></td>
+                    </tr>
+                </table>
             `;
         }
     }
