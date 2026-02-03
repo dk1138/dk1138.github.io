@@ -8,9 +8,10 @@ NEW FEATURES
 3. Added DB pension in retirement income section
 4. Added Excel export in Projection Table tab
 5. Added Simple/Advance toggle for expenses for more granular control
-6. Added CPP/OAS toggle
-7. Added New section Windfalls & Inheritance
-8. Added Post-Retirement Income
+6. Advance toggle also allows for adjustment of when gogo, slowgo phases starts and stops
+7. Added CPP/OAS toggle
+8. Added New section Windfalls & Inheritance
+9. Added Post-Retirement Income
 
 UI FIX/Update
 1. Made pop up box more polished
