@@ -406,29 +406,29 @@
                   </div>
 
                   <div class="card mb-4">
-                    <div class="card-header d-flex align-items-center"><i class="bi bi-cart4 text-white fs-5 me-2"></i>
-                      <h5>5. Living Expenses</h5>
+                    <div class="card-header d-flex align-items-center justify-content-between">
+                      <div class="d-flex align-items-center">
+                        <i class="bi bi-cart4 text-white fs-5 me-2"></i>
+                        <h5 class="mb-0">5. Living Expenses</h5>
+                      </div>
+                      <div class="form-check form-switch">
+                        <input class="form-check-input live-calc" type="checkbox" id="expense_mode_advanced" role="switch">
+                        <label class="form-check-label text-white small fw-bold" for="expense_mode_advanced">Advanced Mode</label>
+                      </div>
                     </div>
                     <div class="card-body">
                       <div class="table-responsive rounded-3 border border-secondary mb-3">
-                        <table class="table table-dark table-sm align-middle mb-0">
+                        <table class="table table-dark table-sm align-middle mb-0" id="expensesTable">
                           <thead>
-                            <tr class="bg-black bg-opacity-25">
-                              <th style="width: 25%" class="text-uppercase text-muted small ps-3">Category / Item</th>
-                              <th style="width: 37.5%" class="text-uppercase text-muted small">Current Spending</th>
-                              <th style="width: 37.5%" class="text-uppercase text-muted small">Retirement Spending</th>
-                            </tr>
+                            <tr class="bg-black bg-opacity-25" id="expenseTableHeader">
+                              </tr>
                           </thead>
                           <tbody id="expenseTableBody" class="border-top-0"></tbody>
                         </table>
                       </div>
                       <div class="card bg-black border-secondary">
-                        <div class="card-body py-3 text-center">
-                          <div class="row">
-                            <div class="col-md-6 border-end border-secondary"><span class="household-total-label me-2">Annual Expenses (Now):</span><span class="expense-total-val text-danger" id="total_annual_current">$0</span></div>
-                            <div class="col-md-6"><span class="household-total-label me-2">Annual Expenses (Retirement):</span><span class="expense-total-val text-warning" id="total_annual_retirement">$0</span></div>
+                        <div class="card-body py-2 text-center" id="expenseFooter">
                           </div>
-                        </div>
                       </div>
                     </div>
                   </div>
@@ -511,62 +511,7 @@
                     <div class="table-container" id="summaryTableContainer" style="max-height: 85vh; overflow-y: auto;">
                       <div id="projectionGrid"></div>
                       <table class="summary-table" id="oldSummaryTable" style="display:none;">
-                        <thead>
-                          <tr class="super-header">
-                            <th colspan="3" class="sticky-left text-center border-end border-secondary">Timeline</th>
-                            <th colspan="5" class="text-center border-end border-secondary">Net Income Sources</th>
-                            <th colspan="4" class="text-center border-end border-secondary">Outflows</th>
-                            <th colspan="9" class="text-center border-end border-secondary">Assets & Investments</th>
-                            <th class="sticky-right text-center">Summary</th>
-                          </tr>
-
-                          <tr>
-                            <th class="sticky-left col-events">Events</th>
-                            <th class="sticky-left col-year">Year</th>
-                            <th class="sticky-left col-age">Age</th>
-
-                            <th style="min-width: 90px;" id="inc-header" class="text-center">
-                              Total Net
-                              <br><span class="badge bg-secondary cursor-pointer toggle-btn" data-type="inc" style="cursor:pointer">[+]</span>
-                            </th>
-                            <th class="col-detail-inc">P1 Net</th>
-                            <th class="col-detail-inc p2-column">P2 Net</th>
-                            <th class="col-detail-inc">CPP</th>
-                            <th class="col-detail-inc">OAS</th>
-
-                            <th style="min-width: 90px;" id="exp-header" class="text-center">
-                              Total Exp
-                              <br><span class="badge bg-secondary cursor-pointer toggle-btn" data-type="exp" style="cursor:pointer">[+]</span>
-                            </th>
-                            <th class="col-detail-exp">Living</th>
-                            <th class="col-detail-exp">Debt Pmt</th>
-                            <th style="min-width: 80px;" class="col-detail-exp">Mortg Bal</th>
-
-                            <th style="min-width: 80px;">Surplus</th>
-
-                            <th style="min-width: 90px;" id="inv-header" class="text-center">
-                              Investments
-                              <br><span class="badge bg-secondary cursor-pointer toggle-btn" data-type="inv" style="cursor:pointer">[+]</span>
-                            </th>
-                            <th style="min-width: 80px;">Inv. Growth</th>
-
-                            <th class="col-detail-inv">P1 TFSA</th>
-                            <th class="col-detail-inv">P1 RRSP</th>
-                            <th class="col-detail-inv">P1 Cash</th>
-                            <th class="col-detail-inv">P1 NReg</th>
-                            <th class="col-detail-inv p2-column">P2 TFSA</th>
-                            <th class="col-detail-inv p2-column">P2 RRSP</th>
-                            <th class="col-detail-inv p2-column">P2 Cash</th>
-                            <th class="col-detail-inv p2-column">P2 NReg</th>
-                            <th class="col-detail-inv">P1 Cryp</th>
-                            <th class="col-detail-inv p2-column">P2 Cryp</th>
-
-                            <th style="min-width: 90px;">Liquid NW</th>
-                            <th class="sticky-right text-end text-warning" style="min-width: 110px; font-weight: 700;">Net Worth</th>
-                          </tr>
-                        </thead>
-                        <tbody id="projectionTableBody"></tbody>
-                      </table>
+                        </table>
                     </div>
                   </div>
                 </div>
