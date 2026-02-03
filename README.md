@@ -17,3 +17,12 @@ NEW FEATURES
 UI FIX/Update
 1. Made pop up box more polished
 2. General UI cleanup
+
+TO DO
+1. Canada Child Benefits
+2. Child Disability Benefits
+3. Simple/Advnace toggle for Assets return after retirement
+4. Downsizing toggle
+5. Put age next to phase name instead of a line break
+6. colour the phase name matching the total expenses colours, matches the projection table status colours, make sure colours are consistent across the entire site
+7. When P1 passes make sure the Snakey diagram text shows that, right now it still show the age of the dead person
