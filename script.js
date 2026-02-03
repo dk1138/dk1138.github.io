@@ -1,10 +1,11 @@
 // Total Lines: 1391
 /**
- * Retirement Planner Pro - Logic v8.3 (CPP/OAS Toggles)
+ * Retirement Planner Pro - Logic v8.4 (Expense Phase Sliders)
  * * CHANGE LOG:
- * 1. LOGIC: Added CPP/OAS enable/disable toggles in `generateProjectionTable` and `estimateCPPOAS`.
- * 2. UI: HTML structure updated in index.html to include switches.
- * 3. LOGIC: Smart Decumulation preserved.
+ * 1. UI: Added `exp_gogo_age` and `exp_slow_age` sliders to `index.html` (Advanced Mode only).
+ * 2. LOGIC: `generateProjectionTable` now uses these dynamic age limits to determine expense phases (GoGo/Slow/NoGo).
+ * 3. LOGIC: `renderExpenseRows` header now shows the age ranges dynamically (e.g. "Go-Go (<75)").
+ * 4. UI: Status pills in projection table updated to match slider ages.
  */
 
 class RetirementPlanner {
@@ -270,11 +271,30 @@ class RetirementPlanner {
         document.body.addEventListener('change', (e) => {
             if (e.target.id === 'expense_mode_advanced') {
                 this.state.expenseMode = e.target.checked ? 'Advanced' : 'Simple';
+                // Toggle visibility of sliders
+                const sliderDiv = document.getElementById('expense-phase-controls');
+                if(sliderDiv) sliderDiv.style.display = e.target.checked ? 'flex' : 'none';
+                
                 this.renderExpenseRows();
                 this.calcExpenses();
                 this.run();
             }
         });
+
+        // Listen for Phase Sliders
+        const bindPhaseSlider = (id, labelId) => {
+            const el = document.getElementById(id);
+            if(el) {
+                el.addEventListener('input', (e) => {
+                    document.getElementById(labelId).innerText = e.target.value;
+                    this.state.inputs[id] = e.target.value;
+                    this.renderExpenseRows(); // Update headers
+                    this.debouncedRun();
+                });
+            }
+        };
+        bindPhaseSlider('exp_gogo_age', 'exp_gogo_val');
+        bindPhaseSlider('exp_slow_age', 'exp_slow_val');
 
         document.getElementById('btnClearAll').addEventListener('click', () => {
              this.showConfirm("Are you sure you want to clear all data? This cannot be undone.", () => {
@@ -422,7 +442,8 @@ class RetirementPlanner {
             p1_income_growth: '2.0', p2_income_growth: '2.0',
             p1_db_pension: '0', p2_db_pension: '0',
             p1_cpp_enabled: true, p1_oas_enabled: true,
-            p2_cpp_enabled: true, p2_oas_enabled: true
+            p2_cpp_enabled: true, p2_oas_enabled: true,
+            exp_gogo_age: '75', exp_slow_age: '85'
         };
 
         // Reset Inputs
@@ -462,6 +483,10 @@ class RetirementPlanner {
         this.updateSidebarSync('p2_retireAge', 65);
         this.updateSidebarSync('inflation_rate', 2.0);
         this.updateSidebarSync('p1_tfsa_ret', 6.0);
+
+        // Sync Slider Labels
+        document.getElementById('exp_gogo_val').innerText = '75';
+        document.getElementById('exp_slow_val').innerText = '85';
 
         this.updateAgeDisplay('p1'); 
         this.updateAgeDisplay('p2');
@@ -771,6 +796,10 @@ class RetirementPlanner {
         const p2_cpp_on = this.state.inputs['p2_cpp_enabled'];
         const p2_oas_on = this.state.inputs['p2_oas_enabled'];
 
+        // Get Phase Limits
+        const goGoLimit = parseInt(this.getRaw('exp_gogo_age')) || 75;
+        const slowGoLimit = parseInt(this.getRaw('exp_slow_age')) || 85;
+
         let p1 = { tfsa: this.getVal('p1_tfsa'), rrsp: this.getVal('p1_rrsp'), cash: this.getVal('p1_cash'), nreg: this.getVal('p1_nonreg'), crypto: this.getVal('p1_crypto'), inc: this.getVal('p1_income'), dob: new Date(this.getRaw('p1_dob')), retAge: this.getVal('p1_retireAge'), lifeExp: this.getVal('p1_lifeExp') };
         let p2 = { tfsa: this.getVal('p2_tfsa'), rrsp: this.getVal('p2_rrsp'), cash: this.getVal('p2_cash'), nreg: this.getVal('p2_nonreg'), crypto: this.getVal('p2_crypto'), inc: this.getVal('p2_income'), dob: new Date(this.getRaw('p2_dob')), retAge: this.getVal('p2_retireAge'), lifeExp: this.getVal('p2_lifeExp') };
 
@@ -986,11 +1015,7 @@ class RetirementPlanner {
             if(expMode === 'Simple') {
                 annualExp = fullyRetired ? expRetire : expCurrent;
             } else {
-                // Advanced Mode Logic
-                // 1. Working: If not fully retired
-                // 2. Transition: (Couple) One retired, one working.
-                // 3. Fully Retired Phases (GoGo < 75, SlowGo 75-84, NoGo 85+) - Based on P1 age
-                
+                // Advanced Mode Logic using dynamic limits
                 if (!fullyRetired) {
                     // Check for transition in couples
                     if (mode === 'Couple' && ((p1_isRetired && !p2_isRetired) || (!p1_isRetired && p2_isRetired))) {
@@ -999,9 +1024,9 @@ class RetirementPlanner {
                         annualExp = expCurrent;
                     }
                 } else {
-                    // Fully Retired
-                    if (p1_age < 75) annualExp = expGoGo;
-                    else if (p1_age < 85) annualExp = expSlow;
+                    // Fully Retired - Dynamic Phase Logic
+                    if (p1_age < goGoLimit) annualExp = expGoGo;
+                    else if (p1_age < slowGoLimit) annualExp = expSlow;
                     else annualExp = expNoGo;
                 }
             }
@@ -1280,9 +1305,9 @@ class RetirementPlanner {
                     } else if ((p1Ret && !p2Ret) || (!p1Ret && p2Ret)) {
                         status = `<span class="status-pill status-semi">Transition</span>`;
                     } else {
-                        if (d.p1Age < 70) {
+                        if (d.p1Age < goGoLimit) {
                             status = `<span class="status-pill status-gogo">Go-go Phase</span>`;
-                        } else if (d.p1Age < 80) {
+                        } else if (d.p1Age < slowGoLimit) {
                             status = `<span class="status-pill status-slow">Slow-go Phase</span>`;
                         } else {
                             status = `<span class="status-pill status-nogo">No-go Phase</span>`;
@@ -1292,9 +1317,9 @@ class RetirementPlanner {
                     if (!p1Ret) {
                         status = `<span class="status-pill status-working">Working</span>`;
                     } else {
-                        if (d.p1Age < 70) {
+                        if (d.p1Age < goGoLimit) {
                             status = `<span class="status-pill status-gogo">Go-go Phase</span>`;
-                        } else if (d.p1Age < 80) {
+                        } else if (d.p1Age < slowGoLimit) {
                             status = `<span class="status-pill status-slow">Slow-go Phase</span>`;
                         } else {
                             status = `<span class="status-pill status-nogo">No-go Phase</span>`;
@@ -1539,13 +1564,17 @@ class RetirementPlanner {
                 <th class="text-uppercase text-muted small" style="width: 30%;">Retirement Spending</th>
             `;
         } else {
+            // Read dynamic ages for header labels
+            const goGoAge = this.getRaw('exp_gogo_age') || 75;
+            const slowGoAge = this.getRaw('exp_slow_age') || 85;
+
             headerHTML = `
                 <th class="text-uppercase text-muted small ps-3" style="width: 20%;">Item</th>
                 <th class="text-uppercase text-muted small" style="width: 16%;">Current</th>
                 <th class="text-uppercase text-muted small" style="width: 16%;">Trans</th>
-                <th class="text-uppercase text-muted small" style="width: 16%;">Go-Go</th>
-                <th class="text-uppercase text-muted small" style="width: 16%;">Slow-Go</th>
-                <th class="text-uppercase text-muted small" style="width: 16%;">No-Go</th>
+                <th class="text-uppercase text-muted small" style="width: 16%;">Go-Go <br><span style="font-size:0.6rem">(<${goGoAge})</span></th>
+                <th class="text-uppercase text-muted small" style="width: 16%;">Slow-Go <br><span style="font-size:0.6rem">(<${slowGoAge})</span></th>
+                <th class="text-uppercase text-muted small" style="width: 16%;">No-Go <br><span style="font-size:0.6rem">(${slowGoAge}+)</span></th>
             `;
         }
         thead.innerHTML = headerHTML;
@@ -2201,6 +2230,17 @@ class RetirementPlanner {
         }
         this.toggleModeDisplay();
         this.renderStrategy();
+        
+        // Sync new slider labels on load
+        const goGoVal = this.getRaw('exp_gogo_age') || 75;
+        const slowGoVal = this.getRaw('exp_slow_age') || 85;
+        document.getElementById('exp_gogo_val').innerText = goGoVal;
+        document.getElementById('exp_slow_val').innerText = slowGoVal;
+        
+        // Update slider visibility
+        const advMode = document.getElementById('expense_mode_advanced').checked;
+        const sliderDiv = document.getElementById('expense-phase-controls');
+        if(sliderDiv) sliderDiv.style.display = advMode ? 'flex' : 'none';
     }
 
     deleteScenario(idx) {
