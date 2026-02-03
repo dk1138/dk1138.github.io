@@ -1,4 +1,4 @@
-// Total Lines: 1358
+// Total Lines: 1391
 /**
  * Retirement Planner Pro - Logic v8.0 (Robust Rendering & Fixes)
  * * CHANGE LOG:
@@ -268,12 +268,13 @@ class RetirementPlanner {
         const toggle = document.getElementById('useRealDollars');
         if(toggle) toggle.addEventListener('change', () => { this.run(); });
 
-        const advToggle = document.getElementById('expense_mode_advanced');
-        if(advToggle) advToggle.addEventListener('change', (e) => {
-            this.state.expenseMode = e.target.checked ? 'Advanced' : 'Simple';
-            this.renderExpenseRows();
-            this.calcExpenses();
-            this.run();
+        document.body.addEventListener('change', (e) => {
+            if (e.target.id === 'expense_mode_advanced') {
+                this.state.expenseMode = e.target.checked ? 'Advanced' : 'Simple';
+                this.renderExpenseRows();
+                this.calcExpenses();
+                this.run();
+            }
         });
 
         document.getElementById('btnClearAll').addEventListener('click', () => {
@@ -1230,9 +1231,7 @@ class RetirementPlanner {
                     investTot: investTot, liquidNW: liquidNW, isCrashYear: isCrashYear
                 });
             }
-            expCurrent *= (1 + inflation); expRetire *= (1 + inflation);
-            expTrans *= (1 + inflation); expGoGo *= (1 + inflation); expSlow *= (1 + inflation); expNoGo *= (1 + inflation);
-            tfsa_limit *= (1 + inflation);
+            expCurrent *= (1 + inflation); expRetire *= (1 + inflation); tfsa_limit *= (1 + inflation);
         }
 
         if (!onlyCalcNW) {
@@ -1595,21 +1594,30 @@ class RetirementPlanner {
                  // Simple Mode: Current + Retirement + Frequency
                  html += `
                  <td class="align-middle border-bottom border-secondary">
-                    <div class="d-flex gap-1">
-                        ${renderInput(item, 'curr', index, category)}
-                        <select class="form-select form-select-sm bg-black border-secondary text-muted expense-update" style="width:auto;"
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-black border-secondary text-muted">$</span>
+                        <input type="text" class="form-control bg-black border-secondary text-white formatted-num expense-update" 
+                               style="width: 100px; flex-grow: 1;" value="${item.curr.toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="curr">
+                        <select class="form-select bg-black border-secondary text-white expense-update" style="width: auto; flex-grow: 0; min-width: 85px;"
                                 data-cat="${category}" data-idx="${index}" data-field="freq">
-                            <option value="12" ${item.freq===12?'selected':''}>/mo</option>
-                            <option value="1" ${item.freq===1?'selected':''}>/yr</option>
+                            <option value="12" ${item.freq===12?'selected':''}>/month</option>
+                            <option value="1" ${item.freq===1?'selected':''}>/year</option>
                         </select>
                     </div>
                  </td>
                  <td class="align-middle border-bottom border-secondary">
-                     <div class="d-flex align-items-center justify-content-between">
-                        <div class="d-flex gap-1 flex-grow-1">
-                            ${renderInput(item, 'ret', index, category)}
+                     <div class="d-flex align-items-center">
+                        <div class="input-group input-group-sm flex-grow-1">
+                            <span class="input-group-text bg-black border-secondary text-muted">$</span>
+                            <input type="text" class="form-control bg-black border-secondary text-white formatted-num expense-update" 
+                                   style="width: 100px; flex-grow: 1;" value="${item.ret.toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="ret">
+                            <select class="form-select bg-black border-secondary text-white expense-update" style="width: auto; flex-grow: 0; min-width: 85px;"
+                                    data-cat="${category}" data-idx="${index}" data-field="freq"> 
+                                <option value="12" ${item.freq===12?'selected':''}>/month</option>
+                                <option value="1" ${item.freq===1?'selected':''}>/year</option>
+                            </select>
                         </div>
-                        <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2" onclick="app.removeExpense('${category}', ${index})">
+                        <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-3 me-2" title="Delete Line" onclick="app.removeExpense('${category}', ${index})">
                             <i class="bi bi-trash"></i>
                         </button>
                      </div>
@@ -1618,12 +1626,14 @@ class RetirementPlanner {
                  // Advanced Mode: 5 Columns. Freq is handled implicitly or via first col? Let's keep freq on first col
                  html += `
                  <td class="align-middle border-bottom border-secondary">
-                    <div class="d-flex gap-1">
-                        ${renderInput(item, 'curr', index, category)}
-                        <select class="form-select form-select-sm bg-black border-secondary text-muted expense-update" style="width:auto;"
+                    <div class="input-group input-group-sm mb-1" style="flex-wrap: nowrap;">
+                        <span class="input-group-text bg-black border-secondary text-muted">$</span>
+                        <input type="text" class="form-control bg-black border-secondary text-white formatted-num expense-update" 
+                               style="min-width: 60px;" value="${(item.curr||0).toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="curr">
+                         <select class="form-select bg-black border-secondary text-white expense-update" style="width: auto; flex-grow: 0; min-width: 85px;"
                                 data-cat="${category}" data-idx="${index}" data-field="freq">
-                            <option value="12" ${item.freq===12?'selected':''}>/mo</option>
-                            <option value="1" ${item.freq===1?'selected':''}>/yr</option>
+                            <option value="12" ${item.freq===12?'selected':''}>/month</option>
+                            <option value="1" ${item.freq===1?'selected':''}>/year</option>
                         </select>
                     </div>
                  </td>
