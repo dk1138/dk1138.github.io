@@ -1,10 +1,11 @@
-// Total Lines: 1395
+// Total Lines: 1391
 /**
- * Retirement Planner Pro - Logic v8.5 (Expense Phase Inflation Fix)
+ * Retirement Planner Pro - Logic v8.4 (Expense Phase Sliders)
  * * CHANGE LOG:
- * 1. FIX: `generateProjectionTable` now correctly inflates `expTrans`, `expGoGo`, `expSlow`, and `expNoGo` annually.
- * This ensures that the "Real Dollars" view in the projection table matches the totals shown in the Expense footer.
- * 2. LOGIC: Maintained all previous toggle, slider, and phase logic.
+ * 1. UI: Added `exp_gogo_age` and `exp_slow_age` sliders to `index.html` (Advanced Mode only).
+ * 2. LOGIC: `generateProjectionTable` now uses these dynamic age limits to determine expense phases (GoGo/Slow/NoGo).
+ * 3. LOGIC: `renderExpenseRows` header now shows the age ranges dynamically (e.g. "Go-Go (<75)").
+ * 4. UI: Status pills in projection table updated to match slider ages.
  */
 
 class RetirementPlanner {
@@ -1014,11 +1015,7 @@ class RetirementPlanner {
             if(expMode === 'Simple') {
                 annualExp = fullyRetired ? expRetire : expCurrent;
             } else {
-                // Advanced Mode Logic
-                // 1. Working: If not fully retired
-                // 2. Transition: (Couple) One retired, one working.
-                // 3. Fully Retired Phases (GoGo < 75, SlowGo 75-84, NoGo 85+) - Based on P1 age
-                
+                // Advanced Mode Logic using dynamic limits
                 if (!fullyRetired) {
                     // Check for transition in couples
                     if (mode === 'Couple' && ((p1_isRetired && !p2_isRetired) || (!p1_isRetired && p2_isRetired))) {
@@ -1027,7 +1024,7 @@ class RetirementPlanner {
                         annualExp = expCurrent;
                     }
                 } else {
-                    // Fully Retired
+                    // Fully Retired - Dynamic Phase Logic
                     if (p1_age < goGoLimit) annualExp = expGoGo;
                     else if (p1_age < slowGoLimit) annualExp = expSlow;
                     else annualExp = expNoGo;
@@ -1268,13 +1265,6 @@ class RetirementPlanner {
                 });
             }
             expCurrent *= (1 + inflation); expRetire *= (1 + inflation); tfsa_limit *= (1 + inflation);
-            
-            // --- FIX START: INFLATE PHASE EXPENSES ---
-            expTrans *= (1 + inflation);
-            expGoGo *= (1 + inflation);
-            expSlow *= (1 + inflation);
-            expNoGo *= (1 + inflation);
-            // --- FIX END ---
         }
 
         if (!onlyCalcNW) {
