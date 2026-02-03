@@ -1,4 +1,4 @@
-// Total Lines: 1222
+// Total Lines: 1358
 /**
  * Retirement Planner Pro - Logic v8.0 (Robust Rendering & Fixes)
  * * CHANGE LOG:
@@ -23,7 +23,8 @@ class RetirementPlanner {
                 decum: ['rrsp', 'crypto', 'nreg', 'tfsa', 'cash']
             },
             mode: 'Couple',
-            projectionData: []
+            projectionData: [],
+            expenseMode: 'Simple' // 'Simple' or 'Advanced'
         };
 
         // --- CONFIGURATION CONSTANTS ---
@@ -41,42 +42,43 @@ class RetirementPlanner {
         this.confirmModal = null; // Store Bootstrap modal instance
 
         // --- DEFAULT EXPENSE DATA ---
+        // Enhanced structure to support phases: curr, ret (Simple), trans, gogo, slow, nogo (Advanced)
         this.expensesByCategory = {
             "Housing": { 
                 items: [ 
-                    { name: "Property Tax", curr: 6000, ret: 6000, freq: 1 }, 
-                    { name: "Enbridge (Gas)", curr: 120, ret: 120, freq: 12 }, 
-                    { name: "Enercare (HWT)", curr: 45, ret: 45, freq: 12 }, 
-                    { name: "Alectra (Hydro)", curr: 150, ret: 150, freq: 12 }, 
-                    { name: "RH Water", curr: 80, ret: 80, freq: 12 } 
+                    { name: "Property Tax", curr: 6000, ret: 6000, trans: 6000, gogo: 6000, slow: 6000, nogo: 6000, freq: 1 }, 
+                    { name: "Enbridge (Gas)", curr: 120, ret: 120, trans: 120, gogo: 120, slow: 120, nogo: 120, freq: 12 }, 
+                    { name: "Enercare (HWT)", curr: 45, ret: 45, trans: 45, gogo: 45, slow: 45, nogo: 45, freq: 12 }, 
+                    { name: "Alectra (Hydro)", curr: 150, ret: 150, trans: 150, gogo: 150, slow: 150, nogo: 150, freq: 12 }, 
+                    { name: "RH Water", curr: 80, ret: 80, trans: 80, gogo: 80, slow: 80, nogo: 80, freq: 12 } 
                 ], 
                 colorClass: 'cat-header-housing' 
             },
             "Living": { 
                 items: [ 
-                    { name: "Grocery", curr: 800, ret: 800, freq: 12 }, 
-                    { name: "Costco", curr: 400, ret: 400, freq: 12 }, 
-                    { name: "Restaurants", curr: 400, ret: 300, freq: 12 }, 
-                    { name: "Cellphone", curr: 120, ret: 120, freq: 12 }, 
-                    { name: "Internet", curr: 90, ret: 90, freq: 12 } 
+                    { name: "Grocery", curr: 800, ret: 800, trans: 800, gogo: 800, slow: 700, nogo: 600, freq: 12 }, 
+                    { name: "Costco", curr: 400, ret: 400, trans: 400, gogo: 400, slow: 350, nogo: 300, freq: 12 }, 
+                    { name: "Restaurants", curr: 400, ret: 300, trans: 350, gogo: 350, slow: 200, nogo: 100, freq: 12 }, 
+                    { name: "Cellphone", curr: 120, ret: 120, trans: 120, gogo: 120, slow: 120, nogo: 120, freq: 12 }, 
+                    { name: "Internet", curr: 90, ret: 90, trans: 90, gogo: 90, slow: 90, nogo: 90, freq: 12 } 
                 ], 
                 colorClass: 'cat-header-living' 
             },
             "Kids": { 
                 items: [ 
-                    { name: "Daycare", curr: 1200, ret: 0, freq: 12 }, 
-                    { name: "Activities", curr: 200, ret: 0, freq: 12 }, 
-                    { name: "RESP Contribution", curr: 208, ret: 0, freq: 12 }, 
-                    { name: "Clothing/Toys", curr: 100, ret: 50, freq: 12 } 
+                    { name: "Daycare", curr: 1200, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 }, 
+                    { name: "Activities", curr: 200, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 }, 
+                    { name: "RESP Contribution", curr: 208, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 }, 
+                    { name: "Clothing/Toys", curr: 100, ret: 50, trans: 50, gogo: 50, slow: 0, nogo: 0, freq: 12 } 
                 ], 
                 colorClass: 'cat-header-kids' 
             },
             "Lifestyle": { 
                 items: [ 
-                    { name: "Travel", curr: 5000, ret: 15000, freq: 1 }, 
-                    { name: "Electronic", curr: 500, ret: 500, freq: 1 }, 
-                    { name: "Health Insurance", curr: 50, ret: 300, freq: 12 }, 
-                    { name: "Other", curr: 300, ret: 300, freq: 12 } 
+                    { name: "Travel", curr: 5000, ret: 15000, trans: 10000, gogo: 15000, slow: 5000, nogo: 0, freq: 1 }, 
+                    { name: "Electronic", curr: 500, ret: 500, trans: 500, gogo: 500, slow: 500, nogo: 200, freq: 1 }, 
+                    { name: "Health Insurance", curr: 50, ret: 300, trans: 150, gogo: 300, slow: 500, nogo: 1000, freq: 12 }, 
+                    { name: "Other", curr: 300, ret: 300, trans: 300, gogo: 300, slow: 200, nogo: 100, freq: 12 } 
                 ], 
                 colorClass: 'cat-header-lifestyle' 
             }
@@ -266,6 +268,14 @@ class RetirementPlanner {
         const toggle = document.getElementById('useRealDollars');
         if(toggle) toggle.addEventListener('change', () => { this.run(); });
 
+        const advToggle = document.getElementById('expense_mode_advanced');
+        if(advToggle) advToggle.addEventListener('change', (e) => {
+            this.state.expenseMode = e.target.checked ? 'Advanced' : 'Simple';
+            this.renderExpenseRows();
+            this.calcExpenses();
+            this.run();
+        });
+
         document.getElementById('btnClearAll').addEventListener('click', () => {
              this.showConfirm("Are you sure you want to clear all data? This cannot be undone.", () => {
                  this.resetAllData();
@@ -290,7 +300,7 @@ class RetirementPlanner {
                 const field = e.target.dataset.field;
                 let val = e.target.value;
                  
-                if (field === 'curr' || field === 'ret') val = Number(val.replace(/,/g, '')) || 0;
+                if (['curr', 'ret', 'trans', 'gogo', 'slow', 'nogo'].includes(field)) val = Number(val.replace(/,/g, '')) || 0;
                 else if (field === 'freq') val = parseInt(val);
                  
                 if (this.expensesByCategory[cat] && this.expensesByCategory[cat].items[idx]) {
@@ -298,6 +308,7 @@ class RetirementPlanner {
                 }
                 if (e.target.classList.contains('formatted-num')) this.formatInput(e.target);
                 this.debouncedRun();
+                this.calcExpenses(); // Force update footer
             }
             // Property Update Listener
             if (e.target.classList.contains('property-update')) {
@@ -437,6 +448,7 @@ class RetirementPlanner {
             this.expensesByCategory[cat].items = [];
         }
         this.renderExpenseRows();
+        this.calcExpenses();
 
         // Clear Debt
         document.getElementById('debt-container').innerHTML = '';
@@ -743,6 +755,7 @@ class RetirementPlanner {
         const taxEfficient = this.state.inputs['taxEfficient']; 
         const stressTest = this.state.inputs['stressTestEnabled'];
         const rrspMeltdown = this.state.inputs['strat_rrsp_topup']; 
+        const expMode = this.state.expenseMode;
 
         const s1_tfsa = this.state.inputs['skip_first_tfsa_p1'];
         const s1_rrsp = this.state.inputs['skip_first_rrsp_p1'];
@@ -767,11 +780,18 @@ class RetirementPlanner {
         let p1_db_base = this.getVal('p1_db_pension') * 12;
         let p2_db_base = this.getVal('p2_db_pension') * 12;
 
-        let expCurrentStart = 0; let expRetireStart = 0;
+        let expenseTotals = { curr:0, ret:0, trans:0, gogo:0, slow:0, nogo:0 };
         for (const cat in this.expensesByCategory) {
             this.expensesByCategory[cat].items.forEach(item => {
-                expCurrentStart += item.curr * item.freq;
-                expRetireStart += item.ret * item.freq;
+                const f = item.freq;
+                expenseTotals.curr += (item.curr||0) * f;
+                expenseTotals.ret += (item.ret||0) * f;
+                if(expMode === 'Advanced') {
+                    expenseTotals.trans += (item.trans||0) * f;
+                    expenseTotals.gogo += (item.gogo||0) * f;
+                    expenseTotals.slow += (item.slow||0) * f;
+                    expenseTotals.nogo += (item.nogo||0) * f;
+                }
             });
         }
 
@@ -779,7 +799,10 @@ class RetirementPlanner {
         let simProperties = JSON.parse(JSON.stringify(this.state.properties));
 
         let otherDebt = this.getTotalDebt();
-        let expCurrent = expCurrentStart; let expRetire = expRetireStart;
+        let expCurrent = expenseTotals.curr; let expRetire = expenseTotals.ret;
+        // Advanced phases
+        let expTrans = expenseTotals.trans; let expGoGo = expenseTotals.gogo; 
+        let expSlow = expenseTotals.slow; let expNoGo = expenseTotals.nogo;
         
         const currentYear = new Date().getFullYear();
         const p1_startAge = currentYear - p1.dob.getFullYear();
@@ -949,7 +972,30 @@ class RetirementPlanner {
             let p2_net = p2_alive ? (p2_total_taxable - t2.totalTax) : 0;
             const householdNet = p1_net + p2_net;
 
-            let annualExp = fullyRetired ? expRetire : expCurrent;
+            // DETERMINE ANNUAL EXPENSE BASED ON PHASE
+            let annualExp = 0;
+            if(expMode === 'Simple') {
+                annualExp = fullyRetired ? expRetire : expCurrent;
+            } else {
+                // Advanced Mode Logic
+                // 1. Working: If not fully retired
+                // 2. Transition: (Couple) One retired, one working.
+                // 3. Fully Retired Phases (GoGo < 75, SlowGo 75-84, NoGo 85+) - Based on P1 age
+                
+                if (!fullyRetired) {
+                    // Check for transition in couples
+                    if (mode === 'Couple' && ((p1_isRetired && !p2_isRetired) || (!p1_isRetired && p2_isRetired))) {
+                        annualExp = expTrans;
+                    } else {
+                        annualExp = expCurrent;
+                    }
+                } else {
+                    // Fully Retired
+                    if (p1_age < 75) annualExp = expGoGo;
+                    else if (p1_age < 85) annualExp = expSlow;
+                    else annualExp = expNoGo;
+                }
+            }
             
             // --- Property Calculations (Loop all properties) ---
             let totalActualMortgageOutflow = 0;
@@ -1184,7 +1230,9 @@ class RetirementPlanner {
                     investTot: investTot, liquidNW: liquidNW, isCrashYear: isCrashYear
                 });
             }
-            expCurrent *= (1 + inflation); expRetire *= (1 + inflation); tfsa_limit *= (1 + inflation);
+            expCurrent *= (1 + inflation); expRetire *= (1 + inflation);
+            expTrans *= (1 + inflation); expGoGo *= (1 + inflation); expSlow *= (1 + inflation); expNoGo *= (1 + inflation);
+            tfsa_limit *= (1 + inflation);
         }
 
         if (!onlyCalcNW) {
@@ -1481,7 +1529,28 @@ class RetirementPlanner {
     }
 
     renderExpenseRows() {
-        const tbody = document.getElementById('expenseTableBody'); let html = '';
+        const tbody = document.getElementById('expenseTableBody'); 
+        const thead = document.getElementById('expenseTableHeader');
+        const footer = document.getElementById('expenseFooter');
+        
+        let headerHTML = `<th class="text-uppercase text-muted small ps-3">Category / Item</th>`;
+        if(this.state.expenseMode === 'Simple') {
+            headerHTML += `
+                <th class="text-uppercase text-muted small">Current Spending</th>
+                <th class="text-uppercase text-muted small">Retirement Spending</th>
+            `;
+        } else {
+            headerHTML += `
+                <th class="text-uppercase text-muted small">Current</th>
+                <th class="text-uppercase text-muted small">Transition</th>
+                <th class="text-uppercase text-muted small">Go-Go Phase</th>
+                <th class="text-uppercase text-muted small">Slow-Go Phase</th>
+                <th class="text-uppercase text-muted small">No-Go Phase</th>
+            `;
+        }
+        thead.innerHTML = headerHTML;
+
+        let html = '';
         const catMeta = {
             "Housing": { icon: "bi-house-door-fill", color: "text-primary" },
             "Living": { icon: "bi-basket2-fill", color: "text-success" },
@@ -1489,12 +1558,21 @@ class RetirementPlanner {
             "Lifestyle": { icon: "bi-airplane-engines-fill", color: "text-info" }
         };
 
+        const renderInput = (item, field, idx, cat) => `
+            <div class="input-group input-group-sm mb-1" style="flex-wrap: nowrap;">
+                <span class="input-group-text bg-black border-secondary text-muted">$</span>
+                <input type="text" class="form-control bg-black border-secondary text-white formatted-num expense-update" 
+                       style="min-width: 60px;" value="${(item[field]||0).toLocaleString()}" data-cat="${cat}" data-idx="${idx}" data-field="${field}">
+            </div>
+        `;
+
         for (const [category, data] of Object.entries(this.expensesByCategory)) {
            const meta = catMeta[category] || { icon: "bi-tag-fill", color: "text-white" };
+           const colspan = this.state.expenseMode === 'Simple' ? 3 : 6;
            
            html += `
            <tr class="expense-category-row">
-               <td colspan="3" class="py-3 ps-3 border-bottom border-secondary bg-black bg-opacity-25">
+               <td colspan="${colspan}" class="py-3 ps-3 border-bottom border-secondary bg-black bg-opacity-25">
                    <div class="d-flex align-items-center justify-content-between">
                        <div class="d-flex align-items-center">
                            <i class="bi ${meta.icon} ${meta.color} me-2 fs-6"></i>
@@ -1508,42 +1586,60 @@ class RetirementPlanner {
            </tr>`;
            
            data.items.forEach((item, index) => {
-             html += `
-             <tr class="expense-row">
-                <td class="ps-3 align-middle border-bottom border-secondary">
+             html += `<tr class="expense-row"><td class="ps-3 align-middle border-bottom border-secondary">
                     <input type="text" class="form-control form-control-sm bg-transparent border-0 text-white-50 expense-update" 
                            value="${item.name}" data-cat="${category}" data-idx="${index}" data-field="name">
-                </td>
-                <td class="align-middle border-bottom border-secondary">
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text bg-black border-secondary text-muted">$</span>
-                        <input type="text" class="form-control bg-black border-secondary text-white formatted-num expense-update" 
-                               style="width: 100px; flex-grow: 1;" value="${item.curr.toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="curr">
-                        <select class="form-select bg-black border-secondary text-white expense-update" style="width: auto; flex-grow: 0; min-width: 85px;"
+                </td>`;
+                
+             if(this.state.expenseMode === 'Simple') {
+                 // Simple Mode: Current + Retirement + Frequency
+                 html += `
+                 <td class="align-middle border-bottom border-secondary">
+                    <div class="d-flex gap-1">
+                        ${renderInput(item, 'curr', index, category)}
+                        <select class="form-select form-select-sm bg-black border-secondary text-muted expense-update" style="width:auto;"
                                 data-cat="${category}" data-idx="${index}" data-field="freq">
-                            <option value="12" ${item.freq===12?'selected':''}>/month</option>
-                            <option value="1" ${item.freq===1?'selected':''}>/year</option>
+                            <option value="12" ${item.freq===12?'selected':''}>/mo</option>
+                            <option value="1" ${item.freq===1?'selected':''}>/yr</option>
                         </select>
                     </div>
-                </td>
-                <td class="align-middle border-bottom border-secondary">
-                    <div class="d-flex align-items-center">
-                        <div class="input-group input-group-sm flex-grow-1">
-                            <span class="input-group-text bg-black border-secondary text-muted">$</span>
-                            <input type="text" class="form-control bg-black border-secondary text-white formatted-num expense-update" 
-                                   style="width: 100px; flex-grow: 1;" value="${item.ret.toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="ret">
-                            <select class="form-select bg-black border-secondary text-white expense-update" style="width: auto; flex-grow: 0; min-width: 85px;"
-                                    data-cat="${category}" data-idx="${index}" data-field="freq"> 
-                                <option value="12" ${item.freq===12?'selected':''}>/month</option>
-                                <option value="1" ${item.freq===1?'selected':''}>/year</option>
-                            </select>
+                 </td>
+                 <td class="align-middle border-bottom border-secondary">
+                     <div class="d-flex align-items-center justify-content-between">
+                        <div class="d-flex gap-1 flex-grow-1">
+                            ${renderInput(item, 'ret', index, category)}
                         </div>
-                        <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-3 me-2" title="Delete Line" onclick="app.removeExpense('${category}', ${index})">
+                        <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2" onclick="app.removeExpense('${category}', ${index})">
                             <i class="bi bi-trash"></i>
                         </button>
+                     </div>
+                 </td>`;
+             } else {
+                 // Advanced Mode: 5 Columns. Freq is handled implicitly or via first col? Let's keep freq on first col
+                 html += `
+                 <td class="align-middle border-bottom border-secondary">
+                    <div class="d-flex gap-1">
+                        ${renderInput(item, 'curr', index, category)}
+                        <select class="form-select form-select-sm bg-black border-secondary text-muted expense-update" style="width:auto;"
+                                data-cat="${category}" data-idx="${index}" data-field="freq">
+                            <option value="12" ${item.freq===12?'selected':''}>/mo</option>
+                            <option value="1" ${item.freq===1?'selected':''}>/yr</option>
+                        </select>
                     </div>
-                </td>
-             </tr>`;
+                 </td>
+                 <td class="align-middle border-bottom border-secondary">${renderInput(item, 'trans', index, category)}</td>
+                 <td class="align-middle border-bottom border-secondary">${renderInput(item, 'gogo', index, category)}</td>
+                 <td class="align-middle border-bottom border-secondary">${renderInput(item, 'slow', index, category)}</td>
+                 <td class="align-middle border-bottom border-secondary">
+                     <div class="d-flex align-items-center justify-content-between">
+                        ${renderInput(item, 'nogo', index, category)}
+                        <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2" onclick="app.removeExpense('${category}', ${index})">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                     </div>
+                 </td>`;
+             }
+             html += `</tr>`;
            });
         }
         tbody.innerHTML = html;
@@ -1555,8 +1651,10 @@ class RetirementPlanner {
     }
 
     addExpense(category) {
-        this.expensesByCategory[category].items.push({ name: "New Expense", curr: 0, ret: 0, freq: 12 });
+        // Init all phases with 0
+        this.expensesByCategory[category].items.push({ name: "New Expense", curr: 0, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 });
         this.renderExpenseRows();
+        this.calcExpenses();
         this.run();
     }
 
@@ -1564,6 +1662,7 @@ class RetirementPlanner {
         this.showConfirm('Delete this expense line?', () => {
             this.expensesByCategory[category].items.splice(index, 1);
             this.renderExpenseRows();
+            this.calcExpenses();
             this.run();
         });
     }
@@ -1886,12 +1985,42 @@ class RetirementPlanner {
     }
 
     calcExpenses() {
-        const { current, retirement } = this.getRawExpenseTotals();
-        const curEl = document.getElementById('total_annual_current');
-        const retEl = document.getElementById('total_annual_retirement');
+        const footer = document.getElementById('expenseFooter');
         
-        if (curEl) curEl.innerHTML = '$' + current.toLocaleString() + ` <span class="monthly-sub">($${Math.round(current/12).toLocaleString()}/mo)</span>`;
-        if (retEl) retEl.innerHTML = '$' + retirement.toLocaleString() + ` <span class="monthly-sub">($${Math.round(retirement/12).toLocaleString()}/mo)</span>`;
+        let totals = { curr: 0, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0 };
+        for (const cat in this.expensesByCategory) {
+            this.expensesByCategory[cat].items.forEach(item => {
+                const f = item.freq;
+                totals.curr += (item.curr||0) * f;
+                totals.ret += (item.ret||0) * f;
+                totals.trans += (item.trans||0) * f;
+                totals.gogo += (item.gogo||0) * f;
+                totals.slow += (item.slow||0) * f;
+                totals.nogo += (item.nogo||0) * f;
+            });
+        }
+
+        const fmt = (n) => '$' + Math.round(n).toLocaleString();
+        
+        if (this.state.expenseMode === 'Simple') {
+            footer.innerHTML = `
+                <div class="row">
+                    <div class="col-md-6 border-end border-secondary"><span class="household-total-label me-2">Annual (Now):</span><span class="expense-total-val text-danger">${fmt(totals.curr)}</span></div>
+                    <div class="col-md-6"><span class="household-total-label me-2">Annual (Retirement):</span><span class="expense-total-val text-warning">${fmt(totals.ret)}</span></div>
+                </div>
+            `;
+        } else {
+            // Advanced Footer Layout
+            footer.innerHTML = `
+                <div class="d-flex justify-content-between text-start small overflow-auto">
+                    <div class="px-2 border-end border-secondary"><div class="text-muted">Now</div><div class="fw-bold text-danger">${fmt(totals.curr)}</div></div>
+                    <div class="px-2 border-end border-secondary"><div class="text-muted">Trans</div><div class="fw-bold text-warning">${fmt(totals.trans)}</div></div>
+                    <div class="px-2 border-end border-secondary"><div class="text-muted">Go-Go</div><div class="fw-bold text-info">${fmt(totals.gogo)}</div></div>
+                    <div class="px-2 border-end border-secondary"><div class="text-muted">Slow</div><div class="fw-bold text-primary">${fmt(totals.slow)}</div></div>
+                    <div class="px-2"><div class="text-muted">No-Go</div><div class="fw-bold text-secondary">${fmt(totals.nogo)}</div></div>
+                </div>
+            `;
+        }
     }
 
     // --- Sidebars & Extras ---
