@@ -37,6 +37,7 @@ class RetirementPlanner {
         };
 
         this.charts = { nw: null, sankey: null }; 
+        this.confirmModal = null; // Store Bootstrap modal instance
 
         // --- DEFAULT EXPENSE DATA ---
         this.expensesByCategory = {
@@ -113,6 +114,7 @@ class RetirementPlanner {
     init() {
         // --- 2. SETUP FUNCTION ---
         const setup = () => {
+            this.confirmModal = new bootstrap.Modal(document.getElementById('confirmationModal'));
             this.setupGridContainer(); // Ensure Grid Exists
             this.populateAgeSelects();
             this.renderExpenseRows(); 
@@ -146,6 +148,26 @@ class RetirementPlanner {
         } else {
             setup(); // Run immediately if already loaded
         }
+    }
+
+    // --- CUSTOM CONFIRMATION HELPER ---
+    showConfirm(message, onConfirm) {
+        const modalEl = document.getElementById('confirmationModal');
+        const body = modalEl.querySelector('.modal-body');
+        const btn = document.getElementById('btnConfirmAction');
+        
+        body.textContent = message;
+        
+        // Remove existing listeners to prevent multiple firings
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+        
+        newBtn.addEventListener('click', () => {
+            onConfirm();
+            this.confirmModal.hide();
+        });
+        
+        this.confirmModal.show();
     }
 
     setupGridContainer() {
@@ -244,9 +266,9 @@ class RetirementPlanner {
         if(toggle) toggle.addEventListener('change', () => { this.run(); });
 
         document.getElementById('btnClearAll').addEventListener('click', () => {
-             if(confirm("Are you sure you want to clear all data? This cannot be undone.")) {
+             this.showConfirm("Are you sure you want to clear all data? This cannot be undone.", () => {
                  this.resetAllData();
-             }
+             });
         });
 
         document.getElementById('btnAddProperty').addEventListener('click', () => this.addProperty());
@@ -505,11 +527,11 @@ class RetirementPlanner {
     }
 
     removeProperty(index) {
-        if(confirm("Remove this property?")) {
+        this.showConfirm("Remove this property?", () => {
             this.state.properties.splice(index, 1);
             this.renderProperties();
             this.run();
-        }
+        });
     }
 
     updateAllMortgages() {
@@ -1495,8 +1517,8 @@ class RetirementPlanner {
                     <div class="input-group input-group-sm">
                         <span class="input-group-text bg-black border-secondary text-muted">$</span>
                         <input type="text" class="form-control bg-black border-secondary text-white formatted-num expense-update" 
-                               style="max-width: 100px;" value="${item.curr.toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="curr">
-                        <select class="form-select bg-black border-secondary text-white expense-update" style="width: auto; min-width: 85px;"
+                               style="width: 100px; flex-grow: 0;" value="${item.curr.toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="curr">
+                        <select class="form-select bg-black border-secondary text-white expense-update" style="width: auto; flex-grow: 0; padding-right: 0;"
                                 data-cat="${category}" data-idx="${index}" data-field="freq">
                             <option value="12" ${item.freq===12?'selected':''}>/month</option>
                             <option value="1" ${item.freq===1?'selected':''}>/year</option>
@@ -1504,18 +1526,18 @@ class RetirementPlanner {
                     </div>
                 </td>
                 <td class="align-middle border-bottom border-secondary">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div class="input-group input-group-sm">
+                    <div class="d-flex align-items-center">
+                        <div class="input-group input-group-sm flex-grow-1">
                             <span class="input-group-text bg-black border-secondary text-muted">$</span>
                             <input type="text" class="form-control bg-black border-secondary text-white formatted-num expense-update" 
-                                   style="max-width: 100px;" value="${item.ret.toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="ret">
-                            <select class="form-select bg-black border-secondary text-white expense-update" style="width: auto; min-width: 85px;"
+                                   style="width: 100px; flex-grow: 0;" value="${item.ret.toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="ret">
+                            <select class="form-select bg-black border-secondary text-white expense-update" style="width: auto; flex-grow: 0; padding-right: 0;"
                                     data-cat="${category}" data-idx="${index}" data-field="freq"> 
                                 <option value="12" ${item.freq===12?'selected':''}>/month</option>
                                 <option value="1" ${item.freq===1?'selected':''}>/year</option>
                             </select>
                         </div>
-                        <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2" title="Delete Line" onclick="app.removeExpense('${category}', ${index})">
+                        <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-3 me-2" title="Delete Line" onclick="app.removeExpense('${category}', ${index})">
                             <i class="bi bi-trash"></i>
                         </button>
                     </div>
@@ -1538,11 +1560,11 @@ class RetirementPlanner {
     }
 
     removeExpense(category, index) {
-        if(confirm('Delete this expense?')) {
+        this.showConfirm('Delete this expense line?', () => {
             this.expensesByCategory[category].items.splice(index, 1);
             this.renderExpenseRows();
             this.run();
-        }
+        });
     }
 
     addDebtRow() {
@@ -1981,6 +2003,11 @@ class RetirementPlanner {
         } 
         this.renderExpenseRows();
 
+        if (data.properties) {
+            this.state.properties = data.properties;
+            this.renderProperties();
+        }
+
         const debtContainer = document.getElementById('debt-container');
         debtContainer.innerHTML = '';
         if (data.debt) {
@@ -1995,10 +2022,12 @@ class RetirementPlanner {
     }
 
     deleteScenario(idx) {
-        let scenarios = JSON.parse(localStorage.getItem('rp_scenarios') || '[]');
-        scenarios.splice(idx, 1);
-        localStorage.setItem('rp_scenarios', JSON.stringify(scenarios));
-        this.loadScenariosList();
+        this.showConfirm("Are you sure you want to delete this scenario?", () => {
+            let scenarios = JSON.parse(localStorage.getItem('rp_scenarios') || '[]');
+            scenarios.splice(idx, 1);
+            localStorage.setItem('rp_scenarios', JSON.stringify(scenarios));
+            this.loadScenariosList();
+        });
     }
     
     saveScenario() {
