@@ -1,3 +1,4 @@
+// Total Lines: 1222
 /**
  * Retirement Planner Pro - Logic v8.0 (Robust Rendering & Fixes)
  * * CHANGE LOG:
@@ -1517,8 +1518,8 @@ class RetirementPlanner {
                     <div class="input-group input-group-sm">
                         <span class="input-group-text bg-black border-secondary text-muted">$</span>
                         <input type="text" class="form-control bg-black border-secondary text-white formatted-num expense-update" 
-                               style="width: 100px; flex-grow: 0;" value="${item.curr.toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="curr">
-                        <select class="form-select bg-black border-secondary text-white expense-update" style="width: auto; flex-grow: 0; padding-right: 0;"
+                               style="width: 100px; flex-grow: 1;" value="${item.curr.toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="curr">
+                        <select class="form-select bg-black border-secondary text-white expense-update" style="width: auto; flex-grow: 0; min-width: 85px;"
                                 data-cat="${category}" data-idx="${index}" data-field="freq">
                             <option value="12" ${item.freq===12?'selected':''}>/month</option>
                             <option value="1" ${item.freq===1?'selected':''}>/year</option>
@@ -1530,8 +1531,8 @@ class RetirementPlanner {
                         <div class="input-group input-group-sm flex-grow-1">
                             <span class="input-group-text bg-black border-secondary text-muted">$</span>
                             <input type="text" class="form-control bg-black border-secondary text-white formatted-num expense-update" 
-                                   style="width: 100px; flex-grow: 0;" value="${item.ret.toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="ret">
-                            <select class="form-select bg-black border-secondary text-white expense-update" style="width: auto; flex-grow: 0; padding-right: 0;"
+                                   style="width: 100px; flex-grow: 1;" value="${item.ret.toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="ret">
+                            <select class="form-select bg-black border-secondary text-white expense-update" style="width: auto; flex-grow: 0; min-width: 85px;"
                                     data-cat="${category}" data-idx="${index}" data-field="freq"> 
                                 <option value="12" ${item.freq===12?'selected':''}>/month</option>
                                 <option value="1" ${item.freq===1?'selected':''}>/year</option>
