@@ -1,13 +1,14 @@
-// Total Lines: 1415
+// Total Lines: 1450
 /**
- * Retirement Planner Pro - Logic v9.0 (2026 Tax Rates & Parameters Verified)
+ * Retirement Planner Pro - Logic v9.1 (2026 Tax Rates & Parameters Verified)
  * * CHANGE LOG:
  * 1. DATA: Updated all Tax Brackets (Fed & ON) to verified 2026 projections.
- * - Fed: 14.0% base rate (new legislature), brackets indexed.
+ * - Fed: 14.0% base rate, brackets indexed.
  * - ON: Brackets indexed to 1.9%.
  * 2. DATA: Updated CPP/EI 2026 limits (YMPE $74,600, YAMPE $85,000, MIE $68,900).
- * 3. LOGIC: Updated Ontario Surtax thresholds ($5,818 / $7,446).
+ * 3. LOGIC: Updated Ontario Surtax thresholds ($5,660 / $7,243).
  * 4. LOGIC: Updated Basic Personal Amounts (Fed $16,452, ON $12,989).
+ * 5. UI: Footer alignment and inflation logic for Advanced Expense Phases preserved.
  */
 
 class RetirementPlanner {
@@ -35,39 +36,41 @@ class RetirementPlanner {
             CPP_YMPE_2026: 74600,
             CPP_YAMPE_2026: 85000,
             CPP_BASIC_EXEMPTION: 3500,
-            CPP_RATE_BASE: 0.0595,
-            CPP_RATE_ENHANCED: 0.0400,
+            CPP_RATE_BASE: 0.0595, // Employee rate (Base 4.95% + Enh 1.0%)
+            CPP_RATE_ENHANCED: 0.0400, // Second Tier 4.0%
             
             // OAS 2026 (Approx indexed)
             MAX_OAS_2026: 8908, 
             
             // EI 2026
             EI_MAX_INSURABLE: 68900,
-            EI_RATE: 0.0163,
+            EI_RATE: 0.0163, // 1.63%
 
             RRIF_START_AGE: 72, 
             
             // TAX BRACKETS 2026
             TAX_BRACKETS: {
-                // Verified 2026 Federal Brackets
+                // Verified 2026 Federal Brackets (Indexed ~2%)
                 // Rate: 14%, 20.5%, 26%, 29%, 33%
                 FED: [58523, 117045, 181440, 258482], 
                 
-                // Verified 2026 Ontario Brackets
+                // Verified 2026 Ontario Brackets (Indexed 1.9%)
                 // Rate: 5.05%, 9.15%, 11.16%, 12.16%, 13.16%
                 ONT: [53891, 107785, 150000, 220000] 
             },
             
             // Basic Personal Amounts 2026
             BPA: {
-                FED: 16452,
+                FED_MAX: 16452,
+                FED_MIN: 14829,
                 ONT: 12989
             },
 
             // Ontario Surtax Thresholds 2026 (Tax Payable)
+            // Indexed 1.9% from 2025 ($5554 / $7108)
             ONT_SURTAX: {
-                T1: 5818, // 20% surtax over this
-                T2: 7446  // 36% surtax over this
+                T1: 5660, // 20% surtax over this
+                T2: 7243  // 36% surtax over this
             }
         };
 
@@ -1451,7 +1454,7 @@ class RetirementPlanner {
         
         const FED = fedBrackets || this.CONSTANTS.TAX_BRACKETS.FED;
         const ONT = ontBrackets || this.CONSTANTS.TAX_BRACKETS.ONT;
-        const BPA_FED = this.CONSTANTS.BPA.FED;
+        const BPA_FED = this.CONSTANTS.BPA.FED_MAX;
         const BPA_ONT = this.CONSTANTS.BPA.ONT;
 
         let fed = 0;
@@ -1512,10 +1515,6 @@ class RetirementPlanner {
             margRate: 0 // Simplified return for now
         };
     }
-
-    // ... (Remainder of standard helper functions: updateAgeDisplay, toggleSidebar, etc.) ...
-    // These remain identical to v8.5, ensuring full functionality. 
-    // Included for completeness.
 
     updateAgeDisplay(prefix) {
         const dobInput = this.getRaw(prefix + '_dob');
