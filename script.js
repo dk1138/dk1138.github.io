@@ -1,1738 +1,1738 @@
-script.js
 // Total Lines: 1700+
 /**
- * Retirement Planner Pro - Logic v9.6 (UI Fix: Summary Row Withdrawals)
- * * CHANGE LOG:
- * 1. UI: Adjusted Advanced Expense headers (Go-Go, Slow-Go, No-Go) to display age ranges on the same line.
- * 2. UI: Updated Summary Row (Collapsed View) to include Withdrawals in "Net Income" and recalculate displayed Surplus.
- */
+ * Retirement Planner Pro - Logic v9.6
+ * * CHANGE LOG:
+ * 1. FIX: Recalculated Net Income (householdNet) after decumulation strategies run.
+ * RRSP/TFSA withdrawals now appear in the "Net Income" column in the collapsed view.
+ */
 
 class RetirementPlanner {
-    constructor() {
-        // --- CENTRAL STATE ---
-        this.state = {
-            inputs: {}, 
-            debt: [],
-            // Default Property:
-            properties: [
-                { name: "Primary Home", value: 1000000, mortgage: 430000, growth: 3.0, rate: 3.29, payment: 0, manual: false }
-            ],
-            // New Windfalls State
-            windfalls: [
-                // Example: { name: "Inheritance", amount: 50000, freq: 'one', owner: 'p1', taxable: false, start: '2030-01', end: '' }
-            ],
-            strategies: {
-                accum: ['tfsa', 'rrsp', 'nreg', 'cash', 'crypto'],
-                decum: ['rrsp', 'crypto', 'nreg', 'tfsa', 'cash']
-            },
-            mode: 'Couple',
-            projectionData: [],
-            expenseMode: 'Simple' // 'Simple' or 'Advanced'
-        };
-
-        // --- CONFIGURATION CONSTANTS ---
-        this.CONSTANTS = {
-            MAX_CPP_2026: 18092,
-            MAX_OAS_2026: 8908,
-            RRIF_START_AGE: 72, 
-            // 2025/2026 Estimated Tax Brackets & Rates
-            TAX_DATA: {
-                FED: {
-                    brackets: [55867, 111733, 173205, 246752],
-                    rates: [0.15, 0.205, 0.26, 0.29, 0.33]
-                },
-                BC: {
-                    brackets: [47937, 95875, 110076, 133664, 181232, 252752],
-                    rates: [0.0506, 0.077, 0.105, 0.1229, 0.147, 0.168, 0.205]
-                },
-                AB: {
-                    brackets: [148269, 177922, 237230, 355845],
-                    rates: [0.10, 0.12, 0.13, 0.14, 0.15]
-                },
-                SK: {
-                    brackets: [52057, 148734],
-                    rates: [0.105, 0.125, 0.145]
-                },
-                MB: {
-                    brackets: [47000, 100000],
-                    rates: [0.108, 0.1275, 0.174]
-                },
-                ON: {
-                    brackets: [51446, 102894, 150000, 220000],
-                    rates: [0.0505, 0.0915, 0.1116, 0.1216, 0.1316],
-                    surtax: { t1: 5315, r1: 0.20, t2: 6802, r2: 0.36 }
-                },
-                QC: {
-                    brackets: [51780, 103545, 126000],
-                    rates: [0.14, 0.19, 0.24, 0.2575],
-                    abatement: 0.165 // Reduces Federal Tax
-                },
-                NB: {
-                    brackets: [49958, 99916, 185000],
-                    rates: [0.094, 0.14, 0.16, 0.195]
-                },
-                NS: {
-                    brackets: [29590, 59180, 93000, 150000],
-                    rates: [0.0879, 0.1495, 0.1667, 0.175, 0.21]
-                },
-                PE: {
-                    brackets: [32656, 64313, 105000],
-                    rates: [0.0965, 0.1363, 0.1667, 0.1875],
-                    surtax: { t1: 12500, r1: 0.10 } // Approx high income surtax
-                },
-                NL: {
-                    brackets: [43198, 86395, 154244, 215943],
-                    rates: [0.087, 0.145, 0.158, 0.178, 0.198]
-                },
-                YT: {
-                    brackets: [55867, 111733, 173205, 500000],
-                    rates: [0.064, 0.09, 0.109, 0.128, 0.15]
-                },
-                NT: {
-                    brackets: [50597, 101198, 164525],
-                    rates: [0.059, 0.086, 0.122, 0.1405]
-                },
-                NU: {
-                    brackets: [50877, 101754, 165429],
-                    rates: [0.04, 0.07, 0.09, 0.115]
-                }
-            }
-        };
-
-        this.charts = { nw: null, sankey: null }; 
-        this.confirmModal = null; // Store Bootstrap modal instance
-
-        // --- DEFAULT EXPENSE DATA ---
-        this.expensesByCategory = {
-            "Housing": { 
-                items: [ 
-                    { name: "Property Tax", curr: 6000, ret: 6000, trans: 6000, gogo: 6000, slow: 6000, nogo: 6000, freq: 1 }, 
-                    { name: "Enbridge (Gas)", curr: 120, ret: 120, trans: 120, gogo: 120, slow: 120, nogo: 120, freq: 12 }, 
-                    { name: "Enercare (HWT)", curr: 45, ret: 45, trans: 45, gogo: 45, slow: 45, nogo: 45, freq: 12 }, 
-                    { name: "Alectra (Hydro)", curr: 150, ret: 150, trans: 150, gogo: 150, slow: 150, nogo: 150, freq: 12 }, 
-                    { name: "RH Water", curr: 80, ret: 80, trans: 80, gogo: 80, slow: 80, nogo: 80, freq: 12 } 
-                ], 
-                colorClass: 'cat-header-housing' 
-            },
-            "Living": { 
-                items: [ 
-                    { name: "Grocery", curr: 800, ret: 800, trans: 800, gogo: 800, slow: 700, nogo: 600, freq: 12 }, 
-                    { name: "Costco", curr: 400, ret: 400, trans: 400, gogo: 400, slow: 350, nogo: 300, freq: 12 }, 
-                    { name: "Restaurants", curr: 400, ret: 300, trans: 350, gogo: 350, slow: 200, nogo: 100, freq: 12 }, 
-                    { name: "Cellphone", curr: 120, ret: 120, trans: 120, gogo: 120, slow: 120, nogo: 120, freq: 12 }, 
-                    { name: "Internet", curr: 90, ret: 90, trans: 90, gogo: 90, slow: 90, nogo: 90, freq: 12 } 
-                ], 
-                colorClass: 'cat-header-living' 
-            },
-            "Kids": { 
-                items: [ 
-                    { name: "Daycare", curr: 1200, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 }, 
-                    { name: "Activities", curr: 200, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 }, 
-                    { name: "RESP Contribution", curr: 208, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 }, 
-                    { name: "Clothing/Toys", curr: 100, ret: 50, trans: 50, gogo: 50, slow: 0, nogo: 0, freq: 12 } 
-                ], 
-                colorClass: 'cat-header-kids' 
-            },
-            "Lifestyle": { 
-                items: [ 
-                    { name: "Travel", curr: 5000, ret: 15000, trans: 10000, gogo: 15000, slow: 5000, nogo: 0, freq: 1 }, 
-                    { name: "Electronic", curr: 500, ret: 500, trans: 500, gogo: 500, slow: 500, nogo: 200, freq: 1 }, 
-                    { name: "Health Insurance", curr: 50, ret: 300, trans: 150, gogo: 300, slow: 500, nogo: 1000, freq: 12 }, 
-                    { name: "Other", curr: 300, ret: 300, trans: 300, gogo: 300, slow: 200, nogo: 100, freq: 12 } 
-                ], 
-                colorClass: 'cat-header-lifestyle' 
-            }
-        };
-
-        this.optimalAges = { p1_cpp: 65, p1_oas: 65, p2_cpp: 65, p2_oas: 65 };
-        this.strategyLabels = { 'tfsa': 'TFSA', 'rrsp': 'RRSP', 'nreg': 'Non-Reg', 'cash': 'Cash', 'crypto': 'Crypto' };
-
-        this.eventIcons = {
-            "P1 Retires": '<i class="bi bi-cup-hot-fill text-warning" title="P1 Retires"></i>',
-            "P2 Retires": '<i class="bi bi-cup-hot text-purple" title="P2 Retires"></i>',
-            "Mortgage Paid": '<i class="bi bi-house-check-fill text-success" title="Mortgage Paid"></i>',
-            "P1 CPP": '<i class="bi bi-file-earmark-text-fill text-info" title="P1 Starts CPP"></i>',
-            "P1 OAS": '<i class="bi bi-cash-stack text-info" title="P1 Starts OAS"></i>',
-            "P2 CPP": '<i class="bi bi-file-earmark-text text-purple" title="P2 Starts CPP"></i>',
-            "P2 OAS": '<i class="bi bi-cash text-purple" title="P2 Starts OAS"></i>',
-            "Crash": '<i class="bi bi-graph-down-arrow text-danger" title="Stress Test: Market Crash (-15%)"></i>',
-            "P1 Dies": '<i class="bi bi-heartbreak-fill text-white" title="P1 Deceased"></i>',
-            "P2 Dies": '<i class="bi bi-heartbreak text-white" title="P2 Deceased"></i>',
-            "Windfall": '<i class="bi bi-gift-fill text-success" title="Inheritance/Bonus Received"></i>'
-        };
-
-        if(typeof google !== 'undefined' && google.charts) google.charts.load('current', {'packages':['sankey']});
-        this.debouncedRun = this.debounce(() => this.run(), 300);
-        this.init();
-    }
-
-    debounce(func, wait) {
-        let timeout;
-        return function(...args) {
-            const context = this;
-            clearTimeout(timeout);
-            timeout = setTimeout(() => func.apply(context, args), wait);
-        };
-    }
-
-    init() {
-        // --- 2. SETUP FUNCTION ---
-        const setup = () => {
-            this.confirmModal = new bootstrap.Modal(document.getElementById('confirmationModal'));
-            this.setupGridContainer(); 
-            this.populateAgeSelects();
-            this.renderExpenseRows(); 
-            this.renderProperties();
-            this.addDebtRow(); 
-            this.renderWindfalls();
-            this.renderStrategy();
-            this.loadScenariosList();
-              
-            this.syncStateFromDOM();
-            this.toggleModeDisplay(); 
-            this.updatePostRetIncomeVisibility();
-
-            this.updateAgeDisplay('p1'); 
-            this.updateAgeDisplay('p2');
-            this.updateAllMortgages(); 
-            this.findOptimal(); 
-              
-            this.bindEvents();
-            this.initSidebar();
-              
-            // Initial Run
-            setTimeout(() => { 
-                this.syncStateFromDOM(); 
-                this.run(); 
-            }, 500); 
-        };
-
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', setup);
-        } else {
-            setup(); 
-        }
-    }
-
-    // --- CUSTOM CONFIRMATION HELPER ---
-    showConfirm(message, onConfirm) {
-        const modalEl = document.getElementById('confirmationModal');
-        const body = modalEl.querySelector('.modal-body');
-        const btn = document.getElementById('btnConfirmAction');
-        
-        body.textContent = message;
-        
-        const newBtn = btn.cloneNode(true);
-        btn.parentNode.replaceChild(newBtn, btn);
-        
-        newBtn.addEventListener('click', () => {
-            onConfirm();
-            this.confirmModal.hide();
-        });
-        
-        this.confirmModal.show();
-    }
-
-    setupGridContainer() {
-        const gridId = 'projectionGrid';
-        if (document.getElementById(gridId)) return; 
-
-        const oldTableBody = document.getElementById('projectionTableBody');
-        let inserted = false;
-
-        if (oldTableBody) {
-            const table = oldTableBody.closest('table');
-            if (table && table.parentNode) {
-                const gridContainer = document.createElement('div');
-                gridContainer.id = gridId;
-                gridContainer.className = 'modern-grid';
-                table.parentNode.insertBefore(gridContainer, table);
-                table.style.display = 'none'; 
-                inserted = true;
-            }
-        }
-        
-        if (!inserted) {
-            const container = document.querySelector('.card-body') || document.body;
-            const gridContainer = document.createElement('div');
-            gridContainer.id = gridId;
-            gridContainer.className = 'modern-grid';
-            container.appendChild(gridContainer);
-        }
-    }
-
-    // --- DOM / STATE SYNC ---
-    syncStateFromDOM() {
-        document.querySelectorAll('input, select').forEach(el => {
-            // Skip property/windfall inputs as they are handled by array state
-            if (el.id && !el.id.startsWith('comp_') && !el.classList.contains('property-update') && !el.classList.contains('windfall-update')) {
-                if (el.type === 'checkbox' || el.type === 'radio') {
-                    this.state.inputs[el.id] = el.checked;
-                } else {
-                    this.state.inputs[el.id] = el.value;
-                }
-            }
-        });
-        const coupleEl = document.getElementById('modeCouple');
-        if(coupleEl) this.state.mode = coupleEl.checked ? 'Couple' : 'Single';
-    }
-
-    getVal(id) {
-        let raw = this.state.inputs[id];
-        if (raw === undefined) {
-            const el = document.getElementById(id);
-            if (el) raw = el.value; else return 0;
-        }
-        const val = String(raw).replace(/,/g, '');
-        return Number(val) || 0;
-    }
-
-    getRaw(id) {
-        if (this.state.inputs[id] === undefined) {
-            const el = document.getElementById(id);
-            if (el) return el.value;
-        }
-        return this.state.inputs[id];
-    }
-
-    updateSidebarSync(id, val) {
-        if (id === 'p1_retireAge') {
-            const slider = document.getElementById('qa_p1_retireAge_range');
-            const label = document.getElementById('qa_p1_retireAge_val');
-            if(slider) slider.value = val;
-            if(label) label.innerText = val;
-        }
-        if (id === 'p2_retireAge') {
-            const slider = document.getElementById('qa_p2_retireAge_range');
-            const label = document.getElementById('qa_p2_retireAge_val');
-            if(slider) slider.value = val;
-            if(label) label.innerText = val;
-        }
-        if (id === 'inflation_rate') {
-            const slider = document.getElementById('qa_inflation_range');
-            const label = document.getElementById('qa_inflation_val');
-            if(slider) slider.value = val;
-            if(label) label.innerText = val + '%';
-        }
-        if (id === 'p1_tfsa_ret') {
-            const slider = document.getElementById('qa_return_range');
-            const label = document.getElementById('qa_return_val');
-            if(slider) slider.value = val;
-            if(label) label.innerText = val + '%';
-        }
-    }
-
-    bindEvents() {
-        const toggle = document.getElementById('useRealDollars');
-        if(toggle) toggle.addEventListener('change', () => { 
-            this.calcExpenses(); 
-            this.run(); 
-        });
-
-        document.body.addEventListener('change', (e) => {
-            if (e.target.id === 'expense_mode_advanced') {
-                this.state.expenseMode = e.target.checked ? 'Advanced' : 'Simple';
-                const sliderDiv = document.getElementById('expense-phase-controls');
-                if(sliderDiv) sliderDiv.style.display = e.target.checked ? 'flex' : 'none';
-                this.renderExpenseRows();
-                this.calcExpenses();
-                this.run();
-            }
-            if (e.target.id === 'enable_post_ret_income_p1' || e.target.id === 'enable_post_ret_income_p2') {
-                this.updatePostRetIncomeVisibility();
-            }
-        });
-
-        const bindPhaseSlider = (id, labelId) => {
-            const el = document.getElementById(id);
-            if(el) {
-                el.addEventListener('input', (e) => {
-                    document.getElementById(labelId).innerText = e.target.value;
-                    this.state.inputs[id] = e.target.value;
-                    this.renderExpenseRows(); 
-                    this.calcExpenses(); 
-                    this.debouncedRun();
-                });
-            }
-        };
-        bindPhaseSlider('exp_gogo_age', 'exp_gogo_val');
-        bindPhaseSlider('exp_slow_age', 'exp_slow_val');
-
-        document.getElementById('btnClearAll').addEventListener('click', () => {
-             this.showConfirm("Are you sure you want to clear all data? This cannot be undone.", () => {
-                 this.resetAllData();
-             });
-        });
-
-        document.getElementById('btnAddProperty').addEventListener('click', () => this.addProperty());
-        document.getElementById('btnAddWindfall').addEventListener('click', () => this.addWindfall());
-        document.getElementById('btnExportCSV').addEventListener('click', () => this.exportToCSV());
-
-        document.body.addEventListener('input', (e) => {
-            if (e.target.classList.contains('live-calc')) {
-                if (e.target.classList.contains('formatted-num')) this.formatInput(e.target);
-                
-                if (e.target.id && !e.target.id.startsWith('comp_') && !e.target.classList.contains('property-update') && !e.target.classList.contains('windfall-update')) {
-                    this.state.inputs[e.target.id] = (e.target.type === 'checkbox' ? e.target.checked : e.target.value);
-                    this.updateSidebarSync(e.target.id, e.target.value);
-                }
-                this.debouncedRun();
-            }
-            if (e.target.classList.contains('expense-update')) {
-                const cat = e.target.dataset.cat;
-                const idx = parseInt(e.target.dataset.idx);
-                const field = e.target.dataset.field;
-                let val = e.target.value;
-                 
-                if (['curr', 'ret', 'trans', 'gogo', 'slow', 'nogo'].includes(field)) val = Number(val.replace(/,/g, '')) || 0;
-                else if (field === 'freq') val = parseInt(val);
-                 
-                if (this.expensesByCategory[cat] && this.expensesByCategory[cat].items[idx]) {
-                    this.expensesByCategory[cat].items[idx][field] = val;
-                }
-                if (e.target.classList.contains('formatted-num')) this.formatInput(e.target);
-                this.debouncedRun();
-                this.calcExpenses(); 
-            }
-            if (e.target.classList.contains('property-update')) {
-                const idx = parseInt(e.target.dataset.idx);
-                const field = e.target.dataset.field;
-                let val = e.target.value;
-
-                if (field === 'value' || field === 'mortgage' || field === 'payment') {
-                    val = Number(val.replace(/,/g, '')) || 0;
-                } else if (field === 'growth' || field === 'rate') {
-                    val = parseFloat(val) || 0;
-                }
-
-                if (this.state.properties[idx]) {
-                    this.state.properties[idx][field] = val;
-                    if(field === 'payment') this.state.properties[idx].manual = true;
-                    if(field !== 'payment' && field !== 'name') {
-                        this.state.properties[idx].manual = false;
-                        this.calculateSingleMortgage(idx);
-                    }
-                }
-                
-                if (e.target.classList.contains('formatted-num')) this.formatInput(e.target);
-                this.debouncedRun();
-            }
-            // Windfall Update
-            if (e.target.classList.contains('windfall-update')) {
-                const idx = parseInt(e.target.dataset.idx);
-                const field = e.target.dataset.field;
-                let val = (e.target.type === 'checkbox') ? e.target.checked : e.target.value;
-
-                if (field === 'amount') val = Number(val.replace(/,/g, '')) || 0;
-                
-                if (this.state.windfalls[idx]) {
-                    this.state.windfalls[idx][field] = val;
-                    if (field === 'freq') this.renderWindfalls(); // Re-render to toggle end date visibility
-                }
-                if (e.target.classList.contains('formatted-num')) this.formatInput(e.target);
-                this.debouncedRun();
-            }
-        });
-
-        document.body.addEventListener('change', (e) => {
-            if (e.target.classList.contains('live-calc') && (e.target.tagName === 'SELECT' || e.target.type === 'checkbox' || e.target.type === 'radio')) {
-                if(e.target.id && !e.target.id.startsWith('comp_')) {
-                    this.state.inputs[e.target.id] = (e.target.type === 'checkbox' ? e.target.checked : e.target.value);
-                }
-                this.findOptimal();
-                this.run();
-                this.calcExpenses(); 
-            }
-        });
-
-        document.getElementById('p1_dob').addEventListener('change', () => this.updateAgeDisplay('p1'));
-        document.getElementById('p2_dob').addEventListener('change', () => this.updateAgeDisplay('p2'));
-        
-        const modeRadios = document.getElementsByName('planMode');
-        modeRadios.forEach(r => r.addEventListener('change', () => { 
-            const coupleEl = document.getElementById('modeCouple');
-            if(coupleEl) this.state.mode = coupleEl.checked ? 'Couple' : 'Single';
-            this.toggleModeDisplay(); 
-            this.run();
-            this.calcExpenses();
-        }));
-
-        document.getElementById('btnCollapseSidebar').addEventListener('click', () => this.toggleSidebar());
-        document.getElementById('btnExpandSidebar').addEventListener('click', () => this.toggleSidebar());
-
-        document.getElementById('yearSlider').addEventListener('input', (e) => {
-            const index = parseInt(e.target.value);
-            if (this.state.projectionData[index]) {
-                const d = this.state.projectionData[index];
-                document.getElementById('sliderYearDisplay').innerText = d.year;
-                
-                let ageText = (this.state.mode === 'Couple') ? `(P1: ${d.p1Age} / P2: ${d.p2Age})` : `(Age: ${d.p1Age})`;
-                document.getElementById('cfAgeDisplay').innerText = ageText;
-                
-                const rows = document.querySelectorAll('.grid-row-group');
-                rows.forEach(r => r.style.backgroundColor = ''); 
-                if(rows[index]) {
-                    rows[index].style.backgroundColor = 'rgba(255,193,7,0.1)';
-                    rows[index].scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-
-                clearTimeout(this.sliderTimeout);
-                this.sliderTimeout = setTimeout(() => this.drawSankey(index), 50);
-            }
-        });
-
-        const tabEl = document.querySelector('button[data-bs-target="#cashflow-pane"]');
-        if(tabEl) {
-            tabEl.addEventListener('shown.bs.tab', () => {
-                const slider = document.getElementById('yearSlider');
-                this.drawSankey(parseInt(slider.value));
-            });
-        }
-
-        document.getElementById('btnAddDebt').addEventListener('click', () => this.addDebtRow());
-        document.getElementById('btnSaveScenario').addEventListener('click', () => this.saveScenario());
-        
-        document.getElementById('compareSelectionArea').addEventListener('change', (e) => {
-            if(e.target.type === 'checkbox') { }
-        });
-        
-        document.body.addEventListener('click', (e) => {
-            if(e.target.classList.contains('toggle-btn')) {
-                this.toggleGroup(e.target.dataset.type);
-            }
-            if(e.target.classList.contains('opt-apply')) this.applyOpt(e.target.dataset.target);
-        });
-    }
-
-    updatePostRetIncomeVisibility() {
-        const enabledP1 = document.getElementById('enable_post_ret_income_p1') ? document.getElementById('enable_post_ret_income_p1').checked : false;
-        const enabledP2 = document.getElementById('enable_post_ret_income_p2') ? document.getElementById('enable_post_ret_income_p2').checked : false;
-        
-        const cardP1 = document.getElementById('p1-post-ret-card');
-        const cardP2 = document.getElementById('p2-post-ret-card');
-        
-        if (cardP1) cardP1.style.display = enabledP1 ? 'block' : 'none';
-        if (cardP2) cardP2.style.display = enabledP2 ? 'block' : 'none';
-    }
-
-    resetAllData() {
-        const defaults = {
-            p1_dob: '1990-01', p2_dob: '1990-01',
-            p1_retireAge: '65', p2_retireAge: '65',
-            p1_lifeExp: '90', p2_lifeExp: '90',
-            inflation_rate: '2.0',
-            tax_province: 'ON',
-            p1_cash_ret: '2.0', p2_cash_ret: '2.0',
-            p1_tfsa_ret: '6.0', p2_tfsa_ret: '6.0',
-            p1_rrsp_ret: '6.0', p2_rrsp_ret: '6.0',
-            p1_nonreg_ret: '5.0', p2_nonreg_ret: '5.0',
-            p1_crypto_ret: '8.0', p2_crypto_ret: '8.0',
-            p1_income_growth: '2.0', p2_income_growth: '2.0',
-            p1_db_pension: '0', p2_db_pension: '0',
-            p1_cpp_enabled: true, p1_oas_enabled: true,
-            p2_cpp_enabled: true, p2_oas_enabled: true,
-            exp_gogo_age: '75', exp_slow_age: '85',
-            enable_post_ret_income_p1: false, enable_post_ret_income_p2: false,
-            p1_post_inc: '0', p1_post_growth: '2.0',
-            p2_post_inc: '0', p2_post_growth: '2.0'
-        };
-
-        // Reset Inputs
-        document.querySelectorAll('input, select').forEach(el => {
-            if(el.id && !el.id.startsWith('comp_') && !el.classList.contains('property-update') && !el.classList.contains('windfall-update')) {
-                if(defaults[el.id] !== undefined) {
-                    if (el.type === 'checkbox') el.checked = defaults[el.id];
-                    else el.value = defaults[el.id];
-                } else if (el.type === 'checkbox' || el.type === 'radio') {
-                    if(el.name !== 'planMode') el.checked = false;
-                } else {
-                    el.value = '0';
-                }
-                 this.state.inputs[el.id] = (el.type === 'checkbox' ? el.checked : el.value);
-            }
-        });
-
-        this.state.properties = [{ name: "Primary Home", value: 0, mortgage: 0, growth: 3.0, rate: 3.5, payment: 0, manual: false }];
-        this.renderProperties();
-
-        this.state.windfalls = [];
-        this.renderWindfalls();
-
-        for (const cat in this.expensesByCategory) {
-            this.expensesByCategory[cat].items = [];
-        }
-        this.renderExpenseRows();
-        this.calcExpenses();
-
-        document.getElementById('debt-container').innerHTML = '';
-        this.state.debt = [];
-
-        this.updateSidebarSync('p1_retireAge', 65);
-        this.updateSidebarSync('p2_retireAge', 65);
-        this.updateSidebarSync('inflation_rate', 2.0);
-        this.updateSidebarSync('p1_tfsa_ret', 6.0);
-        document.getElementById('exp_gogo_val').innerText = '75';
-        document.getElementById('exp_slow_val').innerText = '85';
-        
-        this.updatePostRetIncomeVisibility();
-
-        this.updateAgeDisplay('p1'); 
-        this.updateAgeDisplay('p2');
-        this.run();
-    }
-
-    // --- EXPORT TO CSV ---
-    exportToCSV() {
-        if (!this.state.projectionData || this.state.projectionData.length === 0) {
-            alert("No data available to export.");
-            return;
-        }
-
-        const mode = this.state.mode;
-        const headers = [
-            "Year", "P1 Age", mode === "Couple" ? "P2 Age" : null,
-            "P1 Income", mode === "Couple" ? "P2 Income" : null,
-            "P1 Post-Ret Inc", mode === "Couple" ? "P2 Post-Ret Inc" : null,
-            "P1 Benefits", mode === "Couple" ? "P2 Benefits" : null,
-            "P1 DB Pension", mode === "Couple" ? "P2 DB Pension" : null,
-            "Windfall",
-            "P1 Taxes", mode === "Couple" ? "P2 Taxes" : null,
-            "Total Expenses", "Mortgage Payment", "Debt Payment",
-            "Surplus/Deficit",
-            "P1 TFSA", "P1 RRSP", "P1 Non-Reg", "P1 Cash", "P1 Crypto",
-            mode === "Couple" ? "P2 TFSA" : null,
-            mode === "Couple" ? "P2 RRSP" : null,
-            mode === "Couple" ? "P2 Non-Reg" : null,
-            mode === "Couple" ? "P2 Cash" : null,
-            mode === "Couple" ? "P2 Crypto" : null,
-            "Liquid Net Worth", "Home Equity", "Total Net Worth"
-        ].filter(h => h !== null);
-
-        const rows = this.state.projectionData.map(d => {
-            const p1 = d.assetsP1;
-            const p2 = d.assetsP2;
-            const row = [
-                d.year, d.p1Age, mode === "Couple" ? (d.p2Age || "") : null,
-                Math.round(d.incomeP1), mode === "Couple" ? Math.round(d.incomeP2) : null,
-                Math.round(d.postRetP1 || 0), mode === "Couple" ? Math.round(d.postRetP2 || 0) : null,
-                Math.round(d.benefitsP1), mode === "Couple" ? Math.round(d.benefitsP2) : null,
-                Math.round(d.dbP1), mode === "Couple" ? Math.round(d.dbP2) : null,
-                Math.round(d.windfall),
-                Math.round(d.taxP1), mode === "Couple" ? Math.round(d.taxP2) : null,
-                Math.round(d.expenses), Math.round(d.mortgagePay), Math.round(d.debtPay),
-                Math.round(d.surplus),
-                Math.round(p1.tfsa), Math.round(p1.rrsp), Math.round(p1.nreg), Math.round(p1.cash), Math.round(p1.crypto),
-                mode === "Couple" ? Math.round(p2.tfsa) : null,
-                mode === "Couple" ? Math.round(p2.rrsp) : null,
-                mode === "Couple" ? Math.round(p2.nreg) : null,
-                mode === "Couple" ? Math.round(p2.cash) : null,
-                mode === "Couple" ? Math.round(p2.crypto) : null,
-                Math.round(d.liquidNW), Math.round(d.homeValue - d.mortgage), Math.round(d.debugNW)
-            ].filter(v => v !== null);
-            return row.join(",");
-        });
-
-        const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows].join("\n");
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "retirement_plan_pro_export.csv");
-        document.body.appendChild(link); // Required for FF
-        link.click();
-        document.body.removeChild(link);
-    }
-
-    // --- WINDFALL LOGIC (NEW) ---
-    renderWindfalls() {
-        const container = document.getElementById('windfall-container');
-        if(!container) return;
-        container.innerHTML = '';
-
-        this.state.windfalls.forEach((w, idx) => {
-            const isOneTime = w.freq === 'one';
-            const hideEnd = isOneTime ? 'display:none;' : '';
-            const today = new Date().toISOString().slice(0, 7); // YYYY-MM
-            
-            const div = document.createElement('div');
-            div.className = 'windfall-row p-2 border border-secondary rounded bg-black bg-opacity-10 mb-2';
-            div.innerHTML = `
-                <div class="d-flex justify-content-between mb-1">
-                    <input type="text" class="form-control form-control-sm bg-transparent border-0 text-white fw-bold windfall-update" 
-                           placeholder="Event Name" value="${w.name}" data-idx="${idx}" data-field="name">
-                    <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="app.removeWindfall(${idx})"><i class="bi bi-x-lg"></i></button>
-                </div>
-                <div class="row g-2 align-items-center">
-                    <div class="col-4">
-                        <div class="input-group input-group-sm">
-                            <span class="input-group-text bg-black border-secondary text-muted">$</span>
-                            <input type="text" class="form-control bg-black border-secondary text-white formatted-num windfall-update" 
-                                   value="${w.amount.toLocaleString()}" data-idx="${idx}" data-field="amount">
-                        </div>
-                    </div>
-                    <div class="col-4">
-                        <select class="form-select form-select-sm bg-black border-secondary text-white windfall-update" data-idx="${idx}" data-field="freq">
-                            <option value="one" ${w.freq==='one'?'selected':''}>One Time</option>
-                            <option value="month" ${w.freq==='month'?'selected':''}>/ Month</option>
-                            <option value="year" ${w.freq==='year'?'selected':''}>/ Year</option>
-                        </select>
-                    </div>
-                    <div class="col-4 p2-column" style="${this.state.mode === 'Couple' ? '' : 'display:none;'}">
-                         <select class="form-select form-select-sm bg-black border-secondary text-white windfall-update" data-idx="${idx}" data-field="owner">
-                            <option value="p1" ${w.owner==='p1'?'selected':''}>Owner: P1</option>
-                            <option value="p2" ${w.owner==='p2'?'selected':''}>Owner: P2</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="row g-2 mt-1">
-                    <div class="col-4">
-                        <label class="small text-muted" style="font-size:0.7rem;">Start Date</label>
-                        <input type="month" class="form-control form-control-sm bg-black border-secondary text-white windfall-update" 
-                               value="${w.start || today}" data-idx="${idx}" data-field="start">
-                    </div>
-                    <div class="col-4" style="${hideEnd}">
-                        <label class="small text-muted" style="font-size:0.7rem;">End Date</label>
-                        <input type="month" class="form-control form-control-sm bg-black border-secondary text-white windfall-update" 
-                               value="${w.end}" data-idx="${idx}" data-field="end">
-                    </div>
-                    <div class="col-4 d-flex align-items-center justify-content-end">
-                        <div class="form-check pt-3">
-                            <input class="form-check-input windfall-update" type="checkbox" id="wf_tax_${idx}" ${w.taxable ? 'checked' : ''} data-idx="${idx}" data-field="taxable">
-                            <label class="form-check-label text-muted small" for="wf_tax_${idx}">Taxable?</label>
-                        </div>
-                    </div>
-                </div>
-            `;
-            container.appendChild(div);
-            // Re-apply listeners
-            div.querySelectorAll('.formatted-num').forEach(el => {
-                el.addEventListener('input', (e) => this.formatInput(e.target));
-            });
-        });
-    }
-
-    addWindfall() {
-        const today = new Date().toISOString().slice(0, 7);
-        this.state.windfalls.push({ name: "New Inheritance", amount: 0, freq: 'one', owner: 'p1', taxable: false, start: today, end: '' });
-        this.renderWindfalls();
-        this.run();
-    }
-
-    removeWindfall(index) {
-        this.showConfirm("Remove this item?", () => {
-            this.state.windfalls.splice(index, 1);
-            this.renderWindfalls();
-            this.run();
-        });
-    }
-
-    // --- PROPERTY LOGIC ---
-    renderProperties() {
-        const container = document.getElementById('real-estate-container');
-        container.innerHTML = '';
-        
-        this.state.properties.forEach((prop, idx) => {
-            const div = document.createElement('div');
-            div.className = 'property-row p-3 border border-secondary rounded bg-black bg-opacity-10 mb-3';
-            div.innerHTML = `
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <input type="text" class="form-control form-control-sm bg-transparent border-0 text-white fw-bold property-update" 
-                           style="max-width:200px;" value="${prop.name}" data-idx="${idx}" data-field="name">
-                    ${idx > 0 ? `<button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="app.removeProperty(${idx})"><i class="bi bi-x-lg"></i></button>` : ''}
-                </div>
-                <div class="row g-3">
-                    <div class="col-6 col-md-3">
-                        <label class="form-label text-muted small">Value</label>
-                        <div class="input-group input-group-sm">
-                            <span class="input-group-text bg-black border-secondary text-muted">$</span>
-                            <input type="text" class="form-control bg-black border-secondary text-white formatted-num property-update" 
-                                   value="${prop.value.toLocaleString()}" data-idx="${idx}" data-field="value">
-                        </div>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <label class="form-label text-muted small">Mortgage</label>
-                        <div class="input-group input-group-sm">
-                            <span class="input-group-text bg-black border-secondary text-muted">$</span>
-                            <input type="text" class="form-control bg-black border-secondary text-white formatted-num property-update" 
-                                   value="${prop.mortgage.toLocaleString()}" data-idx="${idx}" data-field="mortgage">
-                        </div>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <label class="form-label text-muted small">Growth %</label>
-                        <div class="input-group input-group-sm">
-                            <input type="number" step="0.01" class="form-control bg-black border-secondary text-white property-update" 
-                                   value="${prop.growth}" data-idx="${idx}" data-field="growth">
-                            <span class="input-group-text bg-black border-secondary text-muted">%</span>
-                        </div>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <label class="form-label text-muted small">Rate %</label>
-                        <div class="input-group input-group-sm">
-                            <input type="number" step="0.01" class="form-control bg-black border-secondary text-white property-update" 
-                                   value="${prop.rate}" data-idx="${idx}" data-field="rate">
-                            <span class="input-group-text bg-black border-secondary text-muted">%</span>
-                        </div>
-                    </div>
-                    <div class="col-12 col-md-4">
-                        <label class="form-label text-warning small">Monthly Pmt</label>
-                        <div class="input-group input-group-sm">
-                            <span class="input-group-text bg-warning text-black border-warning fw-bold">$</span>
-                            <input type="text" class="form-control bg-black border-warning text-white formatted-num property-update" 
-                                   value="${Math.round(prop.payment).toLocaleString()}" data-idx="${idx}" data-field="payment">
-                        </div>
-                        <div class="mt-1 small" id="prop-payoff-${idx}"></div>
-                    </div>
-                </div>
-            `;
-            container.appendChild(div);
-            // Re-apply listeners for formatted inputs
-            div.querySelectorAll('.formatted-num').forEach(el => {
-                el.addEventListener('input', (e) => this.formatInput(e.target));
-            });
-        });
-        
-        this.updateAllMortgages();
-    }
-
-    addProperty() {
-        this.state.properties.push({ name: "New Property", value: 500000, mortgage: 400000, growth: 3.0, rate: 4.0, payment: 0, manual: false });
-        this.renderProperties();
-        this.run();
-    }
-
-    removeProperty(index) {
-        this.showConfirm("Remove this property?", () => {
-            this.state.properties.splice(index, 1);
-            this.renderProperties();
-            this.run();
-        });
-    }
-
-    updateAllMortgages() {
-        this.state.properties.forEach((p, idx) => {
-            if(!p.manual) this.calculateSingleMortgage(idx);
-            this.updatePropPayoffDisplay(idx);
-        });
-    }
-
-    calculateSingleMortgage(idx) {
-        const p = this.state.properties[idx];
-        const P = p.mortgage;
-        const annualRate = p.rate / 100;
-        let monthlyPayment = 0;
-        
-        if (P > 0 && annualRate > 0) {
-            const r = annualRate / 12; const n = 25 * 12;
-            monthlyPayment = P * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
-        } else if (P > 0) { monthlyPayment = P / (25*12); }
-        
-        this.state.properties[idx].payment = monthlyPayment;
-        
-        const inputs = document.querySelectorAll(`.property-update[data-idx="${idx}"][data-field="payment"]`);
-        if(inputs.length > 0) inputs[0].value = Math.round(monthlyPayment).toLocaleString();
-    }
-
-    updatePropPayoffDisplay(idx) {
-        const p = this.state.properties[idx];
-        const el = document.getElementById(`prop-payoff-${idx}`);
-        if(!el) return;
-        
-        if(p.mortgage <= 0) { el.innerHTML = ""; return; }
-        const r = (p.rate/100) / 12;
-        if(p.payment <= p.mortgage * r) { el.innerHTML = `<span class="text-danger fw-bold">Payment too low</span>`; return; }
-        
-        const nMonths = -Math.log(1 - (r * p.mortgage) / p.payment) / Math.log(1 + r);
-        if(!isNaN(nMonths) && isFinite(nMonths)) {
-            const yrs = Math.floor(nMonths/12); const mos = Math.round(nMonths%12);
-            el.innerHTML = `<span class="text-success fw-bold">Payoff: ${yrs}y ${mos}m</span>`;
-        }
-    }
-
-    updateMortgagePayment() { this.updateAllMortgages(); }
-
-    toggleRow(el) {
-        const group = el.parentElement;
-        const detail = group.querySelector('.grid-detail-wrapper');
-        const isOpen = group.classList.contains('expanded');
-        
-        if(!isOpen) {
-            group.classList.add('expanded');
-            detail.classList.add('open');
-        } else {
-            group.classList.remove('expanded');
-            detail.classList.remove('open');
-        }
-    }
-
-    toggleModeDisplay() {
-        const isCouple = this.state.mode === 'Couple';
-        document.body.classList.toggle('is-couple', isCouple);
-        document.querySelectorAll('.p2-column').forEach(el => {
-            if(el.tagName === 'TH' || el.tagName === 'TD') return; 
-            // Use empty string to revert to stylesheet display (block, flex, etc)
-            // instead of forcing 'block' which might break layout
-            el.style.display = isCouple ? '' : 'none';
-        });
-        
-        // Resize chart if needed
-        if(this.charts.nw) this.charts.nw.resize();
-    }
-
-    // --- MAIN ENGINE ---
-    run() {
-        try {
-            this.estimateCPPOAS();
-            this.updateIncomeDisplay();
-            this.calcExpenses();
-            this.generateProjectionTable(); 
-            
-            const slider = document.getElementById('yearSlider');
-            if (this.state.projectionData.length > 0) {
-                let currentVal = parseInt(slider.value);
-                const maxIndex = this.state.projectionData.length - 1;
-                
-                if(currentVal > maxIndex) currentVal = 0;
-                slider.max = maxIndex; 
-                
-                if (currentVal > maxIndex) { slider.value = 0; currentVal = 0; }
-                
-                const d = this.state.projectionData[currentVal];
-                document.getElementById('sliderYearDisplay').innerText = d.year;
-                let ageText = (this.state.mode === 'Couple') ? `(P1: ${d.p1Age} / P2: ${d.p2Age})` : `(Age: ${d.p1Age})`;
-                document.getElementById('cfAgeDisplay').innerText = ageText;
-
-                if(!this.charts.sankey) this.drawSankey(currentVal);
-            }
-        } catch (e) {
-            console.error("Calculation Error:", e);
-        }
-    }
-
-    drawSankey(index) {
-        if (!this.state.projectionData[index] || typeof google === 'undefined' || !google.visualization) return;
-
-        const d = this.state.projectionData[index];
-        const rows = [];
-        const fmt = (n) => {
-            if(n >= 1000000) return '$' + (n/1000000).toFixed(1) + 'M';
-            if(n >= 1000) return '$' + Math.round(n/1000) + 'k';
-            return '$' + Math.round(n);
-        };
-
-        const potName = `Available Cash\n${fmt(d.debugTotalInflow)}`;
-
-        if (d.incomeP1 > 0) rows.push([`Employment P1\n${fmt(d.incomeP1)}`, potName, Math.round(d.incomeP1)]);
-        if (d.incomeP2 > 0) rows.push([`Employment P2\n${fmt(d.incomeP2)}`, potName, Math.round(d.incomeP2)]);
-        if (d.benefitsP1 > 0) rows.push([`Gov Benefits P1\n${fmt(d.benefitsP1)}`, potName, Math.round(d.benefitsP1)]);
-        if (d.benefitsP2 > 0) rows.push([`Gov Benefits P2\n${fmt(d.benefitsP2)}`, potName, Math.round(d.benefitsP2)]);
-        
-        if (d.dbP1 > 0) rows.push([`DB Pension P1\n${fmt(d.dbP1)}`, potName, Math.round(d.dbP1)]);
-        if (d.dbP2 > 0) rows.push([`DB Pension P2\n${fmt(d.dbP2)}`, potName, Math.round(d.dbP2)]);
-        
-        // Add Windfalls to Sankey
-        if (d.windfall > 0) rows.push([`Inheritance/Bonus\n${fmt(d.windfall)}`, potName, Math.round(d.windfall)]);
-
-        if (d.flows && d.flows.withdrawals) {
-            for (const [source, amount] of Object.entries(d.flows.withdrawals)) {
-                if (amount > 0) rows.push([`${source}\n${fmt(amount)}`, potName, Math.round(amount)]);
-            }
-        }
-
-        const totalTax = d.taxP1 + d.taxP2;
-        if (totalTax > 0) rows.push([potName, `Taxes\n${fmt(totalTax)}`, Math.round(totalTax)]);
-
-        if (d.expenses > 0) rows.push([potName, `Living Exp.\n${fmt(d.expenses)}`, Math.round(d.expenses)]);
-
-        const totalDebt = d.mortgagePay + d.debtPay;
-        if (totalDebt > 0) rows.push([potName, `Mortgage/Debt\n${fmt(totalDebt)}`, Math.round(totalDebt)]);
-
-        if (d.flows && d.flows.contributions) {
-            for (const [target, amount] of Object.entries(d.flows.contributions)) {
-                let label = this.strategyLabels[target] || target;
-                if (amount > 0) rows.push([potName, `To ${label}\n${fmt(amount)}`, Math.round(amount)]);
-            }
-        }
-
-        const uniqueNodes = new Set();
-        rows.forEach(r => { uniqueNodes.add(r[0]); uniqueNodes.add(r[1]); });
-        
-        const nodeColors = [];
-        uniqueNodes.forEach(node => {
-            let color = '#a8a29e'; 
-            if (node.includes("Available Cash")) color = '#f59e0b'; 
-            else if (node.includes("Employment")) color = '#10b981'; 
-            else if (node.includes("Gov Benefits") || node.includes("DB Pension")) color = '#06b6d4';
-            else if (node.includes("Inheritance")) color = '#22c55e'; // Green for windfall
-            else if (node.includes("RRIF") || node.includes("TFSA") || node.includes("RRSP") || node.includes("Non-Reg") || node.includes("Crypto") || node.includes("Cash")) {
-                if(node.startsWith("To ")) color = '#3b82f6'; else color = '#8b5cf6';
-            }
-            if (node.includes("Taxes")) color = '#ef4444'; 
-            else if (node.includes("Living Exp")) color = '#f97316'; 
-            else if (node.includes("Mortgage") || node.includes("Debt")) color = '#dc2626'; 
-
-            nodeColors.push({ node: node, color: color });
-        });
-
-        const nodesConfig = Array.from(uniqueNodes).map(name => {
-             const cObj = nodeColors.find(n => n.node === name);
-             return { color: cObj ? cObj.color : '#888' };
-        });
-
-        const container = document.getElementById('sankey_chart');
-        const dataTable = new google.visualization.DataTable();
-        dataTable.addColumn('string', 'From');
-        dataTable.addColumn('string', 'To');
-        dataTable.addColumn('number', 'Amount');
-        dataTable.addRows(rows);
-
-        const options = {
-            sankey: {
-                node: { label: { color: '#ffffff', fontSize: 13, bold: true }, nodePadding: 30, width: 12, colors: nodesConfig.map(n => n.color) },
-                link: { colorMode: 'gradient', colors: ['#334155', '#475569'] }
-            },
-            backgroundColor: 'transparent',
-            height: 600,
-            width: '100%'
-        };
-
-        const chart = new google.visualization.Sankey(container);
-        chart.draw(dataTable, options);
-        this.charts.sankey = chart;
-    }
-
-    getRrifFactor(age) {
-        if (age < 71) { return 1 / (90 - age); }
-        const rates = { 71: 0.0528, 72: 0.0540, 73: 0.0553, 74: 0.0567, 75: 0.0582, 76: 0.0598, 77: 0.0617, 78: 0.0636, 79: 0.0658, 80: 0.0682, 81: 0.0708, 82: 0.0738, 83: 0.0771, 84: 0.0808, 85: 0.0851, 86: 0.0899, 87: 0.0955, 88: 0.1021, 89: 0.1099, 90: 0.1192, 91: 0.1306, 92: 0.1449, 93: 0.1634, 94: 0.1879, 95: 0.2000 };
-        if (age >= 95) return 0.20;
-        return rates[age] || 0.0528; 
-    }
-
-    generateProjectionTable(onlyCalcNW = false) {
-        if (!onlyCalcNW) this.state.projectionData = [];
-        
-        const mode = this.state.mode;
-        const province = this.getRaw('tax_province');
-        const inflation = this.getVal('inflation_rate') / 100;
-        let tfsa_limit = 7000;
-        const taxEfficient = this.state.inputs['taxEfficient']; 
-        const stressTest = this.state.inputs['stressTestEnabled'];
-        const rrspMeltdown = this.state.inputs['strat_rrsp_topup']; 
-        const expMode = this.state.expenseMode;
-        
-        // FIX: Check specific P1/P2 toggles
-        const enablePostRetP1 = this.state.inputs['enable_post_ret_income_p1'];
-        const enablePostRetP2 = this.state.inputs['enable_post_ret_income_p2'];
-        
-        const s1_tfsa = this.state.inputs['skip_first_tfsa_p1'];
-        const s1_rrsp = this.state.inputs['skip_first_rrsp_p1'];
-        const s2_tfsa = this.state.inputs['skip_first_tfsa_p2'];
-        const s2_rrsp = this.state.inputs['skip_first_rrsp_p2'];
-
-        const p1_cpp_on = this.state.inputs['p1_cpp_enabled'];
-        const p1_oas_on = this.state.inputs['p1_oas_enabled'];
-        const p2_cpp_on = this.state.inputs['p2_cpp_enabled'];
-        const p2_oas_on = this.state.inputs['p2_oas_enabled'];
-
-        const goGoLimit = parseInt(this.getRaw('exp_gogo_age')) || 75;
-        const slowGoLimit = parseInt(this.getRaw('exp_slow_age')) || 85;
-
-        let p1 = { tfsa: this.getVal('p1_tfsa'), rrsp: this.getVal('p1_rrsp'), cash: this.getVal('p1_cash'), nreg: this.getVal('p1_nonreg'), crypto: this.getVal('p1_crypto'), inc: this.getVal('p1_income'), dob: new Date(this.getRaw('p1_dob')), retAge: this.getVal('p1_retireAge'), lifeExp: this.getVal('p1_lifeExp') };
-        let p2 = { tfsa: this.getVal('p2_tfsa'), rrsp: this.getVal('p2_rrsp'), cash: this.getVal('p2_cash'), nreg: this.getVal('p2_nonreg'), crypto: this.getVal('p2_crypto'), inc: this.getVal('p2_income'), dob: new Date(this.getRaw('p2_dob')), retAge: this.getVal('p2_retireAge'), lifeExp: this.getVal('p2_lifeExp') };
-
-        const getRate = (id) => this.getVal(id)/100;
-        const baseRatesP1 = { tfsa: getRate('p1_tfsa_ret'), rrsp: getRate('p1_rrsp_ret'), cash: getRate('p1_cash_ret'), nreg: getRate('p1_nonreg_ret'), cryp: getRate('p1_crypto_ret'), inc: getRate('p1_income_growth') };
-        const baseRatesP2 = { tfsa: getRate('p2_tfsa_ret'), rrsp: getRate('p2_tfsa_ret'), cash: getRate('p2_cash_ret'), nreg: getRate('p2_nonreg_ret'), cryp: getRate('p2_crypto_ret'), inc: getRate('p2_income_growth') };
-        
-        p1.rates = {...baseRatesP1}; p2.rates = {...baseRatesP2};
-
-        const p1_cpp_start = parseInt(this.getRaw('p1_cpp_start'));
-        const p1_oas_start = parseInt(this.getRaw('p1_oas_start'));
-        const p2_cpp_start = parseInt(this.getRaw('p2_cpp_start'));
-        const p2_oas_start = parseInt(this.getRaw('p2_oas_start'));
-
-        let p1_db_base = this.getVal('p1_db_pension') * 12;
-        let p2_db_base = this.getVal('p2_db_pension') * 12;
-        
-        // Post-Retirement Logic Setup
-        let p1_post_base = this.getVal('p1_post_inc');
-        let p1_post_growth = this.getVal('p1_post_growth') / 100;
-        let p1_post_start = new Date((this.getRaw('p1_post_start') || '2100-01') + "-01");
-        let p1_post_end = new Date((this.getRaw('p1_post_end') || '2100-01') + "-01");
-        
-        let p2_post_base = this.getVal('p2_post_inc');
-        let p2_post_growth = this.getVal('p2_post_growth') / 100;
-        let p2_post_start = new Date((this.getRaw('p2_post_start') || '2100-01') + "-01");
-        let p2_post_end = new Date((this.getRaw('p2_post_end') || '2100-01') + "-01");
-
-        let expenseTotals = { curr:0, ret:0, trans:0, gogo:0, slow:0, nogo:0 };
-        for (const cat in this.expensesByCategory) {
-            this.expensesByCategory[cat].items.forEach(item => {
-                const f = item.freq;
-                expenseTotals.curr += (item.curr||0) * f;
-                expenseTotals.ret += (item.ret||0) * f;
-                if(expMode === 'Advanced') {
-                    expenseTotals.trans += (item.trans||0) * f;
-                    expenseTotals.gogo += (item.gogo||0) * f;
-                    expenseTotals.slow += (item.slow||0) * f;
-                    expenseTotals.nogo += (item.nogo||0) * f;
-                }
-            });
-        }
-
-        let simProperties = JSON.parse(JSON.stringify(this.state.properties));
-        let otherDebt = this.getTotalDebt();
-        let expCurrent = expenseTotals.curr; let expRetire = expenseTotals.ret;
-        let expTrans = expenseTotals.trans; let expGoGo = expenseTotals.gogo; 
-        let expSlow = expenseTotals.slow; let expNoGo = expenseTotals.nogo;
-        
-        const currentYear = new Date().getFullYear();
-        const p1_startAge = currentYear - p1.dob.getFullYear();
-        const p2_startAge = currentYear - p2.dob.getFullYear();
-        const endAge = Math.max(p1.lifeExp, mode==='Couple' ? p2.lifeExp : 0);
-        const yearsToRun = endAge - Math.min(p1_startAge, mode==='Couple' ? p2_startAge : p1_startAge);
-
-        let triggeredEvents = new Set();
-        let cpp_max_p1 = this.CONSTANTS.MAX_CPP_2026, oas_max_p1 = this.CONSTANTS.MAX_OAS_2026;
-        let cpp_max_p2 = this.CONSTANTS.MAX_CPP_2026, oas_max_p2 = this.CONSTANTS.MAX_OAS_2026;
-        let finalNW = 0;
-        let currentTaxData = JSON.parse(JSON.stringify(this.CONSTANTS.TAX_DATA));
-
-        for (let i = 0; i <= yearsToRun; i++) {
-            const year = currentYear + i;
-            const p1_age = p1_startAge + i; const p2_age = p2_startAge + i;
-            const p1_alive = p1_age <= p1.lifeExp;
-            const p2_alive = (mode === 'Couple') ? (p2_age <= p2.lifeExp) : false;
-
-            if(!p1_alive && !p2_alive) break;
-
-            const bracketInflator = Math.pow(1 + inflation, i);
-            const inflatedTaxData = JSON.parse(JSON.stringify(this.CONSTANTS.TAX_DATA));
-            for(const k in inflatedTaxData) {
-                 if(inflatedTaxData[k].brackets) {
-                     inflatedTaxData[k].brackets = inflatedTaxData[k].brackets.map(b => b * bracketInflator);
-                 }
-                 if(inflatedTaxData[k].surtax) {
-                     if(inflatedTaxData[k].surtax.t1) inflatedTaxData[k].surtax.t1 *= bracketInflator;
-                     if(inflatedTaxData[k].surtax.t2) inflatedTaxData[k].surtax.t2 *= bracketInflator;
-                 }
-            }
-            
-            let currentRatesP1 = {...baseRatesP1}; let currentRatesP2 = {...baseRatesP2};
-            let isCrashYear = false;
-            if (stressTest && p1_age >= p1.retAge && p1_age < p1.retAge + 2) {
-                isCrashYear = true;
-                const crashRate = -0.15; const crashCrypto = -0.40; 
-                ['tfsa', 'rrsp', 'nreg', 'cash'].forEach(k => { currentRatesP1[k] = crashRate; currentRatesP2[k] = crashRate; });
-                currentRatesP1.cryp = crashCrypto; currentRatesP2.cryp = crashCrypto;
-            }
-
-            let yearContributions = { tfsa: 0, rrsp: 0, nreg: 0, cash: 0, crypto: 0 };
-            let yearWithdrawals = {}; 
-            let wdBreakdown = { p1: {}, p2: {} }; 
-            let w_p1 = { rrsp: 0 }; let w_p2 = { rrsp: 0 }; 
-
-            let events = [];
-            if(p1_alive) {
-                if(p1_age === p1.retAge && !triggeredEvents.has('P1 Retires')) { events.push(this.eventIcons['P1 Retires']); triggeredEvents.add('P1 Retires'); }
-                if(p1_age === p1_cpp_start && p1_cpp_on) events.push(this.eventIcons['P1 CPP']);
-                if(p1_age === p1_oas_start && p1_oas_on) events.push(this.eventIcons['P1 OAS']);
-            } else if (!triggeredEvents.has('P1 Dies')) {
-                events.push(this.eventIcons['P1 Dies']); triggeredEvents.add('P1 Dies');
-            }
-            if(mode==='Couple') {
-                if(p2_alive) {
-                    if(p2_age === p2.retAge && !triggeredEvents.has('P2 Retires')) { events.push(this.eventIcons['P2 Retires']); triggeredEvents.add('P2 Retires'); }
-                    if(p2_age === p2_cpp_start && p2_cpp_on) events.push(this.eventIcons['P2 CPP']);
-                    if(p2_age === p2_oas_start && p2_oas_on) events.push(this.eventIcons['P2 OAS']);
-                } else if (!triggeredEvents.has('P2 Dies')) {
-                    events.push(this.eventIcons['P2 Dies']); triggeredEvents.add('P2 Dies');
-                }
-            }
-            let totalMortgageBalance = simProperties.reduce((acc, p) => acc + p.mortgage, 0);
-            if(totalMortgageBalance <= 0 && !triggeredEvents.has('Mortgage Paid')) { 
-                events.push(this.eventIcons['Mortgage Paid']); triggeredEvents.add('Mortgage Paid'); 
-            }
-            if(isCrashYear) events.push(this.eventIcons['Crash']);
-
-            const p1_isRetired = p1_age >= p1.retAge;
-            const p2_isRetired = (mode === 'Couple') ? (p2_age >= p2.retAge) : true;
-            let fullyRetired = true;
-            if(p1_alive && !p1_isRetired) fullyRetired = false;
-            if(p2_alive && !p2_isRetired) fullyRetired = false;
-
-            let p1_gross = 0, p2_gross = 0;
-            let p1_cpp_inc = 0, p1_oas_inc = 0;
-            let p2_cpp_inc = 0, p2_oas_inc = 0;
-            let p1_db_inc = 0, p2_db_inc = 0;
-            let p1_post_val = 0, p2_post_val = 0;
-
-            if(p1_alive) {
-                if(!p1_isRetired) { p1_gross += p1.inc; p1.inc *= (1 + currentRatesP1.inc); }
-                else { p1_db_inc = p1_db_base * bracketInflator; }
-                
-                // P1 Post-Retirement Income Calculation
-                if (enablePostRetP1 && p1_post_base > 0) {
-                    // Check if current year is within start and end
-                    const startYear = p1_post_start.getFullYear();
-                    const endYear = p1_post_end.getFullYear();
-                    
-                    if (year >= startYear && year <= endYear) {
-                         // Calculate inflated amount
-                         let grownAmount = p1_post_base * Math.pow(1 + p1_post_growth, i);
-                         let factor = 1.0;
-                         
-                         // Prorate start year
-                         if (year === startYear) {
-                             const months = 12 - p1_post_start.getMonth();
-                             factor = months / 12;
-                         }
-                         // Prorate end year
-                         if (year === endYear) {
-                             const months = p1_post_end.getMonth() + 1;
-                             factor = Math.min(factor, months / 12); // Use min in case start == end
-                         }
-                         
-                         p1_post_val = grownAmount * factor;
-                    }
-                }
-
-                if(p1_cpp_on && p1_age >= p1_cpp_start) p1_cpp_inc = this.calcBen(cpp_max_p1, p1_cpp_start, 1.0, p1.retAge);
-                if(p1_oas_on && p1_age >= p1_oas_start) p1_oas_inc = this.calcBen(oas_max_p1, p1_oas_start, 1.0, 65);
-            }
-            if(mode === 'Couple' && p2_alive) {
-                if(!p2_isRetired) { p2_gross += p2.inc; p2.inc *= (1 + currentRatesP2.inc); }
-                else { p2_db_inc = p2_db_base * bracketInflator; }
-                
-                // P2 Post-Retirement Income Calculation
-                if (enablePostRetP2 && p2_post_base > 0) {
-                    const startYear = p2_post_start.getFullYear();
-                    const endYear = p2_post_end.getFullYear();
-                    
-                    if (year >= startYear && year <= endYear) {
-                         let grownAmount = p2_post_base * Math.pow(1 + p2_post_growth, i);
-                         let factor = 1.0;
-                         if (year === startYear) {
-                             const months = 12 - p2_post_start.getMonth();
-                             factor = months / 12;
-                         }
-                         if (year === endYear) {
-                             const months = p2_post_end.getMonth() + 1;
-                             factor = Math.min(factor, months / 12);
-                         }
-                         p2_post_val = grownAmount * factor;
-                    }
-                }
-
-                if(p2_cpp_on && p2_age >= p2_cpp_start) p2_cpp_inc = this.calcBen(cpp_max_p2, p2_cpp_start, 1.0, p2.retAge);
-                if(p2_oas_on && p2_age >= p2_oas_start) p2_oas_inc = this.calcBen(oas_max_p2, p2_oas_start, 1.0, 65);
-            }
-            cpp_max_p1 *= (1 + inflation); oas_max_p1 *= (1 + inflation); 
-            cpp_max_p2 *= (1 + inflation); oas_max_p2 *= (1 + inflation);
-
-            let p1_rrif_inc = 0;
-            if (p1_alive && p1.rrsp > 0 && p1_age >= this.CONSTANTS.RRIF_START_AGE) {
-                const factor = this.getRrifFactor(p1_age);
-                p1_rrif_inc = p1.rrsp * factor;
-                p1.rrsp -= p1_rrif_inc; 
-                if(p1_rrif_inc > 0) {
-                      if(!yearWithdrawals['P1 RRIF']) yearWithdrawals['P1 RRIF'] = 0;
-                      yearWithdrawals['P1 RRIF'] += p1_rrif_inc;
-                      w_p1.rrsp += p1_rrif_inc;
-                      wdBreakdown.p1["RRIF"] = (wdBreakdown.p1["RRIF"] || 0) + p1_rrif_inc;
-                }
-            }
-            let p2_rrif_inc = 0;
-            if (mode === 'Couple' && p2_alive && p2.rrsp > 0 && p2_age >= this.CONSTANTS.RRIF_START_AGE) {
-                const factor = this.getRrifFactor(p2_age);
-                p2_rrif_inc = p2.rrsp * factor;
-                p2.rrsp -= p2_rrif_inc;
-                if(p2_rrif_inc > 0) {
-                      if(!yearWithdrawals['P2 RRIF']) yearWithdrawals['P2 RRIF'] = 0;
-                      yearWithdrawals['P2 RRIF'] += p2_rrif_inc;
-                      w_p2.rrsp += p2_rrif_inc;
-                      wdBreakdown.p2["RRIF"] = (wdBreakdown.p2["RRIF"] || 0) + p2_rrif_inc;
-                }
-            }
-
-            // --- WINDFALL CALCULATIONS ---
-            let wf_tax_p1 = 0, wf_tax_p2 = 0;
-            let wf_nontax_p1 = 0, wf_nontax_p2 = 0;
-            
-            this.state.windfalls.forEach(w => {
-                const wStart = new Date(w.start + "-01");
-                const wStartYear = wStart.getFullYear();
-                
-                let active = false;
-                let annualAmt = 0;
-                
-                if (w.freq === 'one') {
-                    if (wStartYear === year) { active = true; annualAmt = w.amount; }
-                } else {
-                    const wEnd = w.end ? new Date(w.end + "-01") : new Date("2100-01-01");
-                    const yearStart = new Date(year, 0, 1);
-                    const yearEnd = new Date(year, 11, 31);
-                    
-                    // Simple overlap check
-                    if (year >= wStart.getFullYear() && year <= wEnd.getFullYear()) {
-                        active = true;
-                        if (w.freq === 'year') annualAmt = w.amount;
-                        if (w.freq === 'month') {
-                            // Calculate active months in this year
-                            let startMonth = (year === wStart.getFullYear()) ? wStart.getMonth() : 0;
-                            let endMonth = (year === wEnd.getFullYear()) ? wEnd.getMonth() : 11;
-                            let months = Math.max(0, endMonth - startMonth + 1);
-                            annualAmt = w.amount * months;
-                        }
-                    }
-                }
-                
-                if (active && annualAmt > 0) {
-                    if(!triggeredEvents.has('Windfall') && i === 0) {} 
-                    if(w.freq === 'one') events.push(this.eventIcons['Windfall']);
-                    
-                    if (w.taxable) {
-                        if (w.owner === 'p2' && mode === 'Couple') wf_tax_p2 += annualAmt;
-                        else wf_tax_p1 += annualAmt;
-                    } else {
-                        if (w.owner === 'p2' && mode === 'Couple') wf_nontax_p2 += annualAmt;
-                        else wf_nontax_p1 += annualAmt;
-                    }
-                }
-            });
-
-            // Add taxable windfalls AND Post-Retirement Income to gross income for tax calc
-            let p1_total_taxable = p1_gross + p1_cpp_inc + p1_oas_inc + p1_rrif_inc + p1_db_inc + wf_tax_p1 + p1_post_val;
-            let p2_total_taxable = p2_gross + p2_cpp_inc + p2_oas_inc + p2_rrif_inc + p2_db_inc + wf_tax_p2 + p2_post_val;
-
-            if (rrspMeltdown) {
-                const lowBracketLimit = inflatedTaxData.FED.brackets[0]; 
-                if (p1_alive && p1.rrsp > 0 && p1_total_taxable < lowBracketLimit) {
-                    let room = lowBracketLimit - p1_total_taxable;
-                    let draw = Math.min(room, p1.rrsp);
-                    if(draw > 0) {
-                        p1.rrsp -= draw; p1_total_taxable += draw;
-                        if(!yearWithdrawals['RRSP Top-Up']) yearWithdrawals['RRSP Top-Up'] = 0;
-                        yearWithdrawals['RRSP Top-Up'] += draw;
-                        let label = p1_age >= this.CONSTANTS.RRIF_START_AGE ? 'RRIF' : 'RRSP';
-                        wdBreakdown.p1[label] = (wdBreakdown.p1[label] || 0) + draw;
-                    }
-                }
-                if (mode === 'Couple' && p2_alive && p2.rrsp > 0 && p2_total_taxable < lowBracketLimit) {
-                    let room = lowBracketLimit - p2_total_taxable;
-                    let draw = Math.min(room, p2.rrsp);
-                    if(draw > 0) {
-                        p2.rrsp -= draw; p2_total_taxable += draw;
-                        if(!yearWithdrawals['RRSP Top-Up']) yearWithdrawals['RRSP Top-Up'] = 0;
-                        yearWithdrawals['RRSP Top-Up'] += draw;
-                        let label = p2_age >= this.CONSTANTS.RRIF_START_AGE ? 'RRIF' : 'RRSP';
-                        wdBreakdown.p2[label] = (wdBreakdown.p2[label] || 0) + draw;
-                    }
-                }
-            }
-
-            let t1 = p1_alive ? this.calculateTaxDetailed(p1_total_taxable, province, inflatedTaxData) : { totalTax: 0 };
-            let t2 = p2_alive ? this.calculateTaxDetailed(p2_total_taxable, province, inflatedTaxData) : { totalTax: 0 };
-
-            let p1_net = p1_alive ? (p1_total_taxable - t1.totalTax) : 0;
-            let p2_net = p2_alive ? (p2_total_taxable - t2.totalTax) : 0;
-            
-            // Add Non-Taxable Windfalls to Net
-            p1_net += wf_nontax_p1;
-            p2_net += wf_nontax_p2;
-
-            const householdNet = p1_net + p2_net;
-            const totalWindfall = wf_tax_p1 + wf_tax_p2 + wf_nontax_p1 + wf_nontax_p2;
-
-            let annualExp = 0;
-            if(expMode === 'Simple') {
-                annualExp = fullyRetired ? expRetire : expCurrent;
-            } else {
-                if (!fullyRetired) {
-                    if (mode === 'Couple' && ((p1_isRetired && !p2_isRetired) || (!p1_isRetired && p2_isRetired))) annualExp = expTrans;
-                    else annualExp = expCurrent;
-                } else {
-                    if (p1_age < goGoLimit) annualExp = expGoGo;
-                    else if (p1_age < slowGoLimit) annualExp = expSlow;
-                    else annualExp = expNoGo;
-                }
-            }
-            
-            let totalActualMortgageOutflow = 0;
-            simProperties.forEach(prop => {
-                if(prop.mortgage > 0) {
-                    const annualRate = prop.rate / 100;
-                    const annualInterest = prop.mortgage * annualRate;
-                    const annualPmt = prop.payment * 12;
-                    let actualOutflow = Math.min(prop.mortgage + annualInterest, annualPmt);
-                    if(actualOutflow >= annualInterest) {
-                        let principal = actualOutflow - annualInterest;
-                        prop.mortgage -= principal;
-                    } else { prop.mortgage += (annualInterest - actualOutflow); }
-                    totalActualMortgageOutflow += actualOutflow;
-                }
-                prop.value *= (1 + (prop.growth/100));
-            });
-
-            let debtRepayment = 0;
-            if(otherDebt > 0) {
-                debtRepayment = Math.min(otherDebt, otherDebt * 0.10); 
-                otherDebt -= debtRepayment;
-            }
-
-            let visualExpenses = annualExp + totalActualMortgageOutflow + debtRepayment;
-            let surplus = householdNet - visualExpenses;
-
-            const grow = (bal, rate) => ({ start: bal, growth: bal*rate, end: bal*(1+rate) });
-            let g_p1 = { tfsa: grow(p1.tfsa, currentRatesP1.tfsa), rrsp: grow(p1.rrsp, currentRatesP1.rrsp), cryp: grow(p1.crypto, currentRatesP1.cryp), nreg: grow(p1.nreg, currentRatesP1.nreg), cash: grow(p1.cash, currentRatesP1.cash) };
-            p1.tfsa=g_p1.tfsa.end; p1.rrsp=g_p1.rrsp.end; p1.crypto=g_p1.cryp.end; p1.nreg=g_p1.nreg.end; p1.cash=g_p1.cash.end;
-            let g_p2 = { tfsa: grow(p2.tfsa, currentRatesP2.tfsa), rrsp: grow(p2.rrsp, currentRatesP2.rrsp), cryp: grow(p2.crypto, currentRatesP2.cryp), nreg: grow(p2.nreg, currentRatesP2.nreg), cash: grow(p2.cash, currentRatesP2.cash) };
-            p2.tfsa=g_p2.tfsa.end; p2.rrsp=g_p2.rrsp.end; p2.crypto=g_p2.cryp.end; p2.nreg=g_p2.nreg.end; p2.cash=g_p2.cash.end;
-
-            if (surplus > 0) {
-                let s1 = (mode==='Couple' && p1_alive && p2_alive) ? surplus/2 : (p1_alive ? surplus : 0);
-                let s2 = (mode==='Couple' && p1_alive && p2_alive) ? surplus/2 : (p2_alive ? surplus : 0);
-                this.state.strategies.accum.forEach(type => {
-                    if (s1 > 0 && p1_alive) {
-                        let fill = 0;
-                        if (type === 'tfsa' && (i > 0 || !s1_tfsa)) { fill = Math.min(s1, tfsa_limit); p1.tfsa += fill; yearContributions.tfsa += fill; }
-                        else if (type === 'rrsp' && (i > 0 || !s1_rrsp)) { let limit = p1.inc * 0.18; fill = Math.min(s1, limit); p1.rrsp += fill; yearContributions.rrsp += fill; }
-                        else if (type === 'nreg') { fill = s1; p1.nreg += fill; yearContributions.nreg += fill; }
-                        else if (type === 'cash') { fill = s1; p1.cash += fill; yearContributions.cash += fill; }
-                        else if (type === 'crypto') { fill = s1; p1.crypto += fill; yearContributions.crypto += fill; }
-                        s1 -= fill;
-                    }
-                    if (mode==='Couple' && s2 > 0 && p2_alive) {
-                        let fill = 0;
-                        if (type === 'tfsa' && (i > 0 || !s2_tfsa)) { fill = Math.min(s2, tfsa_limit); p2.tfsa += fill; yearContributions.tfsa += fill; }
-                        else if (type === 'rrsp' && (i > 0 || !s2_rrsp)) { let limit = p2.inc * 0.18; fill = Math.min(s2, limit); p2.rrsp += fill; yearContributions.rrsp += fill; }
-                        else if (type === 'nreg') { fill = s2; p2.nreg += fill; yearContributions.nreg += fill; }
-                        else if (type === 'cash') { fill = s2; p2.cash += fill; yearContributions.cash += fill; }
-                        else if (type === 'crypto') { fill = s2; p2.crypto += fill; yearContributions.crypto += fill; }
-                        s2 -= fill;
-                    }
-                });
-            } else {
-                let deficit = Math.abs(surplus);
-                const drain = (acct, amount, type, owner, isRRSP=false) => { 
-                    let take = Math.min(acct, amount); 
-                    if(take > 0) {
-                        if(!yearWithdrawals[type]) yearWithdrawals[type] = 0;
-                        yearWithdrawals[type] += take;
-                        let label = type.replace('P1 ', '').replace('P2 ', '');
-                        if(isRRSP) {
-                            const age = owner === 'p1' ? p1_age : p2_age;
-                            if(age >= this.CONSTANTS.RRIF_START_AGE) label = 'RRIF'; else label = 'RRSP';
-                        }
-                        wdBreakdown[owner][label] = (wdBreakdown[owner][label] || 0) + take;
-                    }
-                    return { rem_acct: acct - take, rem_need: amount - take, taken: take }; 
-                };
-                let remainingDeficit = deficit; 
-                let taxBracketLimit = inflatedTaxData.FED.brackets[0];
-                this.state.strategies.decum.forEach(type => {
-                    if(remainingDeficit > 0 && p1.cash + p1.tfsa + p1.rrsp + p1.nreg + p1.crypto + (mode==='Couple'?(p2.cash+p2.tfsa+p2.rrsp+p2.nreg+p2.crypto):0) > 0) { 
-                        if (type === 'rrsp') {
-                            let p1_lower = p1_total_taxable < p2_total_taxable;
-                            let p1_room = Math.max(0, taxBracketLimit - p1_total_taxable);
-                            let p2_room = Math.max(0, taxBracketLimit - p2_total_taxable);
-                            if (p1_lower && p1_alive && p1.rrsp > 0) {
-                                let take = Math.min(p1.rrsp, remainingDeficit, p1_room);
-                                if(take > 0) {
-                                    let res = drain(p1.rrsp, take, 'P1 RRSP', 'p1', true);
-                                    p1.rrsp = res.rem_acct; w_p1.rrsp += res.taken; remainingDeficit -= res.taken;
-                                    p1_total_taxable += res.taken;
-                                }
-                            } else if (!p1_lower && mode==='Couple' && p2_alive && p2.rrsp > 0) {
-                                let take = Math.min(p2.rrsp, remainingDeficit, p2_room);
-                                if(take > 0) {
-                                    let res = drain(p2.rrsp, take, 'P2 RRSP', 'p2', true);
-                                    p2.rrsp = res.rem_acct; w_p2.rrsp += res.taken; remainingDeficit -= res.taken;
-                                    p2_total_taxable += res.taken;
-                                }
-                            }
-                            if (remainingDeficit > 0) {
-                                if (p1_lower && mode==='Couple' && p2_alive && p2.rrsp > 0) {
-                                    let take = Math.min(p2.rrsp, remainingDeficit, p2_room);
-                                    if(take > 0) {
-                                        let res = drain(p2.rrsp, take, 'P2 RRSP', 'p2', true);
-                                        p2.rrsp = res.rem_acct; w_p2.rrsp += res.taken; remainingDeficit -= res.taken;
-                                        p2_total_taxable += res.taken;
-                                    }
-                                } else if (!p1_lower && p1_alive && p1.rrsp > 0) {
-                                    let take = Math.min(p1.rrsp, remainingDeficit, p1_room);
-                                    if(take > 0) {
-                                        let res = drain(p1.rrsp, take, 'P1 RRSP', 'p1', true);
-                                        p1.rrsp = res.rem_acct; w_p1.rrsp += res.taken; remainingDeficit -= res.taken;
-                                        p1_total_taxable += res.taken;
-                                    }
-                                }
-                            }
-                            if (remainingDeficit > 0) {
-                                let split = remainingDeficit / 2;
-                                if (mode === 'Single') split = remainingDeficit;
-                                if (p1_alive && p1.rrsp > 0) {
-                                    let res = drain(p1.rrsp, split, 'P1 RRSP', 'p1', true);
-                                    p1.rrsp = res.rem_acct; w_p1.rrsp += res.taken; remainingDeficit -= res.taken;
-                                    p1_total_taxable += res.taken;
-                                }
-                                if (mode === 'Couple' && p2_alive && p2.rrsp > 0) {
-                                    let res = drain(p2.rrsp, remainingDeficit, 'P2 RRSP', 'p2', true);
-                                    p2.rrsp = res.rem_acct; w_p2.rrsp += res.taken; remainingDeficit -= res.taken;
-                                    p2_total_taxable += res.taken;
-                                }
-                            }
-                        } else {
-                           let split = remainingDeficit / 2;
-                           if (mode === 'Single') split = remainingDeficit;
-                           let d1_part = split;
-                           let res1 = {rem_acct: 0, rem_need: d1_part, taken: 0};
-                           if(type==='crypto') { res1 = drain(p1.crypto, d1_part, 'P1 Crypto', 'p1'); p1.crypto = res1.rem_acct; }
-                           else if(type==='nreg') { res1 = drain(p1.nreg, d1_part, 'P1 Non-Reg', 'p1'); p1.nreg = res1.rem_acct; }
-                           else if(type==='tfsa') { res1 = drain(p1.tfsa, d1_part, 'P1 TFSA', 'p1'); p1.tfsa = res1.rem_acct; }
-                           else if(type==='cash') { res1 = drain(p1.cash, d1_part, 'P1 Cash', 'p1'); p1.cash = res1.rem_acct; }
-                           remainingDeficit -= res1.taken;
-                           if (mode === 'Couple') {
-                               let d2_part = remainingDeficit;
-                               if(d1_part > 0 && res1.taken >= d1_part) d2_part = split;
-                               let res2 = {rem_acct: 0, rem_need: d2_part, taken: 0};
-                               if(type==='crypto') { res2 = drain(p2.crypto, d2_part, 'P2 Crypto', 'p2'); p2.crypto = res2.rem_acct; }
-                               else if(type==='nreg') { res2 = drain(p2.nreg, d2_part, 'P2 Non-Reg', 'p2'); p2.nreg = res2.rem_acct; }
-                               else if(type==='tfsa') { res2 = drain(p2.tfsa, d2_part, 'P2 TFSA', 'p2'); p2.tfsa = res2.rem_acct; }
-                               else if(type==='cash') { res2 = drain(p2.cash, d2_part, 'P2 Cash', 'p2'); p2.cash = res2.rem_acct; }
-                               remainingDeficit -= res2.taken;
-                           }
-                        }
-                    }
-                });
-                if (remainingDeficit > 0) { 
-                    if (p1_alive && p1.rrsp > 0) {
-                        let res = drain(p1.rrsp, remainingDeficit, 'P1 RRSP (Forced)', 'p1', true); 
-                        p1.rrsp = res.rem_acct; p1_total_taxable += res.taken; remainingDeficit -= res.taken;
-                    }
-                    if (mode==='Couple' && p2_alive && p2.rrsp > 0) {
-                        let res = drain(p2.rrsp, remainingDeficit, 'P2 RRSP (Forced)', 'p2', true); 
-                        p2.rrsp = res.rem_acct; p2_total_taxable += res.taken; remainingDeficit -= res.taken;
-                    }
-                }
-            }
-
-            t1 = p1_alive ? this.calculateTaxDetailed(p1_total_taxable, province, inflatedTaxData) : { totalTax: 0 };
-            t2 = p2_alive ? this.calculateTaxDetailed(p2_total_taxable, province, inflatedTaxData) : { totalTax: 0 };
-
-            const p1_tot = p1.tfsa + p1.rrsp + p1.crypto + p1.nreg + p1.cash;
-            const p2_tot = mode === 'Couple' ? (p2.tfsa + p2.rrsp + p2.crypto + p2.nreg + p2.cash) : 0;
-            const investTot = p1_tot + p2_tot;
-            const liquidNW = investTot - otherDebt;
-            let totalREValue = simProperties.reduce((acc, p) => acc + p.value, 0);
-            let totalREMortgage = simProperties.reduce((acc, p) => acc + p.mortgage, 0);
-            const nw = liquidNW + (totalREValue - totalREMortgage);
-            finalNW = nw;
-
-            if(!onlyCalcNW) {
-                let totalWithdrawal = 0;
-                for(let k in yearWithdrawals) totalWithdrawal += yearWithdrawals[k];
-
-                let totalGrowth = g_p1.tfsa.growth + g_p1.rrsp.growth + g_p1.cryp.growth + g_p1.nreg.growth + g_p1.cash.growth +
-                                (mode==='Couple' ? (g_p2.tfsa.growth + g_p2.rrsp.growth + g_p2.cryp.growth + g_p2.nreg.growth + g_p2.cash.growth) : 0);
-                let growthPct = investTot > 0 ? (totalGrowth / (investTot - totalGrowth - surplus)) * 100 : 0;
-
-                this.state.projectionData.push({
-                    year: year, p1Age: p1_age, p2Age: mode==='Couple'?p2_age:null,
-                    p1Alive: p1_alive, p2Alive: p2_alive,
-                    incomeP1: p1_gross, incomeP2: p2_gross, 
-                    benefitsP1: p1_cpp_inc + p1_oas_inc, benefitsP2: p2_cpp_inc + p2_oas_inc, 
-                    cppP1: p1_cpp_inc, cppP2: p2_cpp_inc,
-                    oasP1: p1_oas_inc, oasP2: p2_oas_inc,
-                    dbP1: p1_db_inc, dbP2: p2_db_inc,
-                    taxP1: t1.totalTax, taxP2: t2.totalTax,
-                    p1Net: p1_net, p2Net: p2_net,
-                    expenses: annualExp, mortgagePay: totalActualMortgageOutflow, debtPay: debtRepayment, 
-                    surplus: surplus, drawdown: surplus < 0 ? Math.abs(surplus) : 0,
-                    debugNW: nw, debugTotalInflow: (p1_gross + p2_gross + p1_cpp_inc + p1_oas_inc + p2_cpp_inc + p2_oas_inc + p1_db_inc + p2_db_inc + totalWithdrawal + totalWindfall + p1_post_val + p2_post_val),
-                    assetsP1: {...p1}, assetsP2: {...p2},
-                    wdBreakdown: wdBreakdown,
-                    inv_tfsa: p1.tfsa + p2.tfsa, inv_rrsp: p1.rrsp + p2.rrsp, inv_cash: p1.cash + p2.cash, inv_nreg: p1.nreg + p2.nreg, inv_crypto: p1.crypto + p2.crypto,
-                    flows: { contributions: yearContributions, withdrawals: yearWithdrawals },
-                    totalGrowth: totalGrowth, growthPct: growthPct,
-                    events: events,
-                    householdNet: householdNet, visualExpenses: visualExpenses, 
-                    mortgage: totalREMortgage, homeValue: totalREValue, 
-                    investTot: investTot, liquidNW: liquidNW, isCrashYear: isCrashYear,
-                    windfall: totalWindfall,
-                    postRetP1: p1_post_val, postRetP2: p2_post_val
-                });
-            }
-            expCurrent *= (1 + inflation); expRetire *= (1 + inflation); tfsa_limit *= (1 + inflation);
-            expTrans *= (1 + inflation); expGoGo *= (1 + inflation); expSlow *= (1 + inflation); expNoGo *= (1 + inflation);
-        }
-
-        if (!onlyCalcNW) {
-            let html = `
-                <div class="grid-header">
-                    <div class="col-start col-timeline">Timeline</div>
-                    <div class="col-start">Status</div>
-                    <div>Net Income</div>
-                    <div class="text-danger">Expenses</div>
-                    <div>Surplus</div>
-                    <div>Net Worth</div>
-                    <div class="text-center"><i class="bi bi-chevron-bar-down"></i></div>
-                </div>
-            `;
-            
-            this.state.projectionData.forEach((d, idx) => {
-                const df = this.getDiscountFactor(idx);
-                const fmtK = (num) => { 
-                    const val = num / df; 
-                    const abs = Math.abs(val); 
-                    if (Math.round(abs) === 0) return ''; 
-                    const sign = val < 0 ? '-' : ''; 
-                    if (abs >= 1000000) return sign + (abs / 1000000).toFixed(1) + 'M'; 
-                    if (abs >= 1000) return sign + Math.round(abs / 1000) + 'k'; 
-                    return sign + abs.toFixed(0); 
-                };
-
-                // --- UI FIX: Calculate total withdrawals for Summary Display ---
-                let totalWD = 0;
-                if(d.flows && d.flows.withdrawals) {
-                    Object.values(d.flows.withdrawals).forEach(v => totalWD += v);
-                }
-                // Display Income includes withdrawals so the user sees where money comes from
-                const displayIncome = d.householdNet + totalWD;
-                // Recalculate surplus for display: Income (w/ withdrawals) - Expenses
-                const displaySurplus = displayIncome - d.visualExpenses;
-
-                const p1AgeDisplay = d.p1Alive ? d.p1Age : '†';
-                const p2AgeDisplay = mode==='Couple' ? (d.p2Alive ? d.p2Age : '†') : '';
-                
-                let status = '';
-                const p1Ret = d.p1Age >= p1.retAge;
-                const p2Ret = mode === 'Couple' ? (d.p2Age >= p2.retAge) : true; 
-
-                if (mode === 'Couple') {
-                    if (!p1Ret && !p2Ret) status = `<span class="status-pill status-working">Working</span>`;
-                    else if ((p1Ret && !p2Ret) || (!p1Ret && p2Ret)) status = `<span class="status-pill status-semi">Transition</span>`;
-                    else {
-                        if (d.p1Age < goGoLimit) status = `<span class="status-pill status-gogo">Go-go Phase</span>`;
-                        else if (d.p1Age < slowGoLimit) status = `<span class="status-pill status-slow">Slow-go Phase</span>`;
-                        else status = `<span class="status-pill status-nogo">No-go Phase</span>`;
-                    }
-                } else {
-                    if (!p1Ret) status = `<span class="status-pill status-working">Working</span>`;
-                    else {
-                        if (d.p1Age < goGoLimit) status = `<span class="status-pill status-gogo">Go-go Phase</span>`;
-                        else if (d.p1Age < slowGoLimit) status = `<span class="status-pill status-slow">Slow-go Phase</span>`;
-                        else status = `<span class="status-pill status-nogo">No-go Phase</span>`;
-                    }
-                }
-
-                const surplusClass = displaySurplus < -100 ? 'val-negative' : 'val-positive';
-                const surplusSign = displaySurplus > 0 ? '+' : '';
-
-                const line = (label, val, className='') => {
-                    if(!val || Math.round(val) === 0) return '';
-                    return `<div class="detail-item"><span>${label}</span> <span class="${className}">${fmtK(val)}</span></div>`;
-                };
-                const subLine = (label, val) => {
-                    if(!val || Math.round(val) === 0) return '';
-                    return `<div class="detail-item sub"><span>${label}</span> <span>${fmtK(val)}</span></div>`;
-                };
-
-                let incomeLines = '';
-                incomeLines += line("Employment P1", d.incomeP1);
-                if(mode==='Couple') incomeLines += line("Employment P2", d.incomeP2);
-                
-                if (d.postRetP1 > 0) incomeLines += subLine("Post-Ret Work P1", d.postRetP1);
-                if (d.postRetP2 > 0) incomeLines += subLine("Post-Ret Work P2", d.postRetP2);
-
-                if (d.benefitsP1 + d.benefitsP2 > 0) {
-                    incomeLines += subLine("CPP/OAS P1", d.cppP1 + d.oasP1);
-                    if(mode==='Couple') incomeLines += subLine("CPP/OAS P2", d.cppP2 + d.oasP2);
-                }
-                if (d.dbP1 > 0) incomeLines += subLine("DB Pension P1", d.dbP1);
-                if (d.dbP2 > 0) incomeLines += subLine("DB Pension P2", d.dbP2);
-                
-                if (d.windfall > 0) incomeLines += line("Inheritance/Bonus", d.windfall, "text-success fw-bold");
-
-                for(const [type, amt] of Object.entries(d.wdBreakdown.p1)) incomeLines += subLine(`${type} W/D P1`, amt);
-                if(mode==='Couple') {
-                    for(const [type, amt] of Object.entries(d.wdBreakdown.p2)) incomeLines += subLine(`${type} W/D P2`, amt);
-                }
-
-                let incomeDetails = `
-                    <div class="detail-box">
-                        <div class="detail-title">Income Sources</div>
-                        ${incomeLines}
-                        <div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;">
-                            <span class="text-white">Total Cash In</span> <span class="text-success fw-bold">${fmtK(displayIncome)}</span>
-                        </div>
-                    </div>`;
-
-                let expenseLines = '';
-                expenseLines += line("Living Exp", d.expenses);
-                expenseLines += line("Mortgage", d.mortgagePay);
-                expenseLines += line("Debt Repayment", d.debtPay);
-                expenseLines += line("Tax Paid P1", d.taxP1, "val-negative");
-                if(mode==='Couple') expenseLines += line("Tax Paid P2", d.taxP2, "val-negative");
-
-                let expenseDetails = `
-                    <div class="detail-box">
-                        <div class="detail-title">Outflows & Taxes</div>
-                        ${expenseLines}
-                        <div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;">
-                            <span class="text-white">Total Out</span> <span class="text-danger fw-bold">${fmtK(d.visualExpenses)}</span>
-                        </div>
-                    </div>`;
-
-                let p1Assets = d.assetsP1;
-                let p2Assets = d.assetsP2;
-                let assetLines = '';
-                assetLines += line("TFSA P1", p1Assets.tfsa);
-                if(mode==='Couple') assetLines += line("TFSA P2", p2Assets.tfsa);
-                
-                assetLines += line(d.p1Age >= this.CONSTANTS.RRIF_START_AGE ? 'RRIF P1' : 'RRSP P1', p1Assets.rrsp);
-                if(mode==='Couple') assetLines += line(d.p2Age >= this.CONSTANTS.RRIF_START_AGE ? 'RRIF P2' : 'RRSP P2', p2Assets.rrsp);
-                
-                assetLines += line("Non-Reg P1", p1Assets.nreg);
-                if(mode==='Couple') assetLines += line("Non-Reg P2", p2Assets.nreg);
-                
-                assetLines += line("Cash P1", p1Assets.cash);
-                if(mode==='Couple') assetLines += line("Cash P2", p2Assets.cash);
-                
-                assetLines += line("Liquid Net Worth", d.liquidNW, "text-info fw-bold"); 
-                assetLines += line("Real Estate Eq.", d.homeValue - d.mortgage);
-
-                let assetDetails = `
-                    <div class="detail-box">
-                        <div class="detail-title">Assets (End of Year)</div>
-                        ${assetLines}
-                        <div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;">
-                            <span class="text-white">Total NW</span> <span class="text-info fw-bold">${fmtK(d.debugNW)}</span>
-                        </div>
-                    </div>`;
-
-                html += `
-                    <div class="grid-row-group">
-                        <div class="grid-summary-row" onclick="app.toggleRow(this)">
-                            <div class="col-start col-timeline">
-                                <div class="d-flex align-items-center">
-                                    <span class="year-badge me-1">${d.year}</span>
-                                    <span class="event-icons-inline">${d.events.join('')}</span>
-                                </div>
-                                <span class="age-text">${p1AgeDisplay} ${mode==='Couple' ? '/ '+p2AgeDisplay : ''}</span>
-                            </div>
-                            <div class="col-start">${status}</div>
-                            <div class="val-positive">${fmtK(displayIncome)}</div>
-                            <div class="val-neutral text-danger">${fmtK(d.visualExpenses)}</div>
-                            <div class="${surplusClass}">${surplusSign}${fmtK(displaySurplus)}</div>
-                            <div class="text-white fw-bold">${fmtK(d.debugNW)}</div>
-                            <div class="text-center toggle-icon"><i class="bi bi-chevron-down"></i></div>
-                        </div>
-                        <div class="grid-detail-wrapper">
-                            <div class="detail-container">
-                                ${incomeDetails}
-                                ${expenseDetails}
-                                ${assetDetails}
-                            </div>
+    constructor() {
+        // --- CENTRAL STATE ---
+        this.state = {
+            inputs: {}, 
+            debt: [],
+            // Default Property:
+            properties: [
+                { name: "Primary Home", value: 1000000, mortgage: 430000, growth: 3.0, rate: 3.29, payment: 0, manual: false }
+            ],
+            // New Windfalls State
+            windfalls: [
+                // Example: { name: "Inheritance", amount: 50000, freq: 'one', owner: 'p1', taxable: false, start: '2030-01', end: '' }
+            ],
+            strategies: {
+                accum: ['tfsa', 'rrsp', 'nreg', 'cash', 'crypto'],
+                decum: ['rrsp', 'crypto', 'nreg', 'tfsa', 'cash']
+            },
+            mode: 'Couple',
+            projectionData: [],
+            expenseMode: 'Simple' // 'Simple' or 'Advanced'
+        };
+
+        // --- CONFIGURATION CONSTANTS ---
+        this.CONSTANTS = {
+            MAX_CPP_2026: 18092,
+            MAX_OAS_2026: 8908,
+            RRIF_START_AGE: 72, 
+            // 2025/2026 Estimated Tax Brackets & Rates
+            TAX_DATA: {
+                FED: {
+                    brackets: [55867, 111733, 173205, 246752],
+                    rates: [0.15, 0.205, 0.26, 0.29, 0.33]
+                },
+                BC: {
+                    brackets: [47937, 95875, 110076, 133664, 181232, 252752],
+                    rates: [0.0506, 0.077, 0.105, 0.1229, 0.147, 0.168, 0.205]
+                },
+                AB: {
+                    brackets: [148269, 177922, 237230, 355845],
+                    rates: [0.10, 0.12, 0.13, 0.14, 0.15]
+                },
+                SK: {
+                    brackets: [52057, 148734],
+                    rates: [0.105, 0.125, 0.145]
+                },
+                MB: {
+                    brackets: [47000, 100000],
+                    rates: [0.108, 0.1275, 0.174]
+                },
+                ON: {
+                    brackets: [51446, 102894, 150000, 220000],
+                    rates: [0.0505, 0.0915, 0.1116, 0.1216, 0.1316],
+                    surtax: { t1: 5315, r1: 0.20, t2: 6802, r2: 0.36 }
+                },
+                QC: {
+                    brackets: [51780, 103545, 126000],
+                    rates: [0.14, 0.19, 0.24, 0.2575],
+                    abatement: 0.165 // Reduces Federal Tax
+                },
+                NB: {
+                    brackets: [49958, 99916, 185000],
+                    rates: [0.094, 0.14, 0.16, 0.195]
+                },
+                NS: {
+                    brackets: [29590, 59180, 93000, 150000],
+                    rates: [0.0879, 0.1495, 0.1667, 0.175, 0.21]
+                },
+                PE: {
+                    brackets: [32656, 64313, 105000],
+                    rates: [0.0965, 0.1363, 0.1667, 0.1875],
+                    surtax: { t1: 12500, r1: 0.10 } // Approx high income surtax
+                },
+                NL: {
+                    brackets: [43198, 86395, 154244, 215943],
+                    rates: [0.087, 0.145, 0.158, 0.178, 0.198]
+                },
+                YT: {
+                    brackets: [55867, 111733, 173205, 500000],
+                    rates: [0.064, 0.09, 0.109, 0.128, 0.15]
+                },
+                NT: {
+                    brackets: [50597, 101198, 164525],
+                    rates: [0.059, 0.086, 0.122, 0.1405]
+                },
+                NU: {
+                    brackets: [50877, 101754, 165429],
+                    rates: [0.04, 0.07, 0.09, 0.115]
+                }
+            }
+        };
+
+        this.charts = { nw: null, sankey: null }; 
+        this.confirmModal = null; // Store Bootstrap modal instance
+
+        // --- DEFAULT EXPENSE DATA ---
+        this.expensesByCategory = {
+            "Housing": { 
+                items: [ 
+                    { name: "Property Tax", curr: 6000, ret: 6000, trans: 6000, gogo: 6000, slow: 6000, nogo: 6000, freq: 1 }, 
+                    { name: "Enbridge (Gas)", curr: 120, ret: 120, trans: 120, gogo: 120, slow: 120, nogo: 120, freq: 12 }, 
+                    { name: "Enercare (HWT)", curr: 45, ret: 45, trans: 45, gogo: 45, slow: 45, nogo: 45, freq: 12 }, 
+                    { name: "Alectra (Hydro)", curr: 150, ret: 150, trans: 150, gogo: 150, slow: 150, nogo: 150, freq: 12 }, 
+                    { name: "RH Water", curr: 80, ret: 80, trans: 80, gogo: 80, slow: 80, nogo: 80, freq: 12 } 
+                ], 
+                colorClass: 'cat-header-housing' 
+            },
+            "Living": { 
+                items: [ 
+                    { name: "Grocery", curr: 800, ret: 800, trans: 800, gogo: 800, slow: 700, nogo: 600, freq: 12 }, 
+                    { name: "Costco", curr: 400, ret: 400, trans: 400, gogo: 400, slow: 350, nogo: 300, freq: 12 }, 
+                    { name: "Restaurants", curr: 400, ret: 300, trans: 350, gogo: 350, slow: 200, nogo: 100, freq: 12 }, 
+                    { name: "Cellphone", curr: 120, ret: 120, trans: 120, gogo: 120, slow: 120, nogo: 120, freq: 12 }, 
+                    { name: "Internet", curr: 90, ret: 90, trans: 90, gogo: 90, slow: 90, nogo: 90, freq: 12 } 
+                ], 
+                colorClass: 'cat-header-living' 
+            },
+            "Kids": { 
+                items: [ 
+                    { name: "Daycare", curr: 1200, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 }, 
+                    { name: "Activities", curr: 200, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 }, 
+                    { name: "RESP Contribution", curr: 208, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 }, 
+                    { name: "Clothing/Toys", curr: 100, ret: 50, trans: 50, gogo: 50, slow: 0, nogo: 0, freq: 12 } 
+                ], 
+                colorClass: 'cat-header-kids' 
+            },
+            "Lifestyle": { 
+                items: [ 
+                    { name: "Travel", curr: 5000, ret: 15000, trans: 10000, gogo: 15000, slow: 5000, nogo: 0, freq: 1 }, 
+                    { name: "Electronic", curr: 500, ret: 500, trans: 500, gogo: 500, slow: 500, nogo: 200, freq: 1 }, 
+                    { name: "Health Insurance", curr: 50, ret: 300, trans: 150, gogo: 300, slow: 500, nogo: 1000, freq: 12 }, 
+                    { name: "Other", curr: 300, ret: 300, trans: 300, gogo: 300, slow: 200, nogo: 100, freq: 12 } 
+                ], 
+                colorClass: 'cat-header-lifestyle' 
+            }
+        };
+
+        this.optimalAges = { p1_cpp: 65, p1_oas: 65, p2_cpp: 65, p2_oas: 65 };
+        this.strategyLabels = { 'tfsa': 'TFSA', 'rrsp': 'RRSP', 'nreg': 'Non-Reg', 'cash': 'Cash', 'crypto': 'Crypto' };
+
+        this.eventIcons = {
+            "P1 Retires": '<i class="bi bi-cup-hot-fill text-warning" title="P1 Retires"></i>',
+            "P2 Retires": '<i class="bi bi-cup-hot text-purple" title="P2 Retires"></i>',
+            "Mortgage Paid": '<i class="bi bi-house-check-fill text-success" title="Mortgage Paid"></i>',
+            "P1 CPP": '<i class="bi bi-file-earmark-text-fill text-info" title="P1 Starts CPP"></i>',
+            "P1 OAS": '<i class="bi bi-cash-stack text-info" title="P1 Starts OAS"></i>',
+            "P2 CPP": '<i class="bi bi-file-earmark-text text-purple" title="P2 Starts CPP"></i>',
+            "P2 OAS": '<i class="bi bi-cash text-purple" title="P2 Starts OAS"></i>',
+            "Crash": '<i class="bi bi-graph-down-arrow text-danger" title="Stress Test: Market Crash (-15%)"></i>',
+            "P1 Dies": '<i class="bi bi-heartbreak-fill text-white" title="P1 Deceased"></i>',
+            "P2 Dies": '<i class="bi bi-heartbreak text-white" title="P2 Deceased"></i>',
+            "Windfall": '<i class="bi bi-gift-fill text-success" title="Inheritance/Bonus Received"></i>'
+        };
+
+        if(typeof google !== 'undefined' && google.charts) google.charts.load('current', {'packages':['sankey']});
+        this.debouncedRun = this.debounce(() => this.run(), 300);
+        this.init();
+    }
+
+    debounce(func, wait) {
+        let timeout;
+        return function(...args) {
+            const context = this;
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(context, args), wait);
+        };
+    }
+
+    init() {
+        // --- 2. SETUP FUNCTION ---
+        const setup = () => {
+            this.confirmModal = new bootstrap.Modal(document.getElementById('confirmationModal'));
+            this.setupGridContainer(); 
+            this.populateAgeSelects();
+            this.renderExpenseRows(); 
+            this.renderProperties();
+            this.addDebtRow(); 
+            this.renderWindfalls();
+            this.renderStrategy();
+            this.loadScenariosList();
+              
+            this.syncStateFromDOM();
+            this.toggleModeDisplay(); 
+            this.updatePostRetIncomeVisibility();
+
+            this.updateAgeDisplay('p1'); 
+            this.updateAgeDisplay('p2');
+            this.updateAllMortgages(); 
+            this.findOptimal(); 
+              
+            this.bindEvents();
+            this.initSidebar();
+              
+            // Initial Run
+            setTimeout(() => { 
+                this.syncStateFromDOM(); 
+                this.run(); 
+            }, 500); 
+        };
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', setup);
+        } else {
+            setup(); 
+        }
+    }
+
+    // --- CUSTOM CONFIRMATION HELPER ---
+    showConfirm(message, onConfirm) {
+        const modalEl = document.getElementById('confirmationModal');
+        const body = modalEl.querySelector('.modal-body');
+        const btn = document.getElementById('btnConfirmAction');
+        
+        body.textContent = message;
+        
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+        
+        newBtn.addEventListener('click', () => {
+            onConfirm();
+            this.confirmModal.hide();
+        });
+        
+        this.confirmModal.show();
+    }
+
+    setupGridContainer() {
+        const gridId = 'projectionGrid';
+        if (document.getElementById(gridId)) return; 
+
+        const oldTableBody = document.getElementById('projectionTableBody');
+        let inserted = false;
+
+        if (oldTableBody) {
+            const table = oldTableBody.closest('table');
+            if (table && table.parentNode) {
+                const gridContainer = document.createElement('div');
+                gridContainer.id = gridId;
+                gridContainer.className = 'modern-grid';
+                table.parentNode.insertBefore(gridContainer, table);
+                table.style.display = 'none'; 
+                inserted = true;
+            }
+        }
+        
+        if (!inserted) {
+            const container = document.querySelector('.card-body') || document.body;
+            const gridContainer = document.createElement('div');
+            gridContainer.id = gridId;
+            gridContainer.className = 'modern-grid';
+            container.appendChild(gridContainer);
+        }
+    }
+
+    // --- DOM / STATE SYNC ---
+    syncStateFromDOM() {
+        document.querySelectorAll('input, select').forEach(el => {
+            // Skip property/windfall inputs as they are handled by array state
+            if (el.id && !el.id.startsWith('comp_') && !el.classList.contains('property-update') && !el.classList.contains('windfall-update')) {
+                if (el.type === 'checkbox' || el.type === 'radio') {
+                    this.state.inputs[el.id] = el.checked;
+                } else {
+                    this.state.inputs[el.id] = el.value;
+                }
+            }
+        });
+        const coupleEl = document.getElementById('modeCouple');
+        if(coupleEl) this.state.mode = coupleEl.checked ? 'Couple' : 'Single';
+    }
+
+    getVal(id) {
+        let raw = this.state.inputs[id];
+        if (raw === undefined) {
+            const el = document.getElementById(id);
+            if (el) raw = el.value; else return 0;
+        }
+        const val = String(raw).replace(/,/g, '');
+        return Number(val) || 0;
+    }
+
+    getRaw(id) {
+        if (this.state.inputs[id] === undefined) {
+            const el = document.getElementById(id);
+            if (el) return el.value;
+        }
+        return this.state.inputs[id];
+    }
+
+    updateSidebarSync(id, val) {
+        if (id === 'p1_retireAge') {
+            const slider = document.getElementById('qa_p1_retireAge_range');
+            const label = document.getElementById('qa_p1_retireAge_val');
+            if(slider) slider.value = val;
+            if(label) label.innerText = val;
+        }
+        if (id === 'p2_retireAge') {
+            const slider = document.getElementById('qa_p2_retireAge_range');
+            const label = document.getElementById('qa_p2_retireAge_val');
+            if(slider) slider.value = val;
+            if(label) label.innerText = val;
+        }
+        if (id === 'inflation_rate') {
+            const slider = document.getElementById('qa_inflation_range');
+            const label = document.getElementById('qa_inflation_val');
+            if(slider) slider.value = val;
+            if(label) label.innerText = val + '%';
+        }
+        if (id === 'p1_tfsa_ret') {
+            const slider = document.getElementById('qa_return_range');
+            const label = document.getElementById('qa_return_val');
+            if(slider) slider.value = val;
+            if(label) label.innerText = val + '%';
+        }
+    }
+
+    bindEvents() {
+        const toggle = document.getElementById('useRealDollars');
+        if(toggle) toggle.addEventListener('change', () => { 
+            this.calcExpenses(); 
+            this.run(); 
+        });
+
+        document.body.addEventListener('change', (e) => {
+            if (e.target.id === 'expense_mode_advanced') {
+                this.state.expenseMode = e.target.checked ? 'Advanced' : 'Simple';
+                const sliderDiv = document.getElementById('expense-phase-controls');
+                if(sliderDiv) sliderDiv.style.display = e.target.checked ? 'flex' : 'none';
+                this.renderExpenseRows();
+                this.calcExpenses();
+                this.run();
+            }
+            if (e.target.id === 'enable_post_ret_income_p1' || e.target.id === 'enable_post_ret_income_p2') {
+                this.updatePostRetIncomeVisibility();
+            }
+        });
+
+        const bindPhaseSlider = (id, labelId) => {
+            const el = document.getElementById(id);
+            if(el) {
+                el.addEventListener('input', (e) => {
+                    document.getElementById(labelId).innerText = e.target.value;
+                    this.state.inputs[id] = e.target.value;
+                    this.renderExpenseRows(); 
+                    this.calcExpenses(); 
+                    this.debouncedRun();
+                });
+            }
+        };
+        bindPhaseSlider('exp_gogo_age', 'exp_gogo_val');
+        bindPhaseSlider('exp_slow_age', 'exp_slow_val');
+
+        document.getElementById('btnClearAll').addEventListener('click', () => {
+             this.showConfirm("Are you sure you want to clear all data? This cannot be undone.", () => {
+                 this.resetAllData();
+             });
+        });
+
+        document.getElementById('btnAddProperty').addEventListener('click', () => this.addProperty());
+        document.getElementById('btnAddWindfall').addEventListener('click', () => this.addWindfall());
+        document.getElementById('btnExportCSV').addEventListener('click', () => this.exportToCSV());
+
+        document.body.addEventListener('input', (e) => {
+            if (e.target.classList.contains('live-calc')) {
+                if (e.target.classList.contains('formatted-num')) this.formatInput(e.target);
+                
+                if (e.target.id && !e.target.id.startsWith('comp_') && !e.target.classList.contains('property-update') && !e.target.classList.contains('windfall-update')) {
+                    this.state.inputs[e.target.id] = (e.target.type === 'checkbox' ? e.target.checked : e.target.value);
+                    this.updateSidebarSync(e.target.id, e.target.value);
+                }
+                this.debouncedRun();
+            }
+            if (e.target.classList.contains('expense-update')) {
+                const cat = e.target.dataset.cat;
+                const idx = parseInt(e.target.dataset.idx);
+                const field = e.target.dataset.field;
+                let val = e.target.value;
+                 
+                if (['curr', 'ret', 'trans', 'gogo', 'slow', 'nogo'].includes(field)) val = Number(val.replace(/,/g, '')) || 0;
+                else if (field === 'freq') val = parseInt(val);
+                 
+                if (this.expensesByCategory[cat] && this.expensesByCategory[cat].items[idx]) {
+                    this.expensesByCategory[cat].items[idx][field] = val;
+                }
+                if (e.target.classList.contains('formatted-num')) this.formatInput(e.target);
+                this.debouncedRun();
+                this.calcExpenses(); 
+            }
+            if (e.target.classList.contains('property-update')) {
+                const idx = parseInt(e.target.dataset.idx);
+                const field = e.target.dataset.field;
+                let val = e.target.value;
+
+                if (field === 'value' || field === 'mortgage' || field === 'payment') {
+                    val = Number(val.replace(/,/g, '')) || 0;
+                } else if (field === 'growth' || field === 'rate') {
+                    val = parseFloat(val) || 0;
+                }
+
+                if (this.state.properties[idx]) {
+                    this.state.properties[idx][field] = val;
+                    if(field === 'payment') this.state.properties[idx].manual = true;
+                    if(field !== 'payment' && field !== 'name') {
+                        this.state.properties[idx].manual = false;
+                        this.calculateSingleMortgage(idx);
+                    }
+                }
+                
+                if (e.target.classList.contains('formatted-num')) this.formatInput(e.target);
+                this.debouncedRun();
+            }
+            // Windfall Update
+            if (e.target.classList.contains('windfall-update')) {
+                const idx = parseInt(e.target.dataset.idx);
+                const field = e.target.dataset.field;
+                let val = (e.target.type === 'checkbox') ? e.target.checked : e.target.value;
+
+                if (field === 'amount') val = Number(val.replace(/,/g, '')) || 0;
+                
+                if (this.state.windfalls[idx]) {
+                    this.state.windfalls[idx][field] = val;
+                    if (field === 'freq') this.renderWindfalls(); // Re-render to toggle end date visibility
+                }
+                if (e.target.classList.contains('formatted-num')) this.formatInput(e.target);
+                this.debouncedRun();
+            }
+        });
+
+        document.body.addEventListener('change', (e) => {
+            if (e.target.classList.contains('live-calc') && (e.target.tagName === 'SELECT' || e.target.type === 'checkbox' || e.target.type === 'radio')) {
+                if(e.target.id && !e.target.id.startsWith('comp_')) {
+                    this.state.inputs[e.target.id] = (e.target.type === 'checkbox' ? e.target.checked : e.target.value);
+                }
+                this.findOptimal();
+                this.run();
+                this.calcExpenses(); 
+            }
+        });
+
+        document.getElementById('p1_dob').addEventListener('change', () => this.updateAgeDisplay('p1'));
+        document.getElementById('p2_dob').addEventListener('change', () => this.updateAgeDisplay('p2'));
+        
+        const modeRadios = document.getElementsByName('planMode');
+        modeRadios.forEach(r => r.addEventListener('change', () => { 
+            const coupleEl = document.getElementById('modeCouple');
+            if(coupleEl) this.state.mode = coupleEl.checked ? 'Couple' : 'Single';
+            this.toggleModeDisplay(); 
+            this.run();
+            this.calcExpenses();
+        }));
+
+        document.getElementById('btnCollapseSidebar').addEventListener('click', () => this.toggleSidebar());
+        document.getElementById('btnExpandSidebar').addEventListener('click', () => this.toggleSidebar());
+
+        document.getElementById('yearSlider').addEventListener('input', (e) => {
+            const index = parseInt(e.target.value);
+            if (this.state.projectionData[index]) {
+                const d = this.state.projectionData[index];
+                document.getElementById('sliderYearDisplay').innerText = d.year;
+                
+                let ageText = (this.state.mode === 'Couple') ? `(P1: ${d.p1Age} / P2: ${d.p2Age})` : `(Age: ${d.p1Age})`;
+                document.getElementById('cfAgeDisplay').innerText = ageText;
+                
+                const rows = document.querySelectorAll('.grid-row-group');
+                rows.forEach(r => r.style.backgroundColor = ''); 
+                if(rows[index]) {
+                    rows[index].style.backgroundColor = 'rgba(255,193,7,0.1)';
+                    rows[index].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+
+                clearTimeout(this.sliderTimeout);
+                this.sliderTimeout = setTimeout(() => this.drawSankey(index), 50);
+            }
+        });
+
+        const tabEl = document.querySelector('button[data-bs-target="#cashflow-pane"]');
+        if(tabEl) {
+            tabEl.addEventListener('shown.bs.tab', () => {
+                const slider = document.getElementById('yearSlider');
+                this.drawSankey(parseInt(slider.value));
+            });
+        }
+
+        document.getElementById('btnAddDebt').addEventListener('click', () => this.addDebtRow());
+        document.getElementById('btnSaveScenario').addEventListener('click', () => this.saveScenario());
+        
+        document.getElementById('compareSelectionArea').addEventListener('change', (e) => {
+            if(e.target.type === 'checkbox') { }
+        });
+        
+        document.body.addEventListener('click', (e) => {
+            if(e.target.classList.contains('toggle-btn')) {
+                this.toggleGroup(e.target.dataset.type);
+            }
+            if(e.target.classList.contains('opt-apply')) this.applyOpt(e.target.dataset.target);
+        });
+    }
+
+    updatePostRetIncomeVisibility() {
+        const enabledP1 = document.getElementById('enable_post_ret_income_p1') ? document.getElementById('enable_post_ret_income_p1').checked : false;
+        const enabledP2 = document.getElementById('enable_post_ret_income_p2') ? document.getElementById('enable_post_ret_income_p2').checked : false;
+        
+        const cardP1 = document.getElementById('p1-post-ret-card');
+        const cardP2 = document.getElementById('p2-post-ret-card');
+        
+        if (cardP1) cardP1.style.display = enabledP1 ? 'block' : 'none';
+        if (cardP2) cardP2.style.display = enabledP2 ? 'block' : 'none';
+    }
+
+    resetAllData() {
+        const defaults = {
+            p1_dob: '1990-01', p2_dob: '1990-01',
+            p1_retireAge: '65', p2_retireAge: '65',
+            p1_lifeExp: '90', p2_lifeExp: '90',
+            inflation_rate: '2.0',
+            tax_province: 'ON',
+            p1_cash_ret: '2.0', p2_cash_ret: '2.0',
+            p1_tfsa_ret: '6.0', p2_tfsa_ret: '6.0',
+            p1_rrsp_ret: '6.0', p2_rrsp_ret: '6.0',
+            p1_nonreg_ret: '5.0', p2_nonreg_ret: '5.0',
+            p1_crypto_ret: '8.0', p2_crypto_ret: '8.0',
+            p1_income_growth: '2.0', p2_income_growth: '2.0',
+            p1_db_pension: '0', p2_db_pension: '0',
+            p1_cpp_enabled: true, p1_oas_enabled: true,
+            p2_cpp_enabled: true, p2_oas_enabled: true,
+            exp_gogo_age: '75', exp_slow_age: '85',
+            enable_post_ret_income_p1: false, enable_post_ret_income_p2: false,
+            p1_post_inc: '0', p1_post_growth: '2.0',
+            p2_post_inc: '0', p2_post_growth: '2.0'
+        };
+
+        // Reset Inputs
+        document.querySelectorAll('input, select').forEach(el => {
+            if(el.id && !el.id.startsWith('comp_') && !el.classList.contains('property-update') && !el.classList.contains('windfall-update')) {
+                if(defaults[el.id] !== undefined) {
+                    if (el.type === 'checkbox') el.checked = defaults[el.id];
+                    else el.value = defaults[el.id];
+                } else if (el.type === 'checkbox' || el.type === 'radio') {
+                    if(el.name !== 'planMode') el.checked = false;
+                } else {
+                    el.value = '0';
+                }
+                 this.state.inputs[el.id] = (el.type === 'checkbox' ? el.checked : el.value);
+            }
+        });
+
+        this.state.properties = [{ name: "Primary Home", value: 0, mortgage: 0, growth: 3.0, rate: 3.5, payment: 0, manual: false }];
+        this.renderProperties();
+
+        this.state.windfalls = [];
+        this.renderWindfalls();
+
+        for (const cat in this.expensesByCategory) {
+            this.expensesByCategory[cat].items = [];
+        }
+        this.renderExpenseRows();
+        this.calcExpenses();
+
+        document.getElementById('debt-container').innerHTML = '';
+        this.state.debt = [];
+
+        this.updateSidebarSync('p1_retireAge', 65);
+        this.updateSidebarSync('p2_retireAge', 65);
+        this.updateSidebarSync('inflation_rate', 2.0);
+        this.updateSidebarSync('p1_tfsa_ret', 6.0);
+        document.getElementById('exp_gogo_val').innerText = '75';
+        document.getElementById('exp_slow_val').innerText = '85';
+        
+        this.updatePostRetIncomeVisibility();
+
+        this.updateAgeDisplay('p1'); 
+        this.updateAgeDisplay('p2');
+        this.run();
+    }
+
+    // --- EXPORT TO CSV ---
+    exportToCSV() {
+        if (!this.state.projectionData || this.state.projectionData.length === 0) {
+            alert("No data available to export.");
+            return;
+        }
+
+        const mode = this.state.mode;
+        const headers = [
+            "Year", "P1 Age", mode === "Couple" ? "P2 Age" : null,
+            "P1 Income", mode === "Couple" ? "P2 Income" : null,
+            "P1 Post-Ret Inc", mode === "Couple" ? "P2 Post-Ret Inc" : null,
+            "P1 Benefits", mode === "Couple" ? "P2 Benefits" : null,
+            "P1 DB Pension", mode === "Couple" ? "P2 DB Pension" : null,
+            "Windfall",
+            "P1 Taxes", mode === "Couple" ? "P2 Taxes" : null,
+            "Total Expenses", "Mortgage Payment", "Debt Payment",
+            "Surplus/Deficit",
+            "P1 TFSA", "P1 RRSP", "P1 Non-Reg", "P1 Cash", "P1 Crypto",
+            mode === "Couple" ? "P2 TFSA" : null,
+            mode === "Couple" ? "P2 RRSP" : null,
+            mode === "Couple" ? "P2 Non-Reg" : null,
+            mode === "Couple" ? "P2 Cash" : null,
+            mode === "Couple" ? "P2 Crypto" : null,
+            "Liquid Net Worth", "Home Equity", "Total Net Worth"
+        ].filter(h => h !== null);
+
+        const rows = this.state.projectionData.map(d => {
+            const p1 = d.assetsP1;
+            const p2 = d.assetsP2;
+            const row = [
+                d.year, d.p1Age, mode === "Couple" ? (d.p2Age || "") : null,
+                Math.round(d.incomeP1), mode === "Couple" ? Math.round(d.incomeP2) : null,
+                Math.round(d.postRetP1 || 0), mode === "Couple" ? Math.round(d.postRetP2 || 0) : null,
+                Math.round(d.benefitsP1), mode === "Couple" ? Math.round(d.benefitsP2) : null,
+                Math.round(d.dbP1), mode === "Couple" ? Math.round(d.dbP2) : null,
+                Math.round(d.windfall),
+                Math.round(d.taxP1), mode === "Couple" ? Math.round(d.taxP2) : null,
+                Math.round(d.expenses), Math.round(d.mortgagePay), Math.round(d.debtPay),
+                Math.round(d.surplus),
+                Math.round(p1.tfsa), Math.round(p1.rrsp), Math.round(p1.nreg), Math.round(p1.cash), Math.round(p1.crypto),
+                mode === "Couple" ? Math.round(p2.tfsa) : null,
+                mode === "Couple" ? Math.round(p2.rrsp) : null,
+                mode === "Couple" ? Math.round(p2.nreg) : null,
+                mode === "Couple" ? Math.round(p2.cash) : null,
+                mode === "Couple" ? Math.round(p2.crypto) : null,
+                Math.round(d.liquidNW), Math.round(d.homeValue - d.mortgage), Math.round(d.debugNW)
+            ].filter(v => v !== null);
+            return row.join(",");
+        });
+
+        const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows].join("\n");
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "retirement_plan_pro_export.csv");
+        document.body.appendChild(link); // Required for FF
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    // --- WINDFALL LOGIC (NEW) ---
+    renderWindfalls() {
+        const container = document.getElementById('windfall-container');
+        if(!container) return;
+        container.innerHTML = '';
+
+        this.state.windfalls.forEach((w, idx) => {
+            const isOneTime = w.freq === 'one';
+            const hideEnd = isOneTime ? 'display:none;' : '';
+            const today = new Date().toISOString().slice(0, 7); // YYYY-MM
+            
+            const div = document.createElement('div');
+            div.className = 'windfall-row p-2 border border-secondary rounded bg-black bg-opacity-10 mb-2';
+            div.innerHTML = `
+                <div class="d-flex justify-content-between mb-1">
+                    <input type="text" class="form-control form-control-sm bg-transparent border-0 text-white fw-bold windfall-update" 
+                           placeholder="Event Name" value="${w.name}" data-idx="${idx}" data-field="name">
+                    <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="app.removeWindfall(${idx})"><i class="bi bi-x-lg"></i></button>
+                </div>
+                <div class="row g-2 align-items-center">
+                    <div class="col-4">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-black border-secondary text-muted">$</span>
+                            <input type="text" class="form-control bg-black border-secondary text-white formatted-num windfall-update" 
+                                   value="${w.amount.toLocaleString()}" data-idx="${idx}" data-field="amount">
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <select class="form-select form-select-sm bg-black border-secondary text-white windfall-update" data-idx="${idx}" data-field="freq">
+                            <option value="one" ${w.freq==='one'?'selected':''}>One Time</option>
+                            <option value="month" ${w.freq==='month'?'selected':''}>/ Month</option>
+                            <option value="year" ${w.freq==='year'?'selected':''}>/ Year</option>
+                        </select>
+                    </div>
+                    <div class="col-4 p2-column" style="${this.state.mode === 'Couple' ? '' : 'display:none;'}">
+                         <select class="form-select form-select-sm bg-black border-secondary text-white windfall-update" data-idx="${idx}" data-field="owner">
+                            <option value="p1" ${w.owner==='p1'?'selected':''}>Owner: P1</option>
+                            <option value="p2" ${w.owner==='p2'?'selected':''}>Owner: P2</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row g-2 mt-1">
+                    <div class="col-4">
+                        <label class="small text-muted" style="font-size:0.7rem;">Start Date</label>
+                        <input type="month" class="form-control form-control-sm bg-black border-secondary text-white windfall-update" 
+                               value="${w.start || today}" data-idx="${idx}" data-field="start">
+                    </div>
+                    <div class="col-4" style="${hideEnd}">
+                        <label class="small text-muted" style="font-size:0.7rem;">End Date</label>
+                        <input type="month" class="form-control form-control-sm bg-black border-secondary text-white windfall-update" 
+                               value="${w.end}" data-idx="${idx}" data-field="end">
+                    </div>
+                    <div class="col-4 d-flex align-items-center justify-content-end">
+                        <div class="form-check pt-3">
+                            <input class="form-check-input windfall-update" type="checkbox" id="wf_tax_${idx}" ${w.taxable ? 'checked' : ''} data-idx="${idx}" data-field="taxable">
+                            <label class="form-check-label text-muted small" for="wf_tax_${idx}">Taxable?</label>
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.appendChild(div);
+            // Re-apply listeners
+            div.querySelectorAll('.formatted-num').forEach(el => {
+                el.addEventListener('input', (e) => this.formatInput(e.target));
+            });
+        });
+    }
+
+    addWindfall() {
+        const today = new Date().toISOString().slice(0, 7);
+        this.state.windfalls.push({ name: "New Inheritance", amount: 0, freq: 'one', owner: 'p1', taxable: false, start: today, end: '' });
+        this.renderWindfalls();
+        this.run();
+    }
+
+    removeWindfall(index) {
+        this.showConfirm("Remove this item?", () => {
+            this.state.windfalls.splice(index, 1);
+            this.renderWindfalls();
+            this.run();
+        });
+    }
+
+    // --- PROPERTY LOGIC ---
+    renderProperties() {
+        const container = document.getElementById('real-estate-container');
+        container.innerHTML = '';
+        
+        this.state.properties.forEach((prop, idx) => {
+            const div = document.createElement('div');
+            div.className = 'property-row p-3 border border-secondary rounded bg-black bg-opacity-10 mb-3';
+            div.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <input type="text" class="form-control form-control-sm bg-transparent border-0 text-white fw-bold property-update" 
+                           style="max-width:200px;" value="${prop.name}" data-idx="${idx}" data-field="name">
+                    ${idx > 0 ? `<button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="app.removeProperty(${idx})"><i class="bi bi-x-lg"></i></button>` : ''}
+                </div>
+                <div class="row g-3">
+                    <div class="col-6 col-md-3">
+                        <label class="form-label text-muted small">Value</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-black border-secondary text-muted">$</span>
+                            <input type="text" class="form-control bg-black border-secondary text-white formatted-num property-update" 
+                                   value="${prop.value.toLocaleString()}" data-idx="${idx}" data-field="value">
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label text-muted small">Mortgage</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-black border-secondary text-muted">$</span>
+                            <input type="text" class="form-control bg-black border-secondary text-white formatted-num property-update" 
+                                   value="${prop.mortgage.toLocaleString()}" data-idx="${idx}" data-field="mortgage">
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label text-muted small">Growth %</label>
+                        <div class="input-group input-group-sm">
+                            <input type="number" step="0.01" class="form-control bg-black border-secondary text-white property-update" 
+                                   value="${prop.growth}" data-idx="${idx}" data-field="growth">
+                            <span class="input-group-text bg-black border-secondary text-muted">%</span>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label text-muted small">Rate %</label>
+                        <div class="input-group input-group-sm">
+                            <input type="number" step="0.01" class="form-control bg-black border-secondary text-white property-update" 
+                                   value="${prop.rate}" data-idx="${idx}" data-field="rate">
+                            <span class="input-group-text bg-black border-secondary text-muted">%</span>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label text-warning small">Monthly Pmt</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-warning text-black border-warning fw-bold">$</span>
+                            <input type="text" class="form-control bg-black border-warning text-white formatted-num property-update" 
+                                   value="${Math.round(prop.payment).toLocaleString()}" data-idx="${idx}" data-field="payment">
+                        </div>
+                        <div class="mt-1 small" id="prop-payoff-${idx}"></div>
+                    </div>
+                </div>
+            `;
+            container.appendChild(div);
+            // Re-apply listeners for formatted inputs
+            div.querySelectorAll('.formatted-num').forEach(el => {
+                el.addEventListener('input', (e) => this.formatInput(e.target));
+            });
+        });
+        
+        this.updateAllMortgages();
+    }
+
+    addProperty() {
+        this.state.properties.push({ name: "New Property", value: 500000, mortgage: 400000, growth: 3.0, rate: 4.0, payment: 0, manual: false });
+        this.renderProperties();
+        this.run();
+    }
+
+    removeProperty(index) {
+        this.showConfirm("Remove this property?", () => {
+            this.state.properties.splice(index, 1);
+            this.renderProperties();
+            this.run();
+        });
+    }
+
+    updateAllMortgages() {
+        this.state.properties.forEach((p, idx) => {
+            if(!p.manual) this.calculateSingleMortgage(idx);
+            this.updatePropPayoffDisplay(idx);
+        });
+    }
+
+    calculateSingleMortgage(idx) {
+        const p = this.state.properties[idx];
+        const P = p.mortgage;
+        const annualRate = p.rate / 100;
+        let monthlyPayment = 0;
+        
+        if (P > 0 && annualRate > 0) {
+            const r = annualRate / 12; const n = 25 * 12;
+            monthlyPayment = P * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+        } else if (P > 0) { monthlyPayment = P / (25*12); }
+        
+        this.state.properties[idx].payment = monthlyPayment;
+        
+        const inputs = document.querySelectorAll(`.property-update[data-idx="${idx}"][data-field="payment"]`);
+        if(inputs.length > 0) inputs[0].value = Math.round(monthlyPayment).toLocaleString();
+    }
+
+    updatePropPayoffDisplay(idx) {
+        const p = this.state.properties[idx];
+        const el = document.getElementById(`prop-payoff-${idx}`);
+        if(!el) return;
+        
+        if(p.mortgage <= 0) { el.innerHTML = ""; return; }
+        const r = (p.rate/100) / 12;
+        if(p.payment <= p.mortgage * r) { el.innerHTML = `<span class="text-danger fw-bold">Payment too low</span>`; return; }
+        
+        const nMonths = -Math.log(1 - (r * p.mortgage) / p.payment) / Math.log(1 + r);
+        if(!isNaN(nMonths) && isFinite(nMonths)) {
+            const yrs = Math.floor(nMonths/12); const mos = Math.round(nMonths%12);
+            el.innerHTML = `<span class="text-success fw-bold">Payoff: ${yrs}y ${mos}m</span>`;
+        }
+    }
+
+    updateMortgagePayment() { this.updateAllMortgages(); }
+
+    toggleRow(el) {
+        const group = el.parentElement;
+        const detail = group.querySelector('.grid-detail-wrapper');
+        const isOpen = group.classList.contains('expanded');
+        
+        if(!isOpen) {
+            group.classList.add('expanded');
+            detail.classList.add('open');
+        } else {
+            group.classList.remove('expanded');
+            detail.classList.remove('open');
+        }
+    }
+
+    toggleModeDisplay() {
+        const isCouple = this.state.mode === 'Couple';
+        document.body.classList.toggle('is-couple', isCouple);
+        document.querySelectorAll('.p2-column').forEach(el => {
+            if(el.tagName === 'TH' || el.tagName === 'TD') return; 
+            // Use empty string to revert to stylesheet display (block, flex, etc)
+            // instead of forcing 'block' which might break layout
+            el.style.display = isCouple ? '' : 'none';
+        });
+        
+        // Resize chart if needed
+        if(this.charts.nw) this.charts.nw.resize();
+    }
+
+    // --- MAIN ENGINE ---
+    run() {
+        try {
+            this.estimateCPPOAS();
+            this.updateIncomeDisplay();
+            this.calcExpenses();
+            this.generateProjectionTable(); 
+            
+            const slider = document.getElementById('yearSlider');
+            if (this.state.projectionData.length > 0) {
+                let currentVal = parseInt(slider.value);
+                const maxIndex = this.state.projectionData.length - 1;
+                
+                if(currentVal > maxIndex) currentVal = 0;
+                slider.max = maxIndex; 
+                
+                if (currentVal > maxIndex) { slider.value = 0; currentVal = 0; }
+                
+                const d = this.state.projectionData[currentVal];
+                document.getElementById('sliderYearDisplay').innerText = d.year;
+                let ageText = (this.state.mode === 'Couple') ? `(P1: ${d.p1Age} / P2: ${d.p2Age})` : `(Age: ${d.p1Age})`;
+                document.getElementById('cfAgeDisplay').innerText = ageText;
+
+                if(!this.charts.sankey) this.drawSankey(currentVal);
+            }
+        } catch (e) {
+            console.error("Calculation Error:", e);
+        }
+    }
+
+    drawSankey(index) {
+        if (!this.state.projectionData[index] || typeof google === 'undefined' || !google.visualization) return;
+
+        const d = this.state.projectionData[index];
+        const rows = [];
+        const fmt = (n) => {
+            if(n >= 1000000) return '$' + (n/1000000).toFixed(1) + 'M';
+            if(n >= 1000) return '$' + Math.round(n/1000) + 'k';
+            return '$' + Math.round(n);
+        };
+
+        const potName = `Available Cash\n${fmt(d.debugTotalInflow)}`;
+
+        if (d.incomeP1 > 0) rows.push([`Employment P1\n${fmt(d.incomeP1)}`, potName, Math.round(d.incomeP1)]);
+        if (d.incomeP2 > 0) rows.push([`Employment P2\n${fmt(d.incomeP2)}`, potName, Math.round(d.incomeP2)]);
+        if (d.benefitsP1 > 0) rows.push([`Gov Benefits P1\n${fmt(d.benefitsP1)}`, potName, Math.round(d.benefitsP1)]);
+        if (d.benefitsP2 > 0) rows.push([`Gov Benefits P2\n${fmt(d.benefitsP2)}`, potName, Math.round(d.benefitsP2)]);
+        
+        if (d.dbP1 > 0) rows.push([`DB Pension P1\n${fmt(d.dbP1)}`, potName, Math.round(d.dbP1)]);
+        if (d.dbP2 > 0) rows.push([`DB Pension P2\n${fmt(d.dbP2)}`, potName, Math.round(d.dbP2)]);
+        
+        // Add Windfalls to Sankey
+        if (d.windfall > 0) rows.push([`Inheritance/Bonus\n${fmt(d.windfall)}`, potName, Math.round(d.windfall)]);
+
+        if (d.flows && d.flows.withdrawals) {
+            for (const [source, amount] of Object.entries(d.flows.withdrawals)) {
+                if (amount > 0) rows.push([`${source}\n${fmt(amount)}`, potName, Math.round(amount)]);
+            }
+        }
+
+        const totalTax = d.taxP1 + d.taxP2;
+        if (totalTax > 0) rows.push([potName, `Taxes\n${fmt(totalTax)}`, Math.round(totalTax)]);
+
+        if (d.expenses > 0) rows.push([potName, `Living Exp.\n${fmt(d.expenses)}`, Math.round(d.expenses)]);
+
+        const totalDebt = d.mortgagePay + d.debtPay;
+        if (totalDebt > 0) rows.push([potName, `Mortgage/Debt\n${fmt(totalDebt)}`, Math.round(totalDebt)]);
+
+        if (d.flows && d.flows.contributions) {
+            for (const [target, amount] of Object.entries(d.flows.contributions)) {
+                let label = this.strategyLabels[target] || target;
+                if (amount > 0) rows.push([potName, `To ${label}\n${fmt(amount)}`, Math.round(amount)]);
+            }
+        }
+
+        const uniqueNodes = new Set();
+        rows.forEach(r => { uniqueNodes.add(r[0]); uniqueNodes.add(r[1]); });
+        
+        const nodeColors = [];
+        uniqueNodes.forEach(node => {
+            let color = '#a8a29e'; 
+            if (node.includes("Available Cash")) color = '#f59e0b'; 
+            else if (node.includes("Employment")) color = '#10b981'; 
+            else if (node.includes("Gov Benefits") || node.includes("DB Pension")) color = '#06b6d4';
+            else if (node.includes("Inheritance")) color = '#22c55e'; // Green for windfall
+            else if (node.includes("RRIF") || node.includes("TFSA") || node.includes("RRSP") || node.includes("Non-Reg") || node.includes("Crypto") || node.includes("Cash")) {
+                if(node.startsWith("To ")) color = '#3b82f6'; else color = '#8b5cf6';
+            }
+            if (node.includes("Taxes")) color = '#ef4444'; 
+            else if (node.includes("Living Exp")) color = '#f97316'; 
+            else if (node.includes("Mortgage") || node.includes("Debt")) color = '#dc2626'; 
+
+            nodeColors.push({ node: node, color: color });
+        });
+
+        const nodesConfig = Array.from(uniqueNodes).map(name => {
+             const cObj = nodeColors.find(n => n.node === name);
+             return { color: cObj ? cObj.color : '#888' };
+        });
+
+        const container = document.getElementById('sankey_chart');
+        const dataTable = new google.visualization.DataTable();
+        dataTable.addColumn('string', 'From');
+        dataTable.addColumn('string', 'To');
+        dataTable.addColumn('number', 'Amount');
+        dataTable.addRows(rows);
+
+        const options = {
+            sankey: {
+                node: { label: { color: '#ffffff', fontSize: 13, bold: true }, nodePadding: 30, width: 12, colors: nodesConfig.map(n => n.color) },
+                link: { colorMode: 'gradient', colors: ['#334155', '#475569'] }
+            },
+            backgroundColor: 'transparent',
+            height: 600,
+            width: '100%'
+        };
+
+        const chart = new google.visualization.Sankey(container);
+        chart.draw(dataTable, options);
+        this.charts.sankey = chart;
+    }
+
+    getRrifFactor(age) {
+        if (age < 71) { return 1 / (90 - age); }
+        const rates = { 71: 0.0528, 72: 0.0540, 73: 0.0553, 74: 0.0567, 75: 0.0582, 76: 0.0598, 77: 0.0617, 78: 0.0636, 79: 0.0658, 80: 0.0682, 81: 0.0708, 82: 0.0738, 83: 0.0771, 84: 0.0808, 85: 0.0851, 86: 0.0899, 87: 0.0955, 88: 0.1021, 89: 0.1099, 90: 0.1192, 91: 0.1306, 92: 0.1449, 93: 0.1634, 94: 0.1879, 95: 0.2000 };
+        if (age >= 95) return 0.20;
+        return rates[age] || 0.0528; 
+    }
+
+    generateProjectionTable(onlyCalcNW = false) {
+        if (!onlyCalcNW) this.state.projectionData = [];
+        
+        const mode = this.state.mode;
+        const province = this.getRaw('tax_province');
+        const inflation = this.getVal('inflation_rate') / 100;
+        let tfsa_limit = 7000;
+        const taxEfficient = this.state.inputs['taxEfficient']; 
+        const stressTest = this.state.inputs['stressTestEnabled'];
+        const rrspMeltdown = this.state.inputs['strat_rrsp_topup']; 
+        const expMode = this.state.expenseMode;
+        
+        const enablePostRetP1 = this.state.inputs['enable_post_ret_income_p1'];
+        const enablePostRetP2 = this.state.inputs['enable_post_ret_income_p2'];
+        
+        const s1_tfsa = this.state.inputs['skip_first_tfsa_p1'];
+        const s1_rrsp = this.state.inputs['skip_first_rrsp_p1'];
+        const s2_tfsa = this.state.inputs['skip_first_tfsa_p2'];
+        const s2_rrsp = this.state.inputs['skip_first_rrsp_p2'];
+
+        const p1_cpp_on = this.state.inputs['p1_cpp_enabled'];
+        const p1_oas_on = this.state.inputs['p1_oas_enabled'];
+        const p2_cpp_on = this.state.inputs['p2_cpp_enabled'];
+        const p2_oas_on = this.state.inputs['p2_oas_enabled'];
+
+        const goGoLimit = parseInt(this.getRaw('exp_gogo_age')) || 75;
+        const slowGoLimit = parseInt(this.getRaw('exp_slow_age')) || 85;
+
+        let p1 = { tfsa: this.getVal('p1_tfsa'), rrsp: this.getVal('p1_rrsp'), cash: this.getVal('p1_cash'), nreg: this.getVal('p1_nonreg'), crypto: this.getVal('p1_crypto'), inc: this.getVal('p1_income'), dob: new Date(this.getRaw('p1_dob')), retAge: this.getVal('p1_retireAge'), lifeExp: this.getVal('p1_lifeExp') };
+        let p2 = { tfsa: this.getVal('p2_tfsa'), rrsp: this.getVal('p2_rrsp'), cash: this.getVal('p2_cash'), nreg: this.getVal('p2_nonreg'), crypto: this.getVal('p2_crypto'), inc: this.getVal('p2_income'), dob: new Date(this.getRaw('p2_dob')), retAge: this.getVal('p2_retireAge'), lifeExp: this.getVal('p2_lifeExp') };
+
+        const getRate = (id) => this.getVal(id)/100;
+        const baseRatesP1 = { tfsa: getRate('p1_tfsa_ret'), rrsp: getRate('p1_rrsp_ret'), cash: getRate('p1_cash_ret'), nreg: getRate('p1_nonreg_ret'), cryp: getRate('p1_crypto_ret'), inc: getRate('p1_income_growth') };
+        const baseRatesP2 = { tfsa: getRate('p2_tfsa_ret'), rrsp: getRate('p2_tfsa_ret'), cash: getRate('p2_cash_ret'), nreg: getRate('p2_nonreg_ret'), cryp: getRate('p2_crypto_ret'), inc: getRate('p2_income_growth') };
+        
+        p1.rates = {...baseRatesP1}; p2.rates = {...baseRatesP2};
+
+        const p1_cpp_start = parseInt(this.getRaw('p1_cpp_start'));
+        const p1_oas_start = parseInt(this.getRaw('p1_oas_start'));
+        const p2_cpp_start = parseInt(this.getRaw('p2_cpp_start'));
+        const p2_oas_start = parseInt(this.getRaw('p2_oas_start'));
+
+        let p1_db_base = this.getVal('p1_db_pension') * 12;
+        let p2_db_base = this.getVal('p2_db_pension') * 12;
+        
+        // Post-Retirement Logic Setup
+        let p1_post_base = this.getVal('p1_post_inc');
+        let p1_post_growth = this.getVal('p1_post_growth') / 100;
+        let p1_post_start = new Date((this.getRaw('p1_post_start') || '2100-01') + "-01");
+        let p1_post_end = new Date((this.getRaw('p1_post_end') || '2100-01') + "-01");
+        
+        let p2_post_base = this.getVal('p2_post_inc');
+        let p2_post_growth = this.getVal('p2_post_growth') / 100;
+        let p2_post_start = new Date((this.getRaw('p2_post_start') || '2100-01') + "-01");
+        let p2_post_end = new Date((this.getRaw('p2_post_end') || '2100-01') + "-01");
+
+        let expenseTotals = { curr:0, ret:0, trans:0, gogo:0, slow:0, nogo:0 };
+        for (const cat in this.expensesByCategory) {
+            this.expensesByCategory[cat].items.forEach(item => {
+                const f = item.freq;
+                expenseTotals.curr += (item.curr||0) * f;
+                expenseTotals.ret += (item.ret||0) * f;
+                if(expMode === 'Advanced') {
+                    expenseTotals.trans += (item.trans||0) * f;
+                    expenseTotals.gogo += (item.gogo||0) * f;
+                    expenseTotals.slow += (item.slow||0) * f;
+                    expenseTotals.nogo += (item.nogo||0) * f;
+                }
+            });
+        }
+
+        let simProperties = JSON.parse(JSON.stringify(this.state.properties));
+        let otherDebt = this.getTotalDebt();
+        let expCurrent = expenseTotals.curr; let expRetire = expenseTotals.ret;
+        let expTrans = expenseTotals.trans; let expGoGo = expenseTotals.gogo; 
+        let expSlow = expenseTotals.slow; let expNoGo = expenseTotals.nogo;
+        
+        const currentYear = new Date().getFullYear();
+        const p1_startAge = currentYear - p1.dob.getFullYear();
+        const p2_startAge = currentYear - p2.dob.getFullYear();
+        const endAge = Math.max(p1.lifeExp, mode==='Couple' ? p2.lifeExp : 0);
+        const yearsToRun = endAge - Math.min(p1_startAge, mode==='Couple' ? p2_startAge : p1_startAge);
+
+        let triggeredEvents = new Set();
+        let cpp_max_p1 = this.CONSTANTS.MAX_CPP_2026, oas_max_p1 = this.CONSTANTS.MAX_OAS_2026;
+        let cpp_max_p2 = this.CONSTANTS.MAX_CPP_2026, oas_max_p2 = this.CONSTANTS.MAX_OAS_2026;
+        let finalNW = 0;
+        let currentTaxData = JSON.parse(JSON.stringify(this.CONSTANTS.TAX_DATA));
+
+        for (let i = 0; i <= yearsToRun; i++) {
+            const year = currentYear + i;
+            const p1_age = p1_startAge + i; const p2_age = p2_startAge + i;
+            const p1_alive = p1_age <= p1.lifeExp;
+            const p2_alive = (mode === 'Couple') ? (p2_age <= p2.lifeExp) : false;
+
+            if(!p1_alive && !p2_alive) break;
+
+            const bracketInflator = Math.pow(1 + inflation, i);
+            const inflatedTaxData = JSON.parse(JSON.stringify(this.CONSTANTS.TAX_DATA));
+            for(const k in inflatedTaxData) {
+                 if(inflatedTaxData[k].brackets) {
+                     inflatedTaxData[k].brackets = inflatedTaxData[k].brackets.map(b => b * bracketInflator);
+                 }
+                 if(inflatedTaxData[k].surtax) {
+                     if(inflatedTaxData[k].surtax.t1) inflatedTaxData[k].surtax.t1 *= bracketInflator;
+                     if(inflatedTaxData[k].surtax.t2) inflatedTaxData[k].surtax.t2 *= bracketInflator;
+                 }
+            }
+            
+            let currentRatesP1 = {...baseRatesP1}; let currentRatesP2 = {...baseRatesP2};
+            let isCrashYear = false;
+            if (stressTest && p1_age >= p1.retAge && p1_age < p1.retAge + 2) {
+                isCrashYear = true;
+                const crashRate = -0.15; const crashCrypto = -0.40; 
+                ['tfsa', 'rrsp', 'nreg', 'cash'].forEach(k => { currentRatesP1[k] = crashRate; currentRatesP2[k] = crashRate; });
+                currentRatesP1.cryp = crashCrypto; currentRatesP2.cryp = crashCrypto;
+            }
+
+            let yearContributions = { tfsa: 0, rrsp: 0, nreg: 0, cash: 0, crypto: 0 };
+            let yearWithdrawals = {}; 
+            let wdBreakdown = { p1: {}, p2: {} }; 
+            let w_p1 = { rrsp: 0 }; let w_p2 = { rrsp: 0 }; 
+
+            let events = [];
+            if(p1_alive) {
+                if(p1_age === p1.retAge && !triggeredEvents.has('P1 Retires')) { events.push(this.eventIcons['P1 Retires']); triggeredEvents.add('P1 Retires'); }
+                if(p1_age === p1_cpp_start && p1_cpp_on) events.push(this.eventIcons['P1 CPP']);
+                if(p1_age === p1_oas_start && p1_oas_on) events.push(this.eventIcons['P1 OAS']);
+            } else if (!triggeredEvents.has('P1 Dies')) {
+                events.push(this.eventIcons['P1 Dies']); triggeredEvents.add('P1 Dies');
+            }
+            if(mode==='Couple') {
+                if(p2_alive) {
+                    if(p2_age === p2.retAge && !triggeredEvents.has('P2 Retires')) { events.push(this.eventIcons['P2 Retires']); triggeredEvents.add('P2 Retires'); }
+                    if(p2_age === p2_cpp_start && p2_cpp_on) events.push(this.eventIcons['P2 CPP']);
+                    if(p2_age === p2_oas_start && p2_oas_on) events.push(this.eventIcons['P2 OAS']);
+                } else if (!triggeredEvents.has('P2 Dies')) {
+                    events.push(this.eventIcons['P2 Dies']); triggeredEvents.add('P2 Dies');
+                }
+            }
+            let totalMortgageBalance = simProperties.reduce((acc, p) => acc + p.mortgage, 0);
+            if(totalMortgageBalance <= 0 && !triggeredEvents.has('Mortgage Paid')) { 
+                events.push(this.eventIcons['Mortgage Paid']); triggeredEvents.add('Mortgage Paid'); 
+            }
+            if(isCrashYear) events.push(this.eventIcons['Crash']);
+
+            const p1_isRetired = p1_age >= p1.retAge;
+            const p2_isRetired = (mode === 'Couple') ? (p2_age >= p2.retAge) : true;
+            let fullyRetired = true;
+            if(p1_alive && !p1_isRetired) fullyRetired = false;
+            if(p2_alive && !p2_isRetired) fullyRetired = false;
+
+            let p1_gross = 0, p2_gross = 0;
+            let p1_cpp_inc = 0, p1_oas_inc = 0;
+            let p2_cpp_inc = 0, p2_oas_inc = 0;
+            let p1_db_inc = 0, p2_db_inc = 0;
+            let p1_post_val = 0, p2_post_val = 0;
+
+            if(p1_alive) {
+                if(!p1_isRetired) { p1_gross += p1.inc; p1.inc *= (1 + currentRatesP1.inc); }
+                else { p1_db_inc = p1_db_base * bracketInflator; }
+                
+                // P1 Post-Retirement Income Calculation
+                if (enablePostRetP1 && p1_post_base > 0) {
+                    // Check if current year is within start and end
+                    const startYear = p1_post_start.getFullYear();
+                    const endYear = p1_post_end.getFullYear();
+                    
+                    if (year >= startYear && year <= endYear) {
+                         // Calculate inflated amount
+                         let grownAmount = p1_post_base * Math.pow(1 + p1_post_growth, i);
+                         let factor = 1.0;
+                         
+                         // Prorate start year
+                         if (year === startYear) {
+                             const months = 12 - p1_post_start.getMonth();
+                             factor = months / 12;
+                         }
+                         // Prorate end year
+                         if (year === endYear) {
+                             const months = p1_post_end.getMonth() + 1;
+                             factor = Math.min(factor, months / 12); // Use min in case start == end
+                         }
+                         
+                         p1_post_val = grownAmount * factor;
+                    }
+                }
+
+                if(p1_cpp_on && p1_age >= p1_cpp_start) p1_cpp_inc = this.calcBen(cpp_max_p1, p1_cpp_start, 1.0, p1.retAge);
+                if(p1_oas_on && p1_age >= p1_oas_start) p1_oas_inc = this.calcBen(oas_max_p1, p1_oas_start, 1.0, 65);
+            }
+            if(mode === 'Couple' && p2_alive) {
+                if(!p2_isRetired) { p2_gross += p2.inc; p2.inc *= (1 + currentRatesP2.inc); }
+                else { p2_db_inc = p2_db_base * bracketInflator; }
+                
+                // P2 Post-Retirement Income Calculation
+                if (enablePostRetP2 && p2_post_base > 0) {
+                    const startYear = p2_post_start.getFullYear();
+                    const endYear = p2_post_end.getFullYear();
+                    
+                    if (year >= startYear && year <= endYear) {
+                         let grownAmount = p2_post_base * Math.pow(1 + p2_post_growth, i);
+                         let factor = 1.0;
+                         if (year === startYear) {
+                             const months = 12 - p2_post_start.getMonth();
+                             factor = months / 12;
+                         }
+                         if (year === endYear) {
+                             const months = p2_post_end.getMonth() + 1;
+                             factor = Math.min(factor, months / 12);
+                         }
+                         p2_post_val = grownAmount * factor;
+                    }
+                }
+
+                if(p2_cpp_on && p2_age >= p2_cpp_start) p2_cpp_inc = this.calcBen(cpp_max_p2, p2_cpp_start, 1.0, p2.retAge);
+                if(p2_oas_on && p2_age >= p2_oas_start) p2_oas_inc = this.calcBen(oas_max_p2, p2_oas_start, 1.0, 65);
+            }
+            cpp_max_p1 *= (1 + inflation); oas_max_p1 *= (1 + inflation); 
+            cpp_max_p2 *= (1 + inflation); oas_max_p2 *= (1 + inflation);
+
+            let p1_rrif_inc = 0;
+            if (p1_alive && p1.rrsp > 0 && p1_age >= this.CONSTANTS.RRIF_START_AGE) {
+                const factor = this.getRrifFactor(p1_age);
+                p1_rrif_inc = p1.rrsp * factor;
+                p1.rrsp -= p1_rrif_inc; 
+                if(p1_rrif_inc > 0) {
+                      if(!yearWithdrawals['P1 RRIF']) yearWithdrawals['P1 RRIF'] = 0;
+                      yearWithdrawals['P1 RRIF'] += p1_rrif_inc;
+                      w_p1.rrsp += p1_rrif_inc;
+                      wdBreakdown.p1["RRIF"] = (wdBreakdown.p1["RRIF"] || 0) + p1_rrif_inc;
+                }
+            }
+            let p2_rrif_inc = 0;
+            if (mode === 'Couple' && p2_alive && p2.rrsp > 0 && p2_age >= this.CONSTANTS.RRIF_START_AGE) {
+                const factor = this.getRrifFactor(p2_age);
+                p2_rrif_inc = p2.rrsp * factor;
+                p2.rrsp -= p2_rrif_inc;
+                if(p2_rrif_inc > 0) {
+                      if(!yearWithdrawals['P2 RRIF']) yearWithdrawals['P2 RRIF'] = 0;
+                      yearWithdrawals['P2 RRIF'] += p2_rrif_inc;
+                      w_p2.rrsp += p2_rrif_inc;
+                      wdBreakdown.p2["RRIF"] = (wdBreakdown.p2["RRIF"] || 0) + p2_rrif_inc;
+                }
+            }
+
+            // --- WINDFALL CALCULATIONS ---
+            let wf_tax_p1 = 0, wf_tax_p2 = 0;
+            let wf_nontax_p1 = 0, wf_nontax_p2 = 0;
+            
+            this.state.windfalls.forEach(w => {
+                const wStart = new Date(w.start + "-01");
+                const wStartYear = wStart.getFullYear();
+                
+                let active = false;
+                let annualAmt = 0;
+                
+                if (w.freq === 'one') {
+                    if (wStartYear === year) { active = true; annualAmt = w.amount; }
+                } else {
+                    const wEnd = w.end ? new Date(w.end + "-01") : new Date("2100-01-01");
+                    const yearStart = new Date(year, 0, 1);
+                    const yearEnd = new Date(year, 11, 31);
+                    
+                    // Simple overlap check
+                    if (year >= wStart.getFullYear() && year <= wEnd.getFullYear()) {
+                        active = true;
+                        if (w.freq === 'year') annualAmt = w.amount;
+                        if (w.freq === 'month') {
+                            // Calculate active months in this year
+                            let startMonth = (year === wStart.getFullYear()) ? wStart.getMonth() : 0;
+                            let endMonth = (year === wEnd.getFullYear()) ? wEnd.getMonth() : 11;
+                            let months = Math.max(0, endMonth - startMonth + 1);
+                            annualAmt = w.amount * months;
+                        }
+                    }
+                }
+                
+                if (active && annualAmt > 0) {
+                    if(!triggeredEvents.has('Windfall') && i === 0) {} 
+                    if(w.freq === 'one') events.push(this.eventIcons['Windfall']);
+                    
+                    if (w.taxable) {
+                        if (w.owner === 'p2' && mode === 'Couple') wf_tax_p2 += annualAmt;
+                        else wf_tax_p1 += annualAmt;
+                    } else {
+                        if (w.owner === 'p2' && mode === 'Couple') wf_nontax_p2 += annualAmt;
+                        else wf_nontax_p1 += annualAmt;
+                    }
+                }
+            });
+
+            // Add taxable windfalls AND Post-Retirement Income to gross income for tax calc
+            let p1_total_taxable = p1_gross + p1_cpp_inc + p1_oas_inc + p1_rrif_inc + p1_db_inc + wf_tax_p1 + p1_post_val;
+            let p2_total_taxable = p2_gross + p2_cpp_inc + p2_oas_inc + p2_rrif_inc + p2_db_inc + wf_tax_p2 + p2_post_val;
+
+            if (rrspMeltdown) {
+                const lowBracketLimit = inflatedTaxData.FED.brackets[0]; 
+                if (p1_alive && p1.rrsp > 0 && p1_total_taxable < lowBracketLimit) {
+                    let room = lowBracketLimit - p1_total_taxable;
+                    let draw = Math.min(room, p1.rrsp);
+                    if(draw > 0) {
+                        p1.rrsp -= draw; p1_total_taxable += draw;
+                        if(!yearWithdrawals['RRSP Top-Up']) yearWithdrawals['RRSP Top-Up'] = 0;
+                        yearWithdrawals['RRSP Top-Up'] += draw;
+                        let label = p1_age >= this.CONSTANTS.RRIF_START_AGE ? 'RRIF' : 'RRSP';
+                        wdBreakdown.p1[label] = (wdBreakdown.p1[label] || 0) + draw;
+                    }
+                }
+                if (mode === 'Couple' && p2_alive && p2.rrsp > 0 && p2_total_taxable < lowBracketLimit) {
+                    let room = lowBracketLimit - p2_total_taxable;
+                    let draw = Math.min(room, p2.rrsp);
+                    if(draw > 0) {
+                        p2.rrsp -= draw; p2_total_taxable += draw;
+                        if(!yearWithdrawals['RRSP Top-Up']) yearWithdrawals['RRSP Top-Up'] = 0;
+                        yearWithdrawals['RRSP Top-Up'] += draw;
+                        let label = p2_age >= this.CONSTANTS.RRIF_START_AGE ? 'RRIF' : 'RRSP';
+                        wdBreakdown.p2[label] = (wdBreakdown.p2[label] || 0) + draw;
+                    }
+                }
+            }
+
+            let t1 = p1_alive ? this.calculateTaxDetailed(p1_total_taxable, province, inflatedTaxData) : { totalTax: 0 };
+            let t2 = p2_alive ? this.calculateTaxDetailed(p2_total_taxable, province, inflatedTaxData) : { totalTax: 0 };
+
+            let p1_net = p1_alive ? (p1_total_taxable - t1.totalTax) : 0;
+            let p2_net = p2_alive ? (p2_total_taxable - t2.totalTax) : 0;
+            
+            // Add Non-Taxable Windfalls to Net
+            p1_net += wf_nontax_p1;
+            p2_net += wf_nontax_p2;
+
+            const householdNet = p1_net + p2_net;
+            const totalWindfall = wf_tax_p1 + wf_tax_p2 + wf_nontax_p1 + wf_nontax_p2;
+
+            let annualExp = 0;
+            if(expMode === 'Simple') {
+                annualExp = fullyRetired ? expRetire : expCurrent;
+            } else {
+                if (!fullyRetired) {
+                    if (mode === 'Couple' && ((p1_isRetired && !p2_isRetired) || (!p1_isRetired && p2_isRetired))) annualExp = expTrans;
+                    else annualExp = expCurrent;
+                } else {
+                    if (p1_age < goGoLimit) annualExp = expGoGo;
+                    else if (p1_age < slowGoLimit) annualExp = expSlow;
+                    else annualExp = expNoGo;
+                }
+            }
+            
+            let totalActualMortgageOutflow = 0;
+            simProperties.forEach(prop => {
+                if(prop.mortgage > 0) {
+                    const annualRate = prop.rate / 100;
+                    const annualInterest = prop.mortgage * annualRate;
+                    const annualPmt = prop.payment * 12;
+                    let actualOutflow = Math.min(prop.mortgage + annualInterest, annualPmt);
+                    if(actualOutflow >= annualInterest) {
+                        let principal = actualOutflow - annualInterest;
+                        prop.mortgage -= principal;
+                    } else { prop.mortgage += (annualInterest - actualOutflow); }
+                    totalActualMortgageOutflow += actualOutflow;
+                }
+                prop.value *= (1 + (prop.growth/100));
+            });
+
+            let debtRepayment = 0;
+            if(otherDebt > 0) {
+                debtRepayment = Math.min(otherDebt, otherDebt * 0.10); 
+                otherDebt -= debtRepayment;
+            }
+
+            let visualExpenses = annualExp + totalActualMortgageOutflow + debtRepayment;
+            let surplus = householdNet - visualExpenses;
+
+            const grow = (bal, rate) => ({ start: bal, growth: bal*rate, end: bal*(1+rate) });
+            let g_p1 = { tfsa: grow(p1.tfsa, currentRatesP1.tfsa), rrsp: grow(p1.rrsp, currentRatesP1.rrsp), cryp: grow(p1.crypto, currentRatesP1.cryp), nreg: grow(p1.nreg, currentRatesP1.nreg), cash: grow(p1.cash, currentRatesP1.cash) };
+            p1.tfsa=g_p1.tfsa.end; p1.rrsp=g_p1.rrsp.end; p1.crypto=g_p1.cryp.end; p1.nreg=g_p1.nreg.end; p1.cash=g_p1.cash.end;
+            let g_p2 = { tfsa: grow(p2.tfsa, currentRatesP2.tfsa), rrsp: grow(p2.rrsp, currentRatesP2.rrsp), cryp: grow(p2.crypto, currentRatesP2.cryp), nreg: grow(p2.nreg, currentRatesP2.nreg), cash: grow(p2.cash, currentRatesP2.cash) };
+            p2.tfsa=g_p2.tfsa.end; p2.rrsp=g_p2.rrsp.end; p2.crypto=g_p2.cryp.end; p2.nreg=g_p2.nreg.end; p2.cash=g_p2.cash.end;
+
+            if (surplus > 0) {
+                let s1 = (mode==='Couple' && p1_alive && p2_alive) ? surplus/2 : (p1_alive ? surplus : 0);
+                let s2 = (mode==='Couple' && p1_alive && p2_alive) ? surplus/2 : (p2_alive ? surplus : 0);
+                this.state.strategies.accum.forEach(type => {
+                    if (s1 > 0 && p1_alive) {
+                        let fill = 0;
+                        if (type === 'tfsa' && (i > 0 || !s1_tfsa)) { fill = Math.min(s1, tfsa_limit); p1.tfsa += fill; yearContributions.tfsa += fill; }
+                        else if (type === 'rrsp' && (i > 0 || !s1_rrsp)) { let limit = p1.inc * 0.18; fill = Math.min(s1, limit); p1.rrsp += fill; yearContributions.rrsp += fill; }
+                        else if (type === 'nreg') { fill = s1; p1.nreg += fill; yearContributions.nreg += fill; }
+                        else if (type === 'cash') { fill = s1; p1.cash += fill; yearContributions.cash += fill; }
+                        else if (type === 'crypto') { fill = s1; p1.crypto += fill; yearContributions.crypto += fill; }
+                        s1 -= fill;
+                    }
+                    if (mode==='Couple' && s2 > 0 && p2_alive) {
+                        let fill = 0;
+                        if (type === 'tfsa' && (i > 0 || !s2_tfsa)) { fill = Math.min(s2, tfsa_limit); p2.tfsa += fill; yearContributions.tfsa += fill; }
+                        else if (type === 'rrsp' && (i > 0 || !s2_rrsp)) { let limit = p2.inc * 0.18; fill = Math.min(s2, limit); p2.rrsp += fill; yearContributions.rrsp += fill; }
+                        else if (type === 'nreg') { fill = s2; p2.nreg += fill; yearContributions.nreg += fill; }
+                        else if (type === 'cash') { fill = s2; p2.cash += fill; yearContributions.cash += fill; }
+                        else if (type === 'crypto') { fill = s2; p2.crypto += fill; yearContributions.crypto += fill; }
+                        s2 -= fill;
+                    }
+                });
+            } else {
+                let deficit = Math.abs(surplus);
+                const drain = (acct, amount, type, owner, isRRSP=false) => { 
+                    let take = Math.min(acct, amount); 
+                    if(take > 0) {
+                        if(!yearWithdrawals[type]) yearWithdrawals[type] = 0;
+                        yearWithdrawals[type] += take;
+                        let label = type.replace('P1 ', '').replace('P2 ', '');
+                        if(isRRSP) {
+                            const age = owner === 'p1' ? p1_age : p2_age;
+                            if(age >= this.CONSTANTS.RRIF_START_AGE) label = 'RRIF'; else label = 'RRSP';
+                        }
+                        wdBreakdown[owner][label] = (wdBreakdown[owner][label] || 0) + take;
+                    }
+                    return { rem_acct: acct - take, rem_need: amount - take, taken: take }; 
+                };
+                let remainingDeficit = deficit; 
+                let taxBracketLimit = inflatedTaxData.FED.brackets[0];
+                this.state.strategies.decum.forEach(type => {
+                    if(remainingDeficit > 0 && p1.cash + p1.tfsa + p1.rrsp + p1.nreg + p1.crypto + (mode==='Couple'?(p2.cash+p2.tfsa+p2.rrsp+p2.nreg+p2.crypto):0) > 0) { 
+                        if (type === 'rrsp') {
+                            let p1_lower = p1_total_taxable < p2_total_taxable;
+                            let p1_room = Math.max(0, taxBracketLimit - p1_total_taxable);
+                            let p2_room = Math.max(0, taxBracketLimit - p2_total_taxable);
+                            if (p1_lower && p1_alive && p1.rrsp > 0) {
+                                let take = Math.min(p1.rrsp, remainingDeficit, p1_room);
+                                if(take > 0) {
+                                    let res = drain(p1.rrsp, take, 'P1 RRSP', 'p1', true);
+                                    p1.rrsp = res.rem_acct; w_p1.rrsp += res.taken; remainingDeficit -= res.taken;
+                                    p1_total_taxable += res.taken;
+                                }
+                            } else if (!p1_lower && mode==='Couple' && p2_alive && p2.rrsp > 0) {
+                                let take = Math.min(p2.rrsp, remainingDeficit, p2_room);
+                                if(take > 0) {
+                                    let res = drain(p2.rrsp, take, 'P2 RRSP', 'p2', true);
+                                    p2.rrsp = res.rem_acct; w_p2.rrsp += res.taken; remainingDeficit -= res.taken;
+                                    p2_total_taxable += res.taken;
+                                }
+                            }
+                            if (remainingDeficit > 0) {
+                                if (p1_lower && mode==='Couple' && p2_alive && p2.rrsp > 0) {
+                                    let take = Math.min(p2.rrsp, remainingDeficit, p2_room);
+                                    if(take > 0) {
+                                        let res = drain(p2.rrsp, take, 'P2 RRSP', 'p2', true);
+                                        p2.rrsp = res.rem_acct; w_p2.rrsp += res.taken; remainingDeficit -= res.taken;
+                                        p2_total_taxable += res.taken;
+                                    }
+                                } else if (!p1_lower && p1_alive && p1.rrsp > 0) {
+                                    let take = Math.min(p1.rrsp, remainingDeficit, p1_room);
+                                    if(take > 0) {
+                                        let res = drain(p1.rrsp, take, 'P1 RRSP', 'p1', true);
+                                        p1.rrsp = res.rem_acct; w_p1.rrsp += res.taken; remainingDeficit -= res.taken;
+                                        p1_total_taxable += res.taken;
+                                    }
+                                }
+                            }
+                            if (remainingDeficit > 0) {
+                                let split = remainingDeficit / 2;
+                                if (mode === 'Single') split = remainingDeficit;
+                                if (p1_alive && p1.rrsp > 0) {
+                                    let res = drain(p1.rrsp, split, 'P1 RRSP', 'p1', true);
+                                    p1.rrsp = res.rem_acct; w_p1.rrsp += res.taken; remainingDeficit -= res.taken;
+                                    p1_total_taxable += res.taken;
+                                }
+                                if (mode === 'Couple' && p2_alive && p2.rrsp > 0) {
+                                    let res = drain(p2.rrsp, remainingDeficit, 'P2 RRSP', 'p2', true);
+                                    p2.rrsp = res.rem_acct; w_p2.rrsp += res.taken; remainingDeficit -= res.taken;
+                                    p2_total_taxable += res.taken;
+                                }
+                            }
+                        } else {
+                           let split = remainingDeficit / 2;
+                           if (mode === 'Single') split = remainingDeficit;
+                           let d1_part = split;
+                           let res1 = {rem_acct: 0, rem_need: d1_part, taken: 0};
+                           if(type==='crypto') { res1 = drain(p1.crypto, d1_part, 'P1 Crypto', 'p1'); p1.crypto = res1.rem_acct; }
+                           else if(type==='nreg') { res1 = drain(p1.nreg, d1_part, 'P1 Non-Reg', 'p1'); p1.nreg = res1.rem_acct; }
+                           else if(type==='tfsa') { res1 = drain(p1.tfsa, d1_part, 'P1 TFSA', 'p1'); p1.tfsa = res1.rem_acct; }
+                           else if(type==='cash') { res1 = drain(p1.cash, d1_part, 'P1 Cash', 'p1'); p1.cash = res1.rem_acct; }
+                           remainingDeficit -= res1.taken;
+                           if (mode === 'Couple') {
+                               let d2_part = remainingDeficit;
+                               if(d1_part > 0 && res1.taken >= d1_part) d2_part = split;
+                               let res2 = {rem_acct: 0, rem_need: d2_part, taken: 0};
+                               if(type==='crypto') { res2 = drain(p2.crypto, d2_part, 'P2 Crypto', 'p2'); p2.crypto = res2.rem_acct; }
+                               else if(type==='nreg') { res2 = drain(p2.nreg, d2_part, 'P2 Non-Reg', 'p2'); p2.nreg = res2.rem_acct; }
+                               else if(type==='tfsa') { res2 = drain(p2.tfsa, d2_part, 'P2 TFSA', 'p2'); p2.tfsa = res2.rem_acct; }
+                               else if(type==='cash') { res2 = drain(p2.cash, d2_part, 'P2 Cash', 'p2'); p2.cash = res2.rem_acct; }
+                               remainingDeficit -= res2.taken;
+                           }
+                        }
+                    }
+                });
+                if (remainingDeficit > 0) { 
+                    if (p1_alive && p1.rrsp > 0) {
+                        let res = drain(p1.rrsp, remainingDeficit, 'P1 RRSP (Forced)', 'p1', true); 
+                        p1.rrsp = res.rem_acct; p1_total_taxable += res.taken; remainingDeficit -= res.taken;
+                    }
+                    if (mode==='Couple' && p2_alive && p2.rrsp > 0) {
+                        let res = drain(p2.rrsp, remainingDeficit, 'P2 RRSP (Forced)', 'p2', true); 
+                        p2.rrsp = res.rem_acct; p2_total_taxable += res.taken; remainingDeficit -= res.taken;
+                    }
+                }
+            }
+
+            t1 = p1_alive ? this.calculateTaxDetailed(p1_total_taxable, province, inflatedTaxData) : { totalTax: 0 };
+            t2 = p2_alive ? this.calculateTaxDetailed(p2_total_taxable, province, inflatedTaxData) : { totalTax: 0 };
+
+            // === FIX START: RECALCULATE NET INCOME AFTER WITHDRAWALS ===
+            // Calculate non-taxable withdrawals to add to cash flow
+            let nontax_wd_p1 = (yearWithdrawals['P1 TFSA']||0) + (yearWithdrawals['P1 Cash']||0) + (yearWithdrawals['P1 Non-Reg']||0) + (yearWithdrawals['P1 Crypto']||0);
+            let nontax_wd_p2 = (yearWithdrawals['P2 TFSA']||0) + (yearWithdrawals['P2 Cash']||0) + (yearWithdrawals['P2 Non-Reg']||0) + (yearWithdrawals['P2 Crypto']||0);
+
+            // Re-calculate Net Income to reflect Total Cash Flow (Net Income + All Withdrawals)
+            // p1_total_taxable ALREADY includes taxable withdrawals (RRSP)
+            let final_p1_net = p1_alive ? (p1_total_taxable - t1.totalTax) + wf_nontax_p1 + nontax_wd_p1 : 0;
+            let final_p2_net = p2_alive ? (p2_total_taxable - t2.totalTax) + wf_nontax_p2 + nontax_wd_p2 : 0;
+            const final_householdNet = final_p1_net + final_p2_net;
+            // === FIX END ===
+
+            const p1_tot = p1.tfsa + p1.rrsp + p1.crypto + p1.nreg + p1.cash;
+            const p2_tot = mode === 'Couple' ? (p2.tfsa + p2.rrsp + p2.crypto + p2.nreg + p2.cash) : 0;
+            const investTot = p1_tot + p2_tot;
+            const liquidNW = investTot - otherDebt;
+            let totalREValue = simProperties.reduce((acc, p) => acc + p.value, 0);
+            let totalREMortgage = simProperties.reduce((acc, p) => acc + p.mortgage, 0);
+            const nw = liquidNW + (totalREValue - totalREMortgage);
+            finalNW = nw;
+
+            if(!onlyCalcNW) {
+                let totalWithdrawal = 0;
+                for(let k in yearWithdrawals) totalWithdrawal += yearWithdrawals[k];
+
+                let totalGrowth = g_p1.tfsa.growth + g_p1.rrsp.growth + g_p1.cryp.growth + g_p1.nreg.growth + g_p1.cash.growth +
+                                (mode==='Couple' ? (g_p2.tfsa.growth + g_p2.rrsp.growth + g_p2.cryp.growth + g_p2.nreg.growth + g_p2.cash.growth) : 0);
+                let growthPct = investTot > 0 ? (totalGrowth / (investTot - totalGrowth - surplus)) * 100 : 0;
+
+                this.state.projectionData.push({
+                    year: year, p1Age: p1_age, p2Age: mode==='Couple'?p2_age:null,
+                    p1Alive: p1_alive, p2Alive: p2_alive,
+                    incomeP1: p1_gross, incomeP2: p2_gross, 
+                    benefitsP1: p1_cpp_inc + p1_oas_inc, benefitsP2: p2_cpp_inc + p2_oas_inc, 
+                    cppP1: p1_cpp_inc, cppP2: p2_cpp_inc,
+                    oasP1: p1_oas_inc, oasP2: p2_oas_inc,
+                    dbP1: p1_db_inc, dbP2: p2_db_inc,
+                    taxP1: t1.totalTax, taxP2: t2.totalTax,
+                    p1Net: final_p1_net, p2Net: final_p2_net,
+                    expenses: annualExp, mortgagePay: totalActualMortgageOutflow, debtPay: debtRepayment, 
+                    surplus: surplus, drawdown: surplus < 0 ? Math.abs(surplus) : 0,
+                    debugNW: nw, debugTotalInflow: (p1_gross + p2_gross + p1_cpp_inc + p1_oas_inc + p2_cpp_inc + p2_oas_inc + p1_db_inc + p2_db_inc + totalWithdrawal + totalWindfall + p1_post_val + p2_post_val),
+                    assetsP1: {...p1}, assetsP2: {...p2},
+                    wdBreakdown: wdBreakdown,
+                    inv_tfsa: p1.tfsa + p2.tfsa, inv_rrsp: p1.rrsp + p2.rrsp, inv_cash: p1.cash + p2.cash, inv_nreg: p1.nreg + p2.nreg, inv_crypto: p1.crypto + p2.crypto,
+                    flows: { contributions: yearContributions, withdrawals: yearWithdrawals },
+                    totalGrowth: totalGrowth, growthPct: growthPct,
+                    events: events,
+                    householdNet: final_householdNet, visualExpenses: visualExpenses, 
+                    mortgage: totalREMortgage, homeValue: totalREValue, 
+                    investTot: investTot, liquidNW: liquidNW, isCrashYear: isCrashYear,
+                    windfall: totalWindfall,
+                    postRetP1: p1_post_val, postRetP2: p2_post_val
+                });
+            }
+            expCurrent *= (1 + inflation); expRetire *= (1 + inflation); tfsa_limit *= (1 + inflation);
+            expTrans *= (1 + inflation); expGoGo *= (1 + inflation); expSlow *= (1 + inflation); expNoGo *= (1 + inflation);
+        }
+
+        if (!onlyCalcNW) {
+            let html = `
+                <div class="grid-header">
+                    <div class="col-start col-timeline">Timeline</div>
+                    <div class="col-start">Status</div>
+                    <div>Net Income</div>
+                    <div class="text-danger">Expenses</div>
+                    <div>Surplus</div>
+                    <div>Net Worth</div>
+                    <div class="text-center"><i class="bi bi-chevron-bar-down"></i></div>
+                </div>
+            `;
+            
+            this.state.projectionData.forEach((d, idx) => {
+                const df = this.getDiscountFactor(idx);
+                const fmtK = (num) => { 
+                    const val = num / df; 
+                    const abs = Math.abs(val); 
+                    if (Math.round(abs) === 0) return ''; 
+                    const sign = val < 0 ? '-' : ''; 
+                    if (abs >= 1000000) return sign + (abs / 1000000).toFixed(1) + 'M'; 
+                    if (abs >= 1000) return sign + Math.round(abs / 1000) + 'k'; 
+                    return sign + abs.toFixed(0); 
+                };
+
+                const p1AgeDisplay = d.p1Alive ? d.p1Age : '†';
+                const p2AgeDisplay = mode==='Couple' ? (d.p2Alive ? d.p2Age : '†') : '';
+                
+                let status = '';
+                const p1Ret = d.p1Age >= p1.retAge;
+                const p2Ret = mode === 'Couple' ? (d.p2Age >= p2.retAge) : true; 
+
+                if (mode === 'Couple') {
+                    if (!p1Ret && !p2Ret) status = `<span class="status-pill status-working">Working</span>`;
+                    else if ((p1Ret && !p2Ret) || (!p1Ret && p2Ret)) status = `<span class="status-pill status-semi">Transition</span>`;
+                    else {
+                        if (d.p1Age < goGoLimit) status = `<span class="status-pill status-gogo">Go-go Phase</span>`;
+                        else if (d.p1Age < slowGoLimit) status = `<span class="status-pill status-slow">Slow-go Phase</span>`;
+                        else status = `<span class="status-pill status-nogo">No-go Phase</span>`;
+                    }
+                } else {
+                    if (!p1Ret) status = `<span class="status-pill status-working">Working</span>`;
+                    else {
+                        if (d.p1Age < goGoLimit) status = `<span class="status-pill status-gogo">Go-go Phase</span>`;
+                        else if (d.p1Age < slowGoLimit) status = `<span class="status-pill status-slow">Slow-go Phase</span>`;
+                        else status = `<span class="status-pill status-nogo">No-go Phase</span>`;
+                    }
+                }
+
+                const surplusClass = d.surplus < 0 ? 'val-negative' : 'val-positive';
+                const surplusSign = d.surplus > 0 ? '+' : '';
+
+                const line = (label, val, className='') => {
+                    if(!val || Math.round(val) === 0) return '';
+                    return `<div class="detail-item"><span>${label}</span> <span class="${className}">${fmtK(val)}</span></div>`;
+                };
+                const subLine = (label, val) => {
+                    if(!val || Math.round(val) === 0) return '';
+                    return `<div class="detail-item sub"><span>${label}</span> <span>${fmtK(val)}</span></div>`;
+                };
+
+                let incomeLines = '';
+                incomeLines += line("Employment P1", d.incomeP1);
+                if(mode==='Couple') incomeLines += line("Employment P2", d.incomeP2);
+                
+                if (d.postRetP1 > 0) incomeLines += subLine("Post-Ret Work P1", d.postRetP1);
+                if (d.postRetP2 > 0) incomeLines += subLine("Post-Ret Work P2", d.postRetP2);
+
+                if (d.benefitsP1 + d.benefitsP2 > 0) {
+                    incomeLines += subLine("CPP/OAS P1", d.cppP1 + d.oasP1);
+                    if(mode==='Couple') incomeLines += subLine("CPP/OAS P2", d.cppP2 + d.oasP2);
+                }
+                if (d.dbP1 > 0) incomeLines += subLine("DB Pension P1", d.dbP1);
+                if (d.dbP2 > 0) incomeLines += subLine("DB Pension P2", d.dbP2);
+                
+                if (d.windfall > 0) incomeLines += line("Inheritance/Bonus", d.windfall, "text-success fw-bold");
+
+                for(const [type, amt] of Object.entries(d.wdBreakdown.p1)) incomeLines += subLine(`${type} W/D P1`, amt);
+                if(mode==='Couple') {
+                    for(const [type, amt] of Object.entries(d.wdBreakdown.p2)) incomeLines += subLine(`${type} W/D P2`, amt);
+                }
+
+                let incomeDetails = `
+                    <div class="detail-box">
+                        <div class="detail-title">Income Sources</div>
+                        ${incomeLines}
+                        <div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;">
+                            <span class="text-white">Total Net</span> <span class="text-success fw-bold">${fmtK(d.householdNet)}</span>
+                        </div>
+                    </div>`;
+
+                let expenseLines = '';
+                expenseLines += line("Living Exp", d.expenses);
+                expenseLines += line("Mortgage", d.mortgagePay);
+                expenseLines += line("Debt Repayment", d.debtPay);
+                expenseLines += line("Tax Paid P1", d.taxP1, "val-negative");
+                if(mode==='Couple') expenseLines += line("Tax Paid P2", d.taxP2, "val-negative");
+
+                let expenseDetails = `
+                    <div class="detail-box">
+                        <div class="detail-title">Outflows & Taxes</div>
+                        ${expenseLines}
+                        <div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;">
+                            <span class="text-white">Total Out</span> <span class="text-danger fw-bold">${fmtK(d.visualExpenses)}</span>
+                        </div>
+                    </div>`;
+
+                let p1Assets = d.assetsP1;
+                let p2Assets = d.assetsP2;
+                let assetLines = '';
+                assetLines += line("TFSA P1", p1Assets.tfsa);
+                if(mode==='Couple') assetLines += line("TFSA P2", p2Assets.tfsa);
+                
+                assetLines += line(d.p1Age >= this.CONSTANTS.RRIF_START_AGE ? 'RRIF P1' : 'RRSP P1', p1Assets.rrsp);
+                if(mode==='Couple') assetLines += line(d.p2Age >= this.CONSTANTS.RRIF_START_AGE ? 'RRIF P2' : 'RRSP P2', p2Assets.rrsp);
+                
+                assetLines += line("Non-Reg P1", p1Assets.nreg);
+                if(mode==='Couple') assetLines += line("Non-Reg P2", p2Assets.nreg);
+                
+                assetLines += line("Cash P1", p1Assets.cash);
+                if(mode==='Couple') assetLines += line("Cash P2", p2Assets.cash);
+                
+                assetLines += line("Liquid Net Worth", d.liquidNW, "text-info fw-bold"); 
+                assetLines += line("Real Estate Eq.", d.homeValue - d.mortgage);
+
+                let assetDetails = `
+                    <div class="detail-box">
+                        <div class="detail-title">Assets (End of Year)</div>
+                        ${assetLines}
+                        <div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;">
+                            <span class="text-white">Total NW</span> <span class="text-info fw-bold">${fmtK(d.debugNW)}</span>
+                        </div>
+                    </div>`;
+
+                html += `
+                    <div class="grid-row-group">
+                        <div class="grid-summary-row" onclick="app.toggleRow(this)">
+                            <div class="col-start col-timeline">
+                                <div class="d-flex align-items-center">
+                                    <span class="year-badge me-1">${d.year}</span>
+                                    <span class="event-icons-inline">${d.events.join('')}</span>
+                                </div>
+                                <span class="age-text">${p1AgeDisplay} ${mode==='Couple' ? '/ '+p2AgeDisplay : ''}</span>
                             </div>
+                            <div class="col-start">${status}</div>
+                            <div class="val-positive">${fmtK(d.householdNet)}</div>
+                            <div class="val-neutral text-danger">${fmtK(d.visualExpenses)}</div>
+                            <div class="${surplusClass}">${surplusSign}${fmtK(d.surplus)}</div>
+                            <div class="text-white fw-bold">${fmtK(d.debugNW)}</div>
+                            <div class="text-center toggle-icon"><i class="bi bi-chevron-down"></i></div>
+                        </div>
+                        <div class="grid-detail-wrapper">
+                            <div class="detail-container">
+                                ${incomeDetails}
+                                ${expenseDetails}
+                                ${assetDetails}
+                            </div>
+                        </div>
                     </div>
                 `;
             });
@@ -1748,7 +1748,6 @@ class RetirementPlanner {
         let mDiff = (startAge - 65) * 12;
         if(mDiff < 0) val *= (1 - (Math.abs(mDiff)*0.006));
         else val *= (1 + (mDiff*0.007));
-        
         if(retAge < 60) {
              let zeroYears = 65 - retAge; 
              let penalizable = Math.max(0, zeroYears - 8);
