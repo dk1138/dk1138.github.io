@@ -1,5 +1,5 @@
-Save/load feature
-Light dark mode toggle
+Save/load feature with debounce feature to ensure smoothness
+Light dark mode toggle, use eye pleasing smooth pastel colours, nothing too vibrant 
 Annuity?
 
 BUG FIXES
