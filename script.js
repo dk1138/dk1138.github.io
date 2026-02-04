@@ -6,6 +6,7 @@
  * - Captures full projection data including P1/P2 details, assets, taxes, and flows.
  * - Formats numbers and dates correctly for CSV output.
  * 2. UI: Added export button listener.
+ * 3. UPDATE: Improved P2 Toggle logic for layout safety.
  */
 
 class RetirementPlanner {
@@ -339,7 +340,7 @@ class RetirementPlanner {
                 this.calcExpenses();
                 this.run();
             }
-            if (e.target.id === 'enable_post_ret_income') {
+            if (e.target.id === 'enable_post_ret_income_p1' || e.target.id === 'enable_post_ret_income_p2') {
                 this.updatePostRetIncomeVisibility();
             }
         });
@@ -506,9 +507,14 @@ class RetirementPlanner {
     }
 
     updatePostRetIncomeVisibility() {
-        const enabled = document.getElementById('enable_post_ret_income').checked;
-        const container = document.getElementById('post-ret-income-container');
-        if (container) container.style.display = enabled ? 'block' : 'none';
+        const enabledP1 = document.getElementById('enable_post_ret_income_p1') ? document.getElementById('enable_post_ret_income_p1').checked : false;
+        const enabledP2 = document.getElementById('enable_post_ret_income_p2') ? document.getElementById('enable_post_ret_income_p2').checked : false;
+        
+        const cardP1 = document.getElementById('p1-post-ret-card');
+        const cardP2 = document.getElementById('p2-post-ret-card');
+        
+        if (cardP1) cardP1.style.display = enabledP1 ? 'block' : 'none';
+        if (cardP2) cardP2.style.display = enabledP2 ? 'block' : 'none';
     }
 
     resetAllData() {
@@ -529,7 +535,7 @@ class RetirementPlanner {
             p1_cpp_enabled: true, p1_oas_enabled: true,
             p2_cpp_enabled: true, p2_oas_enabled: true,
             exp_gogo_age: '75', exp_slow_age: '85',
-            enable_post_ret_income: false,
+            enable_post_ret_income_p1: false, enable_post_ret_income_p2: false,
             p1_post_inc: '0', p1_post_growth: '2.0',
             p2_post_inc: '0', p2_post_growth: '2.0'
         };
@@ -865,8 +871,13 @@ class RetirementPlanner {
         document.body.classList.toggle('is-couple', isCouple);
         document.querySelectorAll('.p2-column').forEach(el => {
             if(el.tagName === 'TH' || el.tagName === 'TD') return; 
-            el.style.display = isCouple ? 'block' : 'none';
+            // Use empty string to revert to stylesheet display (block, flex, etc)
+            // instead of forcing 'block' which might break layout
+            el.style.display = isCouple ? '' : 'none';
         });
+        
+        // Resize chart if needed
+        if(this.charts.nw) this.charts.nw.resize();
     }
 
     // --- MAIN ENGINE ---
@@ -2414,16 +2425,19 @@ class RetirementPlanner {
         });
         
         const bindSlider = (sliderId, inputId, labelId, suffix='') => {
-            document.getElementById(sliderId).addEventListener('input', (e) => {
-                const val = e.target.value;
-                const input = document.getElementById(inputId);
-                if(input) {
-                    input.value = val;
-                    this.state.inputs[inputId] = val;
-                    if(labelId) document.getElementById(labelId).innerText = val + suffix;
-                    this.debouncedRun();
-                }
-            });
+            const slider = document.getElementById(sliderId);
+            if(slider) {
+                slider.addEventListener('input', (e) => {
+                    const val = e.target.value;
+                    const input = document.getElementById(inputId);
+                    if(input) {
+                        input.value = val;
+                        this.state.inputs[inputId] = val;
+                        if(labelId) document.getElementById(labelId).innerText = val + suffix;
+                        this.debouncedRun();
+                    }
+                });
+            }
         };
         bindSlider('qa_p2_retireAge_range', 'p2_retireAge', 'qa_p2_retireAge_val');
         bindSlider('qa_inflation_range', 'inflation_rate', 'qa_inflation_val', '%');
@@ -2576,67 +2590,6 @@ class RetirementPlanner {
         };
         document.querySelectorAll('.debt-amount').forEach(el => snapshot.debt.push(el.value));
         return snapshot;
-    }
-
-    // --- EXPORT TO CSV ---
-    exportToCSV() {
-        if (!this.state.projectionData || this.state.projectionData.length === 0) {
-            alert("No data available to export.");
-            return;
-        }
-
-        const mode = this.state.mode;
-        const headers = [
-            "Year", "P1 Age", mode === "Couple" ? "P2 Age" : null,
-            "P1 Income", mode === "Couple" ? "P2 Income" : null,
-            "P1 Post-Ret Inc", mode === "Couple" ? "P2 Post-Ret Inc" : null,
-            "P1 Benefits", mode === "Couple" ? "P2 Benefits" : null,
-            "P1 DB Pension", mode === "Couple" ? "P2 DB Pension" : null,
-            "Windfall",
-            "P1 Taxes", mode === "Couple" ? "P2 Taxes" : null,
-            "Total Expenses", "Mortgage Payment", "Debt Payment",
-            "Surplus/Deficit",
-            "P1 TFSA", "P1 RRSP", "P1 Non-Reg", "P1 Cash", "P1 Crypto",
-            mode === "Couple" ? "P2 TFSA" : null,
-            mode === "Couple" ? "P2 RRSP" : null,
-            mode === "Couple" ? "P2 Non-Reg" : null,
-            mode === "Couple" ? "P2 Cash" : null,
-            mode === "Couple" ? "P2 Crypto" : null,
-            "Liquid Net Worth", "Home Equity", "Total Net Worth"
-        ].filter(h => h !== null);
-
-        const rows = this.state.projectionData.map(d => {
-            const p1 = d.assetsP1;
-            const p2 = d.assetsP2;
-            const row = [
-                d.year, d.p1Age, mode === "Couple" ? (d.p2Age || "") : null,
-                Math.round(d.incomeP1), mode === "Couple" ? Math.round(d.incomeP2) : null,
-                Math.round(d.postRetP1 || 0), mode === "Couple" ? Math.round(d.postRetP2 || 0) : null,
-                Math.round(d.benefitsP1), mode === "Couple" ? Math.round(d.benefitsP2) : null,
-                Math.round(d.dbP1), mode === "Couple" ? Math.round(d.dbP2) : null,
-                Math.round(d.windfall),
-                Math.round(d.taxP1), mode === "Couple" ? Math.round(d.taxP2) : null,
-                Math.round(d.expenses), Math.round(d.mortgagePay), Math.round(d.debtPay),
-                Math.round(d.surplus),
-                Math.round(p1.tfsa), Math.round(p1.rrsp), Math.round(p1.nreg), Math.round(p1.cash), Math.round(p1.crypto),
-                mode === "Couple" ? Math.round(p2.tfsa) : null,
-                mode === "Couple" ? Math.round(p2.rrsp) : null,
-                mode === "Couple" ? Math.round(p2.nreg) : null,
-                mode === "Couple" ? Math.round(p2.cash) : null,
-                mode === "Couple" ? Math.round(p2.crypto) : null,
-                Math.round(d.liquidNW), Math.round(d.homeValue - d.mortgage), Math.round(d.debugNW)
-            ].filter(v => v !== null);
-            return row.join(",");
-        });
-
-        const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows].join("\n");
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "retirement_plan_pro_export.csv");
-        document.body.appendChild(link); // Required for FF
-        link.click();
-        document.body.removeChild(link);
     }
 }
 
