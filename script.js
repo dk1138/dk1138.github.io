@@ -1,8 +1,8 @@
 /**
- * Retirement Planner Pro - Logic v10.0
+ * Retirement Planner Pro - Logic v10.1
  * Features:
  * - Auto-save to LocalStorage
- * - Save/Load JSON Configuration
+ * - Save/Load/Export JSON Configuration
  * - Debounced Inputs for Smoothness
  */
 
@@ -189,7 +189,6 @@ class RetirementPlanner {
             const savedData = localStorage.getItem(this.AUTO_SAVE_KEY);
             if (savedData) {
                 try {
-                    console.log("Loading auto-saved data...");
                     this.loadStateToDOM(JSON.parse(savedData));
                 } catch(e) {
                     console.error("Failed to load auto-save", e);
@@ -388,8 +387,7 @@ class RetirementPlanner {
         document.getElementById('btnAddWindfall').addEventListener('click', () => this.addWindfall());
         document.getElementById('btnExportCSV').addEventListener('click', () => this.exportToCSV());
 
-        // --- NEW SAVE/LOAD HANDLERS ---
-        document.getElementById('btnDownloadConfig').addEventListener('click', () => this.downloadConfig());
+        // --- NEW FILE HANDLERS ---
         document.getElementById('fileUpload').addEventListener('change', (e) => this.handleFileUpload(e));
         document.getElementById('btnClearStorage').addEventListener('click', () => this.clearStorage());
 
@@ -547,17 +545,6 @@ class RetirementPlanner {
         localStorage.setItem(this.AUTO_SAVE_KEY, JSON.stringify(snapshot));
     }
 
-    downloadConfig() {
-        const snapshot = this.getCurrentSnapshot();
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(snapshot, null, 2));
-        const downloadAnchorNode = document.createElement('a');
-        downloadAnchorNode.setAttribute("href", dataStr);
-        downloadAnchorNode.setAttribute("download", "retirement_plan_" + new Date().toISOString().slice(0,10) + ".json");
-        document.body.appendChild(downloadAnchorNode); // required for firefox
-        downloadAnchorNode.click();
-        downloadAnchorNode.remove();
-    }
-
     handleFileUpload(e) {
         const file = e.target.files[0];
         if (!file) return;
@@ -568,9 +555,6 @@ class RetirementPlanner {
                 const data = JSON.parse(event.target.result);
                 this.loadStateToDOM(data);
                 this.run();
-                const modalEl = document.getElementById('saveLoadModal');
-                const modal = bootstrap.Modal.getInstance(modalEl);
-                if(modal) modal.hide();
                 alert('Configuration loaded successfully.');
             } catch(err) {
                 alert('Error parsing JSON file. Please ensure it is a valid configuration file.');
@@ -2554,8 +2538,9 @@ class RetirementPlanner {
             list.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center bg-dark text-white border-secondary">
                 ${s.name}
                 <div>
-                    <button class="btn btn-sm btn-success me-2" onclick="app.loadScenario(${idx})">Load</button>
-                    <button class="btn btn-sm btn-danger" onclick="app.deleteScenario(${idx})">Delete</button>
+                    <button class="btn btn-sm btn-success me-2" onclick="app.loadScenario(${idx})" title="Load into planner"><i class="bi bi-arrow-clockwise"></i></button>
+                    <button class="btn btn-sm btn-outline-info me-2" onclick="app.exportScenario(${idx})" title="Download as JSON"><i class="bi bi-download"></i></button>
+                    <button class="btn btn-sm btn-danger" onclick="app.deleteScenario(${idx})" title="Delete"><i class="bi bi-trash"></i></button>
                 </div>
             </li>`;
             
@@ -2576,6 +2561,20 @@ class RetirementPlanner {
         this.loadStateToDOM(s.data);
         this.run();
         alert("Loaded " + s.name);
+    }
+
+    exportScenario(idx) {
+        let scenarios = JSON.parse(localStorage.getItem('rp_scenarios') || '[]');
+        const s = scenarios[idx];
+        if(!s) return;
+        
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(s.data, null, 2));
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", s.name.replace(/\s+/g, '_').toLowerCase() + ".json");
+        document.body.appendChild(downloadAnchorNode); 
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
     }
 
     loadStateToDOM(data) {
