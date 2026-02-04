@@ -1,11 +1,10 @@
 // Total Lines: 1700+
 /**
- * Retirement Planner Pro - Logic v9.3 (Export Functionality)
+ * Retirement Planner Pro - Logic v9.4 (Separate Post-Ret Toggles)
  * * CHANGE LOG:
- * 1. NEW FEATURE: Added 'Export to CSV' functionality for projection table.
- * - Captures full projection data including P1/P2 details, assets, taxes, and flows.
- * - Formats numbers and dates correctly for CSV output.
- * 2. UI: Added export button listener.
+ * 1. UI: Separated Post-Retirement Income toggle into P1 and P2 specific switches.
+ * 2. LOGIC: Updated projection loop to respect individual P1/P2 post-retirement toggles.
+ * 3. UI: Dynamic visibility of detail columns based on individual toggles.
  */
 
 class RetirementPlanner {
@@ -339,7 +338,7 @@ class RetirementPlanner {
                 this.calcExpenses();
                 this.run();
             }
-            if (e.target.id === 'enable_post_ret_income') {
+            if (e.target.id === 'p1_enable_post_inc' || e.target.id === 'p2_enable_post_inc') {
                 this.updatePostRetIncomeVisibility();
             }
         });
@@ -506,9 +505,22 @@ class RetirementPlanner {
     }
 
     updatePostRetIncomeVisibility() {
-        const enabled = document.getElementById('enable_post_ret_income').checked;
+        const p1On = document.getElementById('p1_enable_post_inc').checked;
+        const p2On = document.getElementById('p2_enable_post_inc').checked;
+        
         const container = document.getElementById('post-ret-income-container');
-        if (container) container.style.display = enabled ? 'block' : 'none';
+        if (container) {
+            container.style.display = (p1On || p2On) ? 'block' : 'none';
+        }
+        
+        const p1Sec = document.getElementById('p1_post_inc_section');
+        const p2Sec = document.getElementById('p2_post_inc_section');
+        if (p1Sec) p1Sec.style.display = p1On ? 'block' : 'none';
+        if (p2Sec) {
+            // Also respect couple mode
+            const isCouple = this.state.mode === 'Couple';
+            p2Sec.style.display = (p2On && isCouple) ? 'block' : 'none';
+        }
     }
 
     resetAllData() {
@@ -529,7 +541,8 @@ class RetirementPlanner {
             p1_cpp_enabled: true, p1_oas_enabled: true,
             p2_cpp_enabled: true, p2_oas_enabled: true,
             exp_gogo_age: '75', exp_slow_age: '85',
-            enable_post_ret_income: false,
+            p1_enable_post_inc: false,
+            p2_enable_post_inc: false,
             p1_post_inc: '0', p1_post_growth: '2.0',
             p2_post_inc: '0', p2_post_growth: '2.0'
         };
@@ -1010,7 +1023,9 @@ class RetirementPlanner {
         const rrspMeltdown = this.state.inputs['strat_rrsp_topup']; 
         const expMode = this.state.expenseMode;
         
-        const enablePostRet = this.state.inputs['enable_post_ret_income'];
+        // P1/P2 Specific Post-Retirement Toggles
+        const enablePostRetP1 = this.state.inputs['p1_enable_post_inc'];
+        const enablePostRetP2 = this.state.inputs['p2_enable_post_inc'];
         
         const s1_tfsa = this.state.inputs['skip_first_tfsa_p1'];
         const s1_rrsp = this.state.inputs['skip_first_rrsp_p1'];
@@ -1160,27 +1175,21 @@ class RetirementPlanner {
                 else { p1_db_inc = p1_db_base * bracketInflator; }
                 
                 // P1 Post-Retirement Income Calculation
-                if (enablePostRet && p1_post_base > 0) {
-                    // Check if current year is within start and end
+                if (enablePostRetP1 && p1_post_base > 0) {
                     const startYear = p1_post_start.getFullYear();
                     const endYear = p1_post_end.getFullYear();
                     
                     if (year >= startYear && year <= endYear) {
-                         // Calculate inflated amount
                          let grownAmount = p1_post_base * Math.pow(1 + p1_post_growth, i);
                          let factor = 1.0;
-                         
-                         // Prorate start year
                          if (year === startYear) {
                              const months = 12 - p1_post_start.getMonth();
                              factor = months / 12;
                          }
-                         // Prorate end year
                          if (year === endYear) {
                              const months = p1_post_end.getMonth() + 1;
-                             factor = Math.min(factor, months / 12); // Use min in case start == end
+                             factor = Math.min(factor, months / 12); 
                          }
-                         
                          p1_post_val = grownAmount * factor;
                     }
                 }
@@ -1193,7 +1202,7 @@ class RetirementPlanner {
                 else { p2_db_inc = p2_db_base * bracketInflator; }
                 
                 // P2 Post-Retirement Income Calculation
-                if (enablePostRet && p2_post_base > 0) {
+                if (enablePostRetP2 && p2_post_base > 0) {
                     const startYear = p2_post_start.getFullYear();
                     const endYear = p2_post_end.getFullYear();
                     
