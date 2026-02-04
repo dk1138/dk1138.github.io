@@ -1,11 +1,12 @@
-// Total Lines: 1391
+// Total Lines: 1450+
 /**
- * Retirement Planner Pro - Logic v8.5 (Inflation & Footer Alignment Fix)
+ * Retirement Planner Pro - Logic v9.0 (All Province Tax Update)
  * * CHANGE LOG:
- * 1. LOGIC: `generateProjectionTable` now correctly inflates ALL expense phase variables (Trans, GoGo, Slow, NoGo) annually. 
- * Previously, only 'Simple' mode variables were inflating.
- * 2. UI: `calcExpenses` (Footer) now calculates the "Start Year" for each phase relative to now.
- * 3. UI: If "Show in Today's $" is UNCHECKED, the Footer displays the Nominal Future Value at the start of that phase, matching the Projection Table.
+ * 1. TAX UPDATE: Replaced hardcoded FED/ON brackets with a comprehensive `TAX_DATA` object containing 2025/2026 brackets & rates for ALL provinces/territories.
+ * 2. LOGIC: `calculateTaxDetailed` now uses a dynamic progressive tax calculator helper, replacing hardcoded nested if/else blocks.
+ * 3. LOGIC: Added specific tax logic for Ontario (Surtax, Health Premium) and Quebec (Federal Abatement).
+ * 4. LOGIC: `generateProjectionTable` now correctly inflates ALL expense phase variables (Trans, GoGo, Slow, NoGo) annually. 
+ * 5. UI: `calcExpenses` (Footer) now calculates the "Start Year" for each phase relative to now.
  */
 
 class RetirementPlanner {
@@ -32,9 +33,67 @@ class RetirementPlanner {
             MAX_CPP_2026: 18092,
             MAX_OAS_2026: 8908,
             RRIF_START_AGE: 72, 
-            TAX_BRACKETS: {
-                FED: [55867, 111733, 173205, 246752], // 2025/2026 approx
-                ONT: [51446, 102894, 150000, 220000] 
+            // 2025/2026 Estimated Tax Brackets & Rates
+            TAX_DATA: {
+                FED: {
+                    brackets: [55867, 111733, 173205, 246752],
+                    rates: [0.15, 0.205, 0.26, 0.29, 0.33]
+                },
+                BC: {
+                    brackets: [47937, 95875, 110076, 133664, 181232, 252752],
+                    rates: [0.0506, 0.077, 0.105, 0.1229, 0.147, 0.168, 0.205]
+                },
+                AB: {
+                    brackets: [148269, 177922, 237230, 355845],
+                    rates: [0.10, 0.12, 0.13, 0.14, 0.15]
+                },
+                SK: {
+                    brackets: [52057, 148734],
+                    rates: [0.105, 0.125, 0.145]
+                },
+                MB: {
+                    brackets: [47000, 100000],
+                    rates: [0.108, 0.1275, 0.174]
+                },
+                ON: {
+                    brackets: [51446, 102894, 150000, 220000],
+                    rates: [0.0505, 0.0915, 0.1116, 0.1216, 0.1316],
+                    surtax: { t1: 5315, r1: 0.20, t2: 6802, r2: 0.36 }
+                },
+                QC: {
+                    brackets: [51780, 103545, 126000],
+                    rates: [0.14, 0.19, 0.24, 0.2575],
+                    abatement: 0.165 // Reduces Federal Tax
+                },
+                NB: {
+                    brackets: [49958, 99916, 185000],
+                    rates: [0.094, 0.14, 0.16, 0.195]
+                },
+                NS: {
+                    brackets: [29590, 59180, 93000, 150000],
+                    rates: [0.0879, 0.1495, 0.1667, 0.175, 0.21]
+                },
+                PE: {
+                    brackets: [32656, 64313, 105000],
+                    rates: [0.0965, 0.1363, 0.1667, 0.1875],
+                    surtax: { t1: 12500, r1: 0.10 } // Approx high income surtax
+                },
+                NL: {
+                    brackets: [43198, 86395, 154244, 215943],
+                    rates: [0.087, 0.145, 0.158, 0.178, 0.198]
+                },
+                YT: {
+                    brackets: [55867, 111733, 173205, 500000],
+                    rates: [0.064, 0.09, 0.109, 0.128, 0.15]
+                },
+                NT: {
+                    brackets: [50597, 101198, 164525],
+                    rates: [0.059, 0.086, 0.122, 0.1405]
+                },
+                NU: {
+                    brackets: [50877, 101754, 165429],
+                    rates: [0.04, 0.07, 0.09, 0.115]
+                }
             }
         };
 
@@ -125,7 +184,7 @@ class RetirementPlanner {
             this.addDebtRow(); 
             this.renderStrategy();
             this.loadScenariosList();
-             
+              
             this.syncStateFromDOM();
             this.toggleModeDisplay(); 
 
@@ -133,10 +192,10 @@ class RetirementPlanner {
             this.updateAgeDisplay('p2');
             this.updateAllMortgages(); 
             this.findOptimal(); 
-             
+              
             this.bindEvents();
             this.initSidebar();
-             
+              
             // Initial Run
             setTimeout(() => { 
                 this.syncStateFromDOM(); 
@@ -860,6 +919,10 @@ class RetirementPlanner {
         let cpp_max_p2 = this.CONSTANTS.MAX_CPP_2026, oas_max_p2 = this.CONSTANTS.MAX_OAS_2026;
         let finalNW = 0;
 
+        // Retrieve brackets once
+        // Deep copy not strictly needed but safe for inflation
+        let currentTaxData = JSON.parse(JSON.stringify(this.CONSTANTS.TAX_DATA));
+
         for (let i = 0; i <= yearsToRun; i++) {
             const year = currentYear + i;
             const p1_age = p1_startAge + i; const p2_age = p2_startAge + i;
@@ -870,8 +933,20 @@ class RetirementPlanner {
             if(!p1_alive && !p2_alive) break;
 
             const bracketInflator = Math.pow(1 + inflation, i);
-            const currentFedBrackets = this.CONSTANTS.TAX_BRACKETS.FED.map(b => b * bracketInflator);
-            const currentOntBrackets = this.CONSTANTS.TAX_BRACKETS.ONT.map(b => b * bracketInflator);
+            
+            // Inflate Tax Brackets Dynamically
+            // Note: We only inflate the bracket limits. Rates stay same.
+            const inflatedTaxData = JSON.parse(JSON.stringify(this.CONSTANTS.TAX_DATA));
+            for(const k in inflatedTaxData) {
+                 if(inflatedTaxData[k].brackets) {
+                     inflatedTaxData[k].brackets = inflatedTaxData[k].brackets.map(b => b * bracketInflator);
+                 }
+                 // Inflate surtax thresholds if they exist (ON, PE)
+                 if(inflatedTaxData[k].surtax) {
+                     if(inflatedTaxData[k].surtax.t1) inflatedTaxData[k].surtax.t1 *= bracketInflator;
+                     if(inflatedTaxData[k].surtax.t2) inflatedTaxData[k].surtax.t2 *= bracketInflator;
+                 }
+            }
             
             let currentRatesP1 = {...baseRatesP1}; let currentRatesP2 = {...baseRatesP2};
             let isCrashYear = false;
@@ -982,7 +1057,7 @@ class RetirementPlanner {
             let p2_total_taxable = p2_gross + p2_cpp_inc + p2_oas_inc + p2_rrif_inc + p2_db_inc;
 
             if (rrspMeltdown) {
-                const lowBracketLimit = currentFedBrackets[0]; 
+                const lowBracketLimit = inflatedTaxData.FED.brackets[0]; 
                 
                 if (p1_alive && p1.rrsp > 0 && p1_total_taxable < lowBracketLimit) {
                     let room = lowBracketLimit - p1_total_taxable;
@@ -1010,8 +1085,8 @@ class RetirementPlanner {
                 }
             }
 
-            let t1 = p1_alive ? this.calculateTaxDetailed(p1_total_taxable, province, currentFedBrackets, currentOntBrackets) : { totalTax: 0 };
-            let t2 = p2_alive ? this.calculateTaxDetailed(p2_total_taxable, province, currentFedBrackets, currentOntBrackets) : { totalTax: 0 };
+            let t1 = p1_alive ? this.calculateTaxDetailed(p1_total_taxable, province, inflatedTaxData) : { totalTax: 0 };
+            let t2 = p2_alive ? this.calculateTaxDetailed(p2_total_taxable, province, inflatedTaxData) : { totalTax: 0 };
 
             let p1_net = p1_alive ? (p1_total_taxable - t1.totalTax) : 0;
             let p2_net = p2_alive ? (p2_total_taxable - t2.totalTax) : 0;
@@ -1124,7 +1199,7 @@ class RetirementPlanner {
                 };
                 
                 let remainingDeficit = deficit; 
-                let taxBracketLimit = currentFedBrackets[0];
+                let taxBracketLimit = inflatedTaxData.FED.brackets[0];
 
                 this.state.strategies.decum.forEach(type => {
                     if(remainingDeficit > 0 && p1.cash + p1.tfsa + p1.rrsp + p1.nreg + p1.crypto + (mode==='Couple'?(p2.cash+p2.tfsa+p2.rrsp+p2.nreg+p2.crypto):0) > 0) { 
@@ -1222,8 +1297,8 @@ class RetirementPlanner {
                 }
             }
 
-            t1 = p1_alive ? this.calculateTaxDetailed(p1_total_taxable, province, currentFedBrackets, currentOntBrackets) : { totalTax: 0 };
-            t2 = p2_alive ? this.calculateTaxDetailed(p2_total_taxable, province, currentFedBrackets, currentOntBrackets) : { totalTax: 0 };
+            t1 = p1_alive ? this.calculateTaxDetailed(p1_total_taxable, province, inflatedTaxData) : { totalTax: 0 };
+            t2 = p2_alive ? this.calculateTaxDetailed(p2_total_taxable, province, inflatedTaxData) : { totalTax: 0 };
 
             // Calc End Year Net Worth
             const p1_tot = p1.tfsa + p1.rrsp + p1.crypto + p1.nreg + p1.cash;
@@ -1479,63 +1554,88 @@ class RetirementPlanner {
         return val;
     }
 
-    calculateTaxDetailed(income, province, fedBrackets = null, ontBrackets = null) {
-        if(income <= 0) return { fed: 0, prov: 0, cpp_ei: 0, totalTax: 0, margRate: 0 };
+    // Progressive Tax Calculator Helper
+    calculateProgressiveTax(income, brackets, rates) {
+        let tax = 0;
+        let marg = rates[0];
+        let prevLimit = 0;
         
-        const FED = fedBrackets || this.CONSTANTS.TAX_BRACKETS.FED;
-        const ONT = ontBrackets || this.CONSTANTS.TAX_BRACKETS.ONT;
-
-        let fed = 0, margFed = 0;
-        if (income <= FED[0]) { fed += income * 0.14; margFed = 0.14; }
-        else {
-            fed += FED[0] * 0.14;
-            if (income <= FED[1]) { fed += (income - FED[0]) * 0.205; margFed = 0.205; }
-            else {
-                fed += (FED[1] - FED[0]) * 0.205;
-                if (income <= FED[2]) { fed += (income - FED[1]) * 0.26; margFed = 0.26; }
-                else {
-                    fed += (FED[2] - FED[1]) * 0.26;
-                    if (income <= FED[3]) { fed += (income - FED[2]) * 0.29; margFed = 0.29; }
-                    else {
-                        fed += (FED[3] - FED[2]) * 0.29;
-                        fed += (income - FED[3]) * 0.33; margFed = 0.33;
-                    }
-                }
+        for (let i = 0; i < brackets.length; i++) {
+            let limit = brackets[i];
+            let rate = rates[i];
+            
+            if (income > limit) {
+                tax += (limit - prevLimit) * rate;
+                prevLimit = limit;
+            } else {
+                tax += (income - prevLimit) * rate;
+                marg = rate;
+                return { tax, marg };
             }
         }
+        // Top bracket
+        let topRate = rates[rates.length - 1];
+        tax += (income - prevLimit) * topRate;
+        marg = topRate;
+        return { tax, marg };
+    }
 
-        let prov = 0, margProv = 0;
+    calculateTaxDetailed(income, province, taxData = null) {
+        if(income <= 0) return { fed: 0, prov: 0, cpp_ei: 0, totalTax: 0, margRate: 0 };
+        
+        const DATA = taxData || this.CONSTANTS.TAX_DATA;
+        const FED_DATA = DATA.FED;
+        const PROV_DATA = DATA[province] || { brackets: [999999999], rates: [0.10] }; // Fallback flat 10%
+
+        // 1. Federal Tax
+        let fedCalc = this.calculateProgressiveTax(income, FED_DATA.brackets, FED_DATA.rates);
+        let fed = fedCalc.tax;
+        let margFed = fedCalc.marg;
+
+        // 2. Provincial Tax
+        let provCalc = this.calculateProgressiveTax(income, PROV_DATA.brackets, PROV_DATA.rates);
+        let prov = provCalc.tax;
+        let margProv = provCalc.marg;
+
+        // 3. Specific Provincial Surtaxes & Abatements
+        
+        // Ontario Surtax & Health Premium
         if(province === 'ON') {
-             if(income <= ONT[0]) { prov += income * 0.0505; margProv = 0.0505; }
-             else {
-                 prov += ONT[0] * 0.0505;
-                 if(income <= ONT[1]) { prov += (income - ONT[0]) * 0.0915; margProv = 0.0915; }
-                 else {
-                     prov += (ONT[1] - ONT[0]) * 0.0915;
-                     if(income <= ONT[2]) { prov += (income - ONT[1]) * 0.1116; margProv = 0.1116; }
-                     else {
-                         prov += (ONT[2] - ONT[1]) * 0.1116;
-                         if(income <= ONT[3]) { prov += (income - ONT[2]) * 0.1216; margProv = 0.1216; }
-                         else {
-                             prov += (ONT[3] - ONT[2]) * 0.1216;
-                             prov += (income - ONT[3]) * 0.1316; margProv = 0.1316;
-                         }
-                     }
-                 }
+            let surtax = 0;
+            if(PROV_DATA.surtax) {
+                if(prov > PROV_DATA.surtax.t1) surtax += (prov - PROV_DATA.surtax.t1) * PROV_DATA.surtax.r1;
+                if(prov > PROV_DATA.surtax.t2) surtax += (prov - PROV_DATA.surtax.t2) * PROV_DATA.surtax.r2;
+            }
+            // Surtax affects marginal rate roughly
+            if(surtax > 0) margProv = margProv * 1.56; // Approximation of surtax impact at top end
+            
+            prov += surtax;
+
+            // Health Premium (Approximate Tiered)
+            let health = 0; 
+            if(income > 20000) health = Math.min(900, (income-20000)*0.06); 
+            prov += health;
+        }
+
+        // PEI Surtax
+        if(province === 'PE' && PROV_DATA.surtax) {
+             if(prov > PROV_DATA.surtax.t1) {
+                 prov += (prov - PROV_DATA.surtax.t1) * PROV_DATA.surtax.r1;
              }
+        }
 
-             let surtax = 0; let surtaxRate = 0;
-             if(prov > 5400) { surtax += (prov - 5400) * 0.20; surtaxRate += 0.20; }
-             if(prov > 7100) { surtax += (prov - 7100) * 0.36; surtaxRate += 0.36; }
-             if(surtaxRate > 0) margProv = margProv * (1 + surtaxRate);
-             prov += surtax;
-             let health = 0; if(income > 20000) health = Math.min(900, (income-20000)*0.06); prov += health;
-        } else { prov = income * 0.10; margProv = 0.10; }
+        // Quebec Abatement (Reduces Federal Tax)
+        if(province === 'QC' && PROV_DATA.abatement) {
+            let abatement = fed * PROV_DATA.abatement;
+            fed -= abatement;
+        }
 
+        // 4. CPP/EI (Approximate)
         let cpp = 0; const ympe = 74600; const yampe = 85000;
         if(income > 3500) cpp += (Math.min(income, ympe) - 3500) * 0.0595;
         if(income > ympe) cpp += (Math.min(income, yampe) - ympe) * 0.04;
         let ei = Math.min(income, 68900) * 0.0164;
+
         return { fed: fed, prov: prov, cpp_ei: cpp + ei, totalTax: fed + prov + cpp + ei, margRate: margFed + margProv };
     }
 
