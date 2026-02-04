@@ -1,10 +1,8 @@
 // Total Lines: 1700+
 /**
- * Retirement Planner Pro - Logic v9.4 (Fix: Post-Retirement Income)
+ * Retirement Planner Pro - Logic v9.5 (UI Tweak: Compact Expense Headers)
  * * CHANGE LOG:
- * 1. FIX: Updated calculation engine to recognize separate P1/P2 post-retirement income toggles.
- * - Previously checked 'enable_post_ret_income' (undefined).
- * - Now checks 'enable_post_ret_income_p1' and 'enable_post_ret_income_p2'.
+ * 1. UI: Adjusted Advanced Expense headers (Go-Go, Slow-Go, No-Go) to display age ranges on the same line.
  */
 
 class RetirementPlanner {
@@ -1863,9 +1861,9 @@ class RetirementPlanner {
                 <th class="text-uppercase text-muted small ps-3" style="width: 20%;">Item</th>
                 <th class="text-uppercase text-muted small" style="width: 16%;">Current</th>
                 <th class="text-uppercase text-muted small" style="width: 16%;">Trans</th>
-                <th class="text-uppercase text-muted small" style="width: 16%;">Go-Go <br><span style="font-size:0.6rem">(<${goGoAge})</span></th>
-                <th class="text-uppercase text-muted small" style="width: 16%;">Slow-Go <br><span style="font-size:0.6rem">(<${slowGoAge})</span></th>
-                <th class="text-uppercase text-muted small" style="width: 16%;">No-Go <br><span style="font-size:0.6rem">(${slowGoAge}+)</span></th>
+                <th class="text-uppercase text-muted small" style="width: 16%;">Go-Go <span style="font-size:0.6rem">(<${goGoAge})</span></th>
+                <th class="text-uppercase text-muted small" style="width: 16%;">Slow-Go <span style="font-size:0.6rem">(<${slowGoAge})</span></th>
+                <th class="text-uppercase text-muted small" style="width: 16%;">No-Go <span style="font-size:0.6rem">(${slowGoAge}+)</span></th>
             `;
         }
         thead.innerHTML = headerHTML;
