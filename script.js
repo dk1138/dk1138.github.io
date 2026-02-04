@@ -1,9 +1,9 @@
-// Total Lines: 1700+
 /**
- * Retirement Planner Pro - Logic v9.6
- * * CHANGE LOG:
- * 1. FIX: Recalculated Net Income (householdNet) after decumulation strategies run.
- * RRSP/TFSA withdrawals now appear in the "Net Income" column in the collapsed view.
+ * Retirement Planner Pro - Logic v10.0
+ * Features:
+ * - Auto-save to LocalStorage
+ * - Save/Load JSON Configuration
+ * - Debounced Inputs for Smoothness
  */
 
 class RetirementPlanner {
@@ -16,7 +16,7 @@ class RetirementPlanner {
             properties: [
                 { name: "Primary Home", value: 1000000, mortgage: 430000, growth: 3.0, rate: 3.29, payment: 0, manual: false }
             ],
-            // New Windfalls State
+            // Windfalls State
             windfalls: [
                 // Example: { name: "Inheritance", amount: 50000, freq: 'one', owner: 'p1', taxable: false, start: '2030-01', end: '' }
             ],
@@ -28,6 +28,8 @@ class RetirementPlanner {
             projectionData: [],
             expenseMode: 'Simple' // 'Simple' or 'Advanced'
         };
+
+        this.AUTO_SAVE_KEY = 'rp_autosave_v1';
 
         // --- CONFIGURATION CONSTANTS ---
         this.CONSTANTS = {
@@ -161,6 +163,8 @@ class RetirementPlanner {
         };
 
         if(typeof google !== 'undefined' && google.charts) google.charts.load('current', {'packages':['sankey']});
+        
+        // Debounced Run: Smoothly updates charts and saves data
         this.debouncedRun = this.debounce(() => this.run(), 300);
         this.init();
     }
@@ -180,13 +184,22 @@ class RetirementPlanner {
             this.confirmModal = new bootstrap.Modal(document.getElementById('confirmationModal'));
             this.setupGridContainer(); 
             this.populateAgeSelects();
-            this.renderExpenseRows(); 
-            this.renderProperties();
-            this.addDebtRow(); 
-            this.renderWindfalls();
-            this.renderStrategy();
+            
+            // Check for Auto-save data BEFORE initial render
+            const savedData = localStorage.getItem(this.AUTO_SAVE_KEY);
+            if (savedData) {
+                try {
+                    console.log("Loading auto-saved data...");
+                    this.loadStateToDOM(JSON.parse(savedData));
+                } catch(e) {
+                    console.error("Failed to load auto-save", e);
+                    this.renderDefaults();
+                }
+            } else {
+                this.renderDefaults();
+            }
+
             this.loadScenariosList();
-              
             this.syncStateFromDOM();
             this.toggleModeDisplay(); 
             this.updatePostRetIncomeVisibility();
@@ -211,6 +224,14 @@ class RetirementPlanner {
         } else {
             setup(); 
         }
+    }
+
+    renderDefaults() {
+        this.renderExpenseRows(); 
+        this.renderProperties();
+        this.addDebtRow(); 
+        this.renderWindfalls();
+        this.renderStrategy();
     }
 
     // --- CUSTOM CONFIRMATION HELPER ---
@@ -263,8 +284,8 @@ class RetirementPlanner {
     // --- DOM / STATE SYNC ---
     syncStateFromDOM() {
         document.querySelectorAll('input, select').forEach(el => {
-            // Skip property/windfall inputs as they are handled by array state
-            if (el.id && !el.id.startsWith('comp_') && !el.classList.contains('property-update') && !el.classList.contains('windfall-update')) {
+            // Skip property/windfall/debt inputs as they are handled by array state
+            if (el.id && !el.id.startsWith('comp_') && !el.classList.contains('property-update') && !el.classList.contains('windfall-update') && !el.classList.contains('debt-amount')) {
                 if (el.type === 'checkbox' || el.type === 'radio') {
                     this.state.inputs[el.id] = el.checked;
                 } else {
@@ -361,17 +382,22 @@ class RetirementPlanner {
              this.showConfirm("Are you sure you want to clear all data? This cannot be undone.", () => {
                  this.resetAllData();
              });
-        });
+         });
 
         document.getElementById('btnAddProperty').addEventListener('click', () => this.addProperty());
         document.getElementById('btnAddWindfall').addEventListener('click', () => this.addWindfall());
         document.getElementById('btnExportCSV').addEventListener('click', () => this.exportToCSV());
 
+        // --- NEW SAVE/LOAD HANDLERS ---
+        document.getElementById('btnDownloadConfig').addEventListener('click', () => this.downloadConfig());
+        document.getElementById('fileUpload').addEventListener('change', (e) => this.handleFileUpload(e));
+        document.getElementById('btnClearStorage').addEventListener('click', () => this.clearStorage());
+
         document.body.addEventListener('input', (e) => {
             if (e.target.classList.contains('live-calc')) {
                 if (e.target.classList.contains('formatted-num')) this.formatInput(e.target);
                 
-                if (e.target.id && !e.target.id.startsWith('comp_') && !e.target.classList.contains('property-update') && !e.target.classList.contains('windfall-update')) {
+                if (e.target.id && !e.target.id.startsWith('comp_') && !e.target.classList.contains('property-update') && !e.target.classList.contains('windfall-update') && !e.target.classList.contains('debt-amount')) {
                     this.state.inputs[e.target.id] = (e.target.type === 'checkbox' ? e.target.checked : e.target.value);
                     this.updateSidebarSync(e.target.id, e.target.value);
                 }
@@ -514,6 +540,57 @@ class RetirementPlanner {
         if (cardP2) cardP2.style.display = enabledP2 ? 'block' : 'none';
     }
 
+    // --- SAVE / LOAD LOGIC ---
+
+    saveToLocalStorage() {
+        const snapshot = this.getCurrentSnapshot();
+        localStorage.setItem(this.AUTO_SAVE_KEY, JSON.stringify(snapshot));
+    }
+
+    downloadConfig() {
+        const snapshot = this.getCurrentSnapshot();
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(snapshot, null, 2));
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", "retirement_plan_" + new Date().toISOString().slice(0,10) + ".json");
+        document.body.appendChild(downloadAnchorNode); // required for firefox
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+    }
+
+    handleFileUpload(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const data = JSON.parse(event.target.result);
+                this.loadStateToDOM(data);
+                this.run();
+                const modalEl = document.getElementById('saveLoadModal');
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                if(modal) modal.hide();
+                alert('Configuration loaded successfully.');
+            } catch(err) {
+                alert('Error parsing JSON file. Please ensure it is a valid configuration file.');
+                console.error(err);
+            }
+        };
+        reader.readAsText(file);
+        // Reset input so same file can be selected again if needed
+        e.target.value = '';
+    }
+
+    clearStorage() {
+        if(confirm("This will delete your auto-saved data and reload the page. Are you sure?")) {
+            localStorage.removeItem(this.AUTO_SAVE_KEY);
+            location.reload();
+        }
+    }
+
+    // --- RESET / LOAD HELPERS ---
+
     resetAllData() {
         const defaults = {
             p1_dob: '1990-01', p2_dob: '1990-01',
@@ -538,7 +615,7 @@ class RetirementPlanner {
 
         // Reset Inputs
         document.querySelectorAll('input, select').forEach(el => {
-            if(el.id && !el.id.startsWith('comp_') && !el.classList.contains('property-update') && !el.classList.contains('windfall-update')) {
+            if(el.id && !el.id.startsWith('comp_') && !el.classList.contains('property-update') && !el.classList.contains('windfall-update') && !el.classList.contains('debt-amount')) {
                 if(defaults[el.id] !== undefined) {
                     if (el.type === 'checkbox') el.checked = defaults[el.id];
                     else el.value = defaults[el.id];
@@ -641,7 +718,7 @@ class RetirementPlanner {
         document.body.removeChild(link);
     }
 
-    // --- WINDFALL LOGIC (NEW) ---
+    // --- WINDFALL LOGIC ---
     renderWindfalls() {
         const container = document.getElementById('windfall-container');
         if(!container) return;
@@ -901,6 +978,10 @@ class RetirementPlanner {
 
                 if(!this.charts.sankey) this.drawSankey(currentVal);
             }
+
+            // AUTO-SAVE
+            this.saveToLocalStorage();
+
         } catch (e) {
             console.error("Calculation Error:", e);
         }
@@ -1169,26 +1250,20 @@ class RetirementPlanner {
                 
                 // P1 Post-Retirement Income Calculation
                 if (enablePostRetP1 && p1_post_base > 0) {
-                    // Check if current year is within start and end
                     const startYear = p1_post_start.getFullYear();
                     const endYear = p1_post_end.getFullYear();
                     
                     if (year >= startYear && year <= endYear) {
-                         // Calculate inflated amount
                          let grownAmount = p1_post_base * Math.pow(1 + p1_post_growth, i);
                          let factor = 1.0;
-                         
-                         // Prorate start year
                          if (year === startYear) {
                              const months = 12 - p1_post_start.getMonth();
                              factor = months / 12;
                          }
-                         // Prorate end year
                          if (year === endYear) {
                              const months = p1_post_end.getMonth() + 1;
                              factor = Math.min(factor, months / 12); // Use min in case start == end
                          }
-                         
                          p1_post_val = grownAmount * factor;
                     }
                 }
@@ -1269,12 +1344,10 @@ class RetirementPlanner {
                     const yearStart = new Date(year, 0, 1);
                     const yearEnd = new Date(year, 11, 31);
                     
-                    // Simple overlap check
                     if (year >= wStart.getFullYear() && year <= wEnd.getFullYear()) {
                         active = true;
                         if (w.freq === 'year') annualAmt = w.amount;
                         if (w.freq === 'month') {
-                            // Calculate active months in this year
                             let startMonth = (year === wStart.getFullYear()) ? wStart.getMonth() : 0;
                             let endMonth = (year === wEnd.getFullYear()) ? wEnd.getMonth() : 11;
                             let months = Math.max(0, endMonth - startMonth + 1);
@@ -1516,17 +1589,13 @@ class RetirementPlanner {
             t1 = p1_alive ? this.calculateTaxDetailed(p1_total_taxable, province, inflatedTaxData) : { totalTax: 0 };
             t2 = p2_alive ? this.calculateTaxDetailed(p2_total_taxable, province, inflatedTaxData) : { totalTax: 0 };
 
-            // === FIX START: RECALCULATE NET INCOME AFTER WITHDRAWALS ===
-            // Calculate non-taxable withdrawals to add to cash flow
+            // RECALCULATE NET INCOME AFTER WITHDRAWALS
             let nontax_wd_p1 = (yearWithdrawals['P1 TFSA']||0) + (yearWithdrawals['P1 Cash']||0) + (yearWithdrawals['P1 Non-Reg']||0) + (yearWithdrawals['P1 Crypto']||0);
             let nontax_wd_p2 = (yearWithdrawals['P2 TFSA']||0) + (yearWithdrawals['P2 Cash']||0) + (yearWithdrawals['P2 Non-Reg']||0) + (yearWithdrawals['P2 Crypto']||0);
 
-            // Re-calculate Net Income to reflect Total Cash Flow (Net Income + All Withdrawals)
-            // p1_total_taxable ALREADY includes taxable withdrawals (RRSP)
             let final_p1_net = p1_alive ? (p1_total_taxable - t1.totalTax) + wf_nontax_p1 + nontax_wd_p1 : 0;
             let final_p2_net = p2_alive ? (p2_total_taxable - t2.totalTax) + wf_nontax_p2 + nontax_wd_p2 : 0;
             const final_householdNet = final_p1_net + final_p2_net;
-            // === FIX END ===
 
             const p1_tot = p1.tfsa + p1.rrsp + p1.crypto + p1.nreg + p1.cash;
             const p2_tot = mode === 'Couple' ? (p2.tfsa + p2.rrsp + p2.crypto + p2.nreg + p2.cash) : 0;
@@ -1856,7 +1925,6 @@ class RetirementPlanner {
     renderExpenseRows() {
         const tbody = document.getElementById('expenseTableBody'); 
         const thead = document.getElementById('expenseTableHeader');
-        const footer = document.getElementById('expenseFooter');
         
         let headerHTML = ``;
         if(this.state.expenseMode === 'Simple') {
