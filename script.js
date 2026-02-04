@@ -1,15 +1,12 @@
-// Total Lines: 1600+
+// Total Lines: 1650+
 /**
- * Retirement Planner Pro - Logic v9.1 (Inheritance & Windfalls)
+ * Retirement Planner Pro - Logic v9.2 (Post-Retirement Income)
  * * CHANGE LOG:
- * 1. NEW FEATURE: Added 'Windfalls' logic (Inheritance/Bonus).
- * - Supports One-Time, Monthly, and Yearly frequencies.
- * - Date-based triggering (Start/End using 'month' inputs).
- * - Toggle for Taxable (Bonus) vs Non-Taxable (Inheritance).
- * 2. LOGIC: Integrated Windfall income into `generateProjectionTable`.
- * - Taxable windfalls add to Gross Income (affecting tax brackets).
- * - Non-taxable windfalls add directly to Net/Surplus.
- * 3. UI: Dynamic rendering for Windfall rows with date logic handling.
+ * 1. NEW FEATURE: Added 'Post-Retirement Income' logic.
+ * - Allows users to define specific work/income periods after retirement.
+ * - Integrated into Taxable Income calculation.
+ * 2. UI: Added toggle and input fields in Section 4.
+ * 3. LOGIC: Added date-range checking in projection loop.
  */
 
 class RetirementPlanner {
@@ -189,12 +186,13 @@ class RetirementPlanner {
             this.renderExpenseRows(); 
             this.renderProperties();
             this.addDebtRow(); 
-            this.renderWindfalls(); // Render new Windfalls section
+            this.renderWindfalls();
             this.renderStrategy();
             this.loadScenariosList();
               
             this.syncStateFromDOM();
             this.toggleModeDisplay(); 
+            this.updatePostRetIncomeVisibility();
 
             this.updateAgeDisplay('p1'); 
             this.updateAgeDisplay('p2');
@@ -341,6 +339,9 @@ class RetirementPlanner {
                 this.renderExpenseRows();
                 this.calcExpenses();
                 this.run();
+            }
+            if (e.target.id === 'enable_post_ret_income') {
+                this.updatePostRetIncomeVisibility();
             }
         });
 
@@ -504,6 +505,12 @@ class RetirementPlanner {
         });
     }
 
+    updatePostRetIncomeVisibility() {
+        const enabled = document.getElementById('enable_post_ret_income').checked;
+        const container = document.getElementById('post-ret-income-container');
+        if (container) container.style.display = enabled ? 'block' : 'none';
+    }
+
     resetAllData() {
         // ... (Existing reset logic needs to clear windfalls too)
         const defaults = {
@@ -521,7 +528,10 @@ class RetirementPlanner {
             p1_db_pension: '0', p2_db_pension: '0',
             p1_cpp_enabled: true, p1_oas_enabled: true,
             p2_cpp_enabled: true, p2_oas_enabled: true,
-            exp_gogo_age: '75', exp_slow_age: '85'
+            exp_gogo_age: '75', exp_slow_age: '85',
+            enable_post_ret_income: false,
+            p1_post_inc: '0', p1_post_growth: '2.0',
+            p2_post_inc: '0', p2_post_growth: '2.0'
         };
 
         // Reset Inputs
@@ -560,6 +570,8 @@ class RetirementPlanner {
         this.updateSidebarSync('p1_tfsa_ret', 6.0);
         document.getElementById('exp_gogo_val').innerText = '75';
         document.getElementById('exp_slow_val').innerText = '85';
+        
+        this.updatePostRetIncomeVisibility();
 
         this.updateAgeDisplay('p1'); 
         this.updateAgeDisplay('p2');
@@ -936,7 +948,9 @@ class RetirementPlanner {
         const stressTest = this.state.inputs['stressTestEnabled'];
         const rrspMeltdown = this.state.inputs['strat_rrsp_topup']; 
         const expMode = this.state.expenseMode;
-
+        
+        const enablePostRet = this.state.inputs['enable_post_ret_income'];
+        
         const s1_tfsa = this.state.inputs['skip_first_tfsa_p1'];
         const s1_rrsp = this.state.inputs['skip_first_rrsp_p1'];
         const s2_tfsa = this.state.inputs['skip_first_tfsa_p2'];
@@ -966,6 +980,17 @@ class RetirementPlanner {
 
         let p1_db_base = this.getVal('p1_db_pension') * 12;
         let p2_db_base = this.getVal('p2_db_pension') * 12;
+        
+        // Post-Retirement Logic Setup
+        let p1_post_base = this.getVal('p1_post_inc');
+        let p1_post_growth = this.getVal('p1_post_growth') / 100;
+        let p1_post_start = new Date((this.getRaw('p1_post_start') || '2100-01') + "-01");
+        let p1_post_end = new Date((this.getRaw('p1_post_end') || '2100-01') + "-01");
+        
+        let p2_post_base = this.getVal('p2_post_inc');
+        let p2_post_growth = this.getVal('p2_post_growth') / 100;
+        let p2_post_start = new Date((this.getRaw('p2_post_start') || '2100-01') + "-01");
+        let p2_post_end = new Date((this.getRaw('p2_post_end') || '2100-01') + "-01");
 
         let expenseTotals = { curr:0, ret:0, trans:0, gogo:0, slow:0, nogo:0 };
         for (const cat in this.expensesByCategory) {
@@ -1067,16 +1092,65 @@ class RetirementPlanner {
             let p1_cpp_inc = 0, p1_oas_inc = 0;
             let p2_cpp_inc = 0, p2_oas_inc = 0;
             let p1_db_inc = 0, p2_db_inc = 0;
+            let p1_post_val = 0, p2_post_val = 0;
 
             if(p1_alive) {
                 if(!p1_isRetired) { p1_gross += p1.inc; p1.inc *= (1 + currentRatesP1.inc); }
                 else { p1_db_inc = p1_db_base * bracketInflator; }
+                
+                // P1 Post-Retirement Income Calculation
+                if (enablePostRet && p1_post_base > 0) {
+                    // Check if current year is within start and end
+                    const startYear = p1_post_start.getFullYear();
+                    const endYear = p1_post_end.getFullYear();
+                    
+                    if (year >= startYear && year <= endYear) {
+                         // Calculate inflated amount
+                         let grownAmount = p1_post_base * Math.pow(1 + p1_post_growth, i);
+                         let factor = 1.0;
+                         
+                         // Prorate start year
+                         if (year === startYear) {
+                             const months = 12 - p1_post_start.getMonth();
+                             factor = months / 12;
+                         }
+                         // Prorate end year
+                         if (year === endYear) {
+                             const months = p1_post_end.getMonth() + 1;
+                             factor = Math.min(factor, months / 12); // Use min in case start == end
+                         }
+                         
+                         p1_post_val = grownAmount * factor;
+                    }
+                }
+
                 if(p1_cpp_on && p1_age >= p1_cpp_start) p1_cpp_inc = this.calcBen(cpp_max_p1, p1_cpp_start, 1.0, p1.retAge);
                 if(p1_oas_on && p1_age >= p1_oas_start) p1_oas_inc = this.calcBen(oas_max_p1, p1_oas_start, 1.0, 65);
             }
             if(mode === 'Couple' && p2_alive) {
                 if(!p2_isRetired) { p2_gross += p2.inc; p2.inc *= (1 + currentRatesP2.inc); }
                 else { p2_db_inc = p2_db_base * bracketInflator; }
+                
+                // P2 Post-Retirement Income Calculation
+                if (enablePostRet && p2_post_base > 0) {
+                    const startYear = p2_post_start.getFullYear();
+                    const endYear = p2_post_end.getFullYear();
+                    
+                    if (year >= startYear && year <= endYear) {
+                         let grownAmount = p2_post_base * Math.pow(1 + p2_post_growth, i);
+                         let factor = 1.0;
+                         if (year === startYear) {
+                             const months = 12 - p2_post_start.getMonth();
+                             factor = months / 12;
+                         }
+                         if (year === endYear) {
+                             const months = p2_post_end.getMonth() + 1;
+                             factor = Math.min(factor, months / 12);
+                         }
+                         p2_post_val = grownAmount * factor;
+                    }
+                }
+
                 if(p2_cpp_on && p2_age >= p2_cpp_start) p2_cpp_inc = this.calcBen(cpp_max_p2, p2_cpp_start, 1.0, p2.retAge);
                 if(p2_oas_on && p2_age >= p2_oas_start) p2_oas_inc = this.calcBen(oas_max_p2, p2_oas_start, 1.0, 65);
             }
@@ -1141,8 +1215,7 @@ class RetirementPlanner {
                 }
                 
                 if (active && annualAmt > 0) {
-                    if(!triggeredEvents.has('Windfall') && i === 0) {} // Prevent spamming icon, show it once per year if active? 
-                    // Add event icon for ONE TIME windfalls only to avoid clutter
+                    if(!triggeredEvents.has('Windfall') && i === 0) {} 
                     if(w.freq === 'one') events.push(this.eventIcons['Windfall']);
                     
                     if (w.taxable) {
@@ -1155,9 +1228,9 @@ class RetirementPlanner {
                 }
             });
 
-            // Add taxable windfalls to gross income for tax calc
-            let p1_total_taxable = p1_gross + p1_cpp_inc + p1_oas_inc + p1_rrif_inc + p1_db_inc + wf_tax_p1;
-            let p2_total_taxable = p2_gross + p2_cpp_inc + p2_oas_inc + p2_rrif_inc + p2_db_inc + wf_tax_p2;
+            // Add taxable windfalls AND Post-Retirement Income to gross income for tax calc
+            let p1_total_taxable = p1_gross + p1_cpp_inc + p1_oas_inc + p1_rrif_inc + p1_db_inc + wf_tax_p1 + p1_post_val;
+            let p2_total_taxable = p2_gross + p2_cpp_inc + p2_oas_inc + p2_rrif_inc + p2_db_inc + wf_tax_p2 + p2_post_val;
 
             if (rrspMeltdown) {
                 const lowBracketLimit = inflatedTaxData.FED.brackets[0]; 
@@ -1403,7 +1476,7 @@ class RetirementPlanner {
                     p1Net: p1_net, p2Net: p2_net,
                     expenses: annualExp, mortgagePay: totalActualMortgageOutflow, debtPay: debtRepayment, 
                     surplus: surplus, drawdown: surplus < 0 ? Math.abs(surplus) : 0,
-                    debugNW: nw, debugTotalInflow: (p1_gross + p2_gross + p1_cpp_inc + p1_oas_inc + p2_cpp_inc + p2_oas_inc + p1_db_inc + p2_db_inc + totalWithdrawal + totalWindfall),
+                    debugNW: nw, debugTotalInflow: (p1_gross + p2_gross + p1_cpp_inc + p1_oas_inc + p2_cpp_inc + p2_oas_inc + p1_db_inc + p2_db_inc + totalWithdrawal + totalWindfall + p1_post_val + p2_post_val),
                     assetsP1: {...p1}, assetsP2: {...p2},
                     wdBreakdown: wdBreakdown,
                     inv_tfsa: p1.tfsa + p2.tfsa, inv_rrsp: p1.rrsp + p2.rrsp, inv_cash: p1.cash + p2.cash, inv_nreg: p1.nreg + p2.nreg, inv_crypto: p1.crypto + p2.crypto,
@@ -1413,7 +1486,8 @@ class RetirementPlanner {
                     householdNet: householdNet, visualExpenses: visualExpenses, 
                     mortgage: totalREMortgage, homeValue: totalREValue, 
                     investTot: investTot, liquidNW: liquidNW, isCrashYear: isCrashYear,
-                    windfall: totalWindfall
+                    windfall: totalWindfall,
+                    postRetP1: p1_post_val, postRetP2: p2_post_val
                 });
             }
             expCurrent *= (1 + inflation); expRetire *= (1 + inflation); tfsa_limit *= (1 + inflation);
@@ -1484,6 +1558,10 @@ class RetirementPlanner {
                 let incomeLines = '';
                 incomeLines += line("Employment P1", d.incomeP1);
                 if(mode==='Couple') incomeLines += line("Employment P2", d.incomeP2);
+                
+                if (d.postRetP1 > 0) incomeLines += subLine("Post-Ret Work P1", d.postRetP1);
+                if (d.postRetP2 > 0) incomeLines += subLine("Post-Ret Work P2", d.postRetP2);
+
                 if (d.benefitsP1 + d.benefitsP2 > 0) {
                     incomeLines += subLine("CPP/OAS P1", d.cppP1 + d.oasP1);
                     if(mode==='Couple') incomeLines += subLine("CPP/OAS P2", d.cppP2 + d.oasP2);
@@ -2398,6 +2476,8 @@ class RetirementPlanner {
         const advMode = document.getElementById('expense_mode_advanced').checked;
         const sliderDiv = document.getElementById('expense-phase-controls');
         if(sliderDiv) sliderDiv.style.display = advMode ? 'flex' : 'none';
+
+        this.updatePostRetIncomeVisibility();
     }
 
     deleteScenario(idx) {
