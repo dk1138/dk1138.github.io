@@ -1,12 +1,11 @@
-// Total Lines: 1650+
+// Total Lines: 1700+
 /**
- * Retirement Planner Pro - Logic v9.2 (Post-Retirement Income)
+ * Retirement Planner Pro - Logic v9.3 (Export Functionality)
  * * CHANGE LOG:
- * 1. NEW FEATURE: Added 'Post-Retirement Income' logic.
- * - Allows users to define specific work/income periods after retirement.
- * - Integrated into Taxable Income calculation.
- * 2. UI: Added toggle and input fields in Section 4.
- * 3. LOGIC: Added date-range checking in projection loop.
+ * 1. NEW FEATURE: Added 'Export to CSV' functionality for projection table.
+ * - Captures full projection data including P1/P2 details, assets, taxes, and flows.
+ * - Formats numbers and dates correctly for CSV output.
+ * 2. UI: Added export button listener.
  */
 
 class RetirementPlanner {
@@ -368,6 +367,7 @@ class RetirementPlanner {
 
         document.getElementById('btnAddProperty').addEventListener('click', () => this.addProperty());
         document.getElementById('btnAddWindfall').addEventListener('click', () => this.addWindfall());
+        document.getElementById('btnExportCSV').addEventListener('click', () => this.exportToCSV());
 
         document.body.addEventListener('input', (e) => {
             if (e.target.classList.contains('live-calc')) {
@@ -576,6 +576,67 @@ class RetirementPlanner {
         this.updateAgeDisplay('p1'); 
         this.updateAgeDisplay('p2');
         this.run();
+    }
+
+    // --- EXPORT TO CSV ---
+    exportToCSV() {
+        if (!this.state.projectionData || this.state.projectionData.length === 0) {
+            alert("No data available to export.");
+            return;
+        }
+
+        const mode = this.state.mode;
+        const headers = [
+            "Year", "P1 Age", mode === "Couple" ? "P2 Age" : null,
+            "P1 Income", mode === "Couple" ? "P2 Income" : null,
+            "P1 Post-Ret Inc", mode === "Couple" ? "P2 Post-Ret Inc" : null,
+            "P1 Benefits", mode === "Couple" ? "P2 Benefits" : null,
+            "P1 DB Pension", mode === "Couple" ? "P2 DB Pension" : null,
+            "Windfall",
+            "P1 Taxes", mode === "Couple" ? "P2 Taxes" : null,
+            "Total Expenses", "Mortgage Payment", "Debt Payment",
+            "Surplus/Deficit",
+            "P1 TFSA", "P1 RRSP", "P1 Non-Reg", "P1 Cash", "P1 Crypto",
+            mode === "Couple" ? "P2 TFSA" : null,
+            mode === "Couple" ? "P2 RRSP" : null,
+            mode === "Couple" ? "P2 Non-Reg" : null,
+            mode === "Couple" ? "P2 Cash" : null,
+            mode === "Couple" ? "P2 Crypto" : null,
+            "Liquid Net Worth", "Home Equity", "Total Net Worth"
+        ].filter(h => h !== null);
+
+        const rows = this.state.projectionData.map(d => {
+            const p1 = d.assetsP1;
+            const p2 = d.assetsP2;
+            const row = [
+                d.year, d.p1Age, mode === "Couple" ? (d.p2Age || "") : null,
+                Math.round(d.incomeP1), mode === "Couple" ? Math.round(d.incomeP2) : null,
+                Math.round(d.postRetP1 || 0), mode === "Couple" ? Math.round(d.postRetP2 || 0) : null,
+                Math.round(d.benefitsP1), mode === "Couple" ? Math.round(d.benefitsP2) : null,
+                Math.round(d.dbP1), mode === "Couple" ? Math.round(d.dbP2) : null,
+                Math.round(d.windfall),
+                Math.round(d.taxP1), mode === "Couple" ? Math.round(d.taxP2) : null,
+                Math.round(d.expenses), Math.round(d.mortgagePay), Math.round(d.debtPay),
+                Math.round(d.surplus),
+                Math.round(p1.tfsa), Math.round(p1.rrsp), Math.round(p1.nreg), Math.round(p1.cash), Math.round(p1.crypto),
+                mode === "Couple" ? Math.round(p2.tfsa) : null,
+                mode === "Couple" ? Math.round(p2.rrsp) : null,
+                mode === "Couple" ? Math.round(p2.nreg) : null,
+                mode === "Couple" ? Math.round(p2.cash) : null,
+                mode === "Couple" ? Math.round(p2.crypto) : null,
+                Math.round(d.liquidNW), Math.round(d.homeValue - d.mortgage), Math.round(d.debugNW)
+            ].filter(v => v !== null);
+            return row.join(",");
+        });
+
+        const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows].join("\n");
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "retirement_plan_pro_export.csv");
+        document.body.appendChild(link); // Required for FF
+        link.click();
+        document.body.removeChild(link);
     }
 
     // --- WINDFALL LOGIC (NEW) ---
@@ -2515,6 +2576,67 @@ class RetirementPlanner {
         };
         document.querySelectorAll('.debt-amount').forEach(el => snapshot.debt.push(el.value));
         return snapshot;
+    }
+
+    // --- EXPORT TO CSV ---
+    exportToCSV() {
+        if (!this.state.projectionData || this.state.projectionData.length === 0) {
+            alert("No data available to export.");
+            return;
+        }
+
+        const mode = this.state.mode;
+        const headers = [
+            "Year", "P1 Age", mode === "Couple" ? "P2 Age" : null,
+            "P1 Income", mode === "Couple" ? "P2 Income" : null,
+            "P1 Post-Ret Inc", mode === "Couple" ? "P2 Post-Ret Inc" : null,
+            "P1 Benefits", mode === "Couple" ? "P2 Benefits" : null,
+            "P1 DB Pension", mode === "Couple" ? "P2 DB Pension" : null,
+            "Windfall",
+            "P1 Taxes", mode === "Couple" ? "P2 Taxes" : null,
+            "Total Expenses", "Mortgage Payment", "Debt Payment",
+            "Surplus/Deficit",
+            "P1 TFSA", "P1 RRSP", "P1 Non-Reg", "P1 Cash", "P1 Crypto",
+            mode === "Couple" ? "P2 TFSA" : null,
+            mode === "Couple" ? "P2 RRSP" : null,
+            mode === "Couple" ? "P2 Non-Reg" : null,
+            mode === "Couple" ? "P2 Cash" : null,
+            mode === "Couple" ? "P2 Crypto" : null,
+            "Liquid Net Worth", "Home Equity", "Total Net Worth"
+        ].filter(h => h !== null);
+
+        const rows = this.state.projectionData.map(d => {
+            const p1 = d.assetsP1;
+            const p2 = d.assetsP2;
+            const row = [
+                d.year, d.p1Age, mode === "Couple" ? (d.p2Age || "") : null,
+                Math.round(d.incomeP1), mode === "Couple" ? Math.round(d.incomeP2) : null,
+                Math.round(d.postRetP1 || 0), mode === "Couple" ? Math.round(d.postRetP2 || 0) : null,
+                Math.round(d.benefitsP1), mode === "Couple" ? Math.round(d.benefitsP2) : null,
+                Math.round(d.dbP1), mode === "Couple" ? Math.round(d.dbP2) : null,
+                Math.round(d.windfall),
+                Math.round(d.taxP1), mode === "Couple" ? Math.round(d.taxP2) : null,
+                Math.round(d.expenses), Math.round(d.mortgagePay), Math.round(d.debtPay),
+                Math.round(d.surplus),
+                Math.round(p1.tfsa), Math.round(p1.rrsp), Math.round(p1.nreg), Math.round(p1.cash), Math.round(p1.crypto),
+                mode === "Couple" ? Math.round(p2.tfsa) : null,
+                mode === "Couple" ? Math.round(p2.rrsp) : null,
+                mode === "Couple" ? Math.round(p2.nreg) : null,
+                mode === "Couple" ? Math.round(p2.cash) : null,
+                mode === "Couple" ? Math.round(p2.crypto) : null,
+                Math.round(d.liquidNW), Math.round(d.homeValue - d.mortgage), Math.round(d.debugNW)
+            ].filter(v => v !== null);
+            return row.join(",");
+        });
+
+        const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows].join("\n");
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "retirement_plan_pro_export.csv");
+        document.body.appendChild(link); // Required for FF
+        link.click();
+        document.body.removeChild(link);
     }
 }
 
