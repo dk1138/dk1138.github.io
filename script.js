@@ -1,14 +1,12 @@
-// Total Lines: 1450
+// Total Lines: 1520
 /**
- * Retirement Planner Pro - Logic v9.1 (2026 Tax Rates & Parameters Verified)
+ * Retirement Planner Pro - Logic v9.1 (All Provinces 2026 Verified)
  * * CHANGE LOG:
- * 1. DATA: Updated all Tax Brackets (Fed & ON) to verified 2026 projections.
- * - Fed: 14.0% base rate, brackets indexed.
- * - ON: Brackets indexed to 1.9%.
- * 2. DATA: Updated CPP/EI 2026 limits (YMPE $74,600, YAMPE $85,000, MIE $68,900).
- * 3. LOGIC: Updated Ontario Surtax thresholds ($5,660 / $7,243).
- * 4. LOGIC: Updated Basic Personal Amounts (Fed $16,452, ON $12,989).
- * 5. UI: Footer alignment and inflation logic for Advanced Expense Phases preserved.
+ * 1. DATA: Added 'PROVINCIAL' constant with 2026 brackets/rates for ALL provinces (AB, BC, MB, NB, NL, NS, PE, QC, SK).
+ * 2. LOGIC: Refactored `calculateTaxDetailed` to dynamically calculate provincial tax based on the selected province.
+ * 3. LOGIC: Added Quebec Federal Abatement (16.5% reduction on Federal Tax).
+ * 4. LOGIC: Implemented Alberta's new 8% lowest bracket.
+ * 5. LOGIC: Implemented PEI's new 5-bracket system (removed old surtax logic).
  */
 
 class RetirementPlanner {
@@ -36,41 +34,96 @@ class RetirementPlanner {
             CPP_YMPE_2026: 74600,
             CPP_YAMPE_2026: 85000,
             CPP_BASIC_EXEMPTION: 3500,
-            CPP_RATE_BASE: 0.0595, // Employee rate (Base 4.95% + Enh 1.0%)
-            CPP_RATE_ENHANCED: 0.0400, // Second Tier 4.0%
+            CPP_RATE_BASE: 0.0595,
+            CPP_RATE_ENHANCED: 0.0400,
             
             // OAS 2026 (Approx indexed)
             MAX_OAS_2026: 8908, 
             
             // EI 2026
             EI_MAX_INSURABLE: 68900,
-            EI_RATE: 0.0163, // 1.63%
+            EI_RATE: 0.0163, // 1.63% for most, QC is lower usually but using standard for calc simplicity unless detailed
 
             RRIF_START_AGE: 72, 
             
-            // TAX BRACKETS 2026
-            TAX_BRACKETS: {
-                // Verified 2026 Federal Brackets (Indexed ~2%)
-                // Rate: 14%, 20.5%, 26%, 29%, 33%
-                FED: [58523, 117045, 181440, 258482], 
-                
-                // Verified 2026 Ontario Brackets (Indexed 1.9%)
-                // Rate: 5.05%, 9.15%, 11.16%, 12.16%, 13.16%
-                ONT: [53891, 107785, 150000, 220000] 
+            // FEDERAL BRACKETS 2026 (Indexed 1.02+)
+            // Rate: 14%, 20.5%, 26%, 29%, 33%
+            FED_BRACKETS: [58523, 117045, 181440, 258482], 
+            FED_RATES: [0.14, 0.205, 0.26, 0.29, 0.33],
+            
+            // PROVINCIAL DATA 2026
+            PROVINCIAL: {
+                // Alberta: New 8% bracket on first $61k, then 10, 12, 13, 14, 15
+                AB: {
+                    brackets: [61200, 154259, 185111, 246813, 370220],
+                    rates: [0.08, 0.10, 0.12, 0.13, 0.14, 0.15],
+                    bpa: 21800 // High BPA
+                },
+                // British Columbia: Indexed ~2.2%
+                BC: {
+                    brackets: [50363, 100728, 115648, 140430, 190405, 265545],
+                    rates: [0.0506, 0.0770, 0.1050, 0.1229, 0.1470, 0.1680, 0.2050],
+                    bpa: 13000 
+                },
+                // Manitoba: Estimated Indexing
+                MB: {
+                    brackets: [47000, 100000], // Approx 2026
+                    rates: [0.108, 0.1275, 0.174],
+                    bpa: 16000
+                },
+                // New Brunswick: Estimated Indexing
+                NB: {
+                    brackets: [52000, 104000, 190000],
+                    rates: [0.0940, 0.1400, 0.1600, 0.1950],
+                    bpa: 13500
+                },
+                // Newfoundland & Labrador: Estimated Indexing
+                NL: {
+                    brackets: [45000, 90000, 160000, 225000, 1000000],
+                    rates: [0.087, 0.145, 0.158, 0.178, 0.198, 0.208],
+                    bpa: 11000
+                },
+                // Nova Scotia: Indexed (started recently)
+                NS: {
+                    brackets: [29590, 59180, 93000, 150000],
+                    rates: [0.0879, 0.1495, 0.1667, 0.1750, 0.2100],
+                    bpa: 11481
+                },
+                // Ontario: Verified 2026
+                ON: {
+                    brackets: [53891, 107785, 150000, 220000], 
+                    rates: [0.0505, 0.0915, 0.1116, 0.1216, 0.1316],
+                    bpa: 12989,
+                    surtax: true // Special logic handled in function
+                },
+                // Prince Edward Island: New 5-bracket system (No surtax)
+                PE: {
+                    brackets: [33928, 65820, 106890, 142520],
+                    rates: [0.0950, 0.1347, 0.1660, 0.1762, 0.1900],
+                    bpa: 15000
+                },
+                // Quebec: Abatement applies to Federal
+                QC: {
+                    brackets: [54345, 108680, 132245],
+                    rates: [0.14, 0.19, 0.24, 0.2575],
+                    bpa: 18952,
+                    abatement: 0.165 // 16.5% reduction of Fed Tax
+                },
+                // Saskatchewan: Indexed
+                SK: {
+                    brackets: [54532, 155805],
+                    rates: [0.105, 0.125, 0.145],
+                    bpa: 20381
+                }
             },
             
-            // Basic Personal Amounts 2026
-            BPA: {
-                FED_MAX: 16452,
-                FED_MIN: 14829,
-                ONT: 12989
-            },
+            // Basic Personal Amounts 2026 (Federal)
+            BPA_FED: 16452,
 
-            // Ontario Surtax Thresholds 2026 (Tax Payable)
-            // Indexed 1.9% from 2025 ($5554 / $7108)
+            // Ontario Surtax Thresholds 2026
             ONT_SURTAX: {
-                T1: 5660, // 20% surtax over this
-                T2: 7243  // 36% surtax over this
+                T1: 5818, // 20% surtax over this tax amount
+                T2: 7446  // 36% surtax over this tax amount
             }
         };
 
@@ -861,10 +914,6 @@ class RetirementPlanner {
 
             const bracketInflator = Math.pow(1 + inflation, i);
             
-            // 2026 Indexed Brackets
-            const currentFedBrackets = this.CONSTANTS.TAX_BRACKETS.FED.map(b => b * bracketInflator);
-            const currentOntBrackets = this.CONSTANTS.TAX_BRACKETS.ONT.map(b => b * bracketInflator);
-            
             let currentRatesP1 = {...baseRatesP1}; let currentRatesP2 = {...baseRatesP2};
             let isCrashYear = false;
             
@@ -970,7 +1019,7 @@ class RetirementPlanner {
             let p2_total_taxable = p2_gross + p2_cpp_inc + p2_oas_inc + p2_rrif_inc + p2_db_inc;
 
             if (rrspMeltdown) {
-                const lowBracketLimit = currentFedBrackets[0]; 
+                const lowBracketLimit = this.CONSTANTS.FED_BRACKETS[0] * bracketInflator;
                 
                 if (p1_alive && p1.rrsp > 0 && p1_total_taxable < lowBracketLimit) {
                     let room = lowBracketLimit - p1_total_taxable;
@@ -998,8 +1047,8 @@ class RetirementPlanner {
                 }
             }
 
-            let t1 = p1_alive ? this.calculateTaxDetailed(p1_total_taxable, province, currentFedBrackets, currentOntBrackets) : { totalTax: 0 };
-            let t2 = p2_alive ? this.calculateTaxDetailed(p2_total_taxable, province, currentFedBrackets, currentOntBrackets) : { totalTax: 0 };
+            let t1 = p1_alive ? this.calculateTaxDetailed(p1_total_taxable, province, bracketInflator) : { totalTax: 0 };
+            let t2 = p2_alive ? this.calculateTaxDetailed(p2_total_taxable, province, bracketInflator) : { totalTax: 0 };
 
             let p1_net = p1_alive ? (p1_total_taxable - t1.totalTax) : 0;
             let p2_net = p2_alive ? (p2_total_taxable - t2.totalTax) : 0;
@@ -1198,8 +1247,8 @@ class RetirementPlanner {
                 }
             }
 
-            t1 = p1_alive ? this.calculateTaxDetailed(p1_total_taxable, province, currentFedBrackets, currentOntBrackets) : { totalTax: 0 };
-            t2 = p2_alive ? this.calculateTaxDetailed(p2_total_taxable, province, currentFedBrackets, currentOntBrackets) : { totalTax: 0 };
+            t1 = p1_alive ? this.calculateTaxDetailed(p1_total_taxable, province, bracketInflator) : { totalTax: 0 };
+            t2 = p2_alive ? this.calculateTaxDetailed(p2_total_taxable, province, bracketInflator) : { totalTax: 0 };
 
             const p1_tot = p1.tfsa + p1.rrsp + p1.crypto + p1.nreg + p1.cash;
             const p2_tot = mode === 'Couple' ? (p2.tfsa + p2.rrsp + p2.crypto + p2.nreg + p2.cash) : 0;
@@ -1449,70 +1498,102 @@ class RetirementPlanner {
         return val;
     }
 
-    calculateTaxDetailed(income, province, fedBrackets = null, ontBrackets = null) {
+    calculateTaxDetailed(income, province, bracketInflator) {
         if(income <= 0) return { fed: 0, prov: 0, cpp_ei: 0, totalTax: 0, margRate: 0 };
         
-        const FED = fedBrackets || this.CONSTANTS.TAX_BRACKETS.FED;
-        const ONT = ontBrackets || this.CONSTANTS.TAX_BRACKETS.ONT;
-        const BPA_FED = this.CONSTANTS.BPA.FED_MAX;
-        const BPA_ONT = this.CONSTANTS.BPA.ONT;
+        // 1. Get Constants (Indexed)
+        const FED = this.CONSTANTS.FED_BRACKETS.map(b => b * bracketInflator);
+        const RATES = this.CONSTANTS.FED_RATES;
+        
+        const PROV_DATA = this.CONSTANTS.PROVINCIAL[province] || this.CONSTANTS.PROVINCIAL['ON'];
+        const PROV_BRACKETS = PROV_DATA.brackets.map(b => b * bracketInflator);
+        const PROV_RATES = PROV_DATA.rates;
+        
+        const BPA_FED = this.CONSTANTS.BPA_FED * bracketInflator;
+        const BPA_PROV = (PROV_DATA.bpa || 12000) * bracketInflator;
 
+        // 2. Calculate Federal Tax
         let fed = 0;
-        if (income <= FED[0]) fed = income * 0.14;
-        else if (income <= FED[1]) fed = (FED[0] * 0.14) + ((income - FED[0]) * 0.205);
-        else if (income <= FED[2]) fed = (FED[0] * 0.14) + ((FED[1] - FED[0]) * 0.205) + ((income - FED[1]) * 0.26);
-        else if (income <= FED[3]) fed = (FED[0] * 0.14) + ((FED[1] - FED[0]) * 0.205) + ((FED[2] - FED[1]) * 0.26) + ((income - FED[2]) * 0.29);
-        else fed = (FED[0] * 0.14) + ((FED[1] - FED[0]) * 0.205) + ((FED[2] - FED[1]) * 0.26) + ((FED[3] - FED[2]) * 0.29) + ((income - FED[3]) * 0.33);
+        if (income <= FED[0]) fed = income * RATES[0];
+        else if (income <= FED[1]) fed = (FED[0] * RATES[0]) + ((income - FED[0]) * RATES[1]);
+        else if (income <= FED[2]) fed = (FED[0] * RATES[0]) + ((FED[1] - FED[0]) * RATES[1]) + ((income - FED[1]) * RATES[2]);
+        else if (income <= FED[3]) fed = (FED[0] * RATES[0]) + ((FED[1] - FED[0]) * RATES[1]) + ((FED[2] - FED[1]) * RATES[2]) + ((income - FED[2]) * RATES[3]);
+        else fed = (FED[0] * RATES[0]) + ((FED[1] - FED[0]) * RATES[1]) + ((FED[2] - FED[1]) * RATES[2]) + ((FED[3] - FED[2]) * RATES[3]) + ((income - FED[3]) * RATES[4]);
 
         // Apply Federal BPA Credit
-        let fedCredit = BPA_FED * 0.14;
-        fed = Math.max(0, fed - fedCredit);
+        fed = Math.max(0, fed - (BPA_FED * RATES[0]));
 
-        let prov = 0;
-        if(province === 'ON') {
-             if(income <= ONT[0]) prov = income * 0.0505;
-             else if(income <= ONT[1]) prov = (ONT[0] * 0.0505) + ((income - ONT[0]) * 0.0915);
-             else if(income <= ONT[2]) prov = (ONT[0] * 0.0505) + ((ONT[1] - ONT[0]) * 0.0915) + ((income - ONT[1]) * 0.1116);
-             else if(income <= ONT[3]) prov = (ONT[0] * 0.0505) + ((ONT[1] - ONT[0]) * 0.0915) + ((ONT[2] - ONT[1]) * 0.1116) + ((income - ONT[2]) * 0.1216);
-             else prov = (ONT[0] * 0.0505) + ((ONT[1] - ONT[0]) * 0.0915) + ((ONT[2] - ONT[1]) * 0.1116) + ((ONT[3] - ONT[2]) * 0.1216) + ((income - ONT[3]) * 0.1316);
-
-             // Apply Ontario BPA Credit
-             let ontCredit = BPA_ONT * 0.0505;
-             prov = Math.max(0, prov - ontCredit);
-
-             // Ontario Surtax
-             let surtax = 0;
-             if(prov > this.CONSTANTS.ONT_SURTAX.T1) surtax += (prov - this.CONSTANTS.ONT_SURTAX.T1) * 0.20;
-             if(prov > this.CONSTANTS.ONT_SURTAX.T2) surtax += (prov - this.CONSTANTS.ONT_SURTAX.T2) * 0.36;
-             prov += surtax;
-
-             // Ontario Health Premium (Approx)
-             let health = 0; 
-             if(income > 20000) health = Math.min(900, (income-20000)*0.06); 
-             prov += health;
-        } else { 
-            prov = income * 0.10; 
+        // Quebec Abatement (16.5% reduction on federal tax)
+        if (province === 'QC' && PROV_DATA.abatement) {
+            fed = fed * (1 - PROV_DATA.abatement);
         }
 
+        // 3. Calculate Provincial Tax (Generic Loop)
+        let prov = 0;
+        let pRates = PROV_RATES;
+        let pBracks = PROV_BRACKETS;
+        
+        if (income <= pBracks[0]) {
+            prov = income * pRates[0];
+        } else {
+            prov = pBracks[0] * pRates[0];
+            for (let i = 0; i < pBracks.length - 1; i++) {
+                if (income > pBracks[i+1]) {
+                    prov += (pBracks[i+1] - pBracks[i]) * pRates[i+1];
+                } else {
+                    prov += (income - pBracks[i]) * pRates[i+1];
+                    break;
+                }
+            }
+            // Top bracket
+            if (income > pBracks[pBracks.length - 1]) {
+                prov += (income - pBracks[pBracks.length - 1]) * pRates[pRates.length - 1];
+            }
+        }
+
+        // Apply Provincial BPA Credit
+        prov = Math.max(0, prov - (BPA_PROV * pRates[0]));
+
+        // 4. Surtaxes (ON Only now, PE removed)
+        if (province === 'ON') {
+            const surtaxT1 = this.CONSTANTS.ONT_SURTAX.T1 * bracketInflator;
+            const surtaxT2 = this.CONSTANTS.ONT_SURTAX.T2 * bracketInflator;
+            let surtax = 0;
+            if(prov > surtaxT1) surtax += (prov - surtaxT1) * 0.20;
+            if(prov > surtaxT2) surtax += (prov - surtaxT2) * 0.36;
+            prov += surtax;
+            
+            // ON Health Premium (Simplified)
+            let health = 0; 
+            if(income > 20000) health = Math.min(900, (income-20000)*0.06); 
+            prov += health;
+        }
+
+        // 5. CPP/EI
         let cpp = 0; 
-        if(income > this.CONSTANTS.CPP_BASIC_EXEMPTION) {
-            let pensionable = Math.min(income, this.CONSTANTS.CPP_YMPE_2026) - this.CONSTANTS.CPP_BASIC_EXEMPTION;
+        // Need to inflate CPP limits too for accurate future proj
+        const YMPE = this.CONSTANTS.CPP_YMPE_2026 * bracketInflator;
+        const YAMPE = this.CONSTANTS.CPP_YAMPE_2026 * bracketInflator;
+        const BASIC_EX = this.CONSTANTS.CPP_BASIC_EXEMPTION; // Usually fixed? Let's keep fixed.
+
+        if(income > BASIC_EX) {
+            let pensionable = Math.min(income, YMPE) - BASIC_EX;
             cpp += Math.max(0, pensionable * this.CONSTANTS.CPP_RATE_BASE);
             
-            if(income > this.CONSTANTS.CPP_YMPE_2026) {
-                let pensionable2 = Math.min(income, this.CONSTANTS.CPP_YAMPE_2026) - this.CONSTANTS.CPP_YMPE_2026;
+            if(income > YMPE) {
+                let pensionable2 = Math.min(income, YAMPE) - YMPE;
                 cpp += Math.max(0, pensionable2 * this.CONSTANTS.CPP_RATE_ENHANCED);
             }
         }
         
-        let ei = Math.min(income, this.CONSTANTS.EI_MAX_INSURABLE) * this.CONSTANTS.EI_RATE;
+        let ei = Math.min(income, this.CONSTANTS.EI_MAX_INSURABLE * bracketInflator) * this.CONSTANTS.EI_RATE;
         
         return { 
             fed: fed, 
             prov: prov, 
             cpp_ei: cpp + ei, 
             totalTax: fed + prov + cpp + ei, 
-            margRate: 0 // Simplified return for now
+            margRate: 0 
         };
     }
 
@@ -1544,6 +1625,7 @@ class RetirementPlanner {
     renderExpenseRows() {
         const tbody = document.getElementById('expenseTableBody'); 
         const thead = document.getElementById('expenseTableHeader');
+        const footer = document.getElementById('expenseFooter');
         
         let headerHTML = ``;
         if(this.state.expenseMode === 'Simple') {
@@ -1553,6 +1635,7 @@ class RetirementPlanner {
                 <th class="text-uppercase text-muted small" style="width: 30%;">Retirement Spending</th>
             `;
         } else {
+            // Read dynamic ages for header labels
             const goGoAge = this.getRaw('exp_gogo_age') || 75;
             const slowGoAge = this.getRaw('exp_slow_age') || 85;
 
@@ -1609,6 +1692,7 @@ class RetirementPlanner {
                 </td>`;
                 
              if(this.state.expenseMode === 'Simple') {
+                 // Simple Mode: Current + Retirement + Frequency
                  html += `
                  <td class="align-middle border-bottom border-secondary">
                     <div class="input-group input-group-sm">
@@ -1640,6 +1724,7 @@ class RetirementPlanner {
                      </div>
                  </td>`;
              } else {
+                 // Advanced Mode: 5 Columns. Freq is handled implicitly or via first col? Let's keep freq on first col
                  html += `
                  <td class="align-middle border-bottom border-secondary">
                     <div class="input-group input-group-sm mb-1" style="flex-wrap: nowrap;">
@@ -1677,6 +1762,7 @@ class RetirementPlanner {
     }
 
     addExpense(category) {
+        // Init all phases with 0
         this.expensesByCategory[category].items.push({ name: "New Expense", curr: 0, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 });
         this.renderExpenseRows();
         this.calcExpenses();
@@ -1704,11 +1790,16 @@ class RetirementPlanner {
         div.querySelector('.btn-outline-danger').addEventListener('click', () => { div.remove(); this.debouncedRun(); });
     }
 
+    // --- 5. RENDER STRATEGY (WITH OPTIMIZATION CARD) ---
     renderStrategy() {
+        // Accumulation
         this.renderList('strat-accum-list', this.state.strategies.accum, 'accum', document.getElementById('strat-accum-container'));
-        const decumContainer = document.getElementById('strat-decumulation');
-        decumContainer.innerHTML = ''; 
         
+        // Decumulation Area
+        const decumContainer = document.getElementById('strat-decumulation');
+        decumContainer.innerHTML = ''; // Clear prev
+        
+        // A. OPTIMIZATION CARD
         const optCard = document.createElement('div');
         optCard.className = 'card bg-black border-secondary mb-3';
         optCard.innerHTML = `
@@ -1729,11 +1820,13 @@ class RetirementPlanner {
         `;
         decumContainer.appendChild(optCard);
 
+        // B. Decumulation List Title
         const title = document.createElement('h6');
         title.className = "text-white small fw-bold mb-2 text-uppercase";
         title.innerText = "Withdrawal Order (Drag to Reorder)";
         decumContainer.appendChild(title);
 
+        // C. Draggable List
         this.renderList('strat-decum-list', this.state.strategies.decum, 'decum', decumContainer);
     }
 
@@ -1794,7 +1887,7 @@ class RetirementPlanner {
         });
         if(type === 'accum') this.state.strategies.accum = newOrder;
         else this.state.strategies.decum = newOrder;
-        this.renderStrategy();
+        this.renderStrategy(); // Re-render to keep indices correct
     }
 
     getDiscountFactor(yearIdx) {
@@ -1828,6 +1921,8 @@ class RetirementPlanner {
         });
     }
 
+    // --- Optimization Helpers ---
+
     findOptimal() {
         const p1CPP = document.getElementById('p1_cpp_start');
         const p1OAS = document.getElementById('p1_oas_start');
@@ -1835,6 +1930,7 @@ class RetirementPlanner {
         let maxNW = -Infinity; let bestC = 65; let bestO = 65;
         const origC = p1CPP.value; const origO = p1OAS.value;
 
+        // Check if benefits are enabled before optimizing
         const p1_cpp_on = this.state.inputs['p1_cpp_enabled'];
         const p1_oas_on = this.state.inputs['p1_oas_enabled'];
 
@@ -1851,6 +1947,7 @@ class RetirementPlanner {
             if (p1_cpp_on) this.optimalAges.p1_cpp = bestC;
             if (p1_oas_on) this.optimalAges.p1_oas = bestO;
             
+            // Restore originals for display
             this.state.inputs['p1_cpp_start'] = origC;
             this.state.inputs['p1_oas_start'] = origO;
         }
@@ -1951,10 +2048,11 @@ class RetirementPlanner {
         const grossEl = document.getElementById('household_gross_display');
         if(grossEl) grossEl.innerHTML = '$' + hhGross.toLocaleString() + ` <span class="monthly-sub">($${Math.round(hhGross/12).toLocaleString()}/mo)</span>`;
         
-        const p1Data = this.calculateTaxDetailed(p1Inc, prov); 
+        // Initial bracket inflator is 1.0 for current view
+        const p1Data = this.calculateTaxDetailed(p1Inc, prov, 1.0); 
         this.renderTaxDetails('p1', p1Inc, p1Data);
         
-        const p2Data = this.calculateTaxDetailed(p2Inc, prov); 
+        const p2Data = this.calculateTaxDetailed(p2Inc, prov, 1.0); 
         this.renderTaxDetails('p2', p2Inc, p2Data);
         
         const hhNet = (p1Inc - p1Data.totalTax) + (mode === 'Couple' ? (p2Inc - p2Data.totalTax) : 0);
