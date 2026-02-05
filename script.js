@@ -5,6 +5,7 @@
  * - Save/Load/Export JSON Configuration
  * - Debounced Inputs for Smoothness
  * - Sidebar Sync on Load
+ * - Light/Dark Theme Support
  */
 
 class RetirementPlanner {
@@ -31,6 +32,7 @@ class RetirementPlanner {
         };
 
         this.AUTO_SAVE_KEY = 'rp_autosave_v1';
+        this.THEME_KEY = 'rp_theme';
 
         // --- CONFIGURATION CONSTANTS ---
         this.CONSTANTS = {
@@ -199,6 +201,9 @@ class RetirementPlanner {
                 this.renderDefaults();
             }
 
+            // Initialize Theme
+            this.initTheme();
+
             this.loadScenariosList();
             this.syncStateFromDOM();
             this.toggleModeDisplay(); 
@@ -223,6 +228,35 @@ class RetirementPlanner {
             document.addEventListener('DOMContentLoaded', setup);
         } else {
             setup(); 
+        }
+    }
+
+    initTheme() {
+        const savedTheme = localStorage.getItem(this.THEME_KEY) || 'dark';
+        document.documentElement.setAttribute('data-bs-theme', savedTheme);
+        this.updateThemeIcon(savedTheme);
+    }
+
+    toggleTheme() {
+        const html = document.documentElement;
+        const current = html.getAttribute('data-bs-theme');
+        const next = current === 'dark' ? 'light' : 'dark';
+        html.setAttribute('data-bs-theme', next);
+        localStorage.setItem(this.THEME_KEY, next);
+        this.updateThemeIcon(next);
+        this.run(); // Re-run to update charts (Sankey colors)
+    }
+
+    updateThemeIcon(theme) {
+        const btn = document.getElementById('btnThemeToggle');
+        if(theme === 'dark') {
+            btn.innerHTML = '<i class="bi bi-sun-fill"></i>';
+            btn.classList.remove('btn-outline-dark');
+            btn.classList.add('btn-outline-secondary');
+        } else {
+            btn.innerHTML = '<i class="bi bi-moon-stars-fill"></i>';
+            btn.classList.remove('btn-outline-secondary');
+            btn.classList.add('btn-outline-dark');
         }
     }
 
@@ -343,6 +377,10 @@ class RetirementPlanner {
     }
 
     bindEvents() {
+        // Theme Toggle Listener
+        const themeBtn = document.getElementById('btnThemeToggle');
+        if(themeBtn) themeBtn.addEventListener('click', () => this.toggleTheme());
+
         const toggle = document.getElementById('useRealDollars');
         if(toggle) toggle.addEventListener('change', () => { 
             this.calcExpenses(); 
@@ -962,6 +1000,11 @@ class RetirementPlanner {
                 document.getElementById('cfAgeDisplay').innerText = ageText;
 
                 if(!this.charts.sankey) this.drawSankey(currentVal);
+                // Redraw Sankey if Theme changed or Data changed
+                else {
+                    clearTimeout(this.sliderTimeout);
+                    this.sliderTimeout = setTimeout(() => this.drawSankey(currentVal), 50);
+                }
             }
 
             // AUTO-SAVE
@@ -1049,9 +1092,12 @@ class RetirementPlanner {
         dataTable.addColumn('number', 'Amount');
         dataTable.addRows(rows);
 
+        // Adjust label color based on theme
+        const labelColor = document.documentElement.getAttribute('data-bs-theme') === 'light' ? '#000000' : '#ffffff';
+
         const options = {
             sankey: {
-                node: { label: { color: '#ffffff', fontSize: 13, bold: true }, nodePadding: 30, width: 12, colors: nodesConfig.map(n => n.color) },
+                node: { label: { color: labelColor, fontSize: 13, bold: true }, nodePadding: 30, width: 12, colors: nodesConfig.map(n => n.color) },
                 link: { colorMode: 'gradient', colors: ['#334155', '#475569'] }
             },
             backgroundColor: 'transparent',
@@ -1891,7 +1937,7 @@ class RetirementPlanner {
         decumContainer.innerHTML = ''; 
         
         const optCard = document.createElement('div');
-        optCard.className = 'card bg-black border-secondary mb-3';
+        optCard.className = 'card bg-black border-secondary mb-3 strategy-opt-box';
         optCard.innerHTML = `
             <div class="card-header border-secondary text-uppercase small fw-bold text-muted bg-dark bg-opacity-50">
                 <i class="bi bi-stars text-warning me-2"></i>Optimization Strategies
