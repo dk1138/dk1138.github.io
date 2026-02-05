@@ -1,6 +1,7 @@
-/* Total Lines: 251 */
+/* Total Lines: 275 */
 /* --- MODERN FINTECH THEME --- */
 :root {
+  /* Default Dark Mode Variables */
   --bg-body: #0f172a;        /* Deep Slate (Background) */
   --bg-card: #1e293b;        /* Lighter Slate (Cards) */
   --bg-inner: #334155;       /* Even Lighter (Inner inputs/groups) */
@@ -20,6 +21,45 @@
   --radius: 12px;
   --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
+
+/* --- LIGHT MODE OVERRIDES --- */
+[data-bs-theme="light"] {
+  --bg-body: #f1f5f9;       /* Light Gray Background */
+  --bg-card: #ffffff;       /* White Cards */
+  --bg-inner: #e2e8f0;      /* Light Gray Inners */
+  --bg-input: #ffffff;      /* White Inputs */
+  --border-color: #cbd5e1;  /* Soft Border */
+  
+  --text-main: #0f172a;     /* Dark Slate Text */
+  --text-muted: #64748b;    /* Medium Gray Text */
+  
+  /* Keep brand colors mostly similar but slightly adjusted for contrast if needed */
+  --primary: #2563eb;       
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+}
+
+/* Light Mode Specific Utility Fixes (Invert Dark Utilities) */
+[data-bs-theme="light"] .text-white { color: #1e293b !important; }
+[data-bs-theme="light"] .text-white-50 { color: #64748b !important; }
+[data-bs-theme="light"] .bg-black { background-color: #e2e8f0 !important; }
+[data-bs-theme="light"] .border-secondary { border-color: #cbd5e1 !important; }
+[data-bs-theme="light"] .btn-close-white { filter: none !important; }
+[data-bs-theme="light"] .text-light { color: #334155 !important; }
+[data-bs-theme="light"] .bg-dark { background-color: #fff !important; border: 1px solid var(--border-color); color: var(--text-main); }
+[data-bs-theme="light"] .strategy-opt-box { background-color: rgba(0, 0, 0, 0.05); }
+
+/* Ensure Summary Table Headers are visible in Light Mode */
+[data-bs-theme="light"] .summary-table thead th { background-color: #e2e8f0 !important; color: #0f172a !important; border-bottom-color: #cbd5e1; }
+[data-bs-theme="light"] .super-header th { background-color: #cbd5e1 !important; color: #475569 !important; }
+[data-bs-theme="light"] .col-timeline { background: #e2e8f0; border-right: 1px solid #cbd5e1; }
+[data-bs-theme="light"] .sticky-left, [data-bs-theme="light"] .sticky-right { background-color: #e2e8f0 !important; }
+[data-bs-theme="light"] .grid-header { background: #e2e8f0; border-bottom: 2px solid #cbd5e1; color: #475569; }
+[data-bs-theme="light"] .grid-row-group { border-bottom: 1px solid #e2e8f0; }
+[data-bs-theme="light"] .grid-row-group:hover { background: rgba(0,0,0,0.03); }
+[data-bs-theme="light"] .grid-detail-wrapper { background: #f8fafc; }
+[data-bs-theme="light"] .detail-box { background: rgba(0,0,0,0.03); }
+[data-bs-theme="light"] .modern-grid { background: #ffffff; border: 1px solid var(--border-color); }
+[data-bs-theme="light"] .summary-table tr:hover td { background-color: rgba(0,0,0,0.03); color: var(--text-main); }
 
 body { 
   background-color: var(--bg-body); 
@@ -56,6 +96,7 @@ body {
   border-bottom: 1px solid var(--border-color);
   padding: 1rem 1.25rem;
 }
+[data-bs-theme="light"] .card-header { background-color: rgba(0, 0, 0, 0.03); }
 
 .card-header h5 {
   font-size: 1rem;
@@ -171,6 +212,7 @@ body {
   box-shadow: var(--shadow);
 }
 .nav-link:hover:not(.active) { color: white; background-color: rgba(255,255,255,0.05); }
+[data-bs-theme="light"] .nav-link:hover:not(.active) { color: var(--text-main); background-color: rgba(0,0,0,0.05); }
 
 .btn-check:checked + .btn-outline-secondary {
   background-color: var(--info);
@@ -266,6 +308,7 @@ body:not(.is-couple) .p2-column:not(td):not(th) { display: none; }
   border: 1px solid var(--border-color); 
   font-family: monospace;
 }
+[data-bs-theme="light"] .tax-details-box { background: rgba(0,0,0,0.05); }
 
 /* Event Icons */
 .event-icon {
