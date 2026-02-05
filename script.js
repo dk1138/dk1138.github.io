@@ -1,10 +1,9 @@
 /**
- * Retirement Planner Pro - Logic v10.2
+ * Retirement Planner Pro - Logic v10.3 (FIXED)
  * Features:
+ * - Full Cash Flow Engine (Income - Expenses = Surplus/Deficit)
  * - Auto-save to LocalStorage
  * - Save/Load/Export JSON Configuration
- * - Debounced Inputs for Smoothness
- * - Sidebar Sync on Load
  * - Light/Dark Theme Support
  */
 
@@ -105,48 +104,6 @@ class RetirementPlanner {
 
         this.charts = { nw: null, sankey: null }; 
         this.confirmModal = null; // Store Bootstrap modal instance
-
-        // --- DEFAULT EXPENSE DATA ---
-        this.expensesByCategory = {
-            "Housing": { 
-                items: [ 
-                    { name: "Property Tax", curr: 6000, ret: 6000, trans: 6000, gogo: 6000, slow: 6000, nogo: 6000, freq: 1 }, 
-                    { name: "Enbridge (Gas)", curr: 120, ret: 120, trans: 120, gogo: 120, slow: 120, nogo: 120, freq: 12 }, 
-                    { name: "Enercare (HWT)", curr: 45, ret: 45, trans: 45, gogo: 45, slow: 45, nogo: 45, freq: 12 }, 
-                    { name: "Alectra (Hydro)", curr: 150, ret: 150, trans: 150, gogo: 150, slow: 150, nogo: 150, freq: 12 }, 
-                    { name: "RH Water", curr: 80, ret: 80, trans: 80, gogo: 80, slow: 80, nogo: 80, freq: 12 } 
-                ], 
-                colorClass: 'cat-header-housing' 
-            },
-            "Living": { 
-                items: [ 
-                    { name: "Grocery", curr: 800, ret: 800, trans: 800, gogo: 800, slow: 700, nogo: 600, freq: 12 }, 
-                    { name: "Costco", curr: 400, ret: 400, trans: 400, gogo: 400, slow: 350, nogo: 300, freq: 12 }, 
-                    { name: "Restaurants", curr: 400, ret: 300, trans: 350, gogo: 350, slow: 200, nogo: 100, freq: 12 }, 
-                    { name: "Cellphone", curr: 120, ret: 120, trans: 120, gogo: 120, slow: 120, nogo: 120, freq: 12 }, 
-                    { name: "Internet", curr: 90, ret: 90, trans: 90, gogo: 90, slow: 90, nogo: 90, freq: 12 } 
-                ], 
-                colorClass: 'cat-header-living' 
-            },
-            "Kids": { 
-                items: [ 
-                    { name: "Daycare", curr: 1200, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 }, 
-                    { name: "Activities", curr: 200, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 }, 
-                    { name: "RESP Contribution", curr: 208, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 }, 
-                    { name: "Clothing/Toys", curr: 100, ret: 50, trans: 50, gogo: 50, slow: 0, nogo: 0, freq: 12 } 
-                ], 
-                colorClass: 'cat-header-kids' 
-            },
-            "Lifestyle": { 
-                items: [ 
-                    { name: "Travel", curr: 5000, ret: 15000, trans: 10000, gogo: 15000, slow: 5000, nogo: 0, freq: 1 }, 
-                    { name: "Electronic", curr: 500, ret: 500, trans: 500, gogo: 500, slow: 500, nogo: 200, freq: 1 }, 
-                    { name: "Health Insurance", curr: 50, ret: 300, trans: 150, gogo: 300, slow: 500, nogo: 1000, freq: 12 }, 
-                    { name: "Other", curr: 300, ret: 300, trans: 300, gogo: 300, slow: 200, nogo: 100, freq: 12 } 
-                ], 
-                colorClass: 'cat-header-lifestyle' 
-            }
-        };
 
         this.optimalAges = { p1_cpp: 65, p1_oas: 65, p2_cpp: 65, p2_oas: 65 };
         this.strategyLabels = { 'tfsa': 'TFSA', 'rrsp': 'RRSP', 'nreg': 'Non-Reg', 'cash': 'Cash', 'crypto': 'Crypto' };
@@ -249,6 +206,7 @@ class RetirementPlanner {
 
     updateThemeIcon(theme) {
         const btn = document.getElementById('btnThemeToggle');
+        if(!btn) return;
         if(theme === 'dark') {
             btn.innerHTML = '<i class="bi bi-sun-fill"></i>';
             btn.classList.remove('btn-outline-dark');
@@ -1360,6 +1318,7 @@ class RetirementPlanner {
             // --- WINDFALL CALCULATIONS ---
             let wf_tax_p1 = 0, wf_tax_p2 = 0;
             let wf_nontax_p1 = 0, wf_nontax_p2 = 0;
+            let totalWindfall = 0;
             
             this.state.windfalls.forEach(w => {
                 const wStart = new Date(w.start + "-01");
@@ -1388,7 +1347,7 @@ class RetirementPlanner {
                 }
                 
                 if (active && annualAmt > 0) {
-                    if(!triggeredEvents.has('Windfall') && i === 0) {} 
+                    totalWindfall += annualAmt;
                     if(w.freq === 'one') events.push(this.eventIcons['Windfall']);
                     
                     if (w.taxable) {
@@ -1438,8 +1397,120 @@ class RetirementPlanner {
             let nontax_wd_p1 = (yearWithdrawals['P1 TFSA']||0) + (yearWithdrawals['P1 Cash']||0) + (yearWithdrawals['P1 Non-Reg']||0) + (yearWithdrawals['P1 Crypto']||0);
             let nontax_wd_p2 = (yearWithdrawals['P2 TFSA']||0) + (yearWithdrawals['P2 Cash']||0) + (yearWithdrawals['P2 Non-Reg']||0) + (yearWithdrawals['P2 Crypto']||0);
 
-            let final_p1_net = p1_alive ? (p1_total_taxable - t1.totalTax) + wf_nontax_p1 + nontax_wd_p1 : 0;
-            let final_p2_net = p2_alive ? (p2_total_taxable - t2.totalTax) + wf_nontax_p2 + nontax_wd_p2 : 0;
+            let p1_net = p1_alive ? (p1_total_taxable - t1.totalTax) + wf_nontax_p1 + nontax_wd_p1 : 0;
+            let p2_net = p2_alive ? (p2_total_taxable - t2.totalTax) + wf_nontax_p2 + nontax_wd_p2 : 0;
+            let totalNetIncome = p1_net + p2_net;
+
+            let annualExp = expCurrent;
+            if (expMode === 'Advanced') {
+                if (mode === 'Couple') {
+                    if ((p1_isRetired && !p2_isRetired) || (!p1_isRetired && p2_isRetired)) annualExp = expTrans;
+                    else if (p1_isRetired && p2_isRetired) {
+                        if (d.p1Age < goGoLimit) annualExp = expGoGo;
+                        else if (d.p1Age < slowGoLimit) annualExp = expSlow;
+                        else annualExp = expNoGo;
+                    }
+                } else {
+                    if (p1_isRetired) {
+                        if (d.p1Age < goGoLimit) annualExp = expGoGo;
+                        else if (d.p1Age < slowGoLimit) annualExp = expSlow;
+                        else annualExp = expNoGo;
+                    }
+                }
+            } else {
+                if (fullyRetired) annualExp = expRetire;
+            }
+
+            let totalActualMortgageOutflow = 0;
+            simProperties.forEach(prop => {
+                if(prop.mortgage > 0) {
+                    let pmt = prop.payment * 12;
+                    let interest = prop.mortgage * (prop.rate/100);
+                    let principal = pmt - interest;
+                    if(principal > prop.mortgage) { pmt = prop.mortgage + interest; principal = prop.mortgage; }
+                    prop.mortgage -= principal;
+                    totalActualMortgageOutflow += pmt;
+                }
+                prop.value *= (1 + (prop.growth/100));
+            });
+
+            let debtRepayment = 0;
+            if (otherDebt > 0) { debtRepayment = Math.min(otherDebt, 12000); otherDebt -= debtRepayment; }
+            let surplus = totalNetIncome - annualExp - totalActualMortgageOutflow - debtRepayment;
+
+            // --- SURPLUS ALLOCATION ---
+            if (surplus > 0) {
+                const strat = this.state.strategies.accum;
+                let remaining = surplus;
+                strat.forEach(type => {
+                    if (remaining <= 0) return;
+                    if (type === 'tfsa') {
+                        if (i === 0 && s1_tfsa) {} else { let room = tfsa_limit * 10; let contrib = Math.min(remaining, room); p1.tfsa += contrib; remaining -= contrib; yearContributions.tfsa += contrib; }
+                        if (mode === 'Couple') { if (i === 0 && s2_tfsa) {} else { let room = tfsa_limit * 10; let contrib = Math.min(remaining, room); p2.tfsa += contrib; remaining -= contrib; yearContributions.tfsa += contrib; } }
+                    } else if (type === 'rrsp') {
+                        if (i === 0 && s1_rrsp) {} else { let room = 30000; let contrib = Math.min(remaining, room); p1.rrsp += contrib; remaining -= contrib; yearContributions.rrsp += contrib; }
+                        if (mode === 'Couple') { if (i === 0 && s2_rrsp) {} else { let room = 30000; let contrib = Math.min(remaining, room); p2.rrsp += contrib; remaining -= contrib; yearContributions.rrsp += contrib; } }
+                    } else if (type === 'cash') { p1.cash += remaining; yearContributions.cash += remaining; remaining = 0; }
+                    else if (type === 'nreg') { p1.nreg += remaining; yearContributions.nreg += remaining; remaining = 0; }
+                    else if (type === 'crypto') { p1.crypto += remaining; yearContributions.crypto += remaining; remaining = 0; }
+                });
+            } 
+            // --- DEFICIT WITHDRAWAL ---
+            else if (surplus < 0) {
+                let needed = Math.abs(surplus);
+                const strat = this.state.strategies.decum;
+                strat.forEach(type => {
+                    if (needed <= 0) return;
+                    let availP1 = 0, availP2 = 0;
+                    if (type === 'tfsa') { availP1 = p1.tfsa; availP2 = p2.tfsa; }
+                    else if (type === 'rrsp') { availP1 = p1.rrsp; availP2 = p2.rrsp; }
+                    else if (type === 'nreg') { availP1 = p1.nreg; availP2 = p2.nreg; }
+                    else if (type === 'cash') { availP1 = p1.cash; availP2 = p2.cash; }
+                    else if (type === 'crypto') { availP1 = p1.crypto; availP2 = p2.crypto; }
+
+                    let takeP1 = 0, takeP2 = 0;
+                    if (mode === 'Single') { takeP1 = Math.min(needed, availP1); } 
+                    else {
+                        let split = needed / 2;
+                        takeP1 = Math.min(split, availP1);
+                        takeP2 = Math.min(split, availP2);
+                        if (takeP1 < split) takeP2 = Math.min(needed - takeP1, availP2);
+                        if (takeP2 < split) takeP1 = Math.min(needed - takeP2, availP1);
+                    }
+                    
+                    if (takeP1 > 0) {
+                        if (type === 'tfsa') p1.tfsa -= takeP1; else if (type === 'rrsp') p1.rrsp -= takeP1; else if (type === 'nreg') p1.nreg -= takeP1; else if (type === 'cash') p1.cash -= takeP1; else if (type === 'crypto') p1.crypto -= takeP1;
+                        let label = (type === 'rrsp' && p1_age >= this.CONSTANTS.RRIF_START_AGE) ? 'RRIF' : type.toUpperCase();
+                        if (!yearWithdrawals[`P1 ${label}`]) yearWithdrawals[`P1 ${label}`] = 0; yearWithdrawals[`P1 ${label}`] += takeP1;
+                        wdBreakdown.p1[label] = (wdBreakdown.p1[label] || 0) + takeP1; needed -= takeP1;
+                    }
+                    if (takeP2 > 0) {
+                        if (type === 'tfsa') p2.tfsa -= takeP2; else if (type === 'rrsp') p2.rrsp -= takeP2; else if (type === 'nreg') p2.nreg -= takeP2; else if (type === 'cash') p2.cash -= takeP2; else if (type === 'crypto') p2.crypto -= takeP2;
+                        let label = (type === 'rrsp' && p2_age >= this.CONSTANTS.RRIF_START_AGE) ? 'RRIF' : type.toUpperCase();
+                        if (!yearWithdrawals[`P2 ${label}`]) yearWithdrawals[`P2 ${label}`] = 0; yearWithdrawals[`P2 ${label}`] += takeP2;
+                        wdBreakdown.p2[label] = (wdBreakdown.p2[label] || 0) + takeP2; needed -= takeP2;
+                    }
+                });
+            }
+
+            // --- GROWTH ENGINE ---
+            // Initialize growth trackers
+            let g_p1 = { tfsa: {growth:0}, rrsp: {growth:0}, cryp: {growth:0}, nreg: {growth:0}, cash: {growth:0} };
+            let g_p2 = { tfsa: {growth:0}, rrsp: {growth:0}, cryp: {growth:0}, nreg: {growth:0}, cash: {growth:0} };
+
+            const applyGrowth = (obj, rates, gObj) => {
+                const grow = (key, rate) => {
+                    let growth = obj[key] * rate;
+                    obj[key] += growth;
+                    gObj[key].growth = growth;
+                };
+                grow('tfsa', rates.tfsa); grow('rrsp', rates.rrsp); grow('nreg', rates.nreg); grow('cash', rates.cash); grow('crypto', rates.cryp);
+            };
+            applyGrowth(p1, currentRatesP1, g_p1);
+            if (mode === 'Couple') applyGrowth(p2, currentRatesP2, g_p2);
+
+            let final_p1_net = p1_net + nontax_wd_p1;
+            let final_p2_net = p2_net + nontax_wd_p2;
             const final_householdNet = final_p1_net + final_p2_net;
 
             const p1_tot = p1.tfsa + p1.rrsp + p1.crypto + p1.nreg + p1.cash;
@@ -1478,7 +1549,7 @@ class RetirementPlanner {
                     flows: { contributions: yearContributions, withdrawals: yearWithdrawals },
                     totalGrowth: totalGrowth, growthPct: growthPct,
                     events: events,
-                    householdNet: final_householdNet, visualExpenses: visualExpenses, 
+                    householdNet: final_householdNet, visualExpenses: annualExp + totalActualMortgageOutflow + debtRepayment + t1.totalTax + t2.totalTax, 
                     mortgage: totalREMortgage, homeValue: totalREValue, 
                     investTot: investTot, liquidNW: liquidNW, isCrashYear: isCrashYear,
                     windfall: totalWindfall,
