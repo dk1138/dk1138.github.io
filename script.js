@@ -1,9 +1,10 @@
 /**
- * Retirement Planner Pro - Logic v10.1
+ * Retirement Planner Pro - Logic v10.2
  * Features:
  * - Auto-save to LocalStorage
  * - Save/Load/Export JSON Configuration
  * - Debounced Inputs for Smoothness
+ * - Sidebar Sync on Load
  */
 
 class RetirementPlanner {
@@ -1387,192 +1388,6 @@ class RetirementPlanner {
             let t1 = p1_alive ? this.calculateTaxDetailed(p1_total_taxable, province, inflatedTaxData) : { totalTax: 0 };
             let t2 = p2_alive ? this.calculateTaxDetailed(p2_total_taxable, province, inflatedTaxData) : { totalTax: 0 };
 
-            let p1_net = p1_alive ? (p1_total_taxable - t1.totalTax) : 0;
-            let p2_net = p2_alive ? (p2_total_taxable - t2.totalTax) : 0;
-            
-            // Add Non-Taxable Windfalls to Net
-            p1_net += wf_nontax_p1;
-            p2_net += wf_nontax_p2;
-
-            const householdNet = p1_net + p2_net;
-            const totalWindfall = wf_tax_p1 + wf_tax_p2 + wf_nontax_p1 + wf_nontax_p2;
-
-            let annualExp = 0;
-            if(expMode === 'Simple') {
-                annualExp = fullyRetired ? expRetire : expCurrent;
-            } else {
-                if (!fullyRetired) {
-                    if (mode === 'Couple' && ((p1_isRetired && !p2_isRetired) || (!p1_isRetired && p2_isRetired))) annualExp = expTrans;
-                    else annualExp = expCurrent;
-                } else {
-                    if (p1_age < goGoLimit) annualExp = expGoGo;
-                    else if (p1_age < slowGoLimit) annualExp = expSlow;
-                    else annualExp = expNoGo;
-                }
-            }
-            
-            let totalActualMortgageOutflow = 0;
-            simProperties.forEach(prop => {
-                if(prop.mortgage > 0) {
-                    const annualRate = prop.rate / 100;
-                    const annualInterest = prop.mortgage * annualRate;
-                    const annualPmt = prop.payment * 12;
-                    let actualOutflow = Math.min(prop.mortgage + annualInterest, annualPmt);
-                    if(actualOutflow >= annualInterest) {
-                        let principal = actualOutflow - annualInterest;
-                        prop.mortgage -= principal;
-                    } else { prop.mortgage += (annualInterest - actualOutflow); }
-                    totalActualMortgageOutflow += actualOutflow;
-                }
-                prop.value *= (1 + (prop.growth/100));
-            });
-
-            let debtRepayment = 0;
-            if(otherDebt > 0) {
-                debtRepayment = Math.min(otherDebt, otherDebt * 0.10); 
-                otherDebt -= debtRepayment;
-            }
-
-            let visualExpenses = annualExp + totalActualMortgageOutflow + debtRepayment;
-            let surplus = householdNet - visualExpenses;
-
-            const grow = (bal, rate) => ({ start: bal, growth: bal*rate, end: bal*(1+rate) });
-            let g_p1 = { tfsa: grow(p1.tfsa, currentRatesP1.tfsa), rrsp: grow(p1.rrsp, currentRatesP1.rrsp), cryp: grow(p1.crypto, currentRatesP1.cryp), nreg: grow(p1.nreg, currentRatesP1.nreg), cash: grow(p1.cash, currentRatesP1.cash) };
-            p1.tfsa=g_p1.tfsa.end; p1.rrsp=g_p1.rrsp.end; p1.crypto=g_p1.cryp.end; p1.nreg=g_p1.nreg.end; p1.cash=g_p1.cash.end;
-            let g_p2 = { tfsa: grow(p2.tfsa, currentRatesP2.tfsa), rrsp: grow(p2.rrsp, currentRatesP2.rrsp), cryp: grow(p2.crypto, currentRatesP2.cryp), nreg: grow(p2.nreg, currentRatesP2.nreg), cash: grow(p2.cash, currentRatesP2.cash) };
-            p2.tfsa=g_p2.tfsa.end; p2.rrsp=g_p2.rrsp.end; p2.crypto=g_p2.cryp.end; p2.nreg=g_p2.nreg.end; p2.cash=g_p2.cash.end;
-
-            if (surplus > 0) {
-                let s1 = (mode==='Couple' && p1_alive && p2_alive) ? surplus/2 : (p1_alive ? surplus : 0);
-                let s2 = (mode==='Couple' && p1_alive && p2_alive) ? surplus/2 : (p2_alive ? surplus : 0);
-                this.state.strategies.accum.forEach(type => {
-                    if (s1 > 0 && p1_alive) {
-                        let fill = 0;
-                        if (type === 'tfsa' && (i > 0 || !s1_tfsa)) { fill = Math.min(s1, tfsa_limit); p1.tfsa += fill; yearContributions.tfsa += fill; }
-                        else if (type === 'rrsp' && (i > 0 || !s1_rrsp)) { let limit = p1.inc * 0.18; fill = Math.min(s1, limit); p1.rrsp += fill; yearContributions.rrsp += fill; }
-                        else if (type === 'nreg') { fill = s1; p1.nreg += fill; yearContributions.nreg += fill; }
-                        else if (type === 'cash') { fill = s1; p1.cash += fill; yearContributions.cash += fill; }
-                        else if (type === 'crypto') { fill = s1; p1.crypto += fill; yearContributions.crypto += fill; }
-                        s1 -= fill;
-                    }
-                    if (mode==='Couple' && s2 > 0 && p2_alive) {
-                        let fill = 0;
-                        if (type === 'tfsa' && (i > 0 || !s2_tfsa)) { fill = Math.min(s2, tfsa_limit); p2.tfsa += fill; yearContributions.tfsa += fill; }
-                        else if (type === 'rrsp' && (i > 0 || !s2_rrsp)) { let limit = p2.inc * 0.18; fill = Math.min(s2, limit); p2.rrsp += fill; yearContributions.rrsp += fill; }
-                        else if (type === 'nreg') { fill = s2; p2.nreg += fill; yearContributions.nreg += fill; }
-                        else if (type === 'cash') { fill = s2; p2.cash += fill; yearContributions.cash += fill; }
-                        else if (type === 'crypto') { fill = s2; p2.crypto += fill; yearContributions.crypto += fill; }
-                        s2 -= fill;
-                    }
-                });
-            } else {
-                let deficit = Math.abs(surplus);
-                const drain = (acct, amount, type, owner, isRRSP=false) => { 
-                    let take = Math.min(acct, amount); 
-                    if(take > 0) {
-                        if(!yearWithdrawals[type]) yearWithdrawals[type] = 0;
-                        yearWithdrawals[type] += take;
-                        let label = type.replace('P1 ', '').replace('P2 ', '');
-                        if(isRRSP) {
-                            const age = owner === 'p1' ? p1_age : p2_age;
-                            if(age >= this.CONSTANTS.RRIF_START_AGE) label = 'RRIF'; else label = 'RRSP';
-                        }
-                        wdBreakdown[owner][label] = (wdBreakdown[owner][label] || 0) + take;
-                    }
-                    return { rem_acct: acct - take, rem_need: amount - take, taken: take }; 
-                };
-                let remainingDeficit = deficit; 
-                let taxBracketLimit = inflatedTaxData.FED.brackets[0];
-                this.state.strategies.decum.forEach(type => {
-                    if(remainingDeficit > 0 && p1.cash + p1.tfsa + p1.rrsp + p1.nreg + p1.crypto + (mode==='Couple'?(p2.cash+p2.tfsa+p2.rrsp+p2.nreg+p2.crypto):0) > 0) { 
-                        if (type === 'rrsp') {
-                            let p1_lower = p1_total_taxable < p2_total_taxable;
-                            let p1_room = Math.max(0, taxBracketLimit - p1_total_taxable);
-                            let p2_room = Math.max(0, taxBracketLimit - p2_total_taxable);
-                            if (p1_lower && p1_alive && p1.rrsp > 0) {
-                                let take = Math.min(p1.rrsp, remainingDeficit, p1_room);
-                                if(take > 0) {
-                                    let res = drain(p1.rrsp, take, 'P1 RRSP', 'p1', true);
-                                    p1.rrsp = res.rem_acct; w_p1.rrsp += res.taken; remainingDeficit -= res.taken;
-                                    p1_total_taxable += res.taken;
-                                }
-                            } else if (!p1_lower && mode==='Couple' && p2_alive && p2.rrsp > 0) {
-                                let take = Math.min(p2.rrsp, remainingDeficit, p2_room);
-                                if(take > 0) {
-                                    let res = drain(p2.rrsp, take, 'P2 RRSP', 'p2', true);
-                                    p2.rrsp = res.rem_acct; w_p2.rrsp += res.taken; remainingDeficit -= res.taken;
-                                    p2_total_taxable += res.taken;
-                                }
-                            }
-                            if (remainingDeficit > 0) {
-                                if (p1_lower && mode==='Couple' && p2_alive && p2.rrsp > 0) {
-                                    let take = Math.min(p2.rrsp, remainingDeficit, p2_room);
-                                    if(take > 0) {
-                                        let res = drain(p2.rrsp, take, 'P2 RRSP', 'p2', true);
-                                        p2.rrsp = res.rem_acct; w_p2.rrsp += res.taken; remainingDeficit -= res.taken;
-                                        p2_total_taxable += res.taken;
-                                    }
-                                } else if (!p1_lower && p1_alive && p1.rrsp > 0) {
-                                    let take = Math.min(p1.rrsp, remainingDeficit, p1_room);
-                                    if(take > 0) {
-                                        let res = drain(p1.rrsp, take, 'P1 RRSP', 'p1', true);
-                                        p1.rrsp = res.rem_acct; w_p1.rrsp += res.taken; remainingDeficit -= res.taken;
-                                        p1_total_taxable += res.taken;
-                                    }
-                                }
-                            }
-                            if (remainingDeficit > 0) {
-                                let split = remainingDeficit / 2;
-                                if (mode === 'Single') split = remainingDeficit;
-                                if (p1_alive && p1.rrsp > 0) {
-                                    let res = drain(p1.rrsp, split, 'P1 RRSP', 'p1', true);
-                                    p1.rrsp = res.rem_acct; w_p1.rrsp += res.taken; remainingDeficit -= res.taken;
-                                    p1_total_taxable += res.taken;
-                                }
-                                if (mode === 'Couple' && p2_alive && p2.rrsp > 0) {
-                                    let res = drain(p2.rrsp, remainingDeficit, 'P2 RRSP', 'p2', true);
-                                    p2.rrsp = res.rem_acct; w_p2.rrsp += res.taken; remainingDeficit -= res.taken;
-                                    p2_total_taxable += res.taken;
-                                }
-                            }
-                        } else {
-                           let split = remainingDeficit / 2;
-                           if (mode === 'Single') split = remainingDeficit;
-                           let d1_part = split;
-                           let res1 = {rem_acct: 0, rem_need: d1_part, taken: 0};
-                           if(type==='crypto') { res1 = drain(p1.crypto, d1_part, 'P1 Crypto', 'p1'); p1.crypto = res1.rem_acct; }
-                           else if(type==='nreg') { res1 = drain(p1.nreg, d1_part, 'P1 Non-Reg', 'p1'); p1.nreg = res1.rem_acct; }
-                           else if(type==='tfsa') { res1 = drain(p1.tfsa, d1_part, 'P1 TFSA', 'p1'); p1.tfsa = res1.rem_acct; }
-                           else if(type==='cash') { res1 = drain(p1.cash, d1_part, 'P1 Cash', 'p1'); p1.cash = res1.rem_acct; }
-                           remainingDeficit -= res1.taken;
-                           if (mode === 'Couple') {
-                               let d2_part = remainingDeficit;
-                               if(d1_part > 0 && res1.taken >= d1_part) d2_part = split;
-                               let res2 = {rem_acct: 0, rem_need: d2_part, taken: 0};
-                               if(type==='crypto') { res2 = drain(p2.crypto, d2_part, 'P2 Crypto', 'p2'); p2.crypto = res2.rem_acct; }
-                               else if(type==='nreg') { res2 = drain(p2.nreg, d2_part, 'P2 Non-Reg', 'p2'); p2.nreg = res2.rem_acct; }
-                               else if(type==='tfsa') { res2 = drain(p2.tfsa, d2_part, 'P2 TFSA', 'p2'); p2.tfsa = res2.rem_acct; }
-                               else if(type==='cash') { res2 = drain(p2.cash, d2_part, 'P2 Cash', 'p2'); p2.cash = res2.rem_acct; }
-                               remainingDeficit -= res2.taken;
-                           }
-                        }
-                    }
-                });
-                if (remainingDeficit > 0) { 
-                    if (p1_alive && p1.rrsp > 0) {
-                        let res = drain(p1.rrsp, remainingDeficit, 'P1 RRSP (Forced)', 'p1', true); 
-                        p1.rrsp = res.rem_acct; p1_total_taxable += res.taken; remainingDeficit -= res.taken;
-                    }
-                    if (mode==='Couple' && p2_alive && p2.rrsp > 0) {
-                        let res = drain(p2.rrsp, remainingDeficit, 'P2 RRSP (Forced)', 'p2', true); 
-                        p2.rrsp = res.rem_acct; p2_total_taxable += res.taken; remainingDeficit -= res.taken;
-                    }
-                }
-            }
-
-            t1 = p1_alive ? this.calculateTaxDetailed(p1_total_taxable, province, inflatedTaxData) : { totalTax: 0 };
-            t2 = p2_alive ? this.calculateTaxDetailed(p2_total_taxable, province, inflatedTaxData) : { totalTax: 0 };
-
             // RECALCULATE NET INCOME AFTER WITHDRAWALS
             let nontax_wd_p1 = (yearWithdrawals['P1 TFSA']||0) + (yearWithdrawals['P1 Cash']||0) + (yearWithdrawals['P1 Non-Reg']||0) + (yearWithdrawals['P1 Crypto']||0);
             let nontax_wd_p2 = (yearWithdrawals['P2 TFSA']||0) + (yearWithdrawals['P2 Cash']||0) + (yearWithdrawals['P2 Non-Reg']||0) + (yearWithdrawals['P2 Crypto']||0);
@@ -2589,6 +2404,36 @@ class RetirementPlanner {
                 if(el.type === 'checkbox' || el.type === 'radio') el.checked = val;
                 else el.value = val;
             }
+        }
+        
+        // Update Sidebar Sliders explicitly
+        if (this.state.inputs['p1_retireAge']) {
+            const val = this.state.inputs['p1_retireAge'];
+            const slider = document.getElementById('qa_p1_retireAge_range');
+            const label = document.getElementById('qa_p1_retireAge_val');
+            if(slider) slider.value = val;
+            if(label) label.innerText = val;
+        }
+        if (this.state.inputs['p2_retireAge']) {
+            const val = this.state.inputs['p2_retireAge'];
+            const slider = document.getElementById('qa_p2_retireAge_range');
+            const label = document.getElementById('qa_p2_retireAge_val');
+            if(slider) slider.value = val;
+            if(label) label.innerText = val;
+        }
+        if (this.state.inputs['inflation_rate']) {
+            const val = this.state.inputs['inflation_rate'];
+            const slider = document.getElementById('qa_inflation_range');
+            const label = document.getElementById('qa_inflation_val');
+            if(slider) slider.value = val;
+            if(label) label.innerText = val + '%';
+        }
+        if (this.state.inputs['p1_tfsa_ret']) { // Proxy for market return
+            const val = this.state.inputs['p1_tfsa_ret'];
+            const slider = document.getElementById('qa_return_range');
+            const label = document.getElementById('qa_return_val');
+            if(slider) slider.value = val;
+            if(label) label.innerText = val + '%';
         }
         
         if (data.expensesData) {
