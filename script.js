@@ -1,5 +1,5 @@
 /**
- * Retirement Planner Pro - Logic v10.2
+ * Retirement Planner Pro - Logic v10.2 (FIXED)
  * Features:
  * - Auto-save to LocalStorage
  * - Save/Load/Export JSON Configuration
@@ -1038,6 +1038,8 @@ class RetirementPlanner {
         
         // Add Windfalls to Sankey
         if (d.windfall > 0) rows.push([`Inheritance/Bonus\n${fmt(d.windfall)}`, potName, Math.round(d.windfall)]);
+        if (d.postRetP1 > 0) rows.push([`Post-Ret Work P1\n${fmt(d.postRetP1)}`, potName, Math.round(d.postRetP1)]);
+        if (d.postRetP2 > 0) rows.push([`Post-Ret Work P2\n${fmt(d.postRetP2)}`, potName, Math.round(d.postRetP2)]);
 
         if (d.flows && d.flows.withdrawals) {
             for (const [source, amount] of Object.entries(d.flows.withdrawals)) {
@@ -1067,7 +1069,7 @@ class RetirementPlanner {
         uniqueNodes.forEach(node => {
             let color = '#a8a29e'; 
             if (node.includes("Available Cash")) color = '#f59e0b'; 
-            else if (node.includes("Employment")) color = '#10b981'; 
+            else if (node.includes("Employment") || node.includes("Post-Ret")) color = '#10b981'; 
             else if (node.includes("Gov Benefits") || node.includes("DB Pension")) color = '#06b6d4';
             else if (node.includes("Inheritance")) color = '#22c55e'; // Green for windfall
             else if (node.includes("RRIF") || node.includes("TFSA") || node.includes("RRSP") || node.includes("Non-Reg") || node.includes("Crypto") || node.includes("Cash")) {
@@ -1434,13 +1436,128 @@ class RetirementPlanner {
             let t1 = p1_alive ? this.calculateTaxDetailed(p1_total_taxable, province, inflatedTaxData) : { totalTax: 0 };
             let t2 = p2_alive ? this.calculateTaxDetailed(p2_total_taxable, province, inflatedTaxData) : { totalTax: 0 };
 
-            // RECALCULATE NET INCOME AFTER WITHDRAWALS
+            // ------------------------------------------
+            // CALCULATE SURPLUS & CASHFLOW ENGINE
+            // ------------------------------------------
+            let activePhaseExpenses = 0;
+            if(expMode === 'Simple') {
+                activePhaseExpenses = fullyRetired ? expRetire : expCurrent;
+            } else {
+                 if(!fullyRetired) activePhaseExpenses = expCurrent;
+                 else {
+                     // Check against Phase Ages
+                     const ageCheck = p1_age;
+                     if(ageCheck < goGoLimit) activePhaseExpenses = expGoGo;
+                     else if(ageCheck < slowGoLimit) activePhaseExpenses = expSlow;
+                     else activePhaseExpenses = expNoGo;
+                 }
+            }
+
+            let annualExp = activePhaseExpenses;
+            let debtRepayment = otherDebt > 0 ? Math.min(otherDebt, 500 * 12) : 0; // Simple debt repayment assumption
+            otherDebt -= debtRepayment;
+
+            let totalActualMortgageOutflow = 0;
+            simProperties.forEach(p => {
+                if(p.mortgage > 0 && p.payment > 0) {
+                    let annualPmt = p.payment * 12;
+                    let interest = p.mortgage * (p.rate/100);
+                    let principal = annualPmt - interest;
+                    if(principal > p.mortgage) { principal = p.mortgage; annualPmt = principal + interest; }
+                    
+                    p.mortgage -= principal;
+                    if(p.mortgage < 0) p.mortgage = 0;
+                    totalActualMortgageOutflow += annualPmt;
+                }
+                // Property Growth
+                p.value *= (1 + (p.growth/100));
+            });
+
+            const totalWindfall = (wf_tax_p1 + wf_nontax_p1) + (mode==='Couple' ? (wf_tax_p2 + wf_nontax_p2) : 0);
+
+            // Total Inflow (After Tax)
+            const netInflowP1 = (p1_total_taxable - t1.totalTax) + wf_nontax_p1;
+            const netInflowP2 = mode==='Couple' ? ((p2_total_taxable - t2.totalTax) + wf_nontax_p2) : 0;
+            
+            // Apply Growth to Existing Assets (Start of Year Growth)
+            let g_p1 = { 
+                tfsa: p1.tfsa * currentRatesP1.tfsa, rrsp: p1.rrsp * currentRatesP1.rrsp, 
+                nreg: p1.nreg * currentRatesP1.nreg, cash: p1.cash * currentRatesP1.cash, cryp: p1.crypto * currentRatesP1.cryp 
+            };
+            p1.tfsa += g_p1.tfsa; p1.rrsp += g_p1.rrsp; p1.nreg += g_p1.nreg; p1.cash += g_p1.cash; p1.crypto += g_p1.cryp;
+
+            let g_p2 = { tfsa:0, rrsp:0, nreg:0, cash:0, cryp:0 };
+            if(mode==='Couple') {
+                g_p2 = { 
+                    tfsa: p2.tfsa * currentRatesP2.tfsa, rrsp: p2.rrsp * currentRatesP2.rrsp, 
+                    nreg: p2.nreg * currentRatesP2.nreg, cash: p2.cash * currentRatesP2.cash, cryp: p2.crypto * currentRatesP2.cryp 
+                };
+                p2.tfsa += g_p2.tfsa; p2.rrsp += g_p2.rrsp; p2.nreg += g_p2.nreg; p2.cash += g_p2.cash; p2.crypto += g_p2.cryp;
+            }
+
+            let householdNetIncome = netInflowP1 + netInflowP2;
+            let totalOutflow = annualExp + totalActualMortgageOutflow + debtRepayment;
+            let surplus = householdNetIncome - totalOutflow;
+
+            // WATERFALL: SAVE or SPEND
+            if (surplus > 0) {
+                // ACCUMULATION STRATEGY
+                let remainder = surplus;
+                const strat = this.state.strategies.accum;
+                
+                strat.forEach(type => {
+                    if (remainder <= 0) return;
+                    if (type === 'tfsa') {
+                        // Simplified TFSA Logic: Assume $7k room/yr + growth
+                        if (p1_alive && (!s1_tfsa || i>0)) { p1.tfsa += remainder; yearContributions.tfsa += remainder; remainder = 0; } // Dump all to P1 TFSA for sim
+                        if (mode==='Couple' && p2_alive && remainder > 0 && (!s2_tfsa || i>0)) { p2.tfsa += remainder; yearContributions.tfsa += remainder; remainder = 0; }
+                    } else if (type === 'rrsp') {
+                         if (p1_alive && (!s1_rrsp || i>0)) { p1.rrsp += remainder; yearContributions.rrsp += remainder; remainder = 0; }
+                    } else if (type === 'nreg') {
+                         if (p1_alive) { p1.nreg += remainder; yearContributions.nreg += remainder; remainder = 0; }
+                    } else if (type === 'cash') {
+                         if (p1_alive) { p1.cash += remainder; yearContributions.cash += remainder; remainder = 0; }
+                    } else if (type === 'crypto') {
+                         if (p1_alive) { p1.crypto += remainder; yearContributions.crypto += remainder; remainder = 0; }
+                    }
+                });
+            } else {
+                // DECUMULATION STRATEGY
+                let deficit = Math.abs(surplus);
+                const strat = this.state.strategies.decum;
+
+                const withdraw = (person, type, amount) => {
+                    if(amount <= 0) return 0;
+                    let avail = person[type];
+                    let taken = Math.min(avail, amount);
+                    person[type] -= taken;
+                    
+                    let key = (person === p1 ? "P1 " : "P2 ") + this.strategyLabels[type];
+                    if(!yearWithdrawals[key]) yearWithdrawals[key] = 0;
+                    yearWithdrawals[key] += taken;
+                    
+                    let pKey = (person === p1) ? 'p1' : 'p2';
+                    wdBreakdown[pKey][this.strategyLabels[type]] = (wdBreakdown[pKey][this.strategyLabels[type]] || 0) + taken;
+
+                    return amount - taken;
+                };
+
+                strat.forEach(type => {
+                    if (deficit <= 0.1) return;
+                    // Try P1 then P2
+                    if(p1_alive) deficit = withdraw(p1, type, deficit);
+                    if(mode === 'Couple' && p2_alive && deficit > 0) deficit = withdraw(p2, type, deficit);
+                });
+            }
+
+            // RECALCULATE NET INCOME AFTER WITHDRAWALS (For Display)
             let nontax_wd_p1 = (yearWithdrawals['P1 TFSA']||0) + (yearWithdrawals['P1 Cash']||0) + (yearWithdrawals['P1 Non-Reg']||0) + (yearWithdrawals['P1 Crypto']||0);
             let nontax_wd_p2 = (yearWithdrawals['P2 TFSA']||0) + (yearWithdrawals['P2 Cash']||0) + (yearWithdrawals['P2 Non-Reg']||0) + (yearWithdrawals['P2 Crypto']||0);
 
             let final_p1_net = p1_alive ? (p1_total_taxable - t1.totalTax) + wf_nontax_p1 + nontax_wd_p1 : 0;
             let final_p2_net = p2_alive ? (p2_total_taxable - t2.totalTax) + wf_nontax_p2 + nontax_wd_p2 : 0;
             const final_householdNet = final_p1_net + final_p2_net;
+            const visualExpenses = annualExp + totalActualMortgageOutflow + debtRepayment + t1.totalTax + t2.totalTax;
 
             const p1_tot = p1.tfsa + p1.rrsp + p1.crypto + p1.nreg + p1.cash;
             const p2_tot = mode === 'Couple' ? (p2.tfsa + p2.rrsp + p2.crypto + p2.nreg + p2.cash) : 0;
@@ -1455,8 +1572,8 @@ class RetirementPlanner {
                 let totalWithdrawal = 0;
                 for(let k in yearWithdrawals) totalWithdrawal += yearWithdrawals[k];
 
-                let totalGrowth = g_p1.tfsa.growth + g_p1.rrsp.growth + g_p1.cryp.growth + g_p1.nreg.growth + g_p1.cash.growth +
-                                (mode==='Couple' ? (g_p2.tfsa.growth + g_p2.rrsp.growth + g_p2.cryp.growth + g_p2.nreg.growth + g_p2.cash.growth) : 0);
+                let totalGrowth = g_p1.tfsa + g_p1.rrsp + g_p1.cryp + g_p1.nreg + g_p1.cash +
+                                (mode==='Couple' ? (g_p2.tfsa + g_p2.rrsp + g_p2.cryp + g_p2.nreg + g_p2.cash) : 0);
                 let growthPct = investTot > 0 ? (totalGrowth / (investTot - totalGrowth - surplus)) * 100 : 0;
 
                 this.state.projectionData.push({
