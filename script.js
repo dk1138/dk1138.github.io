@@ -1128,6 +1128,20 @@ class RetirementPlanner {
         this.charts.sankey = chart;
     }
 
+    inflateTaxObj(obj, factor) {
+        if (!obj) return { brackets: [999999999], rates: [0.10] };
+        const newObj = { ...obj };
+        if (newObj.brackets) {
+            newObj.brackets = newObj.brackets.map(b => b * factor);
+        }
+        if (newObj.surtax) {
+            newObj.surtax = { ...newObj.surtax };
+            if(newObj.surtax.t1) newObj.surtax.t1 *= factor;
+            if(newObj.surtax.t2) newObj.surtax.t2 *= factor;
+        }
+        return newObj;
+    }
+
     getRrifFactor(age) {
         if (age < 71) { return 1 / (90 - age); }
         const rates = { 71: 0.0528, 72: 0.0540, 73: 0.0553, 74: 0.0567, 75: 0.0582, 76: 0.0598, 77: 0.0617, 78: 0.0636, 79: 0.0658, 80: 0.0682, 81: 0.0708, 82: 0.0738, 83: 0.0771, 84: 0.0808, 85: 0.0851, 86: 0.0899, 87: 0.0955, 88: 0.1021, 89: 0.1099, 90: 0.1192, 91: 0.1306, 92: 0.1449, 93: 0.1634, 94: 0.1879, 95: 0.2000 };
@@ -1206,7 +1220,7 @@ class RetirementPlanner {
             });
         }
 
-        let simProperties = JSON.parse(JSON.stringify(this.state.properties));
+        let simProperties = this.state.properties.map(p => ({...p}));
         let otherDebt = this.getTotalDebt();
         let expCurrent = expenseTotals.curr; let expRetire = expenseTotals.ret;
         let expTrans = expenseTotals.trans; let expGoGo = expenseTotals.gogo; 
@@ -1233,16 +1247,10 @@ class RetirementPlanner {
             if(!p1_alive && !p2_alive) break;
 
             const bracketInflator = Math.pow(1 + inflation, i);
-            const inflatedTaxData = JSON.parse(JSON.stringify(this.CONSTANTS.TAX_DATA));
-            for(const k in inflatedTaxData) {
-                 if(inflatedTaxData[k].brackets) {
-                     inflatedTaxData[k].brackets = inflatedTaxData[k].brackets.map(b => b * bracketInflator);
-                 }
-                 if(inflatedTaxData[k].surtax) {
-                     if(inflatedTaxData[k].surtax.t1) inflatedTaxData[k].surtax.t1 *= bracketInflator;
-                     if(inflatedTaxData[k].surtax.t2) inflatedTaxData[k].surtax.t2 *= bracketInflator;
-                 }
-            }
+            const inflatedTaxData = {
+                FED: this.inflateTaxObj(this.CONSTANTS.TAX_DATA.FED, bracketInflator),
+                [province]: this.inflateTaxObj(this.CONSTANTS.TAX_DATA[province], bracketInflator)
+            };
             
             let currentRatesP1 = {...baseRatesP1}; let currentRatesP2 = {...baseRatesP2};
             let isCrashYear = false;
