@@ -1,11 +1,11 @@
 /**
- * Retirement Planner Pro - Logic v10.2 (FIXED)
+ * Retirement Planner Pro - Logic v10.3 (Theme Fixes)
  * Features:
  * - Auto-save to LocalStorage
  * - Save/Load/Export JSON Configuration
  * - Debounced Inputs for Smoothness
  * - Sidebar Sync on Load
- * - Light/Dark Theme Support
+ * - Light/Dark Theme Support (Fixed)
  */
 
 class RetirementPlanner {
@@ -235,6 +235,7 @@ class RetirementPlanner {
         const savedTheme = localStorage.getItem(this.THEME_KEY) || 'dark';
         document.documentElement.setAttribute('data-bs-theme', savedTheme);
         this.updateThemeIcon(savedTheme);
+        this.fixImportLabelContrast(savedTheme);
     }
 
     toggleTheme() {
@@ -244,6 +245,7 @@ class RetirementPlanner {
         html.setAttribute('data-bs-theme', next);
         localStorage.setItem(this.THEME_KEY, next);
         this.updateThemeIcon(next);
+        this.fixImportLabelContrast(next);
         this.run(); // Re-run to update charts (Sankey colors)
     }
 
@@ -257,6 +259,20 @@ class RetirementPlanner {
             btn.innerHTML = '<i class="bi bi-moon-stars-fill"></i>';
             btn.classList.remove('btn-outline-secondary');
             btn.classList.add('btn-outline-dark');
+        }
+    }
+
+    fixImportLabelContrast(theme) {
+        // Targeted fix for file input label if it exists in DOM
+        const lbl = document.querySelector('label[for="fileUpload"]');
+        if(lbl) {
+            if(theme === 'light') {
+                lbl.classList.remove('text-white');
+                lbl.classList.add('text-dark');
+            } else {
+                lbl.classList.remove('text-dark');
+                lbl.classList.add('text-white');
+            }
         }
     }
 
@@ -753,30 +769,30 @@ class RetirementPlanner {
             const today = new Date().toISOString().slice(0, 7); // YYYY-MM
             
             const div = document.createElement('div');
-            div.className = 'windfall-row p-2 border border-secondary rounded bg-black bg-opacity-10 mb-2';
+            div.className = 'windfall-row p-2 border border-secondary rounded bg-body-tertiary mb-2';
             div.innerHTML = `
                 <div class="d-flex justify-content-between mb-1">
-                    <input type="text" class="form-control form-control-sm bg-transparent border-0 text-white fw-bold windfall-update" 
+                    <input type="text" class="form-control form-control-sm bg-transparent border-0 fw-bold windfall-update" 
                            placeholder="Event Name" value="${w.name}" data-idx="${idx}" data-field="name">
                     <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="app.removeWindfall(${idx})"><i class="bi bi-x-lg"></i></button>
                 </div>
                 <div class="row g-2 align-items-center">
                     <div class="col-4">
                         <div class="input-group input-group-sm">
-                            <span class="input-group-text bg-black border-secondary text-muted">$</span>
-                            <input type="text" class="form-control bg-black border-secondary text-white formatted-num windfall-update" 
+                            <span class="input-group-text border-secondary text-muted">$</span>
+                            <input type="text" class="form-control border-secondary formatted-num windfall-update" 
                                    value="${w.amount.toLocaleString()}" data-idx="${idx}" data-field="amount">
                         </div>
                     </div>
                     <div class="col-4">
-                        <select class="form-select form-select-sm bg-black border-secondary text-white windfall-update" data-idx="${idx}" data-field="freq">
+                        <select class="form-select form-select-sm border-secondary windfall-update" data-idx="${idx}" data-field="freq">
                             <option value="one" ${w.freq==='one'?'selected':''}>One Time</option>
                             <option value="month" ${w.freq==='month'?'selected':''}>/ Month</option>
                             <option value="year" ${w.freq==='year'?'selected':''}>/ Year</option>
                         </select>
                     </div>
                     <div class="col-4 p2-column" style="${this.state.mode === 'Couple' ? '' : 'display:none;'}">
-                         <select class="form-select form-select-sm bg-black border-secondary text-white windfall-update" data-idx="${idx}" data-field="owner">
+                         <select class="form-select form-select-sm border-secondary windfall-update" data-idx="${idx}" data-field="owner">
                             <option value="p1" ${w.owner==='p1'?'selected':''}>Owner: P1</option>
                             <option value="p2" ${w.owner==='p2'?'selected':''}>Owner: P2</option>
                         </select>
@@ -785,12 +801,12 @@ class RetirementPlanner {
                 <div class="row g-2 mt-1">
                     <div class="col-4">
                         <label class="small text-muted" style="font-size:0.7rem;">Start Date</label>
-                        <input type="month" class="form-control form-control-sm bg-black border-secondary text-white windfall-update" 
+                        <input type="month" class="form-control form-control-sm border-secondary windfall-update" 
                                value="${w.start || today}" data-idx="${idx}" data-field="start">
                     </div>
                     <div class="col-4" style="${hideEnd}">
                         <label class="small text-muted" style="font-size:0.7rem;">End Date</label>
-                        <input type="month" class="form-control form-control-sm bg-black border-secondary text-white windfall-update" 
+                        <input type="month" class="form-control form-control-sm border-secondary windfall-update" 
                                value="${w.end}" data-idx="${idx}" data-field="end">
                     </div>
                     <div class="col-4 d-flex align-items-center justify-content-end">
@@ -831,10 +847,10 @@ class RetirementPlanner {
         
         this.state.properties.forEach((prop, idx) => {
             const div = document.createElement('div');
-            div.className = 'property-row p-3 border border-secondary rounded bg-black bg-opacity-10 mb-3';
+            div.className = 'property-row p-3 border border-secondary rounded bg-body-tertiary mb-3';
             div.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-2">
-                    <input type="text" class="form-control form-control-sm bg-transparent border-0 text-white fw-bold property-update" 
+                    <input type="text" class="form-control form-control-sm bg-transparent border-0 fw-bold property-update" 
                            style="max-width:200px;" value="${prop.name}" data-idx="${idx}" data-field="name">
                     ${idx > 0 ? `<button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="app.removeProperty(${idx})"><i class="bi bi-x-lg"></i></button>` : ''}
                 </div>
@@ -842,40 +858,40 @@ class RetirementPlanner {
                     <div class="col-6 col-md-3">
                         <label class="form-label text-muted small">Value</label>
                         <div class="input-group input-group-sm">
-                            <span class="input-group-text bg-black border-secondary text-muted">$</span>
-                            <input type="text" class="form-control bg-black border-secondary text-white formatted-num property-update" 
+                            <span class="input-group-text border-secondary text-muted">$</span>
+                            <input type="text" class="form-control border-secondary formatted-num property-update" 
                                    value="${prop.value.toLocaleString()}" data-idx="${idx}" data-field="value">
                         </div>
                     </div>
                     <div class="col-6 col-md-3">
                         <label class="form-label text-muted small">Mortgage</label>
                         <div class="input-group input-group-sm">
-                            <span class="input-group-text bg-black border-secondary text-muted">$</span>
-                            <input type="text" class="form-control bg-black border-secondary text-white formatted-num property-update" 
+                            <span class="input-group-text border-secondary text-muted">$</span>
+                            <input type="text" class="form-control border-secondary formatted-num property-update" 
                                    value="${prop.mortgage.toLocaleString()}" data-idx="${idx}" data-field="mortgage">
                         </div>
                     </div>
                     <div class="col-6 col-md-3">
                         <label class="form-label text-muted small">Growth %</label>
                         <div class="input-group input-group-sm">
-                            <input type="number" step="0.01" class="form-control bg-black border-secondary text-white property-update" 
+                            <input type="number" step="0.01" class="form-control border-secondary property-update" 
                                    value="${prop.growth}" data-idx="${idx}" data-field="growth">
-                            <span class="input-group-text bg-black border-secondary text-muted">%</span>
+                            <span class="input-group-text border-secondary text-muted">%</span>
                         </div>
                     </div>
                     <div class="col-6 col-md-3">
                         <label class="form-label text-muted small">Rate %</label>
                         <div class="input-group input-group-sm">
-                            <input type="number" step="0.01" class="form-control bg-black border-secondary text-white property-update" 
+                            <input type="number" step="0.01" class="form-control border-secondary property-update" 
                                    value="${prop.rate}" data-idx="${idx}" data-field="rate">
-                            <span class="input-group-text bg-black border-secondary text-muted">%</span>
+                            <span class="input-group-text border-secondary text-muted">%</span>
                         </div>
                     </div>
                     <div class="col-12 col-md-4">
                         <label class="form-label text-warning small">Monthly Pmt</label>
                         <div class="input-group input-group-sm">
                             <span class="input-group-text bg-warning text-black border-warning fw-bold">$</span>
-                            <input type="text" class="form-control bg-black border-warning text-white formatted-num property-update" 
+                            <input type="text" class="form-control border-warning formatted-num property-update" 
                                    value="${Math.round(prop.payment).toLocaleString()}" data-idx="${idx}" data-field="payment">
                         </div>
                         <div class="mt-1 small" id="prop-payoff-${idx}"></div>
@@ -1609,9 +1625,9 @@ class RetirementPlanner {
         if (!onlyCalcNW) {
             let html = `
                 <div class="grid-header">
-                    <div class="col-start col-timeline">Timeline</div>
+                    <div class="col-start col-timeline text-body">Timeline</div>
                     <div class="col-start">Status</div>
-                    <div>Net Income</div>
+                    <div class="text-body">Net Income</div>
                     <div class="text-danger">Expenses</div>
                     <div>Surplus</div>
                     <div>Net Worth</div>
@@ -1745,16 +1761,16 @@ class RetirementPlanner {
                         <div class="grid-summary-row" onclick="app.toggleRow(this)">
                             <div class="col-start col-timeline">
                                 <div class="d-flex align-items-center">
-                                    <span class="year-badge me-1">${d.year}</span>
+                                    <span class="year-badge badge bg-secondary text-white me-1">${d.year}</span>
                                     <span class="event-icons-inline">${d.events.join('')}</span>
                                 </div>
-                                <span class="age-text">${p1AgeDisplay} ${mode==='Couple' ? '/ '+p2AgeDisplay : ''}</span>
+                                <span class="age-text text-body">${p1AgeDisplay} ${mode==='Couple' ? '/ '+p2AgeDisplay : ''}</span>
                             </div>
                             <div class="col-start">${status}</div>
                             <div class="val-positive">${fmtK(d.householdNet)}</div>
                             <div class="val-neutral text-danger">${fmtK(d.visualExpenses)}</div>
                             <div class="${surplusClass}">${surplusSign}${fmtK(d.surplus)}</div>
-                            <div class="text-white fw-bold">${fmtK(d.debugNW)}</div>
+                            <div class="text-body fw-bold">${fmtK(d.debugNW)}</div>
                             <div class="text-center toggle-icon"><i class="bi bi-chevron-down"></i></div>
                         </div>
                         <div class="grid-detail-wrapper">
@@ -1920,8 +1936,8 @@ class RetirementPlanner {
 
         const renderInput = (item, field, idx, cat) => `
             <div class="input-group input-group-sm mb-1" style="flex-wrap: nowrap;">
-                <span class="input-group-text bg-black border-secondary text-muted">$</span>
-                <input type="text" class="form-control bg-black border-secondary text-white formatted-num expense-update" 
+                <span class="input-group-text border-secondary text-muted">$</span>
+                <input type="text" class="form-control border-secondary formatted-num expense-update" 
                        style="min-width: 60px;" value="${(item[field]||0).toLocaleString()}" data-cat="${cat}" data-idx="${idx}" data-field="${field}">
             </div>
         `;
@@ -1932,7 +1948,7 @@ class RetirementPlanner {
            
            html += `
            <tr class="expense-category-row">
-               <td colspan="${colspan}" class="py-3 ps-3 border-bottom border-secondary bg-black bg-opacity-25">
+               <td colspan="${colspan}" class="py-3 ps-3 border-bottom border-secondary bg-body-tertiary">
                    <div class="d-flex align-items-center justify-content-between">
                        <div class="d-flex align-items-center">
                            <i class="bi ${meta.icon} ${meta.color} me-2 fs-6"></i>
@@ -1947,7 +1963,7 @@ class RetirementPlanner {
            
            data.items.forEach((item, index) => {
              html += `<tr class="expense-row"><td class="ps-3 align-middle border-bottom border-secondary">
-                    <input type="text" class="form-control form-control-sm bg-transparent border-0 text-white-50 expense-update" 
+                    <input type="text" class="form-control form-control-sm bg-transparent border-0 expense-update" 
                            value="${item.name}" data-cat="${category}" data-idx="${index}" data-field="name">
                 </td>`;
                 
@@ -1955,10 +1971,10 @@ class RetirementPlanner {
                  html += `
                  <td class="align-middle border-bottom border-secondary">
                     <div class="input-group input-group-sm">
-                        <span class="input-group-text bg-black border-secondary text-muted">$</span>
-                        <input type="text" class="form-control bg-black border-secondary text-white formatted-num expense-update" 
+                        <span class="input-group-text border-secondary text-muted">$</span>
+                        <input type="text" class="form-control border-secondary formatted-num expense-update" 
                                style="width: 100px; flex-grow: 1;" value="${item.curr.toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="curr">
-                        <select class="form-select bg-black border-secondary text-white expense-update" style="width: auto; flex-grow: 0; min-width: 85px;"
+                        <select class="form-select border-secondary expense-update" style="width: auto; flex-grow: 0; min-width: 85px;"
                                 data-cat="${category}" data-idx="${index}" data-field="freq">
                             <option value="12" ${item.freq===12?'selected':''}>/month</option>
                             <option value="1" ${item.freq===1?'selected':''}>/year</option>
@@ -1968,10 +1984,10 @@ class RetirementPlanner {
                  <td class="align-middle border-bottom border-secondary">
                      <div class="d-flex align-items-center">
                         <div class="input-group input-group-sm flex-grow-1">
-                            <span class="input-group-text bg-black border-secondary text-muted">$</span>
-                            <input type="text" class="form-control bg-black border-secondary text-white formatted-num expense-update" 
+                            <span class="input-group-text border-secondary text-muted">$</span>
+                            <input type="text" class="form-control border-secondary formatted-num expense-update" 
                                    style="width: 100px; flex-grow: 1;" value="${item.ret.toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="ret">
-                            <select class="form-select bg-black border-secondary text-white expense-update" style="width: auto; flex-grow: 0; min-width: 85px;"
+                            <select class="form-select border-secondary expense-update" style="width: auto; flex-grow: 0; min-width: 85px;"
                                     data-cat="${category}" data-idx="${index}" data-field="freq"> 
                                 <option value="12" ${item.freq===12?'selected':''}>/month</option>
                                 <option value="1" ${item.freq===1?'selected':''}>/year</option>
@@ -1986,10 +2002,10 @@ class RetirementPlanner {
                  html += `
                  <td class="align-middle border-bottom border-secondary">
                     <div class="input-group input-group-sm mb-1" style="flex-wrap: nowrap;">
-                        <span class="input-group-text bg-black border-secondary text-muted">$</span>
-                        <input type="text" class="form-control bg-black border-secondary text-white formatted-num expense-update" 
+                        <span class="input-group-text border-secondary text-muted">$</span>
+                        <input type="text" class="form-control border-secondary formatted-num expense-update" 
                                style="min-width: 60px;" value="${(item.curr||0).toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="curr">
-                         <select class="form-select bg-black border-secondary text-white expense-update" style="width: auto; flex-grow: 0; min-width: 85px;"
+                         <select class="form-select border-secondary expense-update" style="width: auto; flex-grow: 0; min-width: 85px;"
                                 data-cat="${category}" data-idx="${index}" data-field="freq">
                             <option value="12" ${item.freq===12?'selected':''}>/month</option>
                             <option value="1" ${item.freq===1?'selected':''}>/year</option>
