@@ -1,6 +1,8 @@
-Save/load feature with debounce feature to ensure smoothness
-Light dark mode toggle, use eye pleasing smooth pastel colours, nothing too vibrant 
-Annuity?
+NEW FEATURES
+1. Light and Dark mode toggle
+2. Added DB Pension age slider
+3. Save Load feature under scenario tab, you can now download a backup file and load it back in
+
 
 BUG FIXES
 1. fix the mortgage rate input to let user add up to 2 decimal. ex 3.14
