@@ -1,11 +1,11 @@
 /**
- * Retirement Planner Pro - Logic v10.6 (Header Fix for Light Mode)
+ * Retirement Planner Pro - Logic v10.7 (Full Theme Fixes)
  * Features:
  * - Auto-save to LocalStorage
  * - Save/Load/Export JSON Configuration
  * - Debounced Inputs for Smoothness
  * - Sidebar Sync on Load
- * - Light/Dark Theme Support (Full Fix)
+ * - Light/Dark Theme Support (Headers, Icons, Timeline fixed)
  */
 
 class RetirementPlanner {
@@ -151,18 +151,19 @@ class RetirementPlanner {
         this.optimalAges = { p1_cpp: 65, p1_oas: 65, p2_cpp: 65, p2_oas: 65 };
         this.strategyLabels = { 'tfsa': 'TFSA', 'rrsp': 'RRSP', 'nreg': 'Non-Reg', 'cash': 'Cash', 'crypto': 'Crypto' };
 
-        this.eventIcons = {
-            "P1 Retires": '<i class="bi bi-cup-hot-fill text-warning" title="P1 Retires"></i>',
-            "P2 Retires": '<i class="bi bi-cup-hot text-purple" title="P2 Retires"></i>',
-            "Mortgage Paid": '<i class="bi bi-house-check-fill text-success" title="Mortgage Paid"></i>',
-            "P1 CPP": '<i class="bi bi-file-earmark-text-fill text-info" title="P1 Starts CPP"></i>',
-            "P1 OAS": '<i class="bi bi-cash-stack text-info" title="P1 Starts OAS"></i>',
-            "P2 CPP": '<i class="bi bi-file-earmark-text text-purple" title="P2 Starts CPP"></i>',
-            "P2 OAS": '<i class="bi bi-cash text-purple" title="P2 Starts OAS"></i>',
-            "Crash": '<i class="bi bi-graph-down-arrow text-danger" title="Stress Test: Market Crash (-15%)"></i>',
-            "P1 Dies": '<i class="bi bi-heartbreak-fill text-white" title="P1 Deceased"></i>',
-            "P2 Dies": '<i class="bi bi-heartbreak text-white" title="P2 Deceased"></i>',
-            "Windfall": '<i class="bi bi-gift-fill text-success" title="Inheritance/Bonus Received"></i>'
+        // Changed to Object storing definitions, NOT full HTML strings
+        this.iconDefs = {
+            "P1 Retires": { icon: 'bi-cup-hot-fill', color: 'text-warning', title: "P1 Retires" },
+            "P2 Retires": { icon: 'bi-cup-hot', color: 'text-purple', title: "P2 Retires" },
+            "Mortgage Paid": { icon: 'bi-house-check-fill', color: 'text-success', title: "Mortgage Paid" },
+            "P1 CPP": { icon: 'bi-file-earmark-text-fill', color: 'text-info', title: "P1 Starts CPP" },
+            "P1 OAS": { icon: 'bi-cash-stack', color: 'text-info', title: "P1 Starts OAS" },
+            "P2 CPP": { icon: 'bi-file-earmark-text', color: 'text-purple', title: "P2 Starts CPP" },
+            "P2 OAS": { icon: 'bi-cash', color: 'text-purple', title: "P2 Starts OAS" },
+            "Crash": { icon: 'bi-graph-down-arrow', color: 'text-danger', title: "Stress Test: Market Crash (-15%)" },
+            "P1 Dies": { icon: 'bi-heartbreak-fill', color: 'text-white', title: "P1 Deceased" },
+            "P2 Dies": { icon: 'bi-heartbreak', color: 'text-white', title: "P2 Deceased" },
+            "Windfall": { icon: 'bi-gift-fill', color: 'text-success', title: "Inheritance/Bonus Received" }
         };
 
         if(typeof google !== 'undefined' && google.charts) google.charts.load('current', {'packages':['sankey']});
@@ -246,8 +247,8 @@ class RetirementPlanner {
         localStorage.setItem(this.THEME_KEY, next);
         this.updateThemeIcon(next);
         this.fixImportLabelContrast(next);
-        this.renderExpenseRows(); // Re-render table to fix headers in light mode
-        this.run(); // Re-run to update charts (Sankey colors)
+        this.renderExpenseRows(); 
+        this.run(); // Re-run to update charts (Sankey colors) and Re-render Grid for Headers
     }
 
     updateThemeIcon(theme) {
@@ -1032,6 +1033,20 @@ class RetirementPlanner {
         }
     }
 
+    // --- NEW HELPER: Get Icon HTML dynamically based on Theme ---
+    getIconHTML(key, theme) {
+        const def = this.iconDefs[key];
+        if(!def) return '';
+        
+        let colorClass = def.color;
+        // Fix for light mode invisibility: swap white for dark
+        if(theme === 'light' && colorClass === 'text-white') {
+            colorClass = 'text-dark';
+        }
+        
+        return `<i class="bi ${def.icon} ${colorClass}" title="${def.title}"></i>`;
+    }
+
     drawSankey(index) {
         if (!this.state.projectionData[index] || typeof google === 'undefined' || !google.visualization) return;
 
@@ -1260,27 +1275,28 @@ class RetirementPlanner {
             let w_p1 = { rrsp: 0 }; let w_p2 = { rrsp: 0 }; 
 
             let events = [];
+            // FIXED: Pushing Keys instead of HTML strings
             if(p1_alive) {
-                if(p1_age === p1.retAge && !triggeredEvents.has('P1 Retires')) { events.push(this.eventIcons['P1 Retires']); triggeredEvents.add('P1 Retires'); }
-                if(p1_age === p1_cpp_start && p1_cpp_on) events.push(this.eventIcons['P1 CPP']);
-                if(p1_age === p1_oas_start && p1_oas_on) events.push(this.eventIcons['P1 OAS']);
+                if(p1_age === p1.retAge && !triggeredEvents.has('P1 Retires')) { events.push('P1 Retires'); triggeredEvents.add('P1 Retires'); }
+                if(p1_age === p1_cpp_start && p1_cpp_on) events.push('P1 CPP');
+                if(p1_age === p1_oas_start && p1_oas_on) events.push('P1 OAS');
             } else if (!triggeredEvents.has('P1 Dies')) {
-                events.push(this.eventIcons['P1 Dies']); triggeredEvents.add('P1 Dies');
+                events.push('P1 Dies'); triggeredEvents.add('P1 Dies');
             }
             if(mode==='Couple') {
                 if(p2_alive) {
-                    if(p2_age === p2.retAge && !triggeredEvents.has('P2 Retires')) { events.push(this.eventIcons['P2 Retires']); triggeredEvents.add('P2 Retires'); }
-                    if(p2_age === p2_cpp_start && p2_cpp_on) events.push(this.eventIcons['P2 CPP']);
-                    if(p2_age === p2_oas_start && p2_oas_on) events.push(this.eventIcons['P2 OAS']);
+                    if(p2_age === p2.retAge && !triggeredEvents.has('P2 Retires')) { events.push('P2 Retires'); triggeredEvents.add('P2 Retires'); }
+                    if(p2_age === p2_cpp_start && p2_cpp_on) events.push('P2 CPP');
+                    if(p2_age === p2_oas_start && p2_oas_on) events.push('P2 OAS');
                 } else if (!triggeredEvents.has('P2 Dies')) {
-                    events.push(this.eventIcons['P2 Dies']); triggeredEvents.add('P2 Dies');
+                    events.push('P2 Dies'); triggeredEvents.add('P2 Dies');
                 }
             }
             let totalMortgageBalance = simProperties.reduce((acc, p) => acc + p.mortgage, 0);
             if(totalMortgageBalance <= 0 && !triggeredEvents.has('Mortgage Paid')) { 
-                events.push(this.eventIcons['Mortgage Paid']); triggeredEvents.add('Mortgage Paid'); 
+                events.push('Mortgage Paid'); triggeredEvents.add('Mortgage Paid'); 
             }
-            if(isCrashYear) events.push(this.eventIcons['Crash']);
+            if(isCrashYear) events.push('Crash');
 
             const p1_isRetired = p1_age >= p1.retAge;
             const p2_isRetired = (mode === 'Couple') ? (p2_age >= p2.retAge) : true;
@@ -1408,7 +1424,7 @@ class RetirementPlanner {
                 
                 if (active && annualAmt > 0) {
                     if(!triggeredEvents.has('Windfall') && i === 0) {} 
-                    if(w.freq === 'one') events.push(this.eventIcons['Windfall']);
+                    if(w.freq === 'one') events.push('Windfall');
                     
                     if (w.taxable) {
                         if (w.owner === 'p2' && mode === 'Couple') wf_tax_p2 += annualAmt;
@@ -1624,15 +1640,20 @@ class RetirementPlanner {
         }
 
         if (!onlyCalcNW) {
+            // --- THEME DETECTION FOR PROJECTION GRID ---
+            const theme = document.documentElement.getAttribute('data-bs-theme') || 'dark';
+            const headerClass = theme === 'light' ? 'bg-white text-dark border-bottom border-dark-subtle' : 'bg-transparent text-white border-secondary';
+            const timelineText = theme === 'light' ? 'text-dark' : 'text-body';
+
             let html = `
-                <div class="grid-header">
-                    <div class="col-start col-timeline text-body">Timeline</div>
+                <div class="grid-header ${headerClass}">
+                    <div class="col-start col-timeline ${timelineText}">Timeline</div>
                     <div class="col-start">Status</div>
-                    <div class="text-body">Net Income</div>
+                    <div class="text-body ${timelineText}">Net Income</div>
                     <div class="text-danger">Expenses</div>
-                    <div>Surplus</div>
-                    <div>Net Worth</div>
-                    <div class="text-center"><i class="bi bi-chevron-bar-down"></i></div>
+                    <div class="${timelineText}">Surplus</div>
+                    <div class="${timelineText}">Net Worth</div>
+                    <div class="text-center ${timelineText}"><i class="bi bi-chevron-bar-down"></i></div>
                 </div>
             `;
             
@@ -1674,6 +1695,9 @@ class RetirementPlanner {
 
                 const surplusClass = d.surplus < 0 ? 'val-negative' : 'val-positive';
                 const surplusSign = d.surplus > 0 ? '+' : '';
+
+                // Map event Keys to HTML using the helper
+                const eventIconsHTML = d.events.map(k => this.getIconHTML(k, theme)).join('');
 
                 const line = (label, val, className='') => {
                     if(!val || Math.round(val) === 0) return '';
@@ -1757,22 +1781,25 @@ class RetirementPlanner {
                         </div>
                     </div>`;
 
+                const rowBg = theme === 'light' ? 'bg-white border-bottom border-dark-subtle' : '';
+                const rowText = theme === 'light' ? 'text-dark' : 'text-white';
+
                 html += `
-                    <div class="grid-row-group">
-                        <div class="grid-summary-row" onclick="app.toggleRow(this)">
+                    <div class="grid-row-group" style="${theme === 'light' ? 'border-bottom:1px solid #ddd;' : ''}">
+                        <div class="grid-summary-row ${rowBg}" onclick="app.toggleRow(this)">
                             <div class="col-start col-timeline">
                                 <div class="d-flex align-items-center">
                                     <span class="year-badge badge bg-secondary text-white me-1">${d.year}</span>
-                                    <span class="event-icons-inline">${d.events.join('')}</span>
+                                    <span class="event-icons-inline">${eventIconsHTML}</span>
                                 </div>
-                                <span class="age-text text-body">${p1AgeDisplay} ${mode==='Couple' ? '/ '+p2AgeDisplay : ''}</span>
+                                <span class="age-text ${rowText}">${p1AgeDisplay} ${mode==='Couple' ? '/ '+p2AgeDisplay : ''}</span>
                             </div>
                             <div class="col-start">${status}</div>
                             <div class="val-positive">${fmtK(d.householdNet)}</div>
                             <div class="val-neutral text-danger">${fmtK(d.visualExpenses)}</div>
                             <div class="${surplusClass}">${surplusSign}${fmtK(d.surplus)}</div>
-                            <div class="text-body fw-bold">${fmtK(d.debugNW)}</div>
-                            <div class="text-center toggle-icon"><i class="bi bi-chevron-down"></i></div>
+                            <div class="fw-bold ${rowText}">${fmtK(d.debugNW)}</div>
+                            <div class="text-center toggle-icon ${rowText}"><i class="bi bi-chevron-down"></i></div>
                         </div>
                         <div class="grid-detail-wrapper">
                             <div class="detail-container">
