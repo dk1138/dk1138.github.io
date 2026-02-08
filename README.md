@@ -3,6 +3,8 @@ NEW FEATURES
 2. Added DB Pension age slider
 3. Save Load feature under scenario tab, you can now download a backup file and load it back in
 4. Added Simple/Advance toggle for Protfolio secetion for more granular control
+5. Added button to let user add additional income streams
+6. Added toggle to include Primary residence as part of Net worth (default is off)
 
 
 BUG FIXES
