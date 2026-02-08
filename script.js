@@ -1,11 +1,11 @@
 /**
- * Retirement Planner Pro - Logic v10.7 (Full Theme Fixes)
+ * Retirement Planner Pro - Logic v10.8 (Final Visual Fixes)
  * Features:
  * - Auto-save to LocalStorage
  * - Save/Load/Export JSON Configuration
  * - Debounced Inputs for Smoothness
  * - Sidebar Sync on Load
- * - Light/Dark Theme Support (Headers, Icons, Timeline fixed)
+ * - Light/Dark Theme Support (Full UI Polish: Grid, Icons, Text)
  */
 
 class RetirementPlanner {
@@ -248,7 +248,7 @@ class RetirementPlanner {
         this.updateThemeIcon(next);
         this.fixImportLabelContrast(next);
         this.renderExpenseRows(); 
-        this.run(); // Re-run to update charts (Sankey colors) and Re-render Grid for Headers
+        this.run(); // Re-run to update charts and Grid for Headers
     }
 
     updateThemeIcon(theme) {
@@ -1039,9 +1039,11 @@ class RetirementPlanner {
         if(!def) return '';
         
         let colorClass = def.color;
-        // Fix for light mode invisibility: swap white for dark
-        if(theme === 'light' && colorClass === 'text-white') {
-            colorClass = 'text-dark';
+        // Fix for light mode invisibility: swap white for dark, cyan to blue
+        if(theme === 'light') {
+            if (colorClass.includes('text-white')) colorClass = 'text-dark';
+            if (colorClass.includes('text-info')) colorClass = 'text-primary'; 
+            if (colorClass.includes('text-warning')) colorClass = 'text-dark'; 
         }
         
         return `<i class="bi ${def.icon} ${colorClass}" title="${def.title}"></i>`;
@@ -1642,6 +1644,8 @@ class RetirementPlanner {
         if (!onlyCalcNW) {
             // --- THEME DETECTION FOR PROJECTION GRID ---
             const theme = document.documentElement.getAttribute('data-bs-theme') || 'dark';
+            
+            // Explicitly force text-dark in light mode for the headers
             const headerClass = theme === 'light' ? 'bg-white text-dark border-bottom border-dark-subtle' : 'bg-transparent text-white border-secondary';
             const timelineText = theme === 'light' ? 'text-dark' : 'text-body';
 
@@ -1783,13 +1787,15 @@ class RetirementPlanner {
 
                 const rowBg = theme === 'light' ? 'bg-white border-bottom border-dark-subtle' : '';
                 const rowText = theme === 'light' ? 'text-dark' : 'text-white';
+                // Year text specifically needs to toggle
+                const yearTextClass = theme === 'light' ? 'text-dark' : 'text-white';
 
                 html += `
                     <div class="grid-row-group" style="${theme === 'light' ? 'border-bottom:1px solid #ddd;' : ''}">
                         <div class="grid-summary-row ${rowBg}" onclick="app.toggleRow(this)">
                             <div class="col-start col-timeline">
                                 <div class="d-flex align-items-center">
-                                    <span class="year-badge badge bg-secondary text-white me-1">${d.year}</span>
+                                    <span class="fw-bold fs-6 me-1 ${yearTextClass}">${d.year}</span>
                                     <span class="event-icons-inline">${eventIconsHTML}</span>
                                 </div>
                                 <span class="age-text ${rowText}">${p1AgeDisplay} ${mode==='Couple' ? '/ '+p2AgeDisplay : ''}</span>
@@ -1816,6 +1822,22 @@ class RetirementPlanner {
             if(gridContainer) gridContainer.innerHTML = html;
         }
         return finalNW;
+    }
+
+    // --- NEW HELPER: Get Icon HTML dynamically based on Theme ---
+    getIconHTML(key, theme) {
+        const def = this.iconDefs[key];
+        if(!def) return '';
+        
+        let colorClass = def.color;
+        // Fix for light mode invisibility: swap white for dark, cyan to blue
+        if(theme === 'light') {
+            if (colorClass.includes('text-white')) colorClass = 'text-dark';
+            if (colorClass.includes('text-info')) colorClass = 'text-primary'; 
+            if (colorClass.includes('text-warning')) colorClass = 'text-dark'; 
+        }
+        
+        return `<i class="bi ${def.icon} ${colorClass}" title="${def.title}"></i>`;
     }
 
     calcBen(maxVal, startAge, pct, retAge) {
