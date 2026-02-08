@@ -5,7 +5,7 @@
  * - Save/Load/Export JSON Configuration
  * - Debounced Inputs for Smoothness
  * - Sidebar Sync on Load
- * - Light/Dark Theme Support (Fixed for Contrast)
+ * - Light/Dark Theme Support (Full Visibility Fix)
  */
 
 class RetirementPlanner {
@@ -160,8 +160,8 @@ class RetirementPlanner {
             "P2 CPP": '<i class="bi bi-file-earmark-text text-purple" title="P2 Starts CPP"></i>',
             "P2 OAS": '<i class="bi bi-cash text-purple" title="P2 Starts OAS"></i>',
             "Crash": '<i class="bi bi-graph-down-arrow text-danger" title="Stress Test: Market Crash (-15%)"></i>',
-            "P1 Dies": '<i class="bi bi-heartbreak-fill text-body" title="P1 Deceased"></i>',
-            "P2 Dies": '<i class="bi bi-heartbreak text-body" title="P2 Deceased"></i>',
+            "P1 Dies": '<i class="bi bi-heartbreak-fill text-white" title="P1 Deceased"></i>',
+            "P2 Dies": '<i class="bi bi-heartbreak text-white" title="P2 Deceased"></i>',
             "Windfall": '<i class="bi bi-gift-fill text-success" title="Inheritance/Bonus Received"></i>'
         };
 
@@ -1937,7 +1937,7 @@ class RetirementPlanner {
         const renderInput = (item, field, idx, cat) => `
             <div class="input-group input-group-sm mb-1" style="flex-wrap: nowrap;">
                 <span class="input-group-text border-secondary text-muted">$</span>
-                <input type="text" class="form-control border-secondary formatted-num expense-update" 
+                <input type="text" class="form-control border-secondary text-body formatted-num expense-update" 
                        style="min-width: 60px;" value="${(item[field]||0).toLocaleString()}" data-cat="${cat}" data-idx="${idx}" data-field="${field}">
             </div>
         `;
@@ -1963,18 +1963,18 @@ class RetirementPlanner {
            
            data.items.forEach((item, index) => {
              html += `<tr class="expense-row"><td class="ps-3 align-middle border-bottom border-secondary">
-                    <input type="text" class="form-control form-control-sm bg-transparent border-0 expense-update" 
+                    <input type="text" class="form-control form-control-sm bg-transparent border-0 text-body expense-update" 
                            value="${item.name}" data-cat="${category}" data-idx="${index}" data-field="name">
                 </td>`;
-                
+               
              if(this.state.expenseMode === 'Simple') {
                  html += `
                  <td class="align-middle border-bottom border-secondary">
                     <div class="input-group input-group-sm">
                         <span class="input-group-text border-secondary text-muted">$</span>
-                        <input type="text" class="form-control border-secondary formatted-num expense-update" 
+                        <input type="text" class="form-control border-secondary text-body formatted-num expense-update" 
                                style="width: 100px; flex-grow: 1;" value="${item.curr.toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="curr">
-                        <select class="form-select border-secondary expense-update" style="width: auto; flex-grow: 0; min-width: 85px;"
+                        <select class="form-select border-secondary text-body expense-update" style="width: auto; flex-grow: 0; min-width: 85px;"
                                 data-cat="${category}" data-idx="${index}" data-field="freq">
                             <option value="12" ${item.freq===12?'selected':''}>/month</option>
                             <option value="1" ${item.freq===1?'selected':''}>/year</option>
@@ -1985,9 +1985,9 @@ class RetirementPlanner {
                      <div class="d-flex align-items-center">
                         <div class="input-group input-group-sm flex-grow-1">
                             <span class="input-group-text border-secondary text-muted">$</span>
-                            <input type="text" class="form-control border-secondary formatted-num expense-update" 
+                            <input type="text" class="form-control border-secondary text-body formatted-num expense-update" 
                                    style="width: 100px; flex-grow: 1;" value="${item.ret.toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="ret">
-                            <select class="form-select border-secondary expense-update" style="width: auto; flex-grow: 0; min-width: 85px;"
+                            <select class="form-select border-secondary text-body expense-update" style="width: auto; flex-grow: 0; min-width: 85px;"
                                     data-cat="${category}" data-idx="${index}" data-field="freq"> 
                                 <option value="12" ${item.freq===12?'selected':''}>/month</option>
                                 <option value="1" ${item.freq===1?'selected':''}>/year</option>
@@ -2003,9 +2003,9 @@ class RetirementPlanner {
                  <td class="align-middle border-bottom border-secondary">
                     <div class="input-group input-group-sm mb-1" style="flex-wrap: nowrap;">
                         <span class="input-group-text border-secondary text-muted">$</span>
-                        <input type="text" class="form-control border-secondary formatted-num expense-update" 
+                        <input type="text" class="form-control border-secondary text-body formatted-num expense-update" 
                                style="min-width: 60px;" value="${(item.curr||0).toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="curr">
-                         <select class="form-select border-secondary expense-update" style="width: auto; flex-grow: 0; min-width: 85px;"
+                         <select class="form-select border-secondary text-body expense-update" style="width: auto; flex-grow: 0; min-width: 85px;"
                                 data-cat="${category}" data-idx="${index}" data-field="freq">
                             <option value="12" ${item.freq===12?'selected':''}>/month</option>
                             <option value="1" ${item.freq===1?'selected':''}>/year</option>
@@ -2078,7 +2078,7 @@ class RetirementPlanner {
             <div class="card-body p-3">
                 <div class="form-check form-switch">
                     <input class="form-check-input live-calc" type="checkbox" role="switch" id="strat_rrsp_topup" ${this.state.inputs['strat_rrsp_topup'] ? 'checked' : ''}>
-                    <label class="form-check-label text-body small fw-bold" for="strat_rrsp_topup">
+                    <label class="form-check-label text-white small fw-bold" for="strat_rrsp_topup">
                         RRSP Low-Income Top-Up
                         <div class="text-muted fw-normal mt-1" style="font-size:0.75rem; line-height: 1.2;">
                             Withdraws RRSP to fill the lowest tax bracket (~$55k) in years with low income. Funds are reinvested automatically.
@@ -2090,7 +2090,7 @@ class RetirementPlanner {
         decumContainer.appendChild(optCard);
 
         const title = document.createElement('h6');
-        title.className = "text-body small fw-bold mb-2 text-uppercase";
+        title.className = "text-white small fw-bold mb-2 text-uppercase";
         title.innerText = "Withdrawal Order (Drag to Reorder)";
         decumContainer.appendChild(title);
 
@@ -2522,7 +2522,7 @@ class RetirementPlanner {
         let compHTML = `<div class="d-flex align-items-center mb-2 p-2 rounded" style="background: rgba(255,255,255,0.05);">
             <div class="form-check form-switch">
                 <input class="form-check-input" type="checkbox" role="switch" value="current" id="comp_current" checked>
-                <label class="form-check-label text-body small" for="comp_current">Current Unsaved Plan</label>
+                <label class="form-check-label text-white small" for="comp_current">Current Unsaved Plan</label>
             </div>
         </div>`;
 
@@ -2541,7 +2541,7 @@ class RetirementPlanner {
             compHTML += `<div class="d-flex align-items-center mb-2 p-2 rounded" style="background: rgba(255,255,255,0.05);">
                 <div class="form-check form-switch">
                     <input class="form-check-input" type="checkbox" role="switch" value="${idx}" id="comp_${idx}">
-                    <label class="form-check-label text-body small" for="comp_${idx}">${s.name}</label>
+                    <label class="form-check-label text-white small" for="comp_${idx}">${s.name}</label>
                 </div>
             </div>`;
         });
