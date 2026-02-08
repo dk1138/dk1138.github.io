@@ -1,11 +1,11 @@
 /**
- * Retirement Planner Pro - Logic v10.4 (Theme & Contrast Fixes)
+ * Retirement Planner Pro - Logic v10.4 (Light Mode Table Fix)
  * Features:
  * - Auto-save to LocalStorage
  * - Save/Load/Export JSON Configuration
  * - Debounced Inputs for Smoothness
  * - Sidebar Sync on Load
- * - Light/Dark Theme Support (Full Visibility Fix)
+ * - Light/Dark Theme Support (Enhanced)
  */
 
 class RetirementPlanner {
@@ -246,6 +246,7 @@ class RetirementPlanner {
         localStorage.setItem(this.THEME_KEY, next);
         this.updateThemeIcon(next);
         this.fixImportLabelContrast(next);
+        this.renderExpenseRows(); // Re-render table to fix headers in light mode
         this.run(); // Re-run to update charts (Sankey colors)
     }
 
@@ -1461,11 +1462,11 @@ class RetirementPlanner {
             } else {
                  if(!fullyRetired) activePhaseExpenses = expCurrent;
                  else {
-                     // Check against Phase Ages
-                     const ageCheck = p1_age;
-                     if(ageCheck < goGoLimit) activePhaseExpenses = expGoGo;
-                     else if(ageCheck < slowGoLimit) activePhaseExpenses = expSlow;
-                     else activePhaseExpenses = expNoGo;
+                      // Check against Phase Ages
+                      const ageCheck = p1_age;
+                      if(ageCheck < goGoLimit) activePhaseExpenses = expGoGo;
+                      else if(ageCheck < slowGoLimit) activePhaseExpenses = expSlow;
+                      else activePhaseExpenses = expNoGo;
                  }
             }
 
@@ -1709,7 +1710,7 @@ class RetirementPlanner {
                         <div class="detail-title">Income Sources</div>
                         ${incomeLines}
                         <div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;">
-                            <span class="text-body">Total Net</span> <span class="text-success fw-bold">${fmtK(d.householdNet)}</span>
+                            <span class="text-white">Total Net</span> <span class="text-success fw-bold">${fmtK(d.householdNet)}</span>
                         </div>
                     </div>`;
 
@@ -1725,7 +1726,7 @@ class RetirementPlanner {
                         <div class="detail-title">Outflows & Taxes</div>
                         ${expenseLines}
                         <div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;">
-                            <span class="text-body">Total Out</span> <span class="text-danger fw-bold">${fmtK(d.visualExpenses)}</span>
+                            <span class="text-white">Total Out</span> <span class="text-danger fw-bold">${fmtK(d.visualExpenses)}</span>
                         </div>
                     </div>`;
 
@@ -1752,7 +1753,7 @@ class RetirementPlanner {
                         <div class="detail-title">Assets (End of Year)</div>
                         ${assetLines}
                         <div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;">
-                            <span class="text-body">Total NW</span> <span class="text-info fw-bold">${fmtK(d.debugNW)}</span>
+                            <span class="text-white">Total NW</span> <span class="text-info fw-bold">${fmtK(d.debugNW)}</span>
                         </div>
                     </div>`;
 
@@ -1937,24 +1938,31 @@ class RetirementPlanner {
         const renderInput = (item, field, idx, cat) => `
             <div class="input-group input-group-sm mb-1" style="flex-wrap: nowrap;">
                 <span class="input-group-text border-secondary text-muted">$</span>
-                <input type="text" class="form-control border-secondary text-body formatted-num expense-update" 
+                <input type="text" class="form-control border-secondary formatted-num expense-update" 
                        style="min-width: 60px;" value="${(item[field]||0).toLocaleString()}" data-cat="${cat}" data-idx="${idx}" data-field="${field}">
             </div>
         `;
+        
+        // --- THEME DETECTION FOR TABLE ROW STYLING ---
+        const theme = document.documentElement.getAttribute('data-bs-theme') || 'dark';
+        const rowBg = theme === 'light' ? 'bg-white' : 'bg-body-tertiary';
+        const rowText = theme === 'light' ? 'text-dark' : 'text-white';
+        const rowBorder = theme === 'light' ? 'border-dark-subtle' : 'border-secondary';
+        const addBtnClass = theme === 'light' ? 'text-secondary' : 'text-white';
 
         for (const [category, data] of Object.entries(this.expensesByCategory)) {
-           const meta = catMeta[category] || { icon: "bi-tag-fill", color: "text-body" };
+           const meta = catMeta[category] || { icon: "bi-tag-fill", color: "text-white" };
            const colspan = this.state.expenseMode === 'Simple' ? 3 : 6;
            
            html += `
            <tr class="expense-category-row">
-               <td colspan="${colspan}" class="py-3 ps-3 border-bottom border-secondary bg-body-tertiary">
+               <td colspan="${colspan}" class="py-3 ps-3 border-bottom ${rowBorder} ${rowBg} ${rowText}">
                    <div class="d-flex align-items-center justify-content-between">
                        <div class="d-flex align-items-center">
                            <i class="bi ${meta.icon} ${meta.color} me-2 fs-6"></i>
                            <span class="text-uppercase fw-bold ${meta.color} small" style="letter-spacing: 1px;">${category}</span>
                        </div>
-                       <button type="button" class="btn btn-sm btn-link text-body p-0 me-3" title="Add Row" onclick="app.addExpense('${category}')">
+                       <button type="button" class="btn btn-sm btn-link ${addBtnClass} p-0 me-3" title="Add Row" onclick="app.addExpense('${category}')">
                            <i class="bi bi-plus-circle-fill text-success fs-5"></i>
                        </button>
                    </div>
@@ -1963,18 +1971,18 @@ class RetirementPlanner {
            
            data.items.forEach((item, index) => {
              html += `<tr class="expense-row"><td class="ps-3 align-middle border-bottom border-secondary">
-                    <input type="text" class="form-control form-control-sm bg-transparent border-0 text-body expense-update" 
+                    <input type="text" class="form-control form-control-sm bg-transparent border-0 expense-update" 
                            value="${item.name}" data-cat="${category}" data-idx="${index}" data-field="name">
                 </td>`;
-               
+                
              if(this.state.expenseMode === 'Simple') {
                  html += `
                  <td class="align-middle border-bottom border-secondary">
                     <div class="input-group input-group-sm">
                         <span class="input-group-text border-secondary text-muted">$</span>
-                        <input type="text" class="form-control border-secondary text-body formatted-num expense-update" 
+                        <input type="text" class="form-control border-secondary formatted-num expense-update" 
                                style="width: 100px; flex-grow: 1;" value="${item.curr.toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="curr">
-                        <select class="form-select border-secondary text-body expense-update" style="width: auto; flex-grow: 0; min-width: 85px;"
+                        <select class="form-select border-secondary expense-update" style="width: auto; flex-grow: 0; min-width: 85px;"
                                 data-cat="${category}" data-idx="${index}" data-field="freq">
                             <option value="12" ${item.freq===12?'selected':''}>/month</option>
                             <option value="1" ${item.freq===1?'selected':''}>/year</option>
@@ -1985,9 +1993,9 @@ class RetirementPlanner {
                      <div class="d-flex align-items-center">
                         <div class="input-group input-group-sm flex-grow-1">
                             <span class="input-group-text border-secondary text-muted">$</span>
-                            <input type="text" class="form-control border-secondary text-body formatted-num expense-update" 
+                            <input type="text" class="form-control border-secondary formatted-num expense-update" 
                                    style="width: 100px; flex-grow: 1;" value="${item.ret.toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="ret">
-                            <select class="form-select border-secondary text-body expense-update" style="width: auto; flex-grow: 0; min-width: 85px;"
+                            <select class="form-select border-secondary expense-update" style="width: auto; flex-grow: 0; min-width: 85px;"
                                     data-cat="${category}" data-idx="${index}" data-field="freq"> 
                                 <option value="12" ${item.freq===12?'selected':''}>/month</option>
                                 <option value="1" ${item.freq===1?'selected':''}>/year</option>
@@ -2003,9 +2011,9 @@ class RetirementPlanner {
                  <td class="align-middle border-bottom border-secondary">
                     <div class="input-group input-group-sm mb-1" style="flex-wrap: nowrap;">
                         <span class="input-group-text border-secondary text-muted">$</span>
-                        <input type="text" class="form-control border-secondary text-body formatted-num expense-update" 
+                        <input type="text" class="form-control border-secondary formatted-num expense-update" 
                                style="min-width: 60px;" value="${(item.curr||0).toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="curr">
-                         <select class="form-select border-secondary text-body expense-update" style="width: auto; flex-grow: 0; min-width: 85px;"
+                         <select class="form-select border-secondary expense-update" style="width: auto; flex-grow: 0; min-width: 85px;"
                                 data-cat="${category}" data-idx="${index}" data-field="freq">
                             <option value="12" ${item.freq===12?'selected':''}>/month</option>
                             <option value="1" ${item.freq===1?'selected':''}>/year</option>
@@ -2115,7 +2123,7 @@ class RetirementPlanner {
             li.className = 'strat-item';
             li.draggable = true;
             li.setAttribute('data-key', key);
-            li.innerHTML = `<span class="fw-bold text-body small"><span class="badge bg-secondary me-2 rounded-circle">${index + 1}</span> ${this.strategyLabels[key]}</span> <i class="bi bi-grip-vertical grip-icon fs-5"></i>`;
+            li.innerHTML = `<span class="fw-bold text-white small"><span class="badge bg-secondary me-2 rounded-circle">${index + 1}</span> ${this.strategyLabels[key]}</span> <i class="bi bi-grip-vertical grip-icon fs-5"></i>`;
             
             li.addEventListener('dragstart', () => { li.classList.add('dragging'); li.style.opacity = '0.5'; });
             li.addEventListener('dragend', () => { 
@@ -2328,11 +2336,11 @@ class RetirementPlanner {
         if (!container) return;
         if(gross > 0) {
             container.innerHTML = `
-                <div class="d-flex justify-content-between border-bottom border-secondary pb-1 mb-1"><span class="text-muted">Federal Tax</span> <span class="text-body">($${Math.round(data.fed).toLocaleString()}) ${((data.fed/gross)*100).toFixed(1)}%</span></div>
-                <div class="d-flex justify-content-between border-bottom border-secondary pb-1 mb-1"><span class="text-muted">Provincial Tax</span> <span class="text-body">($${Math.round(data.prov).toLocaleString()}) ${((data.prov/gross)*100).toFixed(1)}%</span></div>
-                <div class="d-flex justify-content-between border-bottom border-secondary pb-1 mb-1"><span class="text-muted">CPP/EI Premiums</span> <span class="text-body">($${Math.round(data.cpp_ei).toLocaleString()})</span></div>
+                <div class="d-flex justify-content-between border-bottom border-secondary pb-1 mb-1"><span class="text-muted">Federal Tax</span> <span class="text-white">($${Math.round(data.fed).toLocaleString()}) ${((data.fed/gross)*100).toFixed(1)}%</span></div>
+                <div class="d-flex justify-content-between border-bottom border-secondary pb-1 mb-1"><span class="text-muted">Provincial Tax</span> <span class="text-white">($${Math.round(data.prov).toLocaleString()}) ${((data.prov/gross)*100).toFixed(1)}%</span></div>
+                <div class="d-flex justify-content-between border-bottom border-secondary pb-1 mb-1"><span class="text-muted">CPP/EI Premiums</span> <span class="text-white">($${Math.round(data.cpp_ei).toLocaleString()})</span></div>
                 <div class="d-flex justify-content-between mt-2"><span class="text-warning fw-bold">Total Tax</span> <span class="text-warning fw-bold">($${Math.round(data.totalTax).toLocaleString()})</span></div>
-                <div class="d-flex justify-content-between"><span class="text-muted">Marginal Rate</span> <span class="text-body">${(data.margRate*100).toFixed(2)}%</span></div>
+                <div class="d-flex justify-content-between"><span class="text-muted">Marginal Rate</span> <span class="text-white">${(data.margRate*100).toFixed(2)}%</span></div>
                 <div class="d-flex justify-content-between mt-2 pt-2 border-top border-white"><span class="text-success fw-bold">After-Tax Income</span> <span class="text-success fw-bold">$${Math.round(gross - data.totalTax).toLocaleString()}</span></div>
             `;
         } else { container.innerHTML = `<span class="text-muted text-center d-block small">No Income Entered</span>`; }
