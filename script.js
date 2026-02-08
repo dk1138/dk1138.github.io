@@ -1,11 +1,11 @@
 /**
- * Retirement Planner Pro - Logic v10.8 (Final Visual Fixes)
+ * Retirement Planner Pro - Logic v10.9 (Timeline & Import Button Fix)
  * Features:
  * - Auto-save to LocalStorage
  * - Save/Load/Export JSON Configuration
  * - Debounced Inputs for Smoothness
  * - Sidebar Sync on Load
- * - Light/Dark Theme Support (Full UI Polish: Grid, Icons, Text)
+ * - Light/Dark Theme Support (Timeline, Headers, Buttons fully fixed)
  */
 
 class RetirementPlanner {
@@ -236,6 +236,7 @@ class RetirementPlanner {
         const savedTheme = localStorage.getItem(this.THEME_KEY) || 'dark';
         document.documentElement.setAttribute('data-bs-theme', savedTheme);
         this.updateThemeIcon(savedTheme);
+        this.updateImportButton(savedTheme); // Fix Import Button on Load
         this.fixImportLabelContrast(savedTheme);
     }
 
@@ -246,9 +247,10 @@ class RetirementPlanner {
         html.setAttribute('data-bs-theme', next);
         localStorage.setItem(this.THEME_KEY, next);
         this.updateThemeIcon(next);
+        this.updateImportButton(next); // Fix Import Button on Toggle
         this.fixImportLabelContrast(next);
         this.renderExpenseRows(); 
-        this.run(); // Re-run to update charts and Grid for Headers
+        this.run(); // Re-run to update charts and Grid
     }
 
     updateThemeIcon(theme) {
@@ -264,8 +266,24 @@ class RetirementPlanner {
         }
     }
 
+    // New Helper to Fix the Import Button Border/Text
+    updateImportButton(theme) {
+        const lbl = document.querySelector('label[for="fileUpload"]');
+        if(lbl) {
+            if(theme === 'light') {
+                // Light mode: Dark border, dark text
+                lbl.classList.remove('btn-outline-secondary', 'text-white');
+                lbl.classList.add('btn-outline-dark', 'text-dark');
+            } else {
+                // Dark mode: Grey border, white text
+                lbl.classList.remove('btn-outline-dark', 'text-dark');
+                lbl.classList.add('btn-outline-secondary', 'text-white');
+            }
+        }
+    }
+
     fixImportLabelContrast(theme) {
-        // Targeted fix for file input label if it exists in DOM
+        // Fallback for file input label if updateImportButton misses anything
         const lbl = document.querySelector('label[for="fileUpload"]');
         if(lbl) {
             if(theme === 'light') {
@@ -1039,7 +1057,7 @@ class RetirementPlanner {
         if(!def) return '';
         
         let colorClass = def.color;
-        // Fix for light mode invisibility: swap white for dark, cyan to blue
+        // Fix for light mode invisibility: swap white for dark, cyan to blue, yellow to dark
         if(theme === 'light') {
             if (colorClass.includes('text-white')) colorClass = 'text-dark';
             if (colorClass.includes('text-info')) colorClass = 'text-primary'; 
@@ -1830,7 +1848,7 @@ class RetirementPlanner {
         if(!def) return '';
         
         let colorClass = def.color;
-        // Fix for light mode invisibility: swap white for dark, cyan to blue
+        // Fix for light mode invisibility: swap white for dark, cyan to blue, yellow to dark
         if(theme === 'light') {
             if (colorClass.includes('text-white')) colorClass = 'text-dark';
             if (colorClass.includes('text-info')) colorClass = 'text-primary'; 
