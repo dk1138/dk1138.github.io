@@ -1,11 +1,11 @@
 /**
- * Retirement Planner Pro - Logic v10.4 (Light Mode Table Fix)
+ * Retirement Planner Pro - Logic v10.5 (Light Mode Background Fix)
  * Features:
  * - Auto-save to LocalStorage
  * - Save/Load/Export JSON Configuration
  * - Debounced Inputs for Smoothness
  * - Sidebar Sync on Load
- * - Light/Dark Theme Support (Enhanced)
+ * - Light/Dark Theme Support (Fixed Rows)
  */
 
 class RetirementPlanner {
@@ -1935,10 +1935,10 @@ class RetirementPlanner {
             "Lifestyle": { icon: "bi-airplane-engines-fill", color: "text-info" }
         };
 
-        const renderInput = (item, field, idx, cat) => `
+        const renderInput = (item, field, idx, cat, inputClass) => `
             <div class="input-group input-group-sm mb-1" style="flex-wrap: nowrap;">
                 <span class="input-group-text border-secondary text-muted">$</span>
-                <input type="text" class="form-control border-secondary formatted-num expense-update" 
+                <input type="text" class="form-control border-secondary formatted-num expense-update ${inputClass}" 
                        style="min-width: 60px;" value="${(item[field]||0).toLocaleString()}" data-cat="${cat}" data-idx="${idx}" data-field="${field}">
             </div>
         `;
@@ -1949,6 +1949,8 @@ class RetirementPlanner {
         const rowText = theme === 'light' ? 'text-dark' : 'text-white';
         const rowBorder = theme === 'light' ? 'border-dark-subtle' : 'border-secondary';
         const addBtnClass = theme === 'light' ? 'text-secondary' : 'text-white';
+        // Explicit input background class
+        const inputClass = theme === 'light' ? 'bg-white text-dark' : 'bg-transparent text-white';
 
         for (const [category, data] of Object.entries(this.expensesByCategory)) {
            const meta = catMeta[category] || { icon: "bi-tag-fill", color: "text-white" };
@@ -1970,32 +1972,32 @@ class RetirementPlanner {
            </tr>`;
            
            data.items.forEach((item, index) => {
-             html += `<tr class="expense-row"><td class="ps-3 align-middle border-bottom border-secondary">
-                    <input type="text" class="form-control form-control-sm bg-transparent border-0 expense-update" 
+             html += `<tr class="expense-row"><td class="ps-3 align-middle border-bottom border-secondary ${rowBg} ${rowText}">
+                    <input type="text" class="form-control form-control-sm border-0 expense-update ${inputClass}" 
                            value="${item.name}" data-cat="${category}" data-idx="${index}" data-field="name">
                 </td>`;
                 
              if(this.state.expenseMode === 'Simple') {
                  html += `
-                 <td class="align-middle border-bottom border-secondary">
+                 <td class="align-middle border-bottom border-secondary ${rowBg} ${rowText}">
                     <div class="input-group input-group-sm">
                         <span class="input-group-text border-secondary text-muted">$</span>
-                        <input type="text" class="form-control border-secondary formatted-num expense-update" 
+                        <input type="text" class="form-control border-secondary formatted-num expense-update ${inputClass}" 
                                style="width: 100px; flex-grow: 1;" value="${item.curr.toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="curr">
-                        <select class="form-select border-secondary expense-update" style="width: auto; flex-grow: 0; min-width: 85px;"
+                        <select class="form-select border-secondary expense-update ${inputClass}" style="width: auto; flex-grow: 0; min-width: 85px;"
                                 data-cat="${category}" data-idx="${index}" data-field="freq">
                             <option value="12" ${item.freq===12?'selected':''}>/month</option>
                             <option value="1" ${item.freq===1?'selected':''}>/year</option>
                         </select>
                     </div>
                  </td>
-                 <td class="align-middle border-bottom border-secondary">
+                 <td class="align-middle border-bottom border-secondary ${rowBg} ${rowText}">
                      <div class="d-flex align-items-center">
                         <div class="input-group input-group-sm flex-grow-1">
                             <span class="input-group-text border-secondary text-muted">$</span>
-                            <input type="text" class="form-control border-secondary formatted-num expense-update" 
+                            <input type="text" class="form-control border-secondary formatted-num expense-update ${inputClass}" 
                                    style="width: 100px; flex-grow: 1;" value="${item.ret.toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="ret">
-                            <select class="form-select border-secondary expense-update" style="width: auto; flex-grow: 0; min-width: 85px;"
+                            <select class="form-select border-secondary expense-update ${inputClass}" style="width: auto; flex-grow: 0; min-width: 85px;"
                                     data-cat="${category}" data-idx="${index}" data-field="freq"> 
                                 <option value="12" ${item.freq===12?'selected':''}>/month</option>
                                 <option value="1" ${item.freq===1?'selected':''}>/year</option>
@@ -2008,24 +2010,24 @@ class RetirementPlanner {
                  </td>`;
              } else {
                  html += `
-                 <td class="align-middle border-bottom border-secondary">
+                 <td class="align-middle border-bottom border-secondary ${rowBg} ${rowText}">
                     <div class="input-group input-group-sm mb-1" style="flex-wrap: nowrap;">
                         <span class="input-group-text border-secondary text-muted">$</span>
-                        <input type="text" class="form-control border-secondary formatted-num expense-update" 
+                        <input type="text" class="form-control border-secondary formatted-num expense-update ${inputClass}" 
                                style="min-width: 60px;" value="${(item.curr||0).toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="curr">
-                         <select class="form-select border-secondary expense-update" style="width: auto; flex-grow: 0; min-width: 85px;"
+                         <select class="form-select border-secondary expense-update ${inputClass}" style="width: auto; flex-grow: 0; min-width: 85px;"
                                 data-cat="${category}" data-idx="${index}" data-field="freq">
                             <option value="12" ${item.freq===12?'selected':''}>/month</option>
                             <option value="1" ${item.freq===1?'selected':''}>/year</option>
                         </select>
                     </div>
                  </td>
-                 <td class="align-middle border-bottom border-secondary">${renderInput(item, 'trans', index, category)}</td>
-                 <td class="align-middle border-bottom border-secondary">${renderInput(item, 'gogo', index, category)}</td>
-                 <td class="align-middle border-bottom border-secondary">${renderInput(item, 'slow', index, category)}</td>
-                 <td class="align-middle border-bottom border-secondary">
+                 <td class="align-middle border-bottom border-secondary ${rowBg} ${rowText}">${renderInput(item, 'trans', index, category, inputClass)}</td>
+                 <td class="align-middle border-bottom border-secondary ${rowBg} ${rowText}">${renderInput(item, 'gogo', index, category, inputClass)}</td>
+                 <td class="align-middle border-bottom border-secondary ${rowBg} ${rowText}">${renderInput(item, 'slow', index, category, inputClass)}</td>
+                 <td class="align-middle border-bottom border-secondary ${rowBg} ${rowText}">
                      <div class="d-flex align-items-center justify-content-between">
-                        ${renderInput(item, 'nogo', index, category)}
+                        ${renderInput(item, 'nogo', index, category, inputClass)}
                         <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2" onclick="app.removeExpense('${category}', ${index})">
                             <i class="bi bi-trash"></i>
                         </button>
