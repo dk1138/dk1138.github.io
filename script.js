@@ -1,11 +1,11 @@
 /**
- * Retirement Planner Pro - Logic v10.3 (Theme Fixes)
+ * Retirement Planner Pro - Logic v10.4 (Theme & Contrast Fixes)
  * Features:
  * - Auto-save to LocalStorage
  * - Save/Load/Export JSON Configuration
  * - Debounced Inputs for Smoothness
  * - Sidebar Sync on Load
- * - Light/Dark Theme Support (Fixed)
+ * - Light/Dark Theme Support (Fixed for Contrast)
  */
 
 class RetirementPlanner {
@@ -160,8 +160,8 @@ class RetirementPlanner {
             "P2 CPP": '<i class="bi bi-file-earmark-text text-purple" title="P2 Starts CPP"></i>',
             "P2 OAS": '<i class="bi bi-cash text-purple" title="P2 Starts OAS"></i>',
             "Crash": '<i class="bi bi-graph-down-arrow text-danger" title="Stress Test: Market Crash (-15%)"></i>',
-            "P1 Dies": '<i class="bi bi-heartbreak-fill text-white" title="P1 Deceased"></i>',
-            "P2 Dies": '<i class="bi bi-heartbreak text-white" title="P2 Deceased"></i>',
+            "P1 Dies": '<i class="bi bi-heartbreak-fill text-body" title="P1 Deceased"></i>',
+            "P2 Dies": '<i class="bi bi-heartbreak text-body" title="P2 Deceased"></i>',
             "Windfall": '<i class="bi bi-gift-fill text-success" title="Inheritance/Bonus Received"></i>'
         };
 
@@ -1709,7 +1709,7 @@ class RetirementPlanner {
                         <div class="detail-title">Income Sources</div>
                         ${incomeLines}
                         <div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;">
-                            <span class="text-white">Total Net</span> <span class="text-success fw-bold">${fmtK(d.householdNet)}</span>
+                            <span class="text-body">Total Net</span> <span class="text-success fw-bold">${fmtK(d.householdNet)}</span>
                         </div>
                     </div>`;
 
@@ -1725,7 +1725,7 @@ class RetirementPlanner {
                         <div class="detail-title">Outflows & Taxes</div>
                         ${expenseLines}
                         <div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;">
-                            <span class="text-white">Total Out</span> <span class="text-danger fw-bold">${fmtK(d.visualExpenses)}</span>
+                            <span class="text-body">Total Out</span> <span class="text-danger fw-bold">${fmtK(d.visualExpenses)}</span>
                         </div>
                     </div>`;
 
@@ -1752,7 +1752,7 @@ class RetirementPlanner {
                         <div class="detail-title">Assets (End of Year)</div>
                         ${assetLines}
                         <div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;">
-                            <span class="text-white">Total NW</span> <span class="text-info fw-bold">${fmtK(d.debugNW)}</span>
+                            <span class="text-body">Total NW</span> <span class="text-info fw-bold">${fmtK(d.debugNW)}</span>
                         </div>
                     </div>`;
 
@@ -1943,7 +1943,7 @@ class RetirementPlanner {
         `;
 
         for (const [category, data] of Object.entries(this.expensesByCategory)) {
-           const meta = catMeta[category] || { icon: "bi-tag-fill", color: "text-white" };
+           const meta = catMeta[category] || { icon: "bi-tag-fill", color: "text-body" };
            const colspan = this.state.expenseMode === 'Simple' ? 3 : 6;
            
            html += `
@@ -1954,7 +1954,7 @@ class RetirementPlanner {
                            <i class="bi ${meta.icon} ${meta.color} me-2 fs-6"></i>
                            <span class="text-uppercase fw-bold ${meta.color} small" style="letter-spacing: 1px;">${category}</span>
                        </div>
-                       <button type="button" class="btn btn-sm btn-link text-white p-0 me-3" title="Add Row" onclick="app.addExpense('${category}')">
+                       <button type="button" class="btn btn-sm btn-link text-body p-0 me-3" title="Add Row" onclick="app.addExpense('${category}')">
                            <i class="bi bi-plus-circle-fill text-success fs-5"></i>
                        </button>
                    </div>
@@ -2078,7 +2078,7 @@ class RetirementPlanner {
             <div class="card-body p-3">
                 <div class="form-check form-switch">
                     <input class="form-check-input live-calc" type="checkbox" role="switch" id="strat_rrsp_topup" ${this.state.inputs['strat_rrsp_topup'] ? 'checked' : ''}>
-                    <label class="form-check-label text-white small fw-bold" for="strat_rrsp_topup">
+                    <label class="form-check-label text-body small fw-bold" for="strat_rrsp_topup">
                         RRSP Low-Income Top-Up
                         <div class="text-muted fw-normal mt-1" style="font-size:0.75rem; line-height: 1.2;">
                             Withdraws RRSP to fill the lowest tax bracket (~$55k) in years with low income. Funds are reinvested automatically.
@@ -2090,7 +2090,7 @@ class RetirementPlanner {
         decumContainer.appendChild(optCard);
 
         const title = document.createElement('h6');
-        title.className = "text-white small fw-bold mb-2 text-uppercase";
+        title.className = "text-body small fw-bold mb-2 text-uppercase";
         title.innerText = "Withdrawal Order (Drag to Reorder)";
         decumContainer.appendChild(title);
 
@@ -2115,7 +2115,7 @@ class RetirementPlanner {
             li.className = 'strat-item';
             li.draggable = true;
             li.setAttribute('data-key', key);
-            li.innerHTML = `<span class="fw-bold text-white small"><span class="badge bg-secondary me-2 rounded-circle">${index + 1}</span> ${this.strategyLabels[key]}</span> <i class="bi bi-grip-vertical grip-icon fs-5"></i>`;
+            li.innerHTML = `<span class="fw-bold text-body small"><span class="badge bg-secondary me-2 rounded-circle">${index + 1}</span> ${this.strategyLabels[key]}</span> <i class="bi bi-grip-vertical grip-icon fs-5"></i>`;
             
             li.addEventListener('dragstart', () => { li.classList.add('dragging'); li.style.opacity = '0.5'; });
             li.addEventListener('dragend', () => { 
@@ -2328,11 +2328,11 @@ class RetirementPlanner {
         if (!container) return;
         if(gross > 0) {
             container.innerHTML = `
-                <div class="d-flex justify-content-between border-bottom border-secondary pb-1 mb-1"><span class="text-muted">Federal Tax</span> <span class="text-white">($${Math.round(data.fed).toLocaleString()}) ${((data.fed/gross)*100).toFixed(1)}%</span></div>
-                <div class="d-flex justify-content-between border-bottom border-secondary pb-1 mb-1"><span class="text-muted">Provincial Tax</span> <span class="text-white">($${Math.round(data.prov).toLocaleString()}) ${((data.prov/gross)*100).toFixed(1)}%</span></div>
-                <div class="d-flex justify-content-between border-bottom border-secondary pb-1 mb-1"><span class="text-muted">CPP/EI Premiums</span> <span class="text-white">($${Math.round(data.cpp_ei).toLocaleString()})</span></div>
+                <div class="d-flex justify-content-between border-bottom border-secondary pb-1 mb-1"><span class="text-muted">Federal Tax</span> <span class="text-body">($${Math.round(data.fed).toLocaleString()}) ${((data.fed/gross)*100).toFixed(1)}%</span></div>
+                <div class="d-flex justify-content-between border-bottom border-secondary pb-1 mb-1"><span class="text-muted">Provincial Tax</span> <span class="text-body">($${Math.round(data.prov).toLocaleString()}) ${((data.prov/gross)*100).toFixed(1)}%</span></div>
+                <div class="d-flex justify-content-between border-bottom border-secondary pb-1 mb-1"><span class="text-muted">CPP/EI Premiums</span> <span class="text-body">($${Math.round(data.cpp_ei).toLocaleString()})</span></div>
                 <div class="d-flex justify-content-between mt-2"><span class="text-warning fw-bold">Total Tax</span> <span class="text-warning fw-bold">($${Math.round(data.totalTax).toLocaleString()})</span></div>
-                <div class="d-flex justify-content-between"><span class="text-muted">Marginal Rate</span> <span class="text-white">${(data.margRate*100).toFixed(2)}%</span></div>
+                <div class="d-flex justify-content-between"><span class="text-muted">Marginal Rate</span> <span class="text-body">${(data.margRate*100).toFixed(2)}%</span></div>
                 <div class="d-flex justify-content-between mt-2 pt-2 border-top border-white"><span class="text-success fw-bold">After-Tax Income</span> <span class="text-success fw-bold">$${Math.round(gross - data.totalTax).toLocaleString()}</span></div>
             `;
         } else { container.innerHTML = `<span class="text-muted text-center d-block small">No Income Entered</span>`; }
@@ -2522,7 +2522,7 @@ class RetirementPlanner {
         let compHTML = `<div class="d-flex align-items-center mb-2 p-2 rounded" style="background: rgba(255,255,255,0.05);">
             <div class="form-check form-switch">
                 <input class="form-check-input" type="checkbox" role="switch" value="current" id="comp_current" checked>
-                <label class="form-check-label text-white small" for="comp_current">Current Unsaved Plan</label>
+                <label class="form-check-label text-body small" for="comp_current">Current Unsaved Plan</label>
             </div>
         </div>`;
 
@@ -2541,7 +2541,7 @@ class RetirementPlanner {
             compHTML += `<div class="d-flex align-items-center mb-2 p-2 rounded" style="background: rgba(255,255,255,0.05);">
                 <div class="form-check form-switch">
                     <input class="form-check-input" type="checkbox" role="switch" value="${idx}" id="comp_${idx}">
-                    <label class="form-check-label text-white small" for="comp_${idx}">${s.name}</label>
+                    <label class="form-check-label text-body small" for="comp_${idx}">${s.name}</label>
                 </div>
             </div>`;
         });
