@@ -1,11 +1,11 @@
 /**
- * Retirement Planner Pro - Logic v10.5 (Light Mode Background Fix)
+ * Retirement Planner Pro - Logic v10.6 (Header Fix for Light Mode)
  * Features:
  * - Auto-save to LocalStorage
  * - Save/Load/Export JSON Configuration
  * - Debounced Inputs for Smoothness
  * - Sidebar Sync on Load
- * - Light/Dark Theme Support (Fixed Rows)
+ * - Light/Dark Theme Support (Full Fix)
  */
 
 class RetirementPlanner {
@@ -1905,24 +1905,35 @@ class RetirementPlanner {
         const tbody = document.getElementById('expenseTableBody'); 
         const thead = document.getElementById('expenseTableHeader');
         
+        // --- DYNAMIC HEADER STYLING ---
+        const theme = document.documentElement.getAttribute('data-bs-theme') || 'dark';
+        const rowBg = theme === 'light' ? 'bg-white' : 'bg-body-tertiary';
+        const rowText = theme === 'light' ? 'text-dark' : 'text-white';
+        const rowBorder = theme === 'light' ? 'border-dark-subtle' : 'border-secondary';
+        const addBtnClass = theme === 'light' ? 'text-secondary' : 'text-white';
+        const inputClass = theme === 'light' ? 'bg-white text-dark' : 'bg-transparent text-white';
+        
+        // Use bg-white and text-dark for headers in light mode, otherwise standard text-muted
+        const headerClass = theme === 'light' ? 'bg-white text-dark border-bottom border-dark-subtle' : 'bg-transparent text-muted border-secondary';
+
         let headerHTML = ``;
         if(this.state.expenseMode === 'Simple') {
             headerHTML = `
-                <th class="text-uppercase text-muted small ps-3" style="width: 40%;">Category / Item</th>
-                <th class="text-uppercase text-muted small" style="width: 30%;">Current Spending</th>
-                <th class="text-uppercase text-muted small" style="width: 30%;">Retirement Spending</th>
+                <th class="text-uppercase small ps-3 ${headerClass}" style="width: 40%;">Category / Item</th>
+                <th class="text-uppercase small ${headerClass}" style="width: 30%;">Current Spending</th>
+                <th class="text-uppercase small ${headerClass}" style="width: 30%;">Retirement Spending</th>
             `;
         } else {
             const goGoAge = this.getRaw('exp_gogo_age') || 75;
             const slowGoAge = this.getRaw('exp_slow_age') || 85;
 
             headerHTML = `
-                <th class="text-uppercase text-muted small ps-3" style="width: 20%;">Item</th>
-                <th class="text-uppercase text-muted small" style="width: 16%;">Current</th>
-                <th class="text-uppercase text-muted small" style="width: 16%;">Trans</th>
-                <th class="text-uppercase text-muted small" style="width: 16%;">Go-Go <span style="font-size:0.6rem">(<${goGoAge})</span></th>
-                <th class="text-uppercase text-muted small" style="width: 16%;">Slow-Go <span style="font-size:0.6rem">(<${slowGoAge})</span></th>
-                <th class="text-uppercase text-muted small" style="width: 16%;">No-Go <span style="font-size:0.6rem">(${slowGoAge}+)</span></th>
+                <th class="text-uppercase small ps-3 ${headerClass}" style="width: 20%;">Item</th>
+                <th class="text-uppercase small ${headerClass}" style="width: 16%;">Current</th>
+                <th class="text-uppercase small ${headerClass}" style="width: 16%;">Trans</th>
+                <th class="text-uppercase small ${headerClass}" style="width: 16%;">Go-Go <span style="font-size:0.6rem">(<${goGoAge})</span></th>
+                <th class="text-uppercase small ${headerClass}" style="width: 16%;">Slow-Go <span style="font-size:0.6rem">(<${slowGoAge})</span></th>
+                <th class="text-uppercase small ${headerClass}" style="width: 16%;">No-Go <span style="font-size:0.6rem">(${slowGoAge}+)</span></th>
             `;
         }
         thead.innerHTML = headerHTML;
@@ -1942,15 +1953,6 @@ class RetirementPlanner {
                        style="min-width: 60px;" value="${(item[field]||0).toLocaleString()}" data-cat="${cat}" data-idx="${idx}" data-field="${field}">
             </div>
         `;
-        
-        // --- THEME DETECTION FOR TABLE ROW STYLING ---
-        const theme = document.documentElement.getAttribute('data-bs-theme') || 'dark';
-        const rowBg = theme === 'light' ? 'bg-white' : 'bg-body-tertiary';
-        const rowText = theme === 'light' ? 'text-dark' : 'text-white';
-        const rowBorder = theme === 'light' ? 'border-dark-subtle' : 'border-secondary';
-        const addBtnClass = theme === 'light' ? 'text-secondary' : 'text-white';
-        // Explicit input background class
-        const inputClass = theme === 'light' ? 'bg-white text-dark' : 'bg-transparent text-white';
 
         for (const [category, data] of Object.entries(this.expensesByCategory)) {
            const meta = catMeta[category] || { icon: "bi-tag-fill", color: "text-white" };
