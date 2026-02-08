@@ -1,11 +1,11 @@
 /**
- * Retirement Planner Pro - Logic v10.9 (Timeline & Import Button Fix)
+ * Retirement Planner Pro - Logic v10.10 (Import Button & Timeline Fixes)
  * Features:
  * - Auto-save to LocalStorage
  * - Save/Load/Export JSON Configuration
  * - Debounced Inputs for Smoothness
  * - Sidebar Sync on Load
- * - Light/Dark Theme Support (Timeline, Headers, Buttons fully fixed)
+ * - Light/Dark Theme Support (Timeline, Import Button, Headers fixed)
  */
 
 class RetirementPlanner {
@@ -151,7 +151,7 @@ class RetirementPlanner {
         this.optimalAges = { p1_cpp: 65, p1_oas: 65, p2_cpp: 65, p2_oas: 65 };
         this.strategyLabels = { 'tfsa': 'TFSA', 'rrsp': 'RRSP', 'nreg': 'Non-Reg', 'cash': 'Cash', 'crypto': 'Crypto' };
 
-        // Changed to Object storing definitions, NOT full HTML strings
+        // Changed to Object storing definitions
         this.iconDefs = {
             "P1 Retires": { icon: 'bi-cup-hot-fill', color: 'text-warning', title: "P1 Retires" },
             "P2 Retires": { icon: 'bi-cup-hot', color: 'text-purple', title: "P2 Retires" },
@@ -237,7 +237,6 @@ class RetirementPlanner {
         document.documentElement.setAttribute('data-bs-theme', savedTheme);
         this.updateThemeIcon(savedTheme);
         this.updateImportButton(savedTheme); // Fix Import Button on Load
-        this.fixImportLabelContrast(savedTheme);
     }
 
     toggleTheme() {
@@ -248,7 +247,6 @@ class RetirementPlanner {
         localStorage.setItem(this.THEME_KEY, next);
         this.updateThemeIcon(next);
         this.updateImportButton(next); // Fix Import Button on Toggle
-        this.fixImportLabelContrast(next);
         this.renderExpenseRows(); 
         this.run(); // Re-run to update charts and Grid
     }
@@ -266,7 +264,7 @@ class RetirementPlanner {
         }
     }
 
-    // New Helper to Fix the Import Button Border/Text
+    // Consolidated Import Button Fix
     updateImportButton(theme) {
         const lbl = document.querySelector('label[for="fileUpload"]');
         if(lbl) {
@@ -278,20 +276,6 @@ class RetirementPlanner {
                 // Dark mode: Grey border, white text
                 lbl.classList.remove('btn-outline-dark', 'text-dark');
                 lbl.classList.add('btn-outline-secondary', 'text-white');
-            }
-        }
-    }
-
-    fixImportLabelContrast(theme) {
-        // Fallback for file input label if updateImportButton misses anything
-        const lbl = document.querySelector('label[for="fileUpload"]');
-        if(lbl) {
-            if(theme === 'light') {
-                lbl.classList.remove('text-white');
-                lbl.classList.add('text-dark');
-            } else {
-                lbl.classList.remove('text-dark');
-                lbl.classList.add('text-white');
             }
         }
     }
