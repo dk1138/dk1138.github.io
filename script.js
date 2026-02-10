@@ -1,11 +1,12 @@
 /**
- * Retirement Planner Pro - Logic v10.10 (Import Button & Timeline Fixes)
+ * Retirement Planner Pro - Logic v10.11 (DB Pension Slider Update)
  * Features:
  * - Auto-save to LocalStorage
  * - Save/Load/Export JSON Configuration
  * - Debounced Inputs for Smoothness
  * - Sidebar Sync on Load
- * - Light/Dark Theme Support (Timeline, Import Button, Headers fixed)
+ * - Light/Dark Theme Support
+ * - DB Pension Start Age Sliders
  */
 
 class RetirementPlanner {
@@ -465,10 +466,10 @@ class RetirementPlanner {
                 const idx = parseInt(e.target.dataset.idx);
                 const field = e.target.dataset.field;
                 let val = e.target.value;
-                 
+                  
                 if (['curr', 'ret', 'trans', 'gogo', 'slow', 'nogo'].includes(field)) val = Number(val.replace(/,/g, '')) || 0;
                 else if (field === 'freq') val = parseInt(val);
-                 
+                  
                 if (this.expensesByCategory[cat] && this.expensesByCategory[cat].items[idx]) {
                     this.expensesByCategory[cat].items[idx][field] = val;
                 }
@@ -648,6 +649,7 @@ class RetirementPlanner {
             p1_crypto_ret: '8.0', p2_crypto_ret: '8.0',
             p1_income_growth: '2.0', p2_income_growth: '2.0',
             p1_db_pension: '0', p2_db_pension: '0',
+            p1_db_start_age: '60', p2_db_start_age: '60', // UPDATED DEFAULT
             p1_cpp_enabled: true, p1_oas_enabled: true,
             p2_cpp_enabled: true, p2_oas_enabled: true,
             exp_gogo_age: '75', exp_slow_age: '85',
@@ -692,6 +694,10 @@ class RetirementPlanner {
         this.updateSidebarSync('p1_tfsa_ret', 6.0);
         document.getElementById('exp_gogo_val').innerText = '75';
         document.getElementById('exp_slow_val').innerText = '85';
+        
+        // Reset DB Slider Labels
+        document.getElementById('p1_db_start_val').innerText = '60';
+        document.getElementById('p2_db_start_val').innerText = '60';
         
         this.updatePostRetIncomeVisibility();
 
@@ -1197,8 +1203,11 @@ class RetirementPlanner {
         const p2_cpp_start = parseInt(this.getRaw('p2_cpp_start'));
         const p2_oas_start = parseInt(this.getRaw('p2_oas_start'));
 
+        // --- DB PENSION SETUP (UPDATED) ---
         let p1_db_base = this.getVal('p1_db_pension') * 12;
         let p2_db_base = this.getVal('p2_db_pension') * 12;
+        const p1_db_start = parseInt(this.getRaw('p1_db_start_age')) || 60;
+        const p2_db_start = parseInt(this.getRaw('p2_db_start_age')) || 60;
         
         // Post-Retirement Logic Setup
         let p1_post_base = this.getVal('p1_post_inc');
@@ -1316,7 +1325,11 @@ class RetirementPlanner {
 
             if(p1_alive) {
                 if(!p1_isRetired) { p1_gross += p1.inc; p1.inc *= (1 + currentRatesP1.inc); }
-                else { p1_db_inc = p1_db_base * bracketInflator; }
+                
+                // UPDATED DB LOGIC: Check Age Only (Decoupled from Retirement Status)
+                if (p1_age >= p1_db_start) {
+                    p1_db_inc = p1_db_base * bracketInflator;
+                }
                 
                 // P1 Post-Retirement Income Calculation
                 if (enablePostRetP1 && p1_post_base > 0) {
@@ -1343,7 +1356,11 @@ class RetirementPlanner {
             }
             if(mode === 'Couple' && p2_alive) {
                 if(!p2_isRetired) { p2_gross += p2.inc; p2.inc *= (1 + currentRatesP2.inc); }
-                else { p2_db_inc = p2_db_base * bracketInflator; }
+                
+                // UPDATED DB LOGIC: Check Age Only
+                if (p2_age >= p2_db_start) {
+                    p2_db_inc = p2_db_base * bracketInflator;
+                }
                 
                 // P2 Post-Retirement Income Calculation
                 if (enablePostRetP2 && p2_post_base > 0) {
@@ -1609,7 +1626,7 @@ class RetirementPlanner {
                 let totalWithdrawal = 0;
                 for(let k in yearWithdrawals) totalWithdrawal += yearWithdrawals[k];
 
-                let totalGrowth = g_p1.tfsa + g_p1.rrsp + g_p1.cryp + g_p1.nreg + g_p1.cash +
+                let totalGrowth = g_p1.tfsa + g_p1.rrsp + g_p1.cryp + g_p1.nreg + g_p1.cash + 
                                 (mode==='Couple' ? (g_p2.tfsa + g_p2.rrsp + g_p2.cryp + g_p2.nreg + g_p2.cash) : 0);
                 let growthPct = investTot > 0 ? (totalGrowth / (investTot - totalGrowth - surplus)) * 100 : 0;
 
@@ -2714,6 +2731,10 @@ class RetirementPlanner {
         const advMode = document.getElementById('expense_mode_advanced').checked;
         const sliderDiv = document.getElementById('expense-phase-controls');
         if(sliderDiv) sliderDiv.style.display = advMode ? 'flex' : 'none';
+
+        // Reset DB Slider Labels on Load
+        document.getElementById('p1_db_start_val').innerText = this.getRaw('p1_db_start_age') || '60';
+        document.getElementById('p2_db_start_val').innerText = this.getRaw('p2_db_start_age') || '60';
 
         this.updatePostRetIncomeVisibility();
     }
