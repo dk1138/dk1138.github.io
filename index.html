@@ -26,7 +26,7 @@
 
     <div class="main-header d-flex justify-content-between align-items-center shadow-sm">
       <div class="d-flex align-items-center">
-        <h4 class="mb-0 text-white"><i class="bi bi-graph-up-arrow text-primary me-2"></i>Retirement Planner</h4>
+        <h4 class="mb-0"><i class="bi bi-graph-up-arrow text-primary me-2"></i>Retirement Planner</h4>
       </div>
 
       <div class="d-flex align-items-center gap-3">
@@ -38,9 +38,9 @@
           <div class="d-flex align-items-center gap-3">
             <div class="form-check form-switch mb-0">
               <input class="form-check-input" type="checkbox" id="useRealDollars">
-              <label class="form-check-label text-white small" for="useRealDollars">Show in Today's $</label>
+              <label class="form-check-label small" for="useRealDollars">Show in Today's $</label>
             </div>
-           
+            
             <div class="d-flex align-items-center text-success" title="Auto-save is active. Your changes are saved locally." style="cursor: help;">
               <i class="bi bi-check-circle-fill fs-5"></i>
             </div>
@@ -65,7 +65,7 @@
             <p class="small text-muted mb-4">Tweak key variables to see instant impacts on your charts.</p>
 
             <div class="mb-3">
-              <label class="form-label text-white">P1 Retirement Age</label>
+              <label class="form-label">P1 Retirement Age</label>
               <input type="range" class="form-range" min="45" max="80" id="qa_p1_retireAge_range">
               <div class="d-flex justify-content-between">
                 <span class="small text-muted">45</span>
@@ -87,7 +87,7 @@
             <hr class="border-secondary">
 
             <div class="mb-3">
-              <label class="form-label text-white">Inflation Rate (%)</label>
+              <label class="form-label">Inflation Rate (%)</label>
               <input type="range" class="form-range" min="1" max="8" step="0.1" id="qa_inflation_range">
               <div class="d-flex justify-content-between">
                 <span class="small text-muted">1%</span>
@@ -99,7 +99,7 @@
             <hr class="border-secondary">
 
             <div class="mb-3">
-              <label class="form-label text-white">Market Return (TFSA/RRSP)</label>
+              <label class="form-label">Market Return (TFSA/RRSP)</label>
               <input type="range" class="form-range" min="1" max="12" step="0.1" id="qa_return_range">
               <div class="d-flex justify-content-between">
                 <span class="small text-muted">1%</span>
@@ -111,10 +111,10 @@
 
             <hr class="border-secondary">
             <div class="mb-3">
-              <label class="form-label text-white small text-uppercase fw-bold ls-1">Risk Simulation</label>
+              <label class="form-label small text-uppercase fw-bold ls-1">Risk Simulation</label>
               <div class="form-check form-switch bg-black bg-opacity-25 p-2 rounded border border-secondary">
                 <input class="form-check-input live-calc" type="checkbox" role="switch" id="stressTestEnabled" style="margin-left: 0.5em;">
-                <label class="form-check-label text-white ps-2" for="stressTestEnabled">
+                <label class="form-check-label ps-2" for="stressTestEnabled">
                   Stress Test <br><span class="text-danger small" style="font-size: 0.75rem;">(-15% Crash in Yr 1-2)</span>
                 </label>
               </div>
@@ -243,35 +243,35 @@
                                 <div class="col-4"><label class="form-label mb-1">Return (%)</label></div>
                               </div>
                               <div class="row g-2 mb-2">
-                                <div class="col-3 pt-2 text-white small">Cash</div>
+                                <div class="col-3 pt-2 small">Cash</div>
                                 <div class="col-5"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p1_cash" value="20,000"></div>
                                 <div class="col-4">
                                   <div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc" id="p1_cash_ret" value="2.0"><span class="input-group-text">%</span></div>
                                 </div>
                               </div>
                               <div class="row g-2 mb-2">
-                                <div class="col-3 pt-2 text-white small">TFSA</div>
+                                <div class="col-3 pt-2 small">TFSA</div>
                                 <div class="col-5"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p1_tfsa" value="52,000"></div>
                                 <div class="col-4">
                                   <div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc" id="p1_tfsa_ret" value="6.0"><span class="input-group-text">%</span></div>
                                 </div>
                               </div>
                               <div class="row g-2 mb-2">
-                                <div class="col-3 pt-2 text-white small">RRSP</div>
+                                <div class="col-3 pt-2 small">RRSP</div>
                                 <div class="col-5"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p1_rrsp" value="85,000"></div>
                                 <div class="col-4">
                                   <div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc" id="p1_rrsp_ret" value="6.0"><span class="input-group-text">%</span></div>
                                 </div>
                               </div>
                               <div class="row g-2 mb-2">
-                                <div class="col-3 pt-2 text-white small">Non-Reg</div>
+                                <div class="col-3 pt-2 small">Non-Reg</div>
                                 <div class="col-5"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p1_nonreg" value="10,000"></div>
                                 <div class="col-4">
                                   <div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc" id="p1_nonreg_ret" value="5.0"><span class="input-group-text">%</span></div>
                                 </div>
                               </div>
                               <div class="row g-2">
-                                <div class="col-3 pt-2 text-white small">Crypto</div>
+                                <div class="col-3 pt-2 small">Crypto</div>
                                 <div class="col-5"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p1_crypto" value="5,000"></div>
                                 <div class="col-4">
                                   <div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc" id="p1_crypto_ret" value="8.0"><span class="input-group-text">%</span></div>
@@ -290,35 +290,35 @@
                                 <div class="col-4"><label class="form-label mb-1">Return (%)</label></div>
                               </div>
                               <div class="row g-2 mb-2">
-                                <div class="col-3 pt-2 text-white small">Cash</div>
+                                <div class="col-3 pt-2 small">Cash</div>
                                 <div class="col-5"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p2_cash" value="15,000"></div>
                                 <div class="col-4">
                                   <div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc" id="p2_cash_ret" value="2.0"><span class="input-group-text">%</span></div>
                                 </div>
                               </div>
                               <div class="row g-2 mb-2">
-                                <div class="col-3 pt-2 text-white small">TFSA</div>
+                                <div class="col-3 pt-2 small">TFSA</div>
                                 <div class="col-5"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p2_tfsa" value="35,000"></div>
                                 <div class="col-4">
                                   <div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc" id="p2_tfsa_ret" value="6.0"><span class="input-group-text">%</span></div>
                                 </div>
                               </div>
                               <div class="row g-2 mb-2">
-                                <div class="col-3 pt-2 text-white small">RRSP</div>
+                                <div class="col-3 pt-2 small">RRSP</div>
                                 <div class="col-5"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p2_rrsp" value="42,000"></div>
                                 <div class="col-4">
                                   <div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc" id="p2_rrsp_ret" value="6.0"><span class="input-group-text">%</span></div>
                                 </div>
                               </div>
                               <div class="row g-2 mb-2">
-                                <div class="col-3 pt-2 text-white small">Non-Reg</div>
+                                <div class="col-3 pt-2 small">Non-Reg</div>
                                 <div class="col-5"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p2_nonreg" value="5,000"></div>
                                 <div class="col-4">
                                   <div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc" id="p2_nonreg_ret" value="5.0"><span class="input-group-text">%</span></div>
                                 </div>
                               </div>
                               <div class="row g-2">
-                                <div class="col-3 pt-2 text-white small">Crypto</div>
+                                <div class="col-3 pt-2 small">Crypto</div>
                                 <div class="col-5"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p2_crypto" value="2,000"></div>
                                 <div class="col-4">
                                   <div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc" id="p2_crypto_ret" value="8.0"><span class="input-group-text">%</span></div>
@@ -405,13 +405,13 @@
                         <div class="col-12 col-xl-6">
                           <div class="form-check form-switch">
                             <input class="form-check-input live-calc" type="checkbox" id="enable_post_ret_income_p1">
-                            <label class="form-check-label text-white" for="enable_post_ret_income_p1">Enable P1 Post-Retirement Income</label>
+                            <label class="form-check-label" for="enable_post_ret_income_p1">Enable P1 Post-Retirement Income</label>
                           </div>
                         </div>
                         <div class="col-12 col-xl-6 p2-column">
                           <div class="form-check form-switch">
                             <input class="form-check-input live-calc" type="checkbox" id="enable_post_ret_income_p2">
-                            <label class="form-check-label text-white" for="enable_post_ret_income_p2">Enable P2 Post-Retirement Income</label>
+                            <label class="form-check-label" for="enable_post_ret_income_p2">Enable P2 Post-Retirement Income</label>
                           </div>
                         </div>
                       </div>
@@ -493,7 +493,7 @@
                       </div>
                       <div class="form-check form-switch">
                         <input class="form-check-input live-calc" type="checkbox" id="expense_mode_advanced" role="switch">
-                        <label class="form-check-label text-white small fw-bold" for="expense_mode_advanced">Advanced Mode</label>
+                        <label class="form-check-label small fw-bold" for="expense_mode_advanced">Advanced Mode</label>
                       </div>
                     </div>
                     <div class="card-body">
@@ -502,14 +502,14 @@
                           <label class="form-label text-info small">Go-Go Phase Ends (Age)</label>
                           <input type="range" class="form-range live-calc" id="exp_gogo_age" min="60" max="90" value="75">
                           <div class="d-flex justify-content-between text-muted small" style="font-size: 0.75rem;">
-                            <span>60</span><span id="exp_gogo_val" class="text-white fw-bold">75</span><span>90</span>
+                            <span>60</span><span id="exp_gogo_val" class="fw-bold">75</span><span>90</span>
                           </div>
                         </div>
                         <div class="col-md-6">
                           <label class="form-label text-primary small">Slow-Go Phase Ends (Age)</label>
                           <input type="range" class="form-range live-calc" id="exp_slow_age" min="70" max="100" value="85">
                           <div class="d-flex justify-content-between text-muted small" style="font-size: 0.75rem;">
-                            <span>70</span><span id="exp_slow_val" class="text-white fw-bold">85</span><span>100</span>
+                            <span>70</span><span id="exp_slow_val" class="fw-bold">85</span><span>100</span>
                           </div>
                         </div>
                       </div>
@@ -690,7 +690,7 @@
               <div class="tab-pane fade p-3 p-md-5" id="cashflow-pane" role="tabpanel">
                 <div class="card border-0 bg-transparent shadow-none" style="overflow: hidden; width: 100%;">
                   <div class="card-body p-0">
-                    <div class="d-flex align-items-center justify-content-center mb-4"><label class="form-label me-3 mb-0 text-white">Timeline:</label><input type="range" class="form-range" id="yearSlider" min="0" max="40" value="0" style="max-width: 400px;">
+                    <div class="d-flex align-items-center justify-content-center mb-4"><label class="form-label me-3 mb-0">Timeline:</label><input type="range" class="form-range" id="yearSlider" min="0" max="40" value="0" style="max-width: 400px;">
                       <div class="ms-4 text-center">
                         <div class="fs-4 fw-bold text-info" id="sliderYearDisplay">2026</div>
                         <div class="text-muted small" id="cfAgeDisplay">(Age: --)</div>
@@ -709,7 +709,7 @@
                       <div class="input-group mb-3"><input type="text" id="scenarioName" class="form-control" placeholder="e.g. Early Retirement"><button class="btn btn-primary" id="btnSaveScenario"><i class="bi bi-save"></i> Save</button></div>
                       <p class="small text-muted">Saves all inputs, expenses, and debt configurations.</p>
                     </div>
-                   
+                    
                     <h5 class="text-muted small text-uppercase fw-bold mb-3 mt-4 pt-4 border-top border-secondary">Advanced File Options</h5>
                     <div class="d-grid gap-2">
                         <div class="d-flex gap-2">
