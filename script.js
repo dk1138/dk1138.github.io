@@ -1,5 +1,5 @@
 /**
- * Retirement Planner Pro - Logic v10.11 (DB Pension Slider Update)
+ * Retirement Planner Pro - Logic v10.12 (Additional Income Streams + DB Slider)
  * Features:
  * - Auto-save to LocalStorage
  * - Save/Load/Export JSON Configuration
@@ -7,6 +7,7 @@
  * - Sidebar Sync on Load
  * - Light/Dark Theme Support
  * - DB Pension Start Age Sliders
+ * - Dynamic Additional Income Streams with Growth
  */
 
 class RetirementPlanner {
@@ -20,9 +21,10 @@ class RetirementPlanner {
                 { name: "Primary Home", value: 1000000, mortgage: 430000, growth: 3.0, rate: 3.29, payment: 0, manual: false }
             ],
             // Windfalls State
-            windfalls: [
-                // Example: { name: "Inheritance", amount: 50000, freq: 'one', owner: 'p1', taxable: false, start: '2030-01', end: '' }
-            ],
+            windfalls: [],
+            // NEW: Additional Income Streams
+            additionalIncome: [],
+            
             strategies: {
                 accum: ['tfsa', 'rrsp', 'nreg', 'cash', 'crypto'],
                 decum: ['rrsp', 'crypto', 'nreg', 'tfsa', 'cash']
@@ -105,7 +107,7 @@ class RetirementPlanner {
         };
 
         this.charts = { nw: null, sankey: null }; 
-        this.confirmModal = null; // Store Bootstrap modal instance
+        this.confirmModal = null; 
 
         // --- DEFAULT EXPENSE DATA ---
         this.expensesByCategory = {
@@ -152,7 +154,6 @@ class RetirementPlanner {
         this.optimalAges = { p1_cpp: 65, p1_oas: 65, p2_cpp: 65, p2_oas: 65 };
         this.strategyLabels = { 'tfsa': 'TFSA', 'rrsp': 'RRSP', 'nreg': 'Non-Reg', 'cash': 'Cash', 'crypto': 'Crypto' };
 
-        // Changed to Object storing definitions
         this.iconDefs = {
             "P1 Retires": { icon: 'bi-cup-hot-fill', color: 'text-warning', title: "P1 Retires" },
             "P2 Retires": { icon: 'bi-cup-hot', color: 'text-purple', title: "P2 Retires" },
@@ -169,7 +170,6 @@ class RetirementPlanner {
 
         if(typeof google !== 'undefined' && google.charts) google.charts.load('current', {'packages':['sankey']});
         
-        // Debounced Run: Smoothly updates charts and saves data
         this.debouncedRun = this.debounce(() => this.run(), 300);
         this.init();
     }
@@ -184,13 +184,11 @@ class RetirementPlanner {
     }
 
     init() {
-        // --- 2. SETUP FUNCTION ---
         const setup = () => {
             this.confirmModal = new bootstrap.Modal(document.getElementById('confirmationModal'));
             this.setupGridContainer(); 
             this.populateAgeSelects();
             
-            // Check for Auto-save data BEFORE initial render
             const savedData = localStorage.getItem(this.AUTO_SAVE_KEY);
             if (savedData) {
                 try {
@@ -203,9 +201,7 @@ class RetirementPlanner {
                 this.renderDefaults();
             }
 
-            // Initialize Theme
             this.initTheme();
-
             this.loadScenariosList();
             this.syncStateFromDOM();
             this.toggleModeDisplay(); 
@@ -219,7 +215,6 @@ class RetirementPlanner {
             this.bindEvents();
             this.initSidebar();
               
-            // Initial Run
             setTimeout(() => { 
                 this.syncStateFromDOM(); 
                 this.run(); 
@@ -237,7 +232,7 @@ class RetirementPlanner {
         const savedTheme = localStorage.getItem(this.THEME_KEY) || 'dark';
         document.documentElement.setAttribute('data-bs-theme', savedTheme);
         this.updateThemeIcon(savedTheme);
-        this.updateImportButton(savedTheme); // Fix Import Button on Load
+        this.updateImportButton(savedTheme); 
     }
 
     toggleTheme() {
@@ -247,9 +242,9 @@ class RetirementPlanner {
         html.setAttribute('data-bs-theme', next);
         localStorage.setItem(this.THEME_KEY, next);
         this.updateThemeIcon(next);
-        this.updateImportButton(next); // Fix Import Button on Toggle
+        this.updateImportButton(next); 
         this.renderExpenseRows(); 
-        this.run(); // Re-run to update charts and Grid
+        this.run(); 
     }
 
     updateThemeIcon(theme) {
@@ -265,16 +260,13 @@ class RetirementPlanner {
         }
     }
 
-    // Consolidated Import Button Fix
     updateImportButton(theme) {
         const lbl = document.querySelector('label[for="fileUpload"]');
         if(lbl) {
             if(theme === 'light') {
-                // Light mode: Dark border, dark text
                 lbl.classList.remove('btn-outline-secondary', 'text-white');
                 lbl.classList.add('btn-outline-dark', 'text-dark');
             } else {
-                // Dark mode: Grey border, white text
                 lbl.classList.remove('btn-outline-dark', 'text-dark');
                 lbl.classList.add('btn-outline-secondary', 'text-white');
             }
@@ -286,15 +278,14 @@ class RetirementPlanner {
         this.renderProperties();
         this.addDebtRow(); 
         this.renderWindfalls();
+        this.renderAdditionalIncome(); 
         this.renderStrategy();
     }
 
-    // --- CUSTOM CONFIRMATION HELPER ---
     showConfirm(message, onConfirm) {
         const modalEl = document.getElementById('confirmationModal');
         const body = modalEl.querySelector('.modal-body');
         const btn = document.getElementById('btnConfirmAction');
-        
         body.textContent = message;
         
         const newBtn = btn.cloneNode(true);
@@ -336,11 +327,9 @@ class RetirementPlanner {
         }
     }
 
-    // --- DOM / STATE SYNC ---
     syncStateFromDOM() {
         document.querySelectorAll('input, select').forEach(el => {
-            // Skip property/windfall/debt inputs as they are handled by array state
-            if (el.id && !el.id.startsWith('comp_') && !el.classList.contains('property-update') && !el.classList.contains('windfall-update') && !el.classList.contains('debt-amount')) {
+            if (el.id && !el.id.startsWith('comp_') && !el.classList.contains('property-update') && !el.classList.contains('windfall-update') && !el.classList.contains('debt-amount') && !el.classList.contains('income-stream-update')) {
                 if (el.type === 'checkbox' || el.type === 'radio') {
                     this.state.inputs[el.id] = el.checked;
                 } else {
@@ -398,7 +387,6 @@ class RetirementPlanner {
     }
 
     bindEvents() {
-        // Theme Toggle Listener
         const themeBtn = document.getElementById('btnThemeToggle');
         if(themeBtn) themeBtn.addEventListener('click', () => this.toggleTheme());
 
@@ -445,9 +433,9 @@ class RetirementPlanner {
 
         document.getElementById('btnAddProperty').addEventListener('click', () => this.addProperty());
         document.getElementById('btnAddWindfall').addEventListener('click', () => this.addWindfall());
+        document.getElementById('btnAddIncomeStream').addEventListener('click', () => this.addAdditionalIncome()); 
         document.getElementById('btnExportCSV').addEventListener('click', () => this.exportToCSV());
 
-        // --- NEW FILE HANDLERS ---
         document.getElementById('fileUpload').addEventListener('change', (e) => this.handleFileUpload(e));
         document.getElementById('btnClearStorage').addEventListener('click', () => this.clearStorage());
 
@@ -455,7 +443,7 @@ class RetirementPlanner {
             if (e.target.classList.contains('live-calc')) {
                 if (e.target.classList.contains('formatted-num')) this.formatInput(e.target);
                 
-                if (e.target.id && !e.target.id.startsWith('comp_') && !e.target.classList.contains('property-update') && !e.target.classList.contains('windfall-update') && !e.target.classList.contains('debt-amount')) {
+                if (e.target.id && !e.target.id.startsWith('comp_') && !e.target.classList.contains('property-update') && !e.target.classList.contains('windfall-update') && !e.target.classList.contains('debt-amount') && !e.target.classList.contains('income-stream-update')) {
                     this.state.inputs[e.target.id] = (e.target.type === 'checkbox' ? e.target.checked : e.target.value);
                     this.updateSidebarSync(e.target.id, e.target.value);
                 }
@@ -500,7 +488,6 @@ class RetirementPlanner {
                 if (e.target.classList.contains('formatted-num')) this.formatInput(e.target);
                 this.debouncedRun();
             }
-            // Windfall Update
             if (e.target.classList.contains('windfall-update')) {
                 const idx = parseInt(e.target.dataset.idx);
                 const field = e.target.dataset.field;
@@ -510,7 +497,22 @@ class RetirementPlanner {
                 
                 if (this.state.windfalls[idx]) {
                     this.state.windfalls[idx][field] = val;
-                    if (field === 'freq') this.renderWindfalls(); // Re-render to toggle end date visibility
+                    if (field === 'freq') this.renderWindfalls(); 
+                }
+                if (e.target.classList.contains('formatted-num')) this.formatInput(e.target);
+                this.debouncedRun();
+            }
+            
+            // --- INCOME STREAM UPDATE LISTENER ---
+            if (e.target.classList.contains('income-stream-update')) {
+                const idx = parseInt(e.target.dataset.idx);
+                const field = e.target.dataset.field;
+                let val = (e.target.type === 'checkbox') ? e.target.checked : e.target.value;
+
+                if (field === 'amount' || field === 'growth') val = Number(val.replace(/,/g, '')) || 0;
+                
+                if (this.state.additionalIncome[idx]) {
+                    this.state.additionalIncome[idx][field] = val;
                 }
                 if (e.target.classList.contains('formatted-num')) this.formatInput(e.target);
                 this.debouncedRun();
@@ -622,7 +624,6 @@ class RetirementPlanner {
             }
         };
         reader.readAsText(file);
-        // Reset input so same file can be selected again if needed
         e.target.value = '';
     }
 
@@ -649,7 +650,7 @@ class RetirementPlanner {
             p1_crypto_ret: '8.0', p2_crypto_ret: '8.0',
             p1_income_growth: '2.0', p2_income_growth: '2.0',
             p1_db_pension: '0', p2_db_pension: '0',
-            p1_db_start_age: '60', p2_db_start_age: '60', // UPDATED DEFAULT
+            p1_db_start_age: '60', p2_db_start_age: '60',
             p1_cpp_enabled: true, p1_oas_enabled: true,
             p2_cpp_enabled: true, p2_oas_enabled: true,
             exp_gogo_age: '75', exp_slow_age: '85',
@@ -658,9 +659,8 @@ class RetirementPlanner {
             p2_post_inc: '0', p2_post_growth: '2.0'
         };
 
-        // Reset Inputs
         document.querySelectorAll('input, select').forEach(el => {
-            if(el.id && !el.id.startsWith('comp_') && !el.classList.contains('property-update') && !el.classList.contains('windfall-update') && !el.classList.contains('debt-amount')) {
+            if(el.id && !el.id.startsWith('comp_') && !el.classList.contains('property-update') && !el.classList.contains('windfall-update') && !el.classList.contains('debt-amount') && !el.classList.contains('income-stream-update')) {
                 if(defaults[el.id] !== undefined) {
                     if (el.type === 'checkbox') el.checked = defaults[el.id];
                     else el.value = defaults[el.id];
@@ -678,6 +678,9 @@ class RetirementPlanner {
 
         this.state.windfalls = [];
         this.renderWindfalls();
+        
+        this.state.additionalIncome = [];
+        this.renderAdditionalIncome();
 
         for (const cat in this.expensesByCategory) {
             this.expensesByCategory[cat].items = [];
@@ -695,7 +698,6 @@ class RetirementPlanner {
         document.getElementById('exp_gogo_val').innerText = '75';
         document.getElementById('exp_slow_val').innerText = '85';
         
-        // Reset DB Slider Labels
         document.getElementById('p1_db_start_val').innerText = '60';
         document.getElementById('p2_db_start_val').innerText = '60';
         
@@ -706,7 +708,6 @@ class RetirementPlanner {
         this.run();
     }
 
-    // --- EXPORT TO CSV ---
     exportToCSV() {
         if (!this.state.projectionData || this.state.projectionData.length === 0) {
             alert("No data available to export.");
@@ -762,12 +763,11 @@ class RetirementPlanner {
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
         link.setAttribute("download", "retirement_plan_pro_export.csv");
-        document.body.appendChild(link); // Required for FF
+        document.body.appendChild(link); 
         link.click();
         document.body.removeChild(link);
     }
 
-    // --- WINDFALL LOGIC ---
     renderWindfalls() {
         const container = document.getElementById('windfall-container');
         if(!container) return;
@@ -776,7 +776,7 @@ class RetirementPlanner {
         this.state.windfalls.forEach((w, idx) => {
             const isOneTime = w.freq === 'one';
             const hideEnd = isOneTime ? 'display:none;' : '';
-            const today = new Date().toISOString().slice(0, 7); // YYYY-MM
+            const today = new Date().toISOString().slice(0, 7); 
             
             const div = document.createElement('div');
             div.className = 'windfall-row p-2 border border-secondary rounded bg-body-tertiary mb-2';
@@ -828,7 +828,6 @@ class RetirementPlanner {
                 </div>
             `;
             container.appendChild(div);
-            // Re-apply listeners
             div.querySelectorAll('.formatted-num').forEach(el => {
                 el.addEventListener('input', (e) => this.formatInput(e.target));
             });
@@ -850,7 +849,95 @@ class RetirementPlanner {
         });
     }
 
-    // --- PROPERTY LOGIC ---
+    // --- NEW: RENDER ADDITIONAL INCOME ---
+    renderAdditionalIncome() {
+        const container = document.getElementById('additional-income-container');
+        if(!container) return;
+        container.innerHTML = '';
+
+        this.state.additionalIncome.forEach((w, idx) => {
+            const today = new Date().toISOString().slice(0, 7); 
+            
+            const div = document.createElement('div');
+            div.className = 'income-stream-row p-2 border border-secondary rounded bg-body-tertiary mb-2';
+            div.innerHTML = `
+                <div class="d-flex justify-content-between mb-1">
+                    <input type="text" class="form-control form-control-sm bg-transparent border-0 fw-bold income-stream-update" 
+                           placeholder="Income Source Name" value="${w.name}" data-idx="${idx}" data-field="name">
+                    <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="app.removeAdditionalIncome(${idx})"><i class="bi bi-x-lg"></i></button>
+                </div>
+                <div class="row g-2 align-items-center">
+                    <div class="col-4">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text border-secondary text-muted">$</span>
+                            <input type="text" class="form-control border-secondary formatted-num income-stream-update" 
+                                   value="${w.amount.toLocaleString()}" data-idx="${idx}" data-field="amount">
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <select class="form-select form-select-sm border-secondary income-stream-update" data-idx="${idx}" data-field="freq">
+                            <option value="month" ${w.freq==='month'?'selected':''}>/ Month</option>
+                            <option value="year" ${w.freq==='year'?'selected':''}>/ Year</option>
+                        </select>
+                    </div>
+                    <div class="col-4 p2-column" style="${this.state.mode === 'Couple' ? '' : 'display:none;'}">
+                         <select class="form-select form-select-sm border-secondary income-stream-update" data-idx="${idx}" data-field="owner">
+                            <option value="p1" ${w.owner==='p1'?'selected':''}>Owner: P1</option>
+                            <option value="p2" ${w.owner==='p2'?'selected':''}>Owner: P2</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row g-2 mt-1">
+                    <div class="col-4">
+                        <label class="small text-muted" style="font-size:0.7rem;">Growth %</label>
+                        <div class="input-group input-group-sm">
+                            <input type="number" step="0.1" class="form-control border-secondary income-stream-update" 
+                                   value="${w.growth}" data-idx="${idx}" data-field="growth">
+                            <span class="input-group-text border-secondary text-muted">%</span>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <label class="small text-muted" style="font-size:0.7rem;">Start Date</label>
+                        <input type="month" class="form-control form-control-sm border-secondary income-stream-update" 
+                               value="${w.start || today}" data-idx="${idx}" data-field="start">
+                    </div>
+                    <div class="col-4">
+                        <label class="small text-muted" style="font-size:0.7rem;">End Date</label>
+                        <input type="month" class="form-control form-control-sm border-secondary income-stream-update" 
+                               value="${w.end}" data-idx="${idx}" data-field="end">
+                    </div>
+                </div>
+                <div class="row g-2 mt-1">
+                    <div class="col-12 d-flex justify-content-end">
+                        <div class="form-check">
+                            <input class="form-check-input income-stream-update" type="checkbox" id="inc_tax_${idx}" ${w.taxable ? 'checked' : ''} data-idx="${idx}" data-field="taxable">
+                            <label class="form-check-label text-muted small" for="inc_tax_${idx}">Is Taxable Income?</label>
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.appendChild(div);
+            div.querySelectorAll('.formatted-num').forEach(el => {
+                el.addEventListener('input', (e) => this.formatInput(e.target));
+            });
+        });
+    }
+
+    addAdditionalIncome() {
+        const today = new Date().toISOString().slice(0, 7);
+        this.state.additionalIncome.push({ name: "Rental Income", amount: 0, freq: 'month', owner: 'p1', taxable: true, start: today, end: '', growth: 2.0 });
+        this.renderAdditionalIncome();
+        this.run();
+    }
+
+    removeAdditionalIncome(index) {
+        this.showConfirm("Remove this income stream?", () => {
+            this.state.additionalIncome.splice(index, 1);
+            this.renderAdditionalIncome();
+            this.run();
+        });
+    }
+
     renderProperties() {
         const container = document.getElementById('real-estate-container');
         container.innerHTML = '';
@@ -993,12 +1080,9 @@ class RetirementPlanner {
         document.body.classList.toggle('is-couple', isCouple);
         document.querySelectorAll('.p2-column').forEach(el => {
             if(el.tagName === 'TH' || el.tagName === 'TD') return; 
-            // Use empty string to revert to stylesheet display (block, flex, etc)
-            // instead of forcing 'block' which might break layout
             el.style.display = isCouple ? '' : 'none';
         });
         
-        // Resize chart if needed
         if(this.charts.nw) this.charts.nw.resize();
     }
 
@@ -1026,14 +1110,12 @@ class RetirementPlanner {
                 document.getElementById('cfAgeDisplay').innerText = ageText;
 
                 if(!this.charts.sankey) this.drawSankey(currentVal);
-                // Redraw Sankey if Theme changed or Data changed
                 else {
                     clearTimeout(this.sliderTimeout);
                     this.sliderTimeout = setTimeout(() => this.drawSankey(currentVal), 50);
                 }
             }
 
-            // AUTO-SAVE
             this.saveToLocalStorage();
 
         } catch (e) {
@@ -1041,13 +1123,11 @@ class RetirementPlanner {
         }
     }
 
-    // --- NEW HELPER: Get Icon HTML dynamically based on Theme ---
     getIconHTML(key, theme) {
         const def = this.iconDefs[key];
         if(!def) return '';
         
         let colorClass = def.color;
-        // Fix for light mode invisibility: swap white for dark, cyan to blue, yellow to dark
         if(theme === 'light') {
             if (colorClass.includes('text-white')) colorClass = 'text-dark';
             if (colorClass.includes('text-info')) colorClass = 'text-primary'; 
@@ -1078,7 +1158,6 @@ class RetirementPlanner {
         if (d.dbP1 > 0) rows.push([`DB Pension P1\n${fmt(d.dbP1)}`, potName, Math.round(d.dbP1)]);
         if (d.dbP2 > 0) rows.push([`DB Pension P2\n${fmt(d.dbP2)}`, potName, Math.round(d.dbP2)]);
         
-        // Add Windfalls to Sankey
         if (d.windfall > 0) rows.push([`Inheritance/Bonus\n${fmt(d.windfall)}`, potName, Math.round(d.windfall)]);
         if (d.postRetP1 > 0) rows.push([`Post-Ret Work P1\n${fmt(d.postRetP1)}`, potName, Math.round(d.postRetP1)]);
         if (d.postRetP2 > 0) rows.push([`Post-Ret Work P2\n${fmt(d.postRetP2)}`, potName, Math.round(d.postRetP2)]);
@@ -1113,7 +1192,7 @@ class RetirementPlanner {
             if (node.includes("Available Cash")) color = '#f59e0b'; 
             else if (node.includes("Employment") || node.includes("Post-Ret")) color = '#10b981'; 
             else if (node.includes("Gov Benefits") || node.includes("DB Pension")) color = '#06b6d4';
-            else if (node.includes("Inheritance")) color = '#22c55e'; // Green for windfall
+            else if (node.includes("Inheritance")) color = '#22c55e'; 
             else if (node.includes("RRIF") || node.includes("TFSA") || node.includes("RRSP") || node.includes("Non-Reg") || node.includes("Crypto") || node.includes("Cash")) {
                 if(node.startsWith("To ")) color = '#3b82f6'; else color = '#8b5cf6';
             }
@@ -1136,7 +1215,6 @@ class RetirementPlanner {
         dataTable.addColumn('number', 'Amount');
         dataTable.addRows(rows);
 
-        // Adjust label color based on theme
         const labelColor = document.documentElement.getAttribute('data-bs-theme') === 'light' ? '#000000' : '#ffffff';
 
         const options = {
@@ -1453,6 +1531,40 @@ class RetirementPlanner {
                     } else {
                         if (w.owner === 'p2' && mode === 'Couple') wf_nontax_p2 += annualAmt;
                         else wf_nontax_p1 += annualAmt;
+                    }
+                }
+            });
+
+            // --- NEW: ADDITIONAL INCOME STREAMS PROCESSING ---
+            this.state.additionalIncome.forEach(stream => {
+                const sStart = new Date(stream.start + "-01");
+                const sEnd = stream.end ? new Date(stream.end + "-01") : new Date("2100-01-01");
+                const startYear = sStart.getFullYear();
+                const endYear = sEnd.getFullYear();
+
+                if (year >= startYear && year <= endYear) {
+                    let yearsActive = year - startYear;
+                    let growthFactor = Math.pow(1 + (stream.growth / 100), yearsActive);
+                    let annualAmt = stream.amount * growthFactor;
+
+                    if(stream.freq === 'month') annualAmt *= 12;
+
+                    // Prorate start/end years
+                    let factor = 1.0;
+                    if (year === startYear) factor = (12 - sStart.getMonth()) / 12;
+                    if (year === endYear) factor = Math.min(factor, (sEnd.getMonth() + 1) / 12);
+                    
+                    annualAmt *= factor;
+
+                    if (annualAmt > 0) {
+                         if (stream.taxable) {
+                             if (stream.owner === 'p1') p1_gross += annualAmt;
+                             else if (mode === 'Couple') p2_gross += annualAmt;
+                         } else {
+                             // Treat as non-taxable inflow (added to wf bucket for display simplicity)
+                             if (stream.owner === 'p1') wf_nontax_p1 += annualAmt;
+                             else if (mode === 'Couple') wf_nontax_p2 += annualAmt;
+                         }
                     }
                 }
             });
@@ -2705,10 +2817,14 @@ class RetirementPlanner {
             this.renderProperties();
         }
         
-        // Load Windfalls
         if (data.windfalls) {
             this.state.windfalls = data.windfalls;
             this.renderWindfalls();
+        }
+        
+        if (data.additionalIncome) {
+            this.state.additionalIncome = data.additionalIncome;
+            this.renderAdditionalIncome();
         }
 
         const debtContainer = document.getElementById('debt-container');
@@ -2732,7 +2848,6 @@ class RetirementPlanner {
         const sliderDiv = document.getElementById('expense-phase-controls');
         if(sliderDiv) sliderDiv.style.display = advMode ? 'flex' : 'none';
 
-        // Reset DB Slider Labels on Load
         document.getElementById('p1_db_start_val').innerText = this.getRaw('p1_db_start_age') || '60';
         document.getElementById('p2_db_start_val').innerText = this.getRaw('p2_db_start_age') || '60';
 
@@ -2770,7 +2885,8 @@ class RetirementPlanner {
             debt: [], 
             properties: JSON.parse(JSON.stringify(this.state.properties)),
             expensesData: JSON.parse(JSON.stringify(this.expensesByCategory)),
-            windfalls: JSON.parse(JSON.stringify(this.state.windfalls))
+            windfalls: JSON.parse(JSON.stringify(this.state.windfalls)),
+            additionalIncome: JSON.parse(JSON.stringify(this.state.additionalIncome))
         };
         document.querySelectorAll('.debt-amount').forEach(el => snapshot.debt.push(el.value));
         return snapshot;
