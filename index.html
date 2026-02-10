@@ -586,8 +586,10 @@
                             </div>
                             <div class="mt-4 pt-3 border-top border-secondary">
                               <label class="form-label">Defined Benefit (DB) Pension</label>
-                              <div class="input-group"><span class="input-group-text">$</span><input type="text" class="form-control live-calc formatted-num" id="p1_db_pension" value="0"><span class="input-group-text">/mo</span></div>
-                              <div class="form-text small text-muted">Starts at Retirement Age</div>
+                              <div class="input-group mb-2"><span class="input-group-text">$</span><input type="text" class="form-control live-calc formatted-num" id="p1_db_pension" value="0"><span class="input-group-text">/mo</span></div>
+                              
+                              <label class="form-label small text-muted mt-1">Starts at Age: <span id="p1_db_start_val" class="text-info fw-bold">60</span></label>
+                              <input type="range" class="form-range live-calc" id="p1_db_start_age" min="55" max="75" value="60" oninput="document.getElementById('p1_db_start_val').innerText = this.value">
                             </div>
                           </div>
                         </div>
@@ -618,8 +620,10 @@
                             </div>
                             <div class="mt-4 pt-3 border-top border-secondary">
                               <label class="form-label">Defined Benefit (DB) Pension</label>
-                              <div class="input-group"><span class="input-group-text">$</span><input type="text" class="form-control live-calc formatted-num" id="p2_db_pension" value="0"><span class="input-group-text">/mo</span></div>
-                              <div class="form-text small text-muted">Starts at Retirement Age</div>
+                              <div class="input-group mb-2"><span class="input-group-text">$</span><input type="text" class="form-control live-calc formatted-num" id="p2_db_pension" value="0"><span class="input-group-text">/mo</span></div>
+                              
+                              <label class="form-label small text-muted mt-1">Starts at Age: <span id="p2_db_start_val" class="text-purple fw-bold">60</span></label>
+                              <input type="range" class="form-range live-calc" id="p2_db_start_age" min="55" max="75" value="60" oninput="document.getElementById('p2_db_start_val').innerText = this.value">
                             </div>
                           </div>
                         </div>
