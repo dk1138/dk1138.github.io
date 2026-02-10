@@ -1,4 +1,4 @@
-/* Total Lines: 275 */
+/* Total Lines: Updated for Light Mode Timeline Support */
 /* --- MODERN FINTECH THEME --- */
 :root {
   /* Default Dark Mode Variables */
@@ -11,9 +11,9 @@
   --primary: #3b82f6;        /* Blue */
   --success: #10b981;        /* Emerald */
   --warning: #f59e0b;        /* Amber */
-  --danger: #ef4444;         /* Red */
-  --info: #06b6d4;           /* Cyan */
-  --purple: #8b5cf6;        
+  --danger: #ef4444;          /* Red */
+  --info: #06b6d4;            /* Cyan */
+  --purple: #8b5cf6;         
   
   --text-main: #f8fafc;
   --text-muted: #94a3b8;
@@ -34,7 +34,7 @@
   --text-muted: #64748b;    /* Medium Gray Text */
   
   /* Keep brand colors mostly similar but slightly adjusted for contrast if needed */
-  --primary: #2563eb;       
+  --primary: #2563eb;        
   --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
 }
 
@@ -51,7 +51,7 @@
 /* Ensure Summary Table Headers are visible in Light Mode */
 [data-bs-theme="light"] .summary-table thead th { background-color: #e2e8f0 !important; color: #0f172a !important; border-bottom-color: #cbd5e1; }
 [data-bs-theme="light"] .super-header th { background-color: #cbd5e1 !important; color: #475569 !important; }
-[data-bs-theme="light"] .col-timeline { background: #e2e8f0; border-right: 1px solid #cbd5e1; }
+[data-bs-theme="light"] .col-timeline { background: #e2e8f0 !important; border-right: 1px solid #cbd5e1; }
 [data-bs-theme="light"] .sticky-left, [data-bs-theme="light"] .sticky-right { background-color: #e2e8f0 !important; }
 [data-bs-theme="light"] .grid-header { background: #e2e8f0; border-bottom: 2px solid #cbd5e1; color: #475569; }
 [data-bs-theme="light"] .grid-row-group { border-bottom: 1px solid #e2e8f0; }
@@ -60,6 +60,13 @@
 [data-bs-theme="light"] .detail-box { background: rgba(0,0,0,0.03); }
 [data-bs-theme="light"] .modern-grid { background: #ffffff; border: 1px solid var(--border-color); }
 [data-bs-theme="light"] .summary-table tr:hover td { background-color: rgba(0,0,0,0.03); color: var(--text-main); }
+
+/* Light Mode Timeline Specific Fixes */
+[data-bs-theme="light"] .year-badge { color: var(--text-main) !important; }
+[data-bs-theme="light"] .age-text { color: var(--text-muted) !important; }
+[data-bs-theme="light"] .grid-summary-row { color: var(--text-main); }
+[data-bs-theme="light"] .grid-header .col-timeline { background: #e2e8f0 !important; }
+[data-bs-theme="light"] .toggle-icon { color: var(--text-muted); }
 
 body { 
   background-color: var(--bg-body); 
@@ -381,7 +388,7 @@ input[type=range]::-webkit-slider-thumb { margin-top: -5px; }
     position: sticky;
     top: 0;
     z-index: 30; /* Highest priority */
-    background-color: #212529;
+    background-color: var(--bg-card);
 }
 
 /* Fix Super Header Z-Index */
@@ -397,42 +404,42 @@ input[type=range]::-webkit-slider-thumb { margin-top: -5px; }
     position: sticky;
     left: 0;
     z-index: 20; /* Higher than regular content */
-    background-color: #212529 !important; /* Match dark theme bg */
-    border-right: 1px solid #495057;
+    background-color: var(--bg-card) !important; 
+    border-right: 1px solid var(--border-color);
 }
 
 .sticky-right {
     position: sticky;
     right: 0;
     z-index: 20;
-    background-color: #212529 !important;
-    border-left: 2px solid #495057;
+    background-color: var(--bg-card) !important;
+    border-left: 2px solid var(--border-color);
 }
 
 /* Specific offsets for left columns */
 .col-events { left: 0; width: 50px; text-align: center; }
 .col-year   { left: 50px; width: 60px; text-align: center; }
-.col-age    { left: 110px; width: 80px; text-align: center; border-right: 2px solid #495057 !important; }
+.col-age    { left: 110px; width: 80px; text-align: center; border-right: 2px solid var(--border-color) !important; }
 
 /* Super Header Styling */
 .super-header th {
-    background-color: #343a40 !important;
-    color: #adb5bd;
+    background-color: var(--bg-inner) !important;
+    color: var(--text-muted);
     font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 1px;
     padding-top: 4px;
     padding-bottom: 4px;
-    border-bottom: 1px solid #495057;
+    border-bottom: 1px solid var(--border-color);
 }
 
 /* Negative Surplus Row Highlight */
 .row-deficit td {
     background-color: rgba(220, 53, 69, 0.1) !important; /* Red Tint */
 }
-/* Ensure sticky cols keep their dark bg even in deficit rows to hide scroll overlap */
+/* Ensure sticky cols keep their background even in deficit rows */
 .row-deficit td.sticky-left, .row-deficit td.sticky-right {
-    background-color: #2b1515 !important; /* Dark Redish BG */
+    background-color: var(--bg-card) !important;
 }
 
 /* Net Worth Sparkline Cell */
@@ -445,7 +452,7 @@ input[type=range]::-webkit-slider-thumb { margin-top: -5px; }
 
 /* Zero Value Styling */
 .val-zero {
-    color: #343a40 !important; /* Almost invisible grey */
+    color: var(--border-color) !important; /* Almost invisible grey */
     font-size: 0.8em;
 }
 
@@ -453,23 +460,23 @@ input[type=range]::-webkit-slider-thumb { margin-top: -5px; }
 .modern-grid {
     display: flex; flex-direction: column; width: 100%;
     font-family: 'Segoe UI', system-ui, sans-serif;
-    background: #1a1d20; border-radius: 8px; 
+    background: var(--bg-input); border-radius: 8px; 
 }
 .grid-header {
     display: grid;
     /* Cols: Timeline | Status | Net Inc | Exp | Surplus | NW | Arrow */
     grid-template-columns: 110px 100px 1fr 1fr 1fr 1.2fr 30px;
     position: sticky; top: 0; z-index: 1000;
-    background: #212529; padding: 8px 8px; 
-    border-bottom: 2px solid #444;
-    font-weight: 700; color: #adb5bd; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px;
+    background: var(--bg-card); padding: 8px 8px; 
+    border-bottom: 2px solid var(--border-color);
+    font-weight: 700; color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px;
     text-align: right; 
     align-items: center;
     box-shadow: 0 2px 5px rgba(0,0,0,0.3);
 }
 .grid-header .col-start { text-align: left; }
 
-.grid-row-group { border-bottom: 1px solid #2c3035; transition: background 0.2s; }
+.grid-row-group { border-bottom: 1px solid var(--border-color); transition: background 0.2s; }
 .grid-row-group:hover { background: rgba(255,255,255,0.03); }
 
 .grid-summary-row {
@@ -477,7 +484,7 @@ input[type=range]::-webkit-slider-thumb { margin-top: -5px; }
     grid-template-columns: 110px 100px 1fr 1fr 1fr 1.2fr 30px;
     padding: 6px 8px; 
     align-items: center; cursor: pointer;
-    color: #e9ecef; font-size: 0.9rem; text-align: right;
+    color: var(--text-main); font-size: 0.9rem; text-align: right;
     line-height: 1.2;
 }
 .grid-summary-row .col-start { text-align: left; }
@@ -488,19 +495,19 @@ input[type=range]::-webkit-slider-thumb { margin-top: -5px; }
     background: inherit; 
     display: flex; flex-direction: column;
     justify-content: center;
-    border-right: 1px solid rgba(255,255,255,0.1);
+    border-right: 1px solid var(--border-color);
     margin-right: 5px; padding-right: 5px;
 }
-.grid-header .col-timeline { background: #212529; z-index: 1001; }
+.grid-header .col-timeline { background: var(--bg-card); z-index: 1001; }
 
 /* Accordion Detail Wrapper */
 .grid-detail-wrapper {
-    background: #141619;
+    background: var(--bg-input);
     max-height: 0; overflow: hidden;
     transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    border-left: 3px solid #0d6efd; 
+    border-left: 3px solid var(--primary); 
 }
-.grid-detail-wrapper.open { max-height: 800px; border-bottom: 1px solid #444; }
+.grid-detail-wrapper.open { max-height: 800px; border-bottom: 1px solid var(--border-color); }
 
 .detail-container {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -511,9 +518,9 @@ input[type=range]::-webkit-slider-thumb { margin-top: -5px; }
     background: rgba(255,255,255,0.03); padding: 12px; border-radius: 6px; 
     display: flex; flex-direction: column; height: 100%;
 }
-.detail-title { color: #6c757d; font-size: 0.75rem; text-transform: uppercase; font-weight: bold; margin-bottom: 8px; border-bottom: 1px solid #444; padding-bottom: 4px;}
+.detail-title { color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; font-weight: bold; margin-bottom: 8px; border-bottom: 1px solid var(--border-color); padding-bottom: 4px;}
 .detail-item { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.85rem; }
-.detail-item.sub { padding-left: 10px; color: #adb5bd; font-size: 0.8rem; }
+.detail-item.sub { padding-left: 10px; color: var(--text-muted); font-size: 0.8rem; }
 
 /* Class to push item to bottom of flex container */
 .mt-auto { margin-top: auto !important; }
@@ -543,5 +550,5 @@ input[type=range]::-webkit-slider-thumb { margin-top: -5px; }
 .val-neutral { color: #adb5bd; }
 
 .toggle-icon { transition: transform 0.3s; color: #6c757d; font-size: 0.8rem; }
-.grid-row-group.expanded .toggle-icon { transform: rotate(180deg); color: #fff; }
+.grid-row-group.expanded .toggle-icon { transform: rotate(180deg); color: var(--text-main); }
 .grid-row-group.expanded .grid-summary-row { background: rgba(13, 110, 253, 0.1); }
