@@ -1,8 +1,9 @@
 /**
- * Retirement Planner Pro - Logic v10.14 (Dynamic Net Worth Toggles for Real Estate)
+ * Retirement Planner Pro - Logic v10.15 (Dynamic Net Worth Toggles & Safe LocalStorage Migrations)
  */
 class RetirementPlanner {
     constructor() {
+        this.APP_VERSION = "10.15";
         this.state = {
             inputs: {}, debt: [],
             properties: [{ name: "Primary Home", value: 1000000, mortgage: 430000, growth: 3.0, rate: 3.29, payment: 0, manual: false, includeInNW: false }],
@@ -71,7 +72,7 @@ class RetirementPlanner {
             const savedData = localStorage.getItem(this.AUTO_SAVE_KEY);
             if (savedData) {
                 try { this.loadStateToDOM(JSON.parse(savedData)); } 
-                catch(e) { console.error("Failed load", e); this.renderDefaults(); }
+                catch(e) { console.error("Failed load, falling back to defaults", e); this.renderDefaults(); }
             } else this.renderDefaults();
 
             this.initTheme(); this.loadScenariosList(); this.syncStateFromDOM(); this.toggleModeDisplay(); 
@@ -769,14 +770,16 @@ class RetirementPlanner {
     exportScenario(idx) { const s = JSON.parse(localStorage.getItem('rp_scenarios')||'[]')[idx]; if(!s) return; const a = document.createElement('a'); a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(s.data, null, 2)); a.download = s.name.replace(/\s+/g, '_').toLowerCase() + ".json"; document.body.appendChild(a); a.click(); a.remove(); }
 
     loadStateToDOM(d) {
-        this.state.inputs = {...d.inputs}; this.state.strategies = {...d.strategies};
+        if(!d) return;
+        if(d.version !== this.APP_VERSION) console.warn(`Updating save data from v${d.version||'old'} to v${this.APP_VERSION}`);
+        this.state.inputs = {...(d.inputs||{})}; this.state.strategies = {...(d.strategies||{ accum: ['tfsa', 'rrsp', 'nreg', 'cash', 'crypto'], decum: ['rrsp', 'crypto', 'nreg', 'tfsa', 'cash'] })};
         Object.entries(this.state.inputs).forEach(([id, val]) => { if(id.startsWith('comp_')) return; const el=document.getElementById(id); if(el) el.type==='checkbox'||el.type==='radio'?el.checked=val:el.value=val; });
         ['p1_retireAge','p2_retireAge','inflation_rate'].forEach(k => { if(this.state.inputs[k]) this.updateSidebarSync(k, this.state.inputs[k]); });
         if(this.state.inputs['p1_tfsa_ret']) this.updateSidebarSync('p1_tfsa_ret', this.state.inputs['p1_tfsa_ret']);
-        if(d.expensesData) this.expensesByCategory = d.expensesData; this.renderExpenseRows();
-        if(d.properties) this.state.properties = d.properties; this.renderProperties();
-        if(d.windfalls) this.state.windfalls = d.windfalls; this.renderWindfalls();
-        if(d.additionalIncome) this.state.additionalIncome = d.additionalIncome; this.renderAdditionalIncome();
+        if(d.expensesData) { Object.keys(this.expensesByCategory).forEach(c => { if(!d.expensesData[c]) d.expensesData[c] = this.expensesByCategory[c]; }); this.expensesByCategory = d.expensesData; } this.renderExpenseRows();
+        if(d.properties) { d.properties.forEach(p => { if(p.includeInNW === undefined) p.includeInNW = false; }); this.state.properties = d.properties; } this.renderProperties();
+        this.state.windfalls = d.windfalls || []; this.renderWindfalls();
+        this.state.additionalIncome = d.additionalIncome || []; this.renderAdditionalIncome();
         const dC = document.getElementById('debt-container'); dC.innerHTML = ''; if(d.debt) d.debt.forEach(a => { this.addDebtRow(); const ins = dC.querySelectorAll('.debt-amount'); ins[ins.length-1].value = a; });
         this.toggleModeDisplay(); this.renderStrategy();
         if(document.getElementById('exp_gogo_val')) document.getElementById('exp_gogo_val').innerText = this.getRaw('exp_gogo_age')||75;
@@ -789,7 +792,12 @@ class RetirementPlanner {
 
     deleteScenario(idx) { this.showConfirm("Delete this scenario?", () => { let sc=JSON.parse(localStorage.getItem('rp_scenarios')||'[]'); sc.splice(idx, 1); localStorage.setItem('rp_scenarios', JSON.stringify(sc)); this.loadScenariosList(); }); }
     saveScenario() { const nm = document.getElementById('scenarioName'); if(!nm.value) return alert("Enter a name!"); let sc=JSON.parse(localStorage.getItem('rp_scenarios')||'[]'); sc.push({name: nm.value, data: this.getCurrentSnapshot()}); localStorage.setItem('rp_scenarios', JSON.stringify(sc)); this.loadScenariosList(); nm.value=''; alert("Saved."); }
-    getCurrentSnapshot() { const s = { inputs: {...this.state.inputs}, strategies: {...this.state.strategies}, debt: [], properties: JSON.parse(JSON.stringify(this.state.properties)), expensesData: JSON.parse(JSON.stringify(this.expensesByCategory)), windfalls: JSON.parse(JSON.stringify(this.state.windfalls)), additionalIncome: JSON.parse(JSON.stringify(this.state.additionalIncome)) }; document.querySelectorAll('.debt-amount').forEach(el=>s.debt.push(el.value)); return s; }
+    
+    getCurrentSnapshot() { 
+        const s = { version: this.APP_VERSION, inputs: {...this.state.inputs}, strategies: {...this.state.strategies}, debt: [], properties: JSON.parse(JSON.stringify(this.state.properties)), expensesData: JSON.parse(JSON.stringify(this.expensesByCategory)), windfalls: JSON.parse(JSON.stringify(this.state.windfalls)), additionalIncome: JSON.parse(JSON.stringify(this.state.additionalIncome)) }; 
+        document.querySelectorAll('.debt-amount').forEach(el=>s.debt.push(el.value)); 
+        return s; 
+    }
 }
 
 const app = new RetirementPlanner();
