@@ -370,7 +370,10 @@
                         <div class="col-12 col-xl-6">
                           <div class="card h-100 border-0 bg-black bg-opacity-25">
                             <div class="card-body">
-                              <h6 class="text-info">Player 1 Income</h6>
+                              <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="text-info mb-0">Player 1 Income</h6>
+                                <button type="button" class="btn btn-sm btn-outline-success py-0" style="font-size: 0.75rem;" id="btnAddIncomeP1"><i class="bi bi-plus-lg me-1"></i>Add Stream</button>
+                              </div>
                               <div class="row g-2 mb-3">
                                 <div class="col-8"><label class="form-label">Gross Annual Income</label>
                                   <div class="input-group"><span class="input-group-text">$</span><input type="text" class="form-control live-calc formatted-num" id="p1_income" value="95,000"></div>
@@ -379,6 +382,9 @@
                                   <div class="input-group"><input type="text" class="form-control live-calc formatted-num" id="p1_income_growth" value="2.0"><span class="input-group-text">%</span></div>
                                 </div>
                               </div>
+                              
+                              <div id="p1-additional-income-container" class="mb-3"></div>
+                              
                               <div class="tax-details-box" id="p1_tax_details"></div>
                             </div>
                           </div>
@@ -386,7 +392,10 @@
                         <div class="col-12 col-xl-6 p2-column">
                           <div class="card h-100 border-0 bg-black bg-opacity-25">
                             <div class="card-body">
-                              <h6 class="text-purple" style="color: var(--purple)">Player 2 Income</h6>
+                              <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="text-purple mb-0" style="color: var(--purple)">Player 2 Income</h6>
+                                <button type="button" class="btn btn-sm btn-outline-success py-0" style="font-size: 0.75rem;" id="btnAddIncomeP2"><i class="bi bi-plus-lg me-1"></i>Add Stream</button>
+                              </div>
                               <div class="row g-2 mb-3">
                                 <div class="col-8"><label class="form-label">Gross Annual Income</label>
                                   <div class="input-group"><span class="input-group-text">$</span><input type="text" class="form-control live-calc formatted-num" id="p2_income" value="70,000"></div>
@@ -395,6 +404,9 @@
                                   <div class="input-group"><input type="text" class="form-control live-calc formatted-num" id="p2_income_growth" value="2.0"><span class="input-group-text">%</span></div>
                                 </div>
                               </div>
+                              
+                              <div id="p2-additional-income-container" class="mb-3"></div>
+                              
                               <div class="tax-details-box" id="p2_tax_details"></div>
                             </div>
                           </div>
@@ -467,12 +479,6 @@
                           </div>
                         </div>
                       </div>
-
-                      <div class="d-flex align-items-center justify-content-between mb-3 pt-3 border-top border-secondary">
-                        <h6 class="text-muted small text-uppercase mb-0">Additional Income Streams</h6>
-                        <button type="button" class="btn btn-sm btn-outline-success" id="btnAddIncomeStream"><i class="bi bi-plus-lg me-1"></i>Add Stream</button>
-                      </div>
-                      <div id="additional-income-container" class="mb-4"></div>
 
                       <div class="card bg-black border-secondary">
                         <div class="card-body py-3">
