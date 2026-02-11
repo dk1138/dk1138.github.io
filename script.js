@@ -1,5 +1,5 @@
 /**
- * Retirement Planner Pro - Logic v10.15 (Advanced Portfolio Returns)
+ * Retirement Planner Pro - Logic v10.16 (Bulletproof Safety Failsafes)
  * Features:
  * - Auto-save to LocalStorage
  * - Save/Load/Export JSON Configuration
@@ -10,6 +10,7 @@
  * - Dynamic Additional Income Streams with Growth
  * - Toggable Real Estate inclusion for Net Worth calculation
  * - Advanced Portfolio Mode (Pre/Post Retirement Returns)
+ * - Added robust date parsing and object fallbacks to prevent NaN crashes from legacy localStorage
  */
 
 class RetirementPlanner {
@@ -106,6 +107,22 @@ class RetirementPlanner {
         
         this.debouncedRun = this.debounce(() => this.run(), 300);
         this.init();
+    }
+
+    // --- BULLETPROOF DATE HELPERS ---
+    parseDateSafe(val, fallback = "2026-01-01") {
+        if (!val) return new Date(fallback);
+        let str = String(val);
+        if (str.length === 7) str += "-01";
+        const d = new Date(str);
+        return isNaN(d.getTime()) ? new Date(fallback) : d;
+    }
+
+    getAge(prefix) {
+        const val = this.getRaw(prefix + '_dob');
+        const dob = this.parseDateSafe(val, "1990-01-01");
+        const age = new Date(Date.now() - dob.getTime()).getUTCFullYear() - 1970;
+        return isNaN(age) ? 40 : Math.abs(age);
     }
 
     debounce(func, wait) {
@@ -584,6 +601,9 @@ class RetirementPlanner {
         this.state.windfalls.forEach((w, idx) => {
             const hideEnd = w.freq === 'one' ? 'display:none;' : '';
             const today = new Date().toISOString().slice(0, 7); 
+            const owner = w.owner || 'p1';
+            const taxable = w.taxable === true;
+            
             const div = document.createElement('div');
             div.className = 'windfall-row p-2 border border-secondary rounded bg-body-tertiary mb-2';
             div.innerHTML = `
@@ -592,14 +612,14 @@ class RetirementPlanner {
                     <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="app.removeWindfall(${idx})"><i class="bi bi-x-lg"></i></button>
                 </div>
                 <div class="row g-2 align-items-center">
-                    <div class="col-4"><div class="input-group input-group-sm"><span class="input-group-text border-secondary text-muted">$</span><input type="text" class="form-control border-secondary formatted-num windfall-update" value="${w.amount.toLocaleString()}" data-idx="${idx}" data-field="amount"></div></div>
+                    <div class="col-4"><div class="input-group input-group-sm"><span class="input-group-text border-secondary text-muted">$</span><input type="text" class="form-control border-secondary formatted-num windfall-update" value="${(w.amount||0).toLocaleString()}" data-idx="${idx}" data-field="amount"></div></div>
                     <div class="col-4"><select class="form-select form-select-sm border-secondary windfall-update" data-idx="${idx}" data-field="freq"><option value="one" ${w.freq==='one'?'selected':''}>One Time</option><option value="month" ${w.freq==='month'?'selected':''}>/ Month</option><option value="year" ${w.freq==='year'?'selected':''}>/ Year</option></select></div>
-                    <div class="col-4 p2-column" style="${this.state.mode === 'Couple' ? '' : 'display:none;'}"><select class="form-select form-select-sm border-secondary windfall-update" data-idx="${idx}" data-field="owner"><option value="p1" ${w.owner==='p1'?'selected':''}>Owner: P1</option><option value="p2" ${w.owner==='p2'?'selected':''}>Owner: P2</option></select></div>
+                    <div class="col-4 p2-column" style="${this.state.mode === 'Couple' ? '' : 'display:none;'}"><select class="form-select form-select-sm border-secondary windfall-update" data-idx="${idx}" data-field="owner"><option value="p1" ${owner==='p1'?'selected':''}>Owner: P1</option><option value="p2" ${owner==='p2'?'selected':''}>Owner: P2</option></select></div>
                 </div>
                 <div class="row g-2 mt-1">
                     <div class="col-4"><label class="small text-muted" style="font-size:0.7rem;">Start Date</label><input type="month" class="form-control form-control-sm border-secondary windfall-update" value="${w.start || today}" data-idx="${idx}" data-field="start"></div>
-                    <div class="col-4" style="${hideEnd}"><label class="small text-muted" style="font-size:0.7rem;">End Date</label><input type="month" class="form-control form-control-sm border-secondary windfall-update" value="${w.end}" data-idx="${idx}" data-field="end"></div>
-                    <div class="col-4 d-flex align-items-center justify-content-end"><div class="form-check pt-3"><input class="form-check-input windfall-update" type="checkbox" id="wf_tax_${idx}" ${w.taxable ? 'checked' : ''} data-idx="${idx}" data-field="taxable"><label class="form-check-label text-muted small" for="wf_tax_${idx}">Taxable?</label></div></div>
+                    <div class="col-4" style="${hideEnd}"><label class="small text-muted" style="font-size:0.7rem;">End Date</label><input type="month" class="form-control form-control-sm border-secondary windfall-update" value="${w.end || ''}" data-idx="${idx}" data-field="end"></div>
+                    <div class="col-4 d-flex align-items-center justify-content-end"><div class="form-check pt-3"><input class="form-check-input windfall-update" type="checkbox" id="wf_tax_${idx}" ${taxable ? 'checked' : ''} data-idx="${idx}" data-field="taxable"><label class="form-check-label text-muted small" for="wf_tax_${idx}">Taxable?</label></div></div>
                 </div>
             `;
             container.appendChild(div);
@@ -619,15 +639,18 @@ class RetirementPlanner {
         if (c1) c1.innerHTML = ''; if (c2) c2.innerHTML = '';
 
         this.state.additionalIncome.forEach((w, idx) => {
-            const targetContainer = w.owner === 'p2' ? c2 : c1;
+            const owner = w.owner || 'p1';
+            const taxable = w.taxable !== false;
+            
+            const targetContainer = owner === 'p2' ? c2 : c1;
             if (!targetContainer) return;
             const div = document.createElement('div');
             div.className = 'income-stream-row p-2 border border-secondary rounded bg-body-tertiary mt-2 mb-2';
             div.innerHTML = `
                 <div class="d-flex justify-content-between mb-1"><input type="text" class="form-control form-control-sm bg-transparent border-0 fw-bold text-info income-stream-update" placeholder="Income Name" value="${w.name}" data-idx="${idx}" data-field="name"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="app.removeAdditionalIncome(${idx})"><i class="bi bi-x-lg"></i></button></div>
-                <div class="row g-2 align-items-center"><div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text border-secondary text-muted">$</span><input type="text" class="form-control border-secondary formatted-num income-stream-update" value="${w.amount.toLocaleString()}" data-idx="${idx}" data-field="amount"></div></div><div class="col-6"><select class="form-select form-select-sm border-secondary income-stream-update" data-idx="${idx}" data-field="freq"><option value="month" ${w.freq==='month'?'selected':''}>/ Month</option><option value="year" ${w.freq==='year'?'selected':''}>/ Year</option></select></div></div>
-                <div class="row g-2 mt-1"><div class="col-4"><label class="small text-muted" style="font-size:0.7rem;">Growth %</label><div class="input-group input-group-sm"><input type="number" step="0.1" class="form-control border-secondary income-stream-update" value="${w.growth}" data-idx="${idx}" data-field="growth"><span class="input-group-text border-secondary text-muted">%</span></div></div><div class="col-4"><label class="small text-muted" style="font-size:0.7rem;">Start Date</label><input type="month" class="form-control form-control-sm border-secondary income-stream-update" value="${w.start || new Date().toISOString().slice(0, 7)}" data-idx="${idx}" data-field="start"></div><div class="col-4"><label class="small text-muted" style="font-size:0.7rem;">End Date</label><input type="month" class="form-control form-control-sm border-secondary income-stream-update" value="${w.end}" data-idx="${idx}" data-field="end"></div></div>
-                <div class="row g-2 mt-1"><div class="col-12 d-flex justify-content-end"><div class="form-check"><input class="form-check-input income-stream-update" type="checkbox" id="inc_tax_${idx}" ${w.taxable ? 'checked' : ''} data-idx="${idx}" data-field="taxable"><label class="form-check-label text-muted small" for="inc_tax_${idx}">Is Taxable Income?</label></div></div></div>
+                <div class="row g-2 align-items-center"><div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text border-secondary text-muted">$</span><input type="text" class="form-control border-secondary formatted-num income-stream-update" value="${(w.amount||0).toLocaleString()}" data-idx="${idx}" data-field="amount"></div></div><div class="col-6"><select class="form-select form-select-sm border-secondary income-stream-update" data-idx="${idx}" data-field="freq"><option value="month" ${w.freq==='month'?'selected':''}>/ Month</option><option value="year" ${w.freq==='year'?'selected':''}>/ Year</option></select></div></div>
+                <div class="row g-2 mt-1"><div class="col-4"><label class="small text-muted" style="font-size:0.7rem;">Growth %</label><div class="input-group input-group-sm"><input type="number" step="0.1" class="form-control border-secondary income-stream-update" value="${w.growth||0}" data-idx="${idx}" data-field="growth"><span class="input-group-text border-secondary text-muted">%</span></div></div><div class="col-4"><label class="small text-muted" style="font-size:0.7rem;">Start Date</label><input type="month" class="form-control form-control-sm border-secondary income-stream-update" value="${w.start || new Date().toISOString().slice(0, 7)}" data-idx="${idx}" data-field="start"></div><div class="col-4"><label class="small text-muted" style="font-size:0.7rem;">End Date</label><input type="month" class="form-control form-control-sm border-secondary income-stream-update" value="${w.end || ''}" data-idx="${idx}" data-field="end"></div></div>
+                <div class="row g-2 mt-1"><div class="col-12 d-flex justify-content-end"><div class="form-check"><input class="form-check-input income-stream-update" type="checkbox" id="inc_tax_${idx}" ${taxable ? 'checked' : ''} data-idx="${idx}" data-field="taxable"><label class="form-check-label text-muted small" for="inc_tax_${idx}">Is Taxable Income?</label></div></div></div>
             `;
             targetContainer.appendChild(div);
             div.querySelectorAll('.formatted-num').forEach(el => el.addEventListener('input', (e) => this.formatInput(e.target)));
@@ -812,7 +835,6 @@ class RetirementPlanner {
         const mode = this.state.mode;
         const province = this.getRaw('tax_province');
         const inflation = this.getVal('inflation_rate') / 100;
-        let tfsa_limit = 7000;
         const stressTest = this.state.inputs['stressTestEnabled'];
         const rrspMeltdown = this.state.inputs['strat_rrsp_topup']; 
         const expMode = this.state.expenseMode;
@@ -834,15 +856,15 @@ class RetirementPlanner {
         const goGoLimit = parseInt(this.getRaw('exp_gogo_age')) || 75;
         const slowGoLimit = parseInt(this.getRaw('exp_slow_age')) || 85;
 
-        let p1 = { tfsa: this.getVal('p1_tfsa'), rrsp: this.getVal('p1_rrsp'), cash: this.getVal('p1_cash'), nreg: this.getVal('p1_nonreg'), crypto: this.getVal('p1_crypto'), inc: this.getVal('p1_income'), dob: new Date(this.getRaw('p1_dob')+"-01"), retAge: this.getVal('p1_retireAge'), lifeExp: this.getVal('p1_lifeExp') };
-        let p2 = { tfsa: this.getVal('p2_tfsa'), rrsp: this.getVal('p2_rrsp'), cash: this.getVal('p2_cash'), nreg: this.getVal('p2_nonreg'), crypto: this.getVal('p2_crypto'), inc: this.getVal('p2_income'), dob: new Date(this.getRaw('p2_dob')+"-01"), retAge: this.getVal('p2_retireAge'), lifeExp: this.getVal('p2_lifeExp') };
+        let p1 = { tfsa: this.getVal('p1_tfsa'), rrsp: this.getVal('p1_rrsp'), cash: this.getVal('p1_cash'), nreg: this.getVal('p1_nonreg'), crypto: this.getVal('p1_crypto'), inc: this.getVal('p1_income'), retAge: this.getVal('p1_retireAge'), lifeExp: this.getVal('p1_lifeExp') };
+        let p2 = { tfsa: this.getVal('p2_tfsa'), rrsp: this.getVal('p2_rrsp'), cash: this.getVal('p2_cash'), nreg: this.getVal('p2_nonreg'), crypto: this.getVal('p2_crypto'), inc: this.getVal('p2_income'), retAge: this.getVal('p2_retireAge'), lifeExp: this.getVal('p2_lifeExp') };
 
         const getRate = (id) => this.getVal(id)/100;
 
-        const p1_cpp_start = parseInt(this.getRaw('p1_cpp_start'));
-        const p1_oas_start = parseInt(this.getRaw('p1_oas_start'));
-        const p2_cpp_start = parseInt(this.getRaw('p2_cpp_start'));
-        const p2_oas_start = parseInt(this.getRaw('p2_oas_start'));
+        const p1_cpp_start = parseInt(this.getRaw('p1_cpp_start')) || 65;
+        const p1_oas_start = parseInt(this.getRaw('p1_oas_start')) || 65;
+        const p2_cpp_start = parseInt(this.getRaw('p2_cpp_start')) || 65;
+        const p2_oas_start = parseInt(this.getRaw('p2_oas_start')) || 65;
 
         let p1_db_base = this.getVal('p1_db_pension') * 12;
         let p2_db_base = this.getVal('p2_db_pension') * 12;
@@ -850,11 +872,11 @@ class RetirementPlanner {
         const p2_db_start = parseInt(this.getRaw('p2_db_start_age')) || 60;
         
         let p1_post_base = this.getVal('p1_post_inc'); let p1_post_growth = this.getVal('p1_post_growth') / 100;
-        let p1_post_start = new Date((this.getRaw('p1_post_start') || '2100-01') + "-01");
-        let p1_post_end = new Date((this.getRaw('p1_post_end') || '2100-01') + "-01");
+        let p1_post_start = this.parseDateSafe(this.getRaw('p1_post_start'), "2100-01-01");
+        let p1_post_end = this.parseDateSafe(this.getRaw('p1_post_end'), "2100-01-01");
         let p2_post_base = this.getVal('p2_post_inc'); let p2_post_growth = this.getVal('p2_post_growth') / 100;
-        let p2_post_start = new Date((this.getRaw('p2_post_start') || '2100-01') + "-01");
-        let p2_post_end = new Date((this.getRaw('p2_post_end') || '2100-01') + "-01");
+        let p2_post_start = this.parseDateSafe(this.getRaw('p2_post_start'), "2100-01-01");
+        let p2_post_end = this.parseDateSafe(this.getRaw('p2_post_end'), "2100-01-01");
 
         let expenseTotals = { curr:0, ret:0, trans:0, gogo:0, slow:0, nogo:0 };
         for (const cat in this.expensesByCategory) {
@@ -875,8 +897,8 @@ class RetirementPlanner {
         let expSlow = expenseTotals.slow; let expNoGo = expenseTotals.nogo;
         
         const currentYear = new Date().getFullYear();
-        const p1_startAge = currentYear - p1.dob.getFullYear();
-        const p2_startAge = currentYear - p2.dob.getFullYear();
+        const p1_startAge = this.getAge('p1');
+        const p2_startAge = this.getAge('p2');
         const endAge = Math.max(p1.lifeExp, mode==='Couple' ? p2.lifeExp : 0);
         const yearsToRun = endAge - Math.min(p1_startAge, mode==='Couple' ? p2_startAge : p1_startAge);
 
@@ -955,7 +977,7 @@ class RetirementPlanner {
                     if(p2_age === p2_oas_start && p2_oas_on) events.push('P2 OAS');
                 } else if (!triggeredEvents.has('P2 Dies')) { events.push('P2 Dies'); triggeredEvents.add('P2 Dies'); }
             }
-            let totalMortgageBalance = simProperties.reduce((acc, p) => acc + p.mortgage, 0);
+            let totalMortgageBalance = simProperties.reduce((acc, p) => acc + (p.mortgage||0), 0);
             if(totalMortgageBalance <= 0 && !triggeredEvents.has('Mortgage Paid')) { events.push('Mortgage Paid'); triggeredEvents.add('Mortgage Paid'); }
             if(isCrashYear) events.push('Crash');
 
@@ -1027,42 +1049,48 @@ class RetirementPlanner {
             let wf_nontax_p1 = 0, wf_nontax_p2 = 0;
             
             this.state.windfalls.forEach(w => {
-                const wStart = new Date(w.start + "-01");
+                const wStart = this.parseDateSafe(w.start);
+                const wEnd = this.parseDateSafe(w.end, "2100-01-01");
                 const wStartYear = wStart.getFullYear();
                 let active = false; let annualAmt = 0;
+                let amount = w.amount || 0;
+                const owner = w.owner || 'p1';
+                const taxable = w.taxable === true;
                 
                 if (w.freq === 'one') {
-                    if (wStartYear === year) { active = true; annualAmt = w.amount; }
+                    if (wStartYear === year) { active = true; annualAmt = amount; }
                 } else {
-                    const wEnd = w.end ? new Date(w.end + "-01") : new Date("2100-01-01");
                     if (year >= wStart.getFullYear() && year <= wEnd.getFullYear()) {
                         active = true;
-                        if (w.freq === 'year') annualAmt = w.amount;
+                        if (w.freq === 'year') annualAmt = amount;
                         if (w.freq === 'month') {
                             let startMonth = (year === wStart.getFullYear()) ? wStart.getMonth() : 0;
                             let endMonth = (year === wEnd.getFullYear()) ? wEnd.getMonth() : 11;
-                            annualAmt = w.amount * Math.max(0, endMonth - startMonth + 1);
+                            annualAmt = amount * Math.max(0, endMonth - startMonth + 1);
                         }
                     }
                 }
                 
                 if (active && annualAmt > 0) {
                     if(w.freq === 'one') events.push('Windfall');
-                    if (w.taxable) {
-                        if (w.owner === 'p2' && mode === 'Couple') wf_tax_p2 += annualAmt; else wf_tax_p1 += annualAmt;
+                    if (taxable) {
+                        if (owner === 'p2' && mode === 'Couple') wf_tax_p2 += annualAmt; else wf_tax_p1 += annualAmt;
                     } else {
-                        if (w.owner === 'p2' && mode === 'Couple') wf_nontax_p2 += annualAmt; else wf_nontax_p1 += annualAmt;
+                        if (owner === 'p2' && mode === 'Couple') wf_nontax_p2 += annualAmt; else wf_nontax_p1 += annualAmt;
                     }
                 }
             });
 
             this.state.additionalIncome.forEach(stream => {
-                const sStart = new Date(stream.start + "-01");
-                const sEnd = stream.end ? new Date(stream.end + "-01") : new Date("2100-01-01");
+                const sStart = this.parseDateSafe(stream.start);
+                const sEnd = this.parseDateSafe(stream.end, "2100-01-01");
                 const startYear = sStart.getFullYear(); const endYear = sEnd.getFullYear();
+                const owner = stream.owner || 'p1';
+                const taxable = stream.taxable !== false;
+                const streamAmt = stream.amount || 0;
 
                 if (year >= startYear && year <= endYear) {
-                    let annualAmt = stream.amount * Math.pow(1 + (stream.growth / 100), year - startYear);
+                    let annualAmt = streamAmt * Math.pow(1 + ((stream.growth||0) / 100), year - startYear);
                     if(stream.freq === 'month') annualAmt *= 12;
 
                     let factor = 1.0;
@@ -1071,11 +1099,11 @@ class RetirementPlanner {
                     annualAmt *= factor;
 
                     if (annualAmt > 0) {
-                         if (stream.taxable) {
-                             if (stream.owner === 'p1') p1_gross += annualAmt;
+                         if (taxable) {
+                             if (owner === 'p1') p1_gross += annualAmt;
                              else if (mode === 'Couple') p2_gross += annualAmt;
                          } else {
-                             if (stream.owner === 'p1') wf_nontax_p1 += annualAmt;
+                             if (owner === 'p1') wf_nontax_p1 += annualAmt;
                              else if (mode === 'Couple') wf_nontax_p2 += annualAmt;
                          }
                     }
@@ -1130,9 +1158,9 @@ class RetirementPlanner {
 
             let totalActualMortgageOutflow = 0;
             simProperties.forEach(p => {
-                if(p.mortgage > 0 && p.payment > 0) {
+                if((p.mortgage||0) > 0 && (p.payment||0) > 0) {
                     let annualPmt = p.payment * 12;
-                    let interest = p.mortgage * (p.rate/100);
+                    let interest = p.mortgage * ((p.rate||0)/100);
                     let principal = annualPmt - interest;
                     if(principal > p.mortgage) { principal = p.mortgage; annualPmt = principal + interest; }
                     
@@ -1140,7 +1168,7 @@ class RetirementPlanner {
                     if(p.mortgage < 0) p.mortgage = 0;
                     totalActualMortgageOutflow += annualPmt;
                 }
-                p.value *= (1 + (p.growth/100));
+                p.value *= (1 + ((p.growth||0)/100));
             });
 
             const totalWindfall = (wf_tax_p1 + wf_nontax_p1) + (mode==='Couple' ? (wf_tax_p2 + wf_nontax_p2) : 0);
@@ -1429,12 +1457,11 @@ class RetirementPlanner {
     }
 
     updateAgeDisplay(prefix) {
-        const dobInput = this.getRaw(prefix + '_dob');
         const el = document.getElementById(prefix + '_age');
-        if (!dobInput) { el.innerHTML = "--"; return; }
-        const dob = new Date(dobInput + "-01"); 
-        const age = new Date(Date.now() - dob.getTime()).getUTCFullYear() - 1970;
-        el.innerHTML = Math.abs(age) + " years old";
+        if (!el) return;
+        const val = this.getRaw(prefix + '_dob');
+        if (!val) { el.innerHTML = "--"; return; }
+        el.innerHTML = this.getAge(prefix) + " years old";
     }
 
     toggleSidebar() {
@@ -1476,7 +1503,7 @@ class RetirementPlanner {
            data.items.forEach((item, index) => {
              html += `<tr class="expense-row"><td class="ps-3 align-middle border-bottom border-secondary ${rowBg} ${rowText}"><input type="text" class="form-control form-control-sm border-0 expense-update ${inputClass}" value="${item.name}" data-cat="${category}" data-idx="${index}" data-field="name"></td>`;
              if(this.state.expenseMode === 'Simple') {
-                 html += `<td class="align-middle border-bottom border-secondary ${rowBg} ${rowText}"><div class="input-group input-group-sm"><span class="input-group-text border-secondary text-muted">$</span><input type="text" class="form-control border-secondary formatted-num expense-update ${inputClass}" style="width: 100px; flex-grow: 1;" value="${item.curr.toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="curr"><select class="form-select border-secondary expense-update ${inputClass}" style="width: auto; flex-grow: 0; min-width: 85px;" data-cat="${category}" data-idx="${index}" data-field="freq"><option value="12" ${item.freq===12?'selected':''}>/month</option><option value="1" ${item.freq===1?'selected':''}>/year</option></select></div></td><td class="align-middle border-bottom border-secondary ${rowBg} ${rowText}"><div class="d-flex align-items-center"><div class="input-group input-group-sm flex-grow-1"><span class="input-group-text border-secondary text-muted">$</span><input type="text" class="form-control border-secondary formatted-num expense-update ${inputClass}" style="width: 100px; flex-grow: 1;" value="${item.ret.toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="ret"><select class="form-select border-secondary expense-update ${inputClass}" style="width: auto; flex-grow: 0; min-width: 85px;" data-cat="${category}" data-idx="${index}" data-field="freq"><option value="12" ${item.freq===12?'selected':''}>/month</option><option value="1" ${item.freq===1?'selected':''}>/year</option></select></div><button type="button" class="btn btn-sm btn-link text-danger p-0 ms-3 me-2" title="Delete Line" onclick="app.removeExpense('${category}', ${index})"><i class="bi bi-trash"></i></button></div></td>`;
+                 html += `<td class="align-middle border-bottom border-secondary ${rowBg} ${rowText}"><div class="input-group input-group-sm"><span class="input-group-text border-secondary text-muted">$</span><input type="text" class="form-control border-secondary formatted-num expense-update ${inputClass}" style="width: 100px; flex-grow: 1;" value="${(item.curr||0).toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="curr"><select class="form-select border-secondary expense-update ${inputClass}" style="width: auto; flex-grow: 0; min-width: 85px;" data-cat="${category}" data-idx="${index}" data-field="freq"><option value="12" ${item.freq===12?'selected':''}>/month</option><option value="1" ${item.freq===1?'selected':''}>/year</option></select></div></td><td class="align-middle border-bottom border-secondary ${rowBg} ${rowText}"><div class="d-flex align-items-center"><div class="input-group input-group-sm flex-grow-1"><span class="input-group-text border-secondary text-muted">$</span><input type="text" class="form-control border-secondary formatted-num expense-update ${inputClass}" style="width: 100px; flex-grow: 1;" value="${(item.ret||0).toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="ret"><select class="form-select border-secondary expense-update ${inputClass}" style="width: auto; flex-grow: 0; min-width: 85px;" data-cat="${category}" data-idx="${index}" data-field="freq"><option value="12" ${item.freq===12?'selected':''}>/month</option><option value="1" ${item.freq===1?'selected':''}>/year</option></select></div><button type="button" class="btn btn-sm btn-link text-danger p-0 ms-3 me-2" title="Delete Line" onclick="app.removeExpense('${category}', ${index})"><i class="bi bi-trash"></i></button></div></td>`;
              } else {
                  html += `<td class="align-middle border-bottom border-secondary ${rowBg} ${rowText}"><div class="input-group input-group-sm mb-1" style="flex-wrap: nowrap;"><span class="input-group-text border-secondary text-muted">$</span><input type="text" class="form-control border-secondary formatted-num expense-update ${inputClass}" style="min-width: 60px;" value="${(item.curr||0).toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="curr"><select class="form-select border-secondary expense-update ${inputClass}" style="width: auto; flex-grow: 0; min-width: 85px;" data-cat="${category}" data-idx="${index}" data-field="freq"><option value="12" ${item.freq===12?'selected':''}>/month</option><option value="1" ${item.freq===1?'selected':''}>/year</option></select></div></td><td class="align-middle border-bottom border-secondary ${rowBg} ${rowText}">${renderInput(item, 'trans', index, category, inputClass)}</td><td class="align-middle border-bottom border-secondary ${rowBg} ${rowText}">${renderInput(item, 'gogo', index, category, inputClass)}</td><td class="align-middle border-bottom border-secondary ${rowBg} ${rowText}">${renderInput(item, 'slow', index, category, inputClass)}</td><td class="align-middle border-bottom border-secondary ${rowBg} ${rowText}"><div class="d-flex align-items-center justify-content-between">${renderInput(item, 'nogo', index, category, inputClass)}<button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2" onclick="app.removeExpense('${category}', ${index})"><i class="bi bi-trash"></i></button></div></td>`;
              }
@@ -1571,7 +1598,7 @@ class RetirementPlanner {
         });
     }
 
-    findOptimal() {
+findOptimal() {
         const p1CPP = document.getElementById('p1_cpp_start'); const p1OAS = document.getElementById('p1_oas_start');
         let maxNW = -Infinity; let bestC = 65; let bestO = 65;
         const origC = p1CPP.value; const origO = p1OAS.value;
@@ -1592,12 +1619,15 @@ class RetirementPlanner {
             this.state.inputs['p1_cpp_start'] = origC; this.state.inputs['p1_oas_start'] = origO;
         }
 
-        document.getElementById('p1_cpp_opt').innerHTML = p1_cpp_on ? `Optimal: Age ${this.optimalAges.p1_cpp} (<a href="javascript:void(0)" class="text-success text-decoration-none fw-bold opt-apply" data-target="p1_cpp">Apply</a>)` : `Optimization Disabled`;
-        document.getElementById('p1_oas_opt').innerHTML = p1_oas_on ? `Optimal: Age ${this.optimalAges.p1_oas} (<a href="javascript:void(0)" class="text-success text-decoration-none fw-bold opt-apply" data-target="p1_oas">Apply</a>)` : `Optimization Disabled`;
+        const elP1CppOpt = document.getElementById('p1_cpp_opt');
+        if (elP1CppOpt) elP1CppOpt.innerHTML = p1_cpp_on ? `Optimal: Age ${this.optimalAges.p1_cpp} (<a href="javascript:void(0)" class="text-success text-decoration-none fw-bold opt-apply" data-target="p1_cpp">Apply</a>)` : `Optimization Disabled`;
+        
+        const elP1OasOpt = document.getElementById('p1_oas_opt');
+        if (elP1OasOpt) elP1OasOpt.innerHTML = p1_oas_on ? `Optimal: Age ${this.optimalAges.p1_oas} (<a href="javascript:void(0)" class="text-success text-decoration-none fw-bold opt-apply" data-target="p1_oas">Apply</a>)` : `Optimization Disabled`;
 
         if(this.state.mode === 'Couple') {
             const p2CPP = document.getElementById('p2_cpp_start'); const p2OAS = document.getElementById('p2_oas_start');
-            const origC2 = p2CPP.value; const origO2 = p2OAS.value;
+            const origC2 = p2CPP ? p2CPP.value : 65; const origO2 = p2OAS ? p2OAS.value : 65;
             const p2_cpp_on = this.state.inputs['p2_cpp_enabled']; const p2_oas_on = this.state.inputs['p2_oas_enabled'];
 
             if (p2_cpp_on || p2_oas_on) {
@@ -1615,8 +1645,11 @@ class RetirementPlanner {
                 this.state.inputs['p2_cpp_start'] = origC2; this.state.inputs['p2_oas_start'] = origO2;
             }
 
-            document.getElementById('p2_cpp_opt').innerHTML = p2_cpp_on ? `Optimal: Age ${this.optimalAges.p2_cpp} (<a href="javascript:void(0)" class="text-success text-decoration-none fw-bold opt-apply" data-target="p2_cpp">Apply</a>)` : `Optimization Disabled`;
-            document.getElementById('p2_oas_opt').innerHTML = p2_oas_on ? `Optimal: Age ${this.optimalAges.p2_oas} (<a href="javascript:void(0)" class="text-success text-decoration-none fw-bold opt-apply" data-target="p2_oas">Apply</a>)` : `Optimization Disabled`;
+            const elP2CppOpt = document.getElementById('p2_cpp_opt');
+            if (elP2CppOpt) elP2CppOpt.innerHTML = p2_cpp_on ? `Optimal: Age ${this.optimalAges.p2_cpp} (<a href="javascript:void(0)" class="text-success text-decoration-none fw-bold opt-apply" data-target="p2_cpp">Apply</a>)` : `Optimization Disabled`;
+            
+            const elP2OasOpt = document.getElementById('p2_oas_opt');
+            if (elP2OasOpt) elP2OasOpt.innerHTML = p2_oas_on ? `Optimal: Age ${this.optimalAges.p2_oas} (<a href="javascript:void(0)" class="text-success text-decoration-none fw-bold opt-apply" data-target="p2_oas">Apply</a>)` : `Optimization Disabled`;
         }
     }
 
@@ -1630,7 +1663,7 @@ class RetirementPlanner {
 
     estimateCPPOAS() {
         const update = (prefix) => {
-            const retAge = this.getVal(prefix+'_retireAge'); const cppStart = parseInt(this.getRaw(prefix+'_cpp_start')); const oasStart = parseInt(this.getRaw(prefix+'_oas_start'));
+            const retAge = this.getVal(prefix+'_retireAge'); const cppStart = parseInt(this.getRaw(prefix+'_cpp_start')) || 65; const oasStart = parseInt(this.getRaw(prefix+'_oas_start')) || 65;
             const cppEnabled = this.state.inputs[prefix+'_cpp_enabled']; const oasEnabled = this.state.inputs[prefix+'_oas_enabled'];
             
             let cppVal = this.CONSTANTS.MAX_CPP_2026; let mDiff = (cppStart - 65) * 12;
@@ -1661,12 +1694,12 @@ class RetirementPlanner {
         let p1AddTaxable = 0, p1AddNonTaxable = 0, p2AddTaxable = 0, p2AddNonTaxable = 0;
 
         this.state.additionalIncome.forEach(stream => {
-            const sStart = new Date(stream.start + "-01"); const sEnd = stream.end ? new Date(stream.end + "-01") : new Date("2100-01-01");
+            const sStart = this.parseDateSafe(stream.start); const sEnd = this.parseDateSafe(stream.end, "2100-01-01");
             const startYear = sStart.getFullYear(); const endYear = sEnd.getFullYear();
 
             if (currentYear >= startYear && currentYear <= endYear) {
                 let yearsActive = currentYear - startYear;
-                let annualAmt = stream.amount * Math.pow(1 + (stream.growth / 100), yearsActive);
+                let annualAmt = (stream.amount||0) * Math.pow(1 + ((stream.growth||0) / 100), yearsActive);
                 if(stream.freq === 'month') annualAmt *= 12;
 
                 let factor = 1.0;
@@ -1675,8 +1708,8 @@ class RetirementPlanner {
                 annualAmt *= factor;
 
                 if (annualAmt > 0) {
-                    if (stream.owner === 'p1') { if (stream.taxable) p1AddTaxable += annualAmt; else p1AddNonTaxable += annualAmt; } 
-                    else if (stream.owner === 'p2') { if (stream.taxable) p2AddTaxable += annualAmt; else p2AddNonTaxable += annualAmt; }
+                    if (stream.owner === 'p1') { if (stream.taxable !== false) p1AddTaxable += annualAmt; else p1AddNonTaxable += annualAmt; } 
+                    else if (stream.owner === 'p2') { if (stream.taxable !== false) p2AddTaxable += annualAmt; else p2AddNonTaxable += annualAmt; }
                 }
             }
         });
@@ -1706,10 +1739,12 @@ class RetirementPlanner {
 
     calcExpenses() {
         const footer = document.getElementById('expenseFooter');
+        if (!footer) return;
+        
         const useReal = document.getElementById('useRealDollars') ? document.getElementById('useRealDollars').checked : false;
         const inflation = this.getVal('inflation_rate') / 100;
         const p1_age = this.getVal('p1_age') || 0; 
-        const currentAge = new Date(Date.now() - new Date(this.getRaw('p1_dob') + "-01").getTime()).getUTCFullYear() - 1970;
+        const currentAge = this.getAge('p1');
         
         const p1_ret = this.getVal('p1_retireAge'); const p2_ret = this.state.mode === 'Couple' ? this.getVal('p2_retireAge') : 999;
         const goGoLimit = parseInt(this.getRaw('exp_gogo_age')) || 75; const slowGoLimit = parseInt(this.getRaw('exp_slow_age')) || 85;
@@ -1727,7 +1762,7 @@ class RetirementPlanner {
         let totals = { curr: 0, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0 };
         for (const cat in this.expensesByCategory) {
             this.expensesByCategory[cat].items.forEach(item => {
-                const f = item.freq;
+                const f = item.freq || 12;
                 totals.curr += (item.curr||0) * f; totals.ret += (item.ret||0) * f;
                 totals.trans += (item.trans||0) * f; totals.gogo += (item.gogo||0) * f;
                 totals.slow += (item.slow||0) * f; totals.nogo += (item.nogo||0) * f;
@@ -1780,6 +1815,8 @@ class RetirementPlanner {
 
     loadScenariosList() {
         const list = document.getElementById('scenarioList'); const compareArea = document.getElementById('compareSelectionArea');
+        if (!list || !compareArea) return;
+        
         list.innerHTML = '';
         let compHTML = `<div class="d-flex align-items-center mb-2 p-2 rounded" style="background: rgba(255,255,255,0.05);"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" value="current" id="comp_current" checked><label class="form-check-label text-white small" for="comp_current">Current Unsaved Plan</label></div></div>`;
         let scenarios = JSON.parse(localStorage.getItem('rp_scenarios') || '[]');
@@ -1837,28 +1874,33 @@ class RetirementPlanner {
         if (data.windfalls) { this.state.windfalls = data.windfalls; this.renderWindfalls(); }
         if (data.additionalIncome) { this.state.additionalIncome = data.additionalIncome; this.renderAdditionalIncome(); }
 
-        const debtContainer = document.getElementById('debt-container'); debtContainer.innerHTML = '';
-        if (data.debt) {
-            data.debt.forEach(amt => {
-                this.addDebtRow();
-                const inputs = debtContainer.querySelectorAll('.debt-amount');
-                inputs[inputs.length-1].value = amt;
-            });
+        const debtContainer = document.getElementById('debt-container');
+        if (debtContainer) {
+            debtContainer.innerHTML = '';
+            if (data.debt) {
+                data.debt.forEach(amt => {
+                    this.addDebtRow();
+                    const inputs = debtContainer.querySelectorAll('.debt-amount');
+                    if (inputs.length > 0) inputs[inputs.length-1].value = amt;
+                });
+            }
         }
         
         this.toggleModeDisplay(); this.renderStrategy();
         
-        document.getElementById('exp_gogo_val').innerText = this.getRaw('exp_gogo_age') || 75;
-        document.getElementById('exp_slow_val').innerText = this.getRaw('exp_slow_age') || 85;
+        const gogoValEl = document.getElementById('exp_gogo_val'); if (gogoValEl) gogoValEl.innerText = this.getRaw('exp_gogo_age') || 75;
+        const slowgoValEl = document.getElementById('exp_slow_val'); if (slowgoValEl) slowgoValEl.innerText = this.getRaw('exp_slow_age') || 85;
         
-        const advMode = document.getElementById('expense_mode_advanced').checked;
+        const advModeEl = document.getElementById('expense_mode_advanced');
+        const advMode = advModeEl ? advModeEl.checked : false;
         const sliderDiv = document.getElementById('expense-phase-controls');
         if(sliderDiv) sliderDiv.style.display = advMode ? 'flex' : 'none';
 
-        document.getElementById('p1_db_start_val').innerText = this.getRaw('p1_db_start_age') || '60';
-        document.getElementById('p2_db_start_val').innerText = this.getRaw('p2_db_start_age') || '60';
+        const dbStart1El = document.getElementById('p1_db_start_val'); if(dbStart1El) dbStart1El.innerText = this.getRaw('p1_db_start_age') || '60';
+        const dbStart2El = document.getElementById('p2_db_start_val'); if(dbStart2El) dbStart2El.innerText = this.getRaw('p2_db_start_age') || '60';
 
-        this.state.portfolioMode = document.getElementById('portfolio_mode_advanced').checked ? 'Advanced' : 'Simple';
+        const portModeAdvEl = document.getElementById('portfolio_mode_advanced');
+        this.state.portfolioMode = (portModeAdvEl && portModeAdvEl.checked) ? 'Advanced' : 'Simple';
         this.togglePortfolioMode();
         this.updatePostRetIncomeVisibility();
     }
@@ -1872,7 +1914,7 @@ class RetirementPlanner {
     
     saveScenario() {
         const nameInput = document.getElementById('scenarioName');
-        if (!nameInput.value) { alert("Enter a name!"); return; }
+        if (!nameInput || !nameInput.value) { alert("Enter a name!"); return; }
         let scenarios = JSON.parse(localStorage.getItem('rp_scenarios') || '[]');
         scenarios.push({ name: nameInput.value, data: this.getCurrentSnapshot() });
         localStorage.setItem('rp_scenarios', JSON.stringify(scenarios));
