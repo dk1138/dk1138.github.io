@@ -1,5 +1,5 @@
 /**
- * Retirement Planner Pro - Logic v10.14 (Dynamic Net Worth Toggles for Real Estate)
+ * Retirement Planner Pro - Logic v10.15 (Advanced Portfolio Returns)
  * Features:
  * - Auto-save to LocalStorage
  * - Save/Load/Export JSON Configuration
@@ -7,8 +7,9 @@
  * - Sidebar Sync on Load
  * - Light/Dark Theme Support
  * - DB Pension Start Age Sliders
- * - Dynamic Additional Income Streams with Growth (Tied to Players & Live Tax Update)
+ * - Dynamic Additional Income Streams with Growth
  * - Toggable Real Estate inclusion for Net Worth calculation
+ * - Advanced Portfolio Mode (Pre/Post Retirement Returns)
  */
 
 class RetirementPlanner {
@@ -17,7 +18,7 @@ class RetirementPlanner {
         this.state = {
             inputs: {}, 
             debt: [],
-            // Default Property (Now includes includeInNW flag defaulting to false):
+            // Default Property:
             properties: [
                 { name: "Primary Home", value: 1000000, mortgage: 430000, growth: 3.0, rate: 3.29, payment: 0, manual: false, includeInNW: false }
             ],
@@ -32,7 +33,8 @@ class RetirementPlanner {
             },
             mode: 'Couple',
             projectionData: [],
-            expenseMode: 'Simple' // 'Simple' or 'Advanced'
+            expenseMode: 'Simple', // 'Simple' or 'Advanced'
+            portfolioMode: 'Simple' // 'Simple' or 'Advanced'
         };
 
         this.AUTO_SAVE_KEY = 'rp_autosave_v1';
@@ -207,6 +209,7 @@ class RetirementPlanner {
             this.syncStateFromDOM();
             this.toggleModeDisplay(); 
             this.updatePostRetIncomeVisibility();
+            this.togglePortfolioMode();
 
             this.updateAgeDisplay('p1'); 
             this.updateAgeDisplay('p2');
@@ -387,6 +390,21 @@ class RetirementPlanner {
         }
     }
 
+    togglePortfolioMode() {
+        const isAdv = this.state.portfolioMode === 'Advanced';
+        document.querySelectorAll('.adv-portfolio-col').forEach(el => {
+            el.style.display = isAdv ? 'block' : 'none';
+        });
+        document.querySelectorAll('.port-bal-col').forEach(el => {
+            el.className = isAdv ? 'col-3 port-bal-col' : 'col-5 port-bal-col';
+        });
+        document.querySelectorAll('.port-ret-col').forEach(el => {
+            el.className = isAdv ? 'col-3 port-ret-col' : 'col-4 port-ret-col';
+        });
+        document.getElementById('lbl_p1_ret_pre').innerText = isAdv ? 'Pre-Ret (%)' : 'Return (%)';
+        document.getElementById('lbl_p2_ret_pre').innerText = isAdv ? 'Pre-Ret (%)' : 'Return (%)';
+    }
+
     bindEvents() {
         const themeBtn = document.getElementById('btnThemeToggle');
         if(themeBtn) themeBtn.addEventListener('click', () => this.toggleTheme());
@@ -404,6 +422,11 @@ class RetirementPlanner {
                 if(sliderDiv) sliderDiv.style.display = e.target.checked ? 'flex' : 'none';
                 this.renderExpenseRows();
                 this.calcExpenses();
+                this.run();
+            }
+            if (e.target.id === 'portfolio_mode_advanced') {
+                this.state.portfolioMode = e.target.checked ? 'Advanced' : 'Simple';
+                this.togglePortfolioMode();
                 this.run();
             }
             if (e.target.id === 'enable_post_ret_income_p1' || e.target.id === 'enable_post_ret_income_p2') {
@@ -435,7 +458,6 @@ class RetirementPlanner {
         document.getElementById('btnAddProperty').addEventListener('click', () => this.addProperty());
         document.getElementById('btnAddWindfall').addEventListener('click', () => this.addWindfall());
         
-        // Setup buttons for additional income based on owner
         const btnAddIncP1 = document.getElementById('btnAddIncomeP1');
         if (btnAddIncP1) btnAddIncP1.addEventListener('click', () => this.addAdditionalIncome('p1'));
 
@@ -659,6 +681,11 @@ class RetirementPlanner {
             p1_rrsp_ret: '6.0', p2_rrsp_ret: '6.0',
             p1_nonreg_ret: '5.0', p2_nonreg_ret: '5.0',
             p1_crypto_ret: '8.0', p2_crypto_ret: '8.0',
+            p1_cash_ret_retire: '2.0', p2_cash_ret_retire: '2.0',
+            p1_tfsa_ret_retire: '4.0', p2_tfsa_ret_retire: '4.0',
+            p1_rrsp_ret_retire: '4.0', p2_rrsp_ret_retire: '4.0',
+            p1_nonreg_ret_retire: '4.0', p2_nonreg_ret_retire: '4.0',
+            p1_crypto_ret_retire: '4.0', p2_crypto_ret_retire: '4.0',
             p1_income_growth: '2.0', p2_income_growth: '2.0',
             p1_db_pension: '0', p2_db_pension: '0',
             p1_db_start_age: '60', p2_db_start_age: '60',
@@ -667,7 +694,8 @@ class RetirementPlanner {
             exp_gogo_age: '75', exp_slow_age: '85',
             enable_post_ret_income_p1: false, enable_post_ret_income_p2: false,
             p1_post_inc: '0', p1_post_growth: '2.0',
-            p2_post_inc: '0', p2_post_growth: '2.0'
+            p2_post_inc: '0', p2_post_growth: '2.0',
+            portfolio_mode_advanced: false
         };
 
         document.querySelectorAll('input, select').forEach(el => {
@@ -712,6 +740,10 @@ class RetirementPlanner {
         document.getElementById('p1_db_start_val').innerText = '60';
         document.getElementById('p2_db_start_val').innerText = '60';
         
+        const advPortMode = document.getElementById('portfolio_mode_advanced').checked;
+        this.state.portfolioMode = advPortMode ? 'Advanced' : 'Simple';
+        this.togglePortfolioMode();
+
         this.updatePostRetIncomeVisibility();
 
         this.updateAgeDisplay('p1'); 
@@ -1251,6 +1283,7 @@ class RetirementPlanner {
         const stressTest = this.state.inputs['stressTestEnabled'];
         const rrspMeltdown = this.state.inputs['strat_rrsp_topup']; 
         const expMode = this.state.expenseMode;
+        const advPort = this.state.portfolioMode === 'Advanced';
         
         const enablePostRetP1 = this.state.inputs['enable_post_ret_income_p1'];
         const enablePostRetP2 = this.state.inputs['enable_post_ret_income_p2'];
@@ -1272,10 +1305,6 @@ class RetirementPlanner {
         let p2 = { tfsa: this.getVal('p2_tfsa'), rrsp: this.getVal('p2_rrsp'), cash: this.getVal('p2_cash'), nreg: this.getVal('p2_nonreg'), crypto: this.getVal('p2_crypto'), inc: this.getVal('p2_income'), dob: new Date(this.getRaw('p2_dob')), retAge: this.getVal('p2_retireAge'), lifeExp: this.getVal('p2_lifeExp') };
 
         const getRate = (id) => this.getVal(id)/100;
-        const baseRatesP1 = { tfsa: getRate('p1_tfsa_ret'), rrsp: getRate('p1_rrsp_ret'), cash: getRate('p1_cash_ret'), nreg: getRate('p1_nonreg_ret'), cryp: getRate('p1_crypto_ret'), inc: getRate('p1_income_growth') };
-        const baseRatesP2 = { tfsa: getRate('p2_tfsa_ret'), rrsp: getRate('p2_tfsa_ret'), cash: getRate('p2_cash_ret'), nreg: getRate('p2_nonreg_ret'), cryp: getRate('p2_crypto_ret'), inc: getRate('p2_income_growth') };
-        
-        p1.rates = {...baseRatesP1}; p2.rates = {...baseRatesP2};
 
         const p1_cpp_start = parseInt(this.getRaw('p1_cpp_start'));
         const p1_oas_start = parseInt(this.getRaw('p1_oas_start'));
@@ -1349,8 +1378,31 @@ class RetirementPlanner {
                      if(inflatedTaxData[k].surtax.t2) inflatedTaxData[k].surtax.t2 *= bracketInflator;
                  }
             }
+
+            const p1_isRetired = p1_age >= p1.retAge;
+            const p2_isRetired = (mode === 'Couple') ? (p2_age >= p2.retAge) : true;
+            let fullyRetired = true;
+            if(p1_alive && !p1_isRetired) fullyRetired = false;
+            if(p2_alive && !p2_isRetired) fullyRetired = false;
             
-            let currentRatesP1 = {...baseRatesP1}; let currentRatesP2 = {...baseRatesP2};
+            let currentRatesP1 = {
+                tfsa: advPort && p1_isRetired ? getRate('p1_tfsa_ret_retire') : getRate('p1_tfsa_ret'),
+                rrsp: advPort && p1_isRetired ? getRate('p1_rrsp_ret_retire') : getRate('p1_rrsp_ret'),
+                cash: advPort && p1_isRetired ? getRate('p1_cash_ret_retire') : getRate('p1_cash_ret'),
+                nreg: advPort && p1_isRetired ? getRate('p1_nonreg_ret_retire') : getRate('p1_nonreg_ret'),
+                cryp: advPort && p1_isRetired ? getRate('p1_crypto_ret_retire') : getRate('p1_crypto_ret'),
+                inc: getRate('p1_income_growth')
+            };
+
+            let currentRatesP2 = {
+                tfsa: advPort && p2_isRetired ? getRate('p2_tfsa_ret_retire') : getRate('p2_tfsa_ret'),
+                rrsp: advPort && p2_isRetired ? getRate('p2_rrsp_ret_retire') : getRate('p2_rrsp_ret'),
+                cash: advPort && p2_isRetired ? getRate('p2_cash_ret_retire') : getRate('p2_cash_ret'),
+                nreg: advPort && p2_isRetired ? getRate('p2_nonreg_ret_retire') : getRate('p2_nonreg_ret'),
+                cryp: advPort && p2_isRetired ? getRate('p2_crypto_ret_retire') : getRate('p2_crypto_ret'),
+                inc: getRate('p2_income_growth')
+            };
+            
             let isCrashYear = false;
             if (stressTest && p1_age >= p1.retAge && p1_age < p1.retAge + 2) {
                 isCrashYear = true;
@@ -1387,12 +1439,6 @@ class RetirementPlanner {
                 events.push('Mortgage Paid'); triggeredEvents.add('Mortgage Paid'); 
             }
             if(isCrashYear) events.push('Crash');
-
-            const p1_isRetired = p1_age >= p1.retAge;
-            const p2_isRetired = (mode === 'Couple') ? (p2_age >= p2.retAge) : true;
-            let fullyRetired = true;
-            if(p1_alive && !p1_isRetired) fullyRetired = false;
-            if(p2_alive && !p2_isRetired) fullyRetired = false;
 
             let p1_gross = 0, p2_gross = 0;
             let p1_cpp_inc = 0, p1_oas_inc = 0;
@@ -2882,68 +2928,3 @@ class RetirementPlanner {
 
         const debtContainer = document.getElementById('debt-container');
         debtContainer.innerHTML = '';
-        if (data.debt) {
-            data.debt.forEach(amt => {
-                this.addDebtRow();
-                const inputs = debtContainer.querySelectorAll('.debt-amount');
-                inputs[inputs.length-1].value = amt;
-            });
-        }
-        this.toggleModeDisplay();
-        this.renderStrategy();
-        
-        const goGoVal = this.getRaw('exp_gogo_age') || 75;
-        const slowGoVal = this.getRaw('exp_slow_age') || 85;
-        document.getElementById('exp_gogo_val').innerText = goGoVal;
-        document.getElementById('exp_slow_val').innerText = slowGoVal;
-        
-        const advMode = document.getElementById('expense_mode_advanced').checked;
-        const sliderDiv = document.getElementById('expense-phase-controls');
-        if(sliderDiv) sliderDiv.style.display = advMode ? 'flex' : 'none';
-
-        document.getElementById('p1_db_start_val').innerText = this.getRaw('p1_db_start_age') || '60';
-        document.getElementById('p2_db_start_val').innerText = this.getRaw('p2_db_start_age') || '60';
-
-        this.updatePostRetIncomeVisibility();
-    }
-
-    deleteScenario(idx) {
-        this.showConfirm("Are you sure you want to delete this scenario?", () => {
-            let scenarios = JSON.parse(localStorage.getItem('rp_scenarios') || '[]');
-            scenarios.splice(idx, 1);
-            localStorage.setItem('rp_scenarios', JSON.stringify(scenarios));
-            this.loadScenariosList();
-        });
-    }
-    
-    saveScenario() {
-        const nameInput = document.getElementById('scenarioName');
-        if (!nameInput.value) { alert("Enter a name!"); return; }
-        
-        let scenarios = JSON.parse(localStorage.getItem('rp_scenarios') || '[]');
-        scenarios.push({
-            name: nameInput.value,
-            data: this.getCurrentSnapshot()
-        });
-        localStorage.setItem('rp_scenarios', JSON.stringify(scenarios));
-        this.loadScenariosList();
-        nameInput.value = '';
-        alert("Scenario saved.");
-    }
-
-    getCurrentSnapshot() {
-        const snapshot = {
-            inputs: {...this.state.inputs},
-            strategies: {...this.state.strategies},
-            debt: [], 
-            properties: JSON.parse(JSON.stringify(this.state.properties)),
-            expensesData: JSON.parse(JSON.stringify(this.expensesByCategory)),
-            windfalls: JSON.parse(JSON.stringify(this.state.windfalls)),
-            additionalIncome: JSON.parse(JSON.stringify(this.state.additionalIncome))
-        };
-        document.querySelectorAll('.debt-amount').forEach(el => snapshot.debt.push(el.value));
-        return snapshot;
-    }
-}
-
-const app = new RetirementPlanner();
