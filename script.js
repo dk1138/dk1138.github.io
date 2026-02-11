@@ -1,9 +1,9 @@
 /**
- * Retirement Planner Pro - Logic v10.16 (Dynamic Ages on Expense Table Headers)
+ * Retirement Planner Pro - Logic v10.17 (Phase Age Boundary Enforcement)
  */
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.16";
+        this.APP_VERSION = "10.17";
         this.state = {
             inputs: {}, debt: [],
             properties: [{ name: "Primary Home", value: 1000000, mortgage: 430000, growth: 3.0, rate: 3.29, payment: 0, manual: false, includeInNW: false }],
@@ -190,8 +190,10 @@ class RetirementPlanner {
 
         ['exp_gogo_age', 'exp_slow_age'].forEach((id, i) => {
             if($(id)) $(id).addEventListener('input', e => {
-                $(['exp_gogo_val', 'exp_slow_val'][i]).innerText = e.target.value;
-                this.state.inputs[id] = e.target.value;
+                let v = parseInt(e.target.value);
+                if(id === 'exp_gogo_age' && $('exp_slow_age') && v > parseInt($('exp_slow_age').value)) { $('exp_slow_age').value = v; $('exp_slow_val').innerText = v; this.state.inputs['exp_slow_age'] = v; }
+                if(id === 'exp_slow_age' && $('exp_gogo_age') && v < parseInt($('exp_gogo_age').value)) { $('exp_gogo_age').value = v; $('exp_gogo_val').innerText = v; this.state.inputs['exp_gogo_age'] = v; }
+                $(['exp_gogo_val', 'exp_slow_val'][i]).innerText = v; this.state.inputs[id] = v;
                 this.renderExpenseRows(); this.calcExpenses(); this.debouncedRun();
             });
         });
