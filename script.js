@@ -1,5 +1,5 @@
 /**
- * Retirement Planner Pro - Logic v10.13 (Additional Income Streams tied to P1/P2)
+ * Retirement Planner Pro - Logic v10.14 (Dynamic Net Worth Toggles for Real Estate)
  * Features:
  * - Auto-save to LocalStorage
  * - Save/Load/Export JSON Configuration
@@ -8,6 +8,7 @@
  * - Light/Dark Theme Support
  * - DB Pension Start Age Sliders
  * - Dynamic Additional Income Streams with Growth (Tied to Players & Live Tax Update)
+ * - Toggable Real Estate inclusion for Net Worth calculation
  */
 
 class RetirementPlanner {
@@ -16,13 +17,13 @@ class RetirementPlanner {
         this.state = {
             inputs: {}, 
             debt: [],
-            // Default Property:
+            // Default Property (Now includes includeInNW flag defaulting to false):
             properties: [
-                { name: "Primary Home", value: 1000000, mortgage: 430000, growth: 3.0, rate: 3.29, payment: 0, manual: false }
+                { name: "Primary Home", value: 1000000, mortgage: 430000, growth: 3.0, rate: 3.29, payment: 0, manual: false, includeInNW: false }
             ],
             // Windfalls State
             windfalls: [],
-            // Additional Income Streams (Now explicitly mapped via 'owner' to p1/p2)
+            // Additional Income Streams (explicitly mapped via 'owner' to p1/p2)
             additionalIncome: [],
             
             strategies: {
@@ -475,10 +476,10 @@ class RetirementPlanner {
             if (e.target.classList.contains('property-update')) {
                 const idx = parseInt(e.target.dataset.idx);
                 const field = e.target.dataset.field;
-                let val = e.target.value;
+                let val = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
 
                 if (field === 'value' || field === 'mortgage' || field === 'payment') {
-                    val = Number(val.replace(/,/g, '')) || 0;
+                    val = Number(String(val).replace(/,/g, '')) || 0;
                 } else if (field === 'growth' || field === 'rate') {
                     val = parseFloat(val) || 0;
                 }
@@ -486,7 +487,7 @@ class RetirementPlanner {
                 if (this.state.properties[idx]) {
                     this.state.properties[idx][field] = val;
                     if(field === 'payment') this.state.properties[idx].manual = true;
-                    if(field !== 'payment' && field !== 'name') {
+                    if(field !== 'payment' && field !== 'name' && field !== 'includeInNW') {
                         this.state.properties[idx].manual = false;
                         this.calculateSingleMortgage(idx);
                     }
@@ -683,7 +684,7 @@ class RetirementPlanner {
             }
         });
 
-        this.state.properties = [{ name: "Primary Home", value: 0, mortgage: 0, growth: 3.0, rate: 3.5, payment: 0, manual: false }];
+        this.state.properties = [{ name: "Primary Home", value: 0, mortgage: 0, growth: 3.0, rate: 3.5, payment: 0, manual: false, includeInNW: false }];
         this.renderProperties();
 
         this.state.windfalls = [];
@@ -859,7 +860,6 @@ class RetirementPlanner {
         });
     }
 
-    // --- RESTRUCTURED: ADDITIONAL INCOME TIED TO PLAYERS ---
     renderAdditionalIncome() {
         const containerP1 = document.getElementById('p1-additional-income-container');
         const containerP2 = document.getElementById('p2-additional-income-container');
@@ -1003,6 +1003,12 @@ class RetirementPlanner {
                         </div>
                         <div class="mt-1 small" id="prop-payoff-${idx}"></div>
                     </div>
+                    <div class="col-12 border-top border-secondary pt-2 mt-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input property-update" type="checkbox" id="prop_nw_${idx}" ${prop.includeInNW ? 'checked' : ''} data-idx="${idx}" data-field="includeInNW">
+                            <label class="form-check-label text-muted small" for="prop_nw_${idx}">Include equity in Total Net Worth calculations</label>
+                        </div>
+                    </div>
                 </div>
             `;
             container.appendChild(div);
@@ -1016,7 +1022,7 @@ class RetirementPlanner {
     }
 
     addProperty() {
-        this.state.properties.push({ name: "New Property", value: 500000, mortgage: 400000, growth: 3.0, rate: 4.0, payment: 0, manual: false });
+        this.state.properties.push({ name: "New Property", value: 500000, mortgage: 400000, growth: 3.0, rate: 4.0, payment: 0, manual: false, includeInNW: false });
         this.renderProperties();
         this.run();
     }
@@ -1718,9 +1724,24 @@ class RetirementPlanner {
             const p2_tot = mode === 'Couple' ? (p2.tfsa + p2.rrsp + p2.crypto + p2.nreg + p2.cash) : 0;
             const investTot = p1_tot + p2_tot;
             const liquidNW = investTot - otherDebt;
-            let totalREValue = simProperties.reduce((acc, p) => acc + p.value, 0);
-            let totalREMortgage = simProperties.reduce((acc, p) => acc + p.mortgage, 0);
-            const nw = liquidNW + (totalREValue - totalREMortgage);
+            
+            // NW Calculation updates: Separate Total vs Included Real Estate
+            let includedREValue = 0;
+            let includedREMortgage = 0;
+            let totalREValue = 0;
+            let totalREMortgage = 0;
+            
+            simProperties.forEach(p => {
+                totalREValue += p.value;
+                totalREMortgage += p.mortgage;
+                if(p.includeInNW) {
+                    includedREValue += p.value;
+                    includedREMortgage += p.mortgage;
+                }
+            });
+
+            // Debug NW uses only the included Real Estate 
+            const nw = liquidNW + (includedREValue - includedREMortgage);
             finalNW = nw;
 
             if(!onlyCalcNW) {
@@ -1894,7 +1915,7 @@ class RetirementPlanner {
                 if(mode==='Couple') assetLines += line("Cash P2", p2Assets.cash);
                 
                 assetLines += line("Liquid Net Worth", d.liquidNW, "text-info fw-bold"); 
-                assetLines += line("Real Estate Eq.", d.homeValue - d.mortgage);
+                assetLines += line("Total Real Estate Eq.", d.homeValue - d.mortgage);
 
                 let assetDetails = `
                     <div class="detail-box">
