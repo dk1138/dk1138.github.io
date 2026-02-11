@@ -14,144 +14,75 @@
 
 class RetirementPlanner {
     constructor() {
-        // --- CENTRAL STATE ---
         this.state = {
             inputs: {}, 
             debt: [],
-            // Default Property:
-            properties: [
-                { name: "Primary Home", value: 1000000, mortgage: 430000, growth: 3.0, rate: 3.29, payment: 0, manual: false, includeInNW: false }
-            ],
-            // Windfalls State
+            properties: [{ name: "Primary Home", value: 1000000, mortgage: 430000, growth: 3.0, rate: 3.29, payment: 0, manual: false, includeInNW: false }],
             windfalls: [],
-            // Additional Income Streams (explicitly mapped via 'owner' to p1/p2)
             additionalIncome: [],
-            
             strategies: {
                 accum: ['tfsa', 'rrsp', 'nreg', 'cash', 'crypto'],
                 decum: ['rrsp', 'crypto', 'nreg', 'tfsa', 'cash']
             },
             mode: 'Couple',
             projectionData: [],
-            expenseMode: 'Simple', // 'Simple' or 'Advanced'
-            portfolioMode: 'Simple' // 'Simple' or 'Advanced'
+            expenseMode: 'Simple',
+            portfolioMode: 'Simple'
         };
 
         this.AUTO_SAVE_KEY = 'rp_autosave_v1';
         this.THEME_KEY = 'rp_theme';
 
-        // --- CONFIGURATION CONSTANTS ---
         this.CONSTANTS = {
-            MAX_CPP_2026: 18092,
-            MAX_OAS_2026: 8908,
-            RRIF_START_AGE: 72, 
-            // 2025/2026 Estimated Tax Brackets & Rates
+            MAX_CPP_2026: 18092, MAX_OAS_2026: 8908, RRIF_START_AGE: 72, 
             TAX_DATA: {
-                FED: {
-                    brackets: [55867, 111733, 173205, 246752],
-                    rates: [0.15, 0.205, 0.26, 0.29, 0.33]
-                },
-                BC: {
-                    brackets: [47937, 95875, 110076, 133664, 181232, 252752],
-                    rates: [0.0506, 0.077, 0.105, 0.1229, 0.147, 0.168, 0.205]
-                },
-                AB: {
-                    brackets: [148269, 177922, 237230, 355845],
-                    rates: [0.10, 0.12, 0.13, 0.14, 0.15]
-                },
-                SK: {
-                    brackets: [52057, 148734],
-                    rates: [0.105, 0.125, 0.145]
-                },
-                MB: {
-                    brackets: [47000, 100000],
-                    rates: [0.108, 0.1275, 0.174]
-                },
-                ON: {
-                    brackets: [51446, 102894, 150000, 220000],
-                    rates: [0.0505, 0.0915, 0.1116, 0.1216, 0.1316],
-                    surtax: { t1: 5315, r1: 0.20, t2: 6802, r2: 0.36 }
-                },
-                QC: {
-                    brackets: [51780, 103545, 126000],
-                    rates: [0.14, 0.19, 0.24, 0.2575],
-                    abatement: 0.165 // Reduces Federal Tax
-                },
-                NB: {
-                    brackets: [49958, 99916, 185000],
-                    rates: [0.094, 0.14, 0.16, 0.195]
-                },
-                NS: {
-                    brackets: [29590, 59180, 93000, 150000],
-                    rates: [0.0879, 0.1495, 0.1667, 0.175, 0.21]
-                },
-                PE: {
-                    brackets: [32656, 64313, 105000],
-                    rates: [0.0965, 0.1363, 0.1667, 0.1875],
-                    surtax: { t1: 12500, r1: 0.10 } // Approx high income surtax
-                },
-                NL: {
-                    brackets: [43198, 86395, 154244, 215943],
-                    rates: [0.087, 0.145, 0.158, 0.178, 0.198]
-                },
-                YT: {
-                    brackets: [55867, 111733, 173205, 500000],
-                    rates: [0.064, 0.09, 0.109, 0.128, 0.15]
-                },
-                NT: {
-                    brackets: [50597, 101198, 164525],
-                    rates: [0.059, 0.086, 0.122, 0.1405]
-                },
-                NU: {
-                    brackets: [50877, 101754, 165429],
-                    rates: [0.04, 0.07, 0.09, 0.115]
-                }
+                FED: { brackets: [55867, 111733, 173205, 246752], rates: [0.15, 0.205, 0.26, 0.29, 0.33] },
+                BC: { brackets: [47937, 95875, 110076, 133664, 181232, 252752], rates: [0.0506, 0.077, 0.105, 0.1229, 0.147, 0.168, 0.205] },
+                AB: { brackets: [148269, 177922, 237230, 355845], rates: [0.10, 0.12, 0.13, 0.14, 0.15] },
+                SK: { brackets: [52057, 148734], rates: [0.105, 0.125, 0.145] },
+                MB: { brackets: [47000, 100000], rates: [0.108, 0.1275, 0.174] },
+                ON: { brackets: [51446, 102894, 150000, 220000], rates: [0.0505, 0.0915, 0.1116, 0.1216, 0.1316], surtax: { t1: 5315, r1: 0.20, t2: 6802, r2: 0.36 } },
+                QC: { brackets: [51780, 103545, 126000], rates: [0.14, 0.19, 0.24, 0.2575], abatement: 0.165 },
+                NB: { brackets: [49958, 99916, 185000], rates: [0.094, 0.14, 0.16, 0.195] },
+                NS: { brackets: [29590, 59180, 93000, 150000], rates: [0.0879, 0.1495, 0.1667, 0.175, 0.21] },
+                PE: { brackets: [32656, 64313, 105000], rates: [0.0965, 0.1363, 0.1667, 0.1875], surtax: { t1: 12500, r1: 0.10 } },
+                NL: { brackets: [43198, 86395, 154244, 215943], rates: [0.087, 0.145, 0.158, 0.178, 0.198] },
+                YT: { brackets: [55867, 111733, 173205, 500000], rates: [0.064, 0.09, 0.109, 0.128, 0.15] },
+                NT: { brackets: [50597, 101198, 164525], rates: [0.059, 0.086, 0.122, 0.1405] },
+                NU: { brackets: [50877, 101754, 165429], rates: [0.04, 0.07, 0.09, 0.115] }
             }
         };
 
         this.charts = { nw: null, sankey: null }; 
         this.confirmModal = null; 
 
-        // --- DEFAULT EXPENSE DATA ---
         this.expensesByCategory = {
-            "Housing": { 
-                items: [ 
-                    { name: "Property Tax", curr: 6000, ret: 6000, trans: 6000, gogo: 6000, slow: 6000, nogo: 6000, freq: 1 }, 
-                    { name: "Enbridge (Gas)", curr: 120, ret: 120, trans: 120, gogo: 120, slow: 120, nogo: 120, freq: 12 }, 
-                    { name: "Enercare (HWT)", curr: 45, ret: 45, trans: 45, gogo: 45, slow: 45, nogo: 45, freq: 12 }, 
-                    { name: "Alectra (Hydro)", curr: 150, ret: 150, trans: 150, gogo: 150, slow: 150, nogo: 150, freq: 12 }, 
-                    { name: "RH Water", curr: 80, ret: 80, trans: 80, gogo: 80, slow: 80, nogo: 80, freq: 12 } 
-                ], 
-                colorClass: 'cat-header-housing' 
-            },
-            "Living": { 
-                items: [ 
-                    { name: "Grocery", curr: 800, ret: 800, trans: 800, gogo: 800, slow: 700, nogo: 600, freq: 12 }, 
-                    { name: "Costco", curr: 400, ret: 400, trans: 400, gogo: 400, slow: 350, nogo: 300, freq: 12 }, 
-                    { name: "Restaurants", curr: 400, ret: 300, trans: 350, gogo: 350, slow: 200, nogo: 100, freq: 12 }, 
-                    { name: "Cellphone", curr: 120, ret: 120, trans: 120, gogo: 120, slow: 120, nogo: 120, freq: 12 }, 
-                    { name: "Internet", curr: 90, ret: 90, trans: 90, gogo: 90, slow: 90, nogo: 90, freq: 12 } 
-                ], 
-                colorClass: 'cat-header-living' 
-            },
-            "Kids": { 
-                items: [ 
-                    { name: "Daycare", curr: 1200, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 }, 
-                    { name: "Activities", curr: 200, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 }, 
-                    { name: "RESP Contribution", curr: 208, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 }, 
-                    { name: "Clothing/Toys", curr: 100, ret: 50, trans: 50, gogo: 50, slow: 0, nogo: 0, freq: 12 } 
-                ], 
-                colorClass: 'cat-header-kids' 
-            },
-            "Lifestyle": { 
-                items: [ 
-                    { name: "Travel", curr: 5000, ret: 15000, trans: 10000, gogo: 15000, slow: 5000, nogo: 0, freq: 1 }, 
-                    { name: "Electronic", curr: 500, ret: 500, trans: 500, gogo: 500, slow: 500, nogo: 200, freq: 1 }, 
-                    { name: "Health Insurance", curr: 50, ret: 300, trans: 150, gogo: 300, slow: 500, nogo: 1000, freq: 12 }, 
-                    { name: "Other", curr: 300, ret: 300, trans: 300, gogo: 300, slow: 200, nogo: 100, freq: 12 } 
-                ], 
-                colorClass: 'cat-header-lifestyle' 
-            }
+            "Housing": { items: [ 
+                { name: "Property Tax", curr: 6000, ret: 6000, trans: 6000, gogo: 6000, slow: 6000, nogo: 6000, freq: 1 }, 
+                { name: "Enbridge (Gas)", curr: 120, ret: 120, trans: 120, gogo: 120, slow: 120, nogo: 120, freq: 12 }, 
+                { name: "Enercare (HWT)", curr: 45, ret: 45, trans: 45, gogo: 45, slow: 45, nogo: 45, freq: 12 }, 
+                { name: "Alectra (Hydro)", curr: 150, ret: 150, trans: 150, gogo: 150, slow: 150, nogo: 150, freq: 12 }, 
+                { name: "RH Water", curr: 80, ret: 80, trans: 80, gogo: 80, slow: 80, nogo: 80, freq: 12 } 
+            ], colorClass: 'cat-header-housing' },
+            "Living": { items: [ 
+                { name: "Grocery", curr: 800, ret: 800, trans: 800, gogo: 800, slow: 700, nogo: 600, freq: 12 }, 
+                { name: "Costco", curr: 400, ret: 400, trans: 400, gogo: 400, slow: 350, nogo: 300, freq: 12 }, 
+                { name: "Restaurants", curr: 400, ret: 300, trans: 350, gogo: 350, slow: 200, nogo: 100, freq: 12 }, 
+                { name: "Cellphone", curr: 120, ret: 120, trans: 120, gogo: 120, slow: 120, nogo: 120, freq: 12 }, 
+                { name: "Internet", curr: 90, ret: 90, trans: 90, gogo: 90, slow: 90, nogo: 90, freq: 12 } 
+            ], colorClass: 'cat-header-living' },
+            "Kids": { items: [ 
+                { name: "Daycare", curr: 1200, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 }, 
+                { name: "Activities", curr: 200, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 }, 
+                { name: "RESP Contribution", curr: 208, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 }, 
+                { name: "Clothing/Toys", curr: 100, ret: 50, trans: 50, gogo: 50, slow: 0, nogo: 0, freq: 12 } 
+            ], colorClass: 'cat-header-kids' },
+            "Lifestyle": { items: [ 
+                { name: "Travel", curr: 5000, ret: 15000, trans: 10000, gogo: 15000, slow: 5000, nogo: 0, freq: 1 }, 
+                { name: "Electronic", curr: 500, ret: 500, trans: 500, gogo: 500, slow: 500, nogo: 200, freq: 1 }, 
+                { name: "Health Insurance", curr: 50, ret: 300, trans: 150, gogo: 300, slow: 500, nogo: 1000, freq: 12 }, 
+                { name: "Other", curr: 300, ret: 300, trans: 300, gogo: 300, slow: 200, nogo: 100, freq: 12 } 
+            ], colorClass: 'cat-header-lifestyle' }
         };
 
         this.optimalAges = { p1_cpp: 65, p1_oas: 65, p2_cpp: 65, p2_oas: 65 };
@@ -197,7 +128,6 @@ class RetirementPlanner {
                 try {
                     this.loadStateToDOM(JSON.parse(savedData));
                 } catch(e) {
-                    console.error("Failed to load auto-save", e);
                     this.renderDefaults();
                 }
             } else {
@@ -225,11 +155,8 @@ class RetirementPlanner {
             }, 500); 
         };
 
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', setup);
-        } else {
-            setup(); 
-        }
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup);
+        else setup(); 
     }
 
     initTheme() {
@@ -288,28 +215,19 @@ class RetirementPlanner {
 
     showConfirm(message, onConfirm) {
         const modalEl = document.getElementById('confirmationModal');
-        const body = modalEl.querySelector('.modal-body');
+        modalEl.querySelector('.modal-body').textContent = message;
         const btn = document.getElementById('btnConfirmAction');
-        body.textContent = message;
-        
         const newBtn = btn.cloneNode(true);
         btn.parentNode.replaceChild(newBtn, btn);
-        
-        newBtn.addEventListener('click', () => {
-            onConfirm();
-            this.confirmModal.hide();
-        });
-        
+        newBtn.addEventListener('click', () => { onConfirm(); this.confirmModal.hide(); });
         this.confirmModal.show();
     }
 
     setupGridContainer() {
         const gridId = 'projectionGrid';
         if (document.getElementById(gridId)) return; 
-
         const oldTableBody = document.getElementById('projectionTableBody');
         let inserted = false;
-
         if (oldTableBody) {
             const table = oldTableBody.closest('table');
             if (table && table.parentNode) {
@@ -321,7 +239,6 @@ class RetirementPlanner {
                 inserted = true;
             }
         }
-        
         if (!inserted) {
             const container = document.querySelector('.card-body') || document.body;
             const gridContainer = document.createElement('div');
@@ -334,11 +251,7 @@ class RetirementPlanner {
     syncStateFromDOM() {
         document.querySelectorAll('input, select').forEach(el => {
             if (el.id && !el.id.startsWith('comp_') && !el.classList.contains('property-update') && !el.classList.contains('windfall-update') && !el.classList.contains('debt-amount') && !el.classList.contains('income-stream-update')) {
-                if (el.type === 'checkbox' || el.type === 'radio') {
-                    this.state.inputs[el.id] = el.checked;
-                } else {
-                    this.state.inputs[el.id] = el.value;
-                }
+                this.state.inputs[el.id] = (el.type === 'checkbox' || el.type === 'radio') ? el.checked : el.value;
             }
         });
         const coupleEl = document.getElementById('modeCouple');
@@ -351,8 +264,7 @@ class RetirementPlanner {
             const el = document.getElementById(id);
             if (el) raw = el.value; else return 0;
         }
-        const val = String(raw).replace(/,/g, '');
-        return Number(val) || 0;
+        return Number(String(raw).replace(/,/g, '')) || 0;
     }
 
     getRaw(id) {
@@ -364,15 +276,9 @@ class RetirementPlanner {
     }
 
     updateSidebarSync(id, val) {
-        if (id === 'p1_retireAge') {
-            const slider = document.getElementById('qa_p1_retireAge_range');
-            const label = document.getElementById('qa_p1_retireAge_val');
-            if(slider) slider.value = val;
-            if(label) label.innerText = val;
-        }
-        if (id === 'p2_retireAge') {
-            const slider = document.getElementById('qa_p2_retireAge_range');
-            const label = document.getElementById('qa_p2_retireAge_val');
+        if (id === 'p1_retireAge' || id === 'p2_retireAge') {
+            const slider = document.getElementById(`qa_${id}_range`);
+            const label = document.getElementById(`qa_${id}_val`);
             if(slider) slider.value = val;
             if(label) label.innerText = val;
         }
@@ -392,17 +298,11 @@ class RetirementPlanner {
 
     togglePortfolioMode() {
         const isAdv = this.state.portfolioMode === 'Advanced';
-        document.querySelectorAll('.adv-portfolio-col').forEach(el => {
-            el.style.display = isAdv ? 'block' : 'none';
-        });
-        document.querySelectorAll('.port-bal-col').forEach(el => {
-            el.className = isAdv ? 'col-3 port-bal-col' : 'col-5 port-bal-col';
-        });
-        document.querySelectorAll('.port-ret-col').forEach(el => {
-            el.className = isAdv ? 'col-3 port-ret-col' : 'col-4 port-ret-col';
-        });
-        document.getElementById('lbl_p1_ret_pre').innerText = isAdv ? 'Pre-Ret (%)' : 'Return (%)';
-        document.getElementById('lbl_p2_ret_pre').innerText = isAdv ? 'Pre-Ret (%)' : 'Return (%)';
+        document.querySelectorAll('.adv-portfolio-col').forEach(el => { el.style.display = isAdv ? 'block' : 'none'; });
+        document.querySelectorAll('.port-bal-col').forEach(el => { el.className = isAdv ? 'col-3 port-bal-col' : 'col-5 port-bal-col'; });
+        document.querySelectorAll('.port-ret-col').forEach(el => { el.className = isAdv ? 'col-3 port-ret-col' : 'col-4 port-ret-col'; });
+        const lbl1 = document.getElementById('lbl_p1_ret_pre'); if(lbl1) lbl1.innerText = isAdv ? 'Pre-Ret (%)' : 'Return (%)';
+        const lbl2 = document.getElementById('lbl_p2_ret_pre'); if(lbl2) lbl2.innerText = isAdv ? 'Pre-Ret (%)' : 'Return (%)';
     }
 
     bindEvents() {
@@ -410,24 +310,18 @@ class RetirementPlanner {
         if(themeBtn) themeBtn.addEventListener('click', () => this.toggleTheme());
 
         const toggle = document.getElementById('useRealDollars');
-        if(toggle) toggle.addEventListener('change', () => { 
-            this.calcExpenses(); 
-            this.run(); 
-        });
+        if(toggle) toggle.addEventListener('change', () => { this.calcExpenses(); this.run(); });
 
         document.body.addEventListener('change', (e) => {
             if (e.target.id === 'expense_mode_advanced') {
                 this.state.expenseMode = e.target.checked ? 'Advanced' : 'Simple';
                 const sliderDiv = document.getElementById('expense-phase-controls');
                 if(sliderDiv) sliderDiv.style.display = e.target.checked ? 'flex' : 'none';
-                this.renderExpenseRows();
-                this.calcExpenses();
-                this.run();
+                this.renderExpenseRows(); this.calcExpenses(); this.run();
             }
             if (e.target.id === 'portfolio_mode_advanced') {
                 this.state.portfolioMode = e.target.checked ? 'Advanced' : 'Simple';
-                this.togglePortfolioMode();
-                this.run();
+                this.togglePortfolioMode(); this.run();
             }
             if (e.target.id === 'enable_post_ret_income_p1' || e.target.id === 'enable_post_ret_income_p2') {
                 this.updatePostRetIncomeVisibility();
@@ -440,9 +334,7 @@ class RetirementPlanner {
                 el.addEventListener('input', (e) => {
                     document.getElementById(labelId).innerText = e.target.value;
                     this.state.inputs[id] = e.target.value;
-                    this.renderExpenseRows(); 
-                    this.calcExpenses(); 
-                    this.debouncedRun();
+                    this.renderExpenseRows(); this.calcExpenses(); this.debouncedRun();
                 });
             }
         };
@@ -450,10 +342,8 @@ class RetirementPlanner {
         bindPhaseSlider('exp_slow_age', 'exp_slow_val');
 
         document.getElementById('btnClearAll').addEventListener('click', () => {
-             this.showConfirm("Are you sure you want to clear all data? This cannot be undone.", () => {
-                 this.resetAllData();
-             });
-         });
+             this.showConfirm("Are you sure you want to clear all data?", () => this.resetAllData());
+        });
 
         document.getElementById('btnAddProperty').addEventListener('click', () => this.addProperty());
         document.getElementById('btnAddWindfall').addEventListener('click', () => this.addWindfall());
@@ -465,14 +355,12 @@ class RetirementPlanner {
         if (btnAddIncP2) btnAddIncP2.addEventListener('click', () => this.addAdditionalIncome('p2'));
         
         document.getElementById('btnExportCSV').addEventListener('click', () => this.exportToCSV());
-
         document.getElementById('fileUpload').addEventListener('change', (e) => this.handleFileUpload(e));
         document.getElementById('btnClearStorage').addEventListener('click', () => this.clearStorage());
 
         document.body.addEventListener('input', (e) => {
             if (e.target.classList.contains('live-calc')) {
                 if (e.target.classList.contains('formatted-num')) this.formatInput(e.target);
-                
                 if (e.target.id && !e.target.id.startsWith('comp_') && !e.target.classList.contains('property-update') && !e.target.classList.contains('windfall-update') && !e.target.classList.contains('debt-amount') && !e.target.classList.contains('income-stream-update')) {
                     this.state.inputs[e.target.id] = (e.target.type === 'checkbox' ? e.target.checked : e.target.value);
                     this.updateSidebarSync(e.target.id, e.target.value);
@@ -480,32 +368,20 @@ class RetirementPlanner {
                 this.debouncedRun();
             }
             if (e.target.classList.contains('expense-update')) {
-                const cat = e.target.dataset.cat;
-                const idx = parseInt(e.target.dataset.idx);
-                const field = e.target.dataset.field;
+                const cat = e.target.dataset.cat; const idx = parseInt(e.target.dataset.idx); const field = e.target.dataset.field;
                 let val = e.target.value;
-                  
                 if (['curr', 'ret', 'trans', 'gogo', 'slow', 'nogo'].includes(field)) val = Number(val.replace(/,/g, '')) || 0;
                 else if (field === 'freq') val = parseInt(val);
-                  
-                if (this.expensesByCategory[cat] && this.expensesByCategory[cat].items[idx]) {
-                    this.expensesByCategory[cat].items[idx][field] = val;
-                }
+                if (this.expensesByCategory[cat] && this.expensesByCategory[cat].items[idx]) this.expensesByCategory[cat].items[idx][field] = val;
                 if (e.target.classList.contains('formatted-num')) this.formatInput(e.target);
-                this.debouncedRun();
-                this.calcExpenses(); 
+                this.debouncedRun(); this.calcExpenses(); 
             }
             if (e.target.classList.contains('property-update')) {
-                const idx = parseInt(e.target.dataset.idx);
-                const field = e.target.dataset.field;
+                const idx = parseInt(e.target.dataset.idx); const field = e.target.dataset.field;
                 let val = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-
-                if (field === 'value' || field === 'mortgage' || field === 'payment') {
-                    val = Number(String(val).replace(/,/g, '')) || 0;
-                } else if (field === 'growth' || field === 'rate') {
-                    val = parseFloat(val) || 0;
-                }
-
+                if (field === 'value' || field === 'mortgage' || field === 'payment') val = Number(String(val).replace(/,/g, '')) || 0;
+                else if (field === 'growth' || field === 'rate') val = parseFloat(val) || 0;
+                
                 if (this.state.properties[idx]) {
                     this.state.properties[idx][field] = val;
                     if(field === 'payment') this.state.properties[idx].manual = true;
@@ -514,17 +390,13 @@ class RetirementPlanner {
                         this.calculateSingleMortgage(idx);
                     }
                 }
-                
                 if (e.target.classList.contains('formatted-num')) this.formatInput(e.target);
                 this.debouncedRun();
             }
             if (e.target.classList.contains('windfall-update')) {
-                const idx = parseInt(e.target.dataset.idx);
-                const field = e.target.dataset.field;
+                const idx = parseInt(e.target.dataset.idx); const field = e.target.dataset.field;
                 let val = (e.target.type === 'checkbox') ? e.target.checked : e.target.value;
-
                 if (field === 'amount') val = Number(val.replace(/,/g, '')) || 0;
-                
                 if (this.state.windfalls[idx]) {
                     this.state.windfalls[idx][field] = val;
                     if (field === 'freq') this.renderWindfalls(); 
@@ -532,21 +404,12 @@ class RetirementPlanner {
                 if (e.target.classList.contains('formatted-num')) this.formatInput(e.target);
                 this.debouncedRun();
             }
-            
-            // --- ADDITIONAL INCOME STREAM UPDATE LISTENER ---
             if (e.target.classList.contains('income-stream-update')) {
-                const idx = parseInt(e.target.dataset.idx);
-                const field = e.target.dataset.field;
+                const idx = parseInt(e.target.dataset.idx); const field = e.target.dataset.field;
                 let val = (e.target.type === 'checkbox') ? e.target.checked : e.target.value;
-
                 if (field === 'amount' || field === 'growth') val = Number(val.replace(/,/g, '')) || 0;
-                
-                if (this.state.additionalIncome[idx]) {
-                    this.state.additionalIncome[idx][field] = val;
-                }
+                if (this.state.additionalIncome[idx]) this.state.additionalIncome[idx][field] = val;
                 if (e.target.classList.contains('formatted-num')) this.formatInput(e.target);
-                
-                // Immediately update income display and recalculate tax pane
                 this.updateIncomeDisplay();
                 this.debouncedRun();
             }
@@ -554,12 +417,8 @@ class RetirementPlanner {
 
         document.body.addEventListener('change', (e) => {
             if (e.target.classList.contains('live-calc') && (e.target.tagName === 'SELECT' || e.target.type === 'checkbox' || e.target.type === 'radio')) {
-                if(e.target.id && !e.target.id.startsWith('comp_')) {
-                    this.state.inputs[e.target.id] = (e.target.type === 'checkbox' ? e.target.checked : e.target.value);
-                }
-                this.findOptimal();
-                this.run();
-                this.calcExpenses(); 
+                if(e.target.id && !e.target.id.startsWith('comp_')) this.state.inputs[e.target.id] = (e.target.type === 'checkbox' ? e.target.checked : e.target.value);
+                this.findOptimal(); this.run(); this.calcExpenses(); 
             }
         });
 
@@ -570,9 +429,7 @@ class RetirementPlanner {
         modeRadios.forEach(r => r.addEventListener('change', () => { 
             const coupleEl = document.getElementById('modeCouple');
             if(coupleEl) this.state.mode = coupleEl.checked ? 'Couple' : 'Single';
-            this.toggleModeDisplay(); 
-            this.run();
-            this.calcExpenses();
+            this.toggleModeDisplay(); this.run(); this.calcExpenses();
         }));
 
         document.getElementById('btnCollapseSidebar').addEventListener('click', () => this.toggleSidebar());
@@ -583,9 +440,7 @@ class RetirementPlanner {
             if (this.state.projectionData[index]) {
                 const d = this.state.projectionData[index];
                 document.getElementById('sliderYearDisplay').innerText = d.year;
-                
-                let ageText = (this.state.mode === 'Couple') ? `(P1: ${d.p1Age} / P2: ${d.p2Age})` : `(Age: ${d.p1Age})`;
-                document.getElementById('cfAgeDisplay').innerText = ageText;
+                document.getElementById('cfAgeDisplay').innerText = (this.state.mode === 'Couple') ? `(P1: ${d.p1Age} / P2: ${d.p2Age})` : `(Age: ${d.p1Age})`;
                 
                 const rows = document.querySelectorAll('.grid-row-group');
                 rows.forEach(r => r.style.backgroundColor = ''); 
@@ -593,68 +448,41 @@ class RetirementPlanner {
                     rows[index].style.backgroundColor = 'rgba(255,193,7,0.1)';
                     rows[index].scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
-
                 clearTimeout(this.sliderTimeout);
                 this.sliderTimeout = setTimeout(() => this.drawSankey(index), 50);
             }
         });
 
         const tabEl = document.querySelector('button[data-bs-target="#cashflow-pane"]');
-        if(tabEl) {
-            tabEl.addEventListener('shown.bs.tab', () => {
-                const slider = document.getElementById('yearSlider');
-                this.drawSankey(parseInt(slider.value));
-            });
-        }
+        if(tabEl) tabEl.addEventListener('shown.bs.tab', () => this.drawSankey(parseInt(document.getElementById('yearSlider').value)));
 
         document.getElementById('btnAddDebt').addEventListener('click', () => this.addDebtRow());
         document.getElementById('btnSaveScenario').addEventListener('click', () => this.saveScenario());
         
-        document.getElementById('compareSelectionArea').addEventListener('change', (e) => {
-            if(e.target.type === 'checkbox') { }
-        });
-        
         document.body.addEventListener('click', (e) => {
-            if(e.target.classList.contains('toggle-btn')) {
-                this.toggleGroup(e.target.dataset.type);
-            }
-            if(e.target.classList.contains('opt-apply')) this.applyOpt(e.target.target);
+            if(e.target.classList.contains('toggle-btn')) this.toggleGroup(e.target.dataset.type);
+            if(e.target.classList.contains('opt-apply')) this.applyOpt(e.target.dataset.target);
         });
     }
 
     updatePostRetIncomeVisibility() {
         const enabledP1 = document.getElementById('enable_post_ret_income_p1') ? document.getElementById('enable_post_ret_income_p1').checked : false;
         const enabledP2 = document.getElementById('enable_post_ret_income_p2') ? document.getElementById('enable_post_ret_income_p2').checked : false;
-        
         const cardP1 = document.getElementById('p1-post-ret-card');
         const cardP2 = document.getElementById('p2-post-ret-card');
-        
         if (cardP1) cardP1.style.display = enabledP1 ? 'block' : 'none';
         if (cardP2) cardP2.style.display = enabledP2 ? 'block' : 'none';
     }
 
-    // --- SAVE / LOAD LOGIC ---
-
-    saveToLocalStorage() {
-        const snapshot = this.getCurrentSnapshot();
-        localStorage.setItem(this.AUTO_SAVE_KEY, JSON.stringify(snapshot));
-    }
+    saveToLocalStorage() { localStorage.setItem(this.AUTO_SAVE_KEY, JSON.stringify(this.getCurrentSnapshot())); }
 
     handleFileUpload(e) {
         const file = e.target.files[0];
         if (!file) return;
-
         const reader = new FileReader();
         reader.onload = (event) => {
-            try {
-                const data = JSON.parse(event.target.result);
-                this.loadStateToDOM(data);
-                this.run();
-                alert('Configuration loaded successfully.');
-            } catch(err) {
-                alert('Error parsing JSON file. Please ensure it is a valid configuration file.');
-                console.error(err);
-            }
+            try { this.loadStateToDOM(JSON.parse(event.target.result)); this.run(); alert('Configuration loaded successfully.'); }
+            catch(err) { alert('Error parsing JSON file. Please ensure it is a valid configuration file.'); }
         };
         reader.readAsText(file);
         e.target.value = '';
@@ -662,431 +490,193 @@ class RetirementPlanner {
 
     clearStorage() {
         if(confirm("This will delete your auto-saved data and reload the page. Are you sure?")) {
-            localStorage.removeItem(this.AUTO_SAVE_KEY);
-            location.reload();
+            localStorage.removeItem(this.AUTO_SAVE_KEY); location.reload();
         }
     }
 
-    // --- RESET / LOAD HELPERS ---
-
     resetAllData() {
         const defaults = {
-            p1_dob: '1990-01', p2_dob: '1990-01',
-            p1_retireAge: '65', p2_retireAge: '65',
-            p1_lifeExp: '90', p2_lifeExp: '90',
-            inflation_rate: '2.0',
-            tax_province: 'ON',
-            p1_cash_ret: '2.0', p2_cash_ret: '2.0',
-            p1_tfsa_ret: '6.0', p2_tfsa_ret: '6.0',
-            p1_rrsp_ret: '6.0', p2_rrsp_ret: '6.0',
-            p1_nonreg_ret: '5.0', p2_nonreg_ret: '5.0',
-            p1_crypto_ret: '8.0', p2_crypto_ret: '8.0',
-            p1_cash_ret_retire: '2.0', p2_cash_ret_retire: '2.0',
-            p1_tfsa_ret_retire: '4.0', p2_tfsa_ret_retire: '4.0',
-            p1_rrsp_ret_retire: '4.0', p2_rrsp_ret_retire: '4.0',
-            p1_nonreg_ret_retire: '4.0', p2_nonreg_ret_retire: '4.0',
-            p1_crypto_ret_retire: '4.0', p2_crypto_ret_retire: '4.0',
-            p1_income_growth: '2.0', p2_income_growth: '2.0',
-            p1_db_pension: '0', p2_db_pension: '0',
-            p1_db_start_age: '60', p2_db_start_age: '60',
-            p1_cpp_enabled: true, p1_oas_enabled: true,
-            p2_cpp_enabled: true, p2_oas_enabled: true,
-            exp_gogo_age: '75', exp_slow_age: '85',
-            enable_post_ret_income_p1: false, enable_post_ret_income_p2: false,
-            p1_post_inc: '0', p1_post_growth: '2.0',
-            p2_post_inc: '0', p2_post_growth: '2.0',
-            portfolio_mode_advanced: false
+            p1_dob: '1990-01', p2_dob: '1990-01', p1_retireAge: '65', p2_retireAge: '65', p1_lifeExp: '90', p2_lifeExp: '90',
+            inflation_rate: '2.0', tax_province: 'ON',
+            p1_cash_ret: '2.0', p2_cash_ret: '2.0', p1_tfsa_ret: '6.0', p2_tfsa_ret: '6.0', p1_rrsp_ret: '6.0', p2_rrsp_ret: '6.0',
+            p1_nonreg_ret: '5.0', p2_nonreg_ret: '5.0', p1_crypto_ret: '8.0', p2_crypto_ret: '8.0',
+            p1_cash_ret_retire: '2.0', p2_cash_ret_retire: '2.0', p1_tfsa_ret_retire: '4.0', p2_tfsa_ret_retire: '4.0',
+            p1_rrsp_ret_retire: '4.0', p2_rrsp_ret_retire: '4.0', p1_nonreg_ret_retire: '4.0', p2_nonreg_ret_retire: '4.0',
+            p1_crypto_ret_retire: '4.0', p2_crypto_ret_retire: '4.0', p1_income_growth: '2.0', p2_income_growth: '2.0',
+            p1_db_pension: '0', p2_db_pension: '0', p1_db_start_age: '60', p2_db_start_age: '60',
+            p1_cpp_enabled: true, p1_oas_enabled: true, p2_cpp_enabled: true, p2_oas_enabled: true,
+            exp_gogo_age: '75', exp_slow_age: '85', enable_post_ret_income_p1: false, enable_post_ret_income_p2: false,
+            p1_post_inc: '0', p1_post_growth: '2.0', p2_post_inc: '0', p2_post_growth: '2.0', portfolio_mode_advanced: false
         };
 
         document.querySelectorAll('input, select').forEach(el => {
             if(el.id && !el.id.startsWith('comp_') && !el.classList.contains('property-update') && !el.classList.contains('windfall-update') && !el.classList.contains('debt-amount') && !el.classList.contains('income-stream-update')) {
                 if(defaults[el.id] !== undefined) {
-                    if (el.type === 'checkbox') el.checked = defaults[el.id];
-                    else el.value = defaults[el.id];
+                    if (el.type === 'checkbox') el.checked = defaults[el.id]; else el.value = defaults[el.id];
                 } else if (el.type === 'checkbox' || el.type === 'radio') {
                     if(el.name !== 'planMode') el.checked = false;
-                } else {
-                    el.value = '0';
-                }
+                } else { el.value = '0'; }
                  this.state.inputs[el.id] = (el.type === 'checkbox' ? el.checked : el.value);
             }
         });
 
         this.state.properties = [{ name: "Primary Home", value: 0, mortgage: 0, growth: 3.0, rate: 3.5, payment: 0, manual: false, includeInNW: false }];
         this.renderProperties();
+        this.state.windfalls = []; this.renderWindfalls();
+        this.state.additionalIncome = []; this.renderAdditionalIncome();
 
-        this.state.windfalls = [];
-        this.renderWindfalls();
+        for (const cat in this.expensesByCategory) this.expensesByCategory[cat].items = [];
+        this.renderExpenseRows(); this.calcExpenses();
+        document.getElementById('debt-container').innerHTML = ''; this.state.debt = [];
+
+        this.updateSidebarSync('p1_retireAge', 65); this.updateSidebarSync('p2_retireAge', 65);
+        this.updateSidebarSync('inflation_rate', 2.0); this.updateSidebarSync('p1_tfsa_ret', 6.0);
+        document.getElementById('exp_gogo_val').innerText = '75'; document.getElementById('exp_slow_val').innerText = '85';
+        document.getElementById('p1_db_start_val').innerText = '60'; document.getElementById('p2_db_start_val').innerText = '60';
         
-        this.state.additionalIncome = [];
-        this.renderAdditionalIncome();
-
-        for (const cat in this.expensesByCategory) {
-            this.expensesByCategory[cat].items = [];
-        }
-        this.renderExpenseRows();
-        this.calcExpenses();
-
-        document.getElementById('debt-container').innerHTML = '';
-        this.state.debt = [];
-
-        this.updateSidebarSync('p1_retireAge', 65);
-        this.updateSidebarSync('p2_retireAge', 65);
-        this.updateSidebarSync('inflation_rate', 2.0);
-        this.updateSidebarSync('p1_tfsa_ret', 6.0);
-        document.getElementById('exp_gogo_val').innerText = '75';
-        document.getElementById('exp_slow_val').innerText = '85';
-        
-        document.getElementById('p1_db_start_val').innerText = '60';
-        document.getElementById('p2_db_start_val').innerText = '60';
-        
-        const advPortMode = document.getElementById('portfolio_mode_advanced').checked;
-        this.state.portfolioMode = advPortMode ? 'Advanced' : 'Simple';
+        this.state.portfolioMode = document.getElementById('portfolio_mode_advanced').checked ? 'Advanced' : 'Simple';
         this.togglePortfolioMode();
-
         this.updatePostRetIncomeVisibility();
-
-        this.updateAgeDisplay('p1'); 
-        this.updateAgeDisplay('p2');
+        this.updateAgeDisplay('p1'); this.updateAgeDisplay('p2');
         this.run();
     }
 
     exportToCSV() {
-        if (!this.state.projectionData || this.state.projectionData.length === 0) {
-            alert("No data available to export.");
-            return;
-        }
-
+        if (!this.state.projectionData || this.state.projectionData.length === 0) { alert("No data available to export."); return; }
         const mode = this.state.mode;
         const headers = [
             "Year", "P1 Age", mode === "Couple" ? "P2 Age" : null,
-            "P1 Base Income", mode === "Couple" ? "P2 Base Income" : null,
-            "P1 Post-Ret Inc", mode === "Couple" ? "P2 Post-Ret Inc" : null,
-            "P1 Benefits", mode === "Couple" ? "P2 Benefits" : null,
-            "P1 DB Pension", mode === "Couple" ? "P2 DB Pension" : null,
-            "Windfall",
-            "P1 Taxes", mode === "Couple" ? "P2 Taxes" : null,
-            "Total Expenses", "Mortgage Payment", "Debt Payment",
-            "Surplus/Deficit",
+            "P1 Base Income", mode === "Couple" ? "P2 Base Income" : null, "P1 Post-Ret Inc", mode === "Couple" ? "P2 Post-Ret Inc" : null,
+            "P1 Benefits", mode === "Couple" ? "P2 Benefits" : null, "P1 DB Pension", mode === "Couple" ? "P2 DB Pension" : null,
+            "Windfall", "P1 Taxes", mode === "Couple" ? "P2 Taxes" : null, "Total Expenses", "Mortgage Payment", "Debt Payment", "Surplus/Deficit",
             "P1 TFSA", "P1 RRSP", "P1 Non-Reg", "P1 Cash", "P1 Crypto",
-            mode === "Couple" ? "P2 TFSA" : null,
-            mode === "Couple" ? "P2 RRSP" : null,
-            mode === "Couple" ? "P2 Non-Reg" : null,
-            mode === "Couple" ? "P2 Cash" : null,
-            mode === "Couple" ? "P2 Crypto" : null,
+            mode === "Couple" ? "P2 TFSA" : null, mode === "Couple" ? "P2 RRSP" : null, mode === "Couple" ? "P2 Non-Reg" : null, mode === "Couple" ? "P2 Cash" : null, mode === "Couple" ? "P2 Crypto" : null,
             "Liquid Net Worth", "Home Equity", "Total Net Worth"
         ].filter(h => h !== null);
 
         const rows = this.state.projectionData.map(d => {
-            const p1 = d.assetsP1;
-            const p2 = d.assetsP2;
+            const p1 = d.assetsP1; const p2 = d.assetsP2;
             const row = [
                 d.year, d.p1Age, mode === "Couple" ? (d.p2Age || "") : null,
                 Math.round(d.incomeP1), mode === "Couple" ? Math.round(d.incomeP2) : null,
                 Math.round(d.postRetP1 || 0), mode === "Couple" ? Math.round(d.postRetP2 || 0) : null,
                 Math.round(d.benefitsP1), mode === "Couple" ? Math.round(d.benefitsP2) : null,
                 Math.round(d.dbP1), mode === "Couple" ? Math.round(d.dbP2) : null,
-                Math.round(d.windfall),
-                Math.round(d.taxP1), mode === "Couple" ? Math.round(d.taxP2) : null,
-                Math.round(d.expenses), Math.round(d.mortgagePay), Math.round(d.debtPay),
-                Math.round(d.surplus),
+                Math.round(d.windfall), Math.round(d.taxP1), mode === "Couple" ? Math.round(d.taxP2) : null,
+                Math.round(d.expenses), Math.round(d.mortgagePay), Math.round(d.debtPay), Math.round(d.surplus),
                 Math.round(p1.tfsa), Math.round(p1.rrsp), Math.round(p1.nreg), Math.round(p1.cash), Math.round(p1.crypto),
-                mode === "Couple" ? Math.round(p2.tfsa) : null,
-                mode === "Couple" ? Math.round(p2.rrsp) : null,
-                mode === "Couple" ? Math.round(p2.nreg) : null,
-                mode === "Couple" ? Math.round(p2.cash) : null,
-                mode === "Couple" ? Math.round(p2.crypto) : null,
+                mode === "Couple" ? Math.round(p2.tfsa) : null, mode === "Couple" ? Math.round(p2.rrsp) : null, mode === "Couple" ? Math.round(p2.nreg) : null, mode === "Couple" ? Math.round(p2.cash) : null, mode === "Couple" ? Math.round(p2.crypto) : null,
                 Math.round(d.liquidNW), Math.round(d.homeValue - d.mortgage), Math.round(d.debugNW)
             ].filter(v => v !== null);
             return row.join(",");
         });
 
         const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows].join("\n");
-        const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "retirement_plan_pro_export.csv");
-        document.body.appendChild(link); 
-        link.click();
-        document.body.removeChild(link);
+        link.setAttribute("href", encodeURI(csvContent)); link.setAttribute("download", "retirement_plan_pro_export.csv");
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
     }
 
     renderWindfalls() {
         const container = document.getElementById('windfall-container');
         if(!container) return;
         container.innerHTML = '';
-
         this.state.windfalls.forEach((w, idx) => {
-            const isOneTime = w.freq === 'one';
-            const hideEnd = isOneTime ? 'display:none;' : '';
+            const hideEnd = w.freq === 'one' ? 'display:none;' : '';
             const today = new Date().toISOString().slice(0, 7); 
-            
             const div = document.createElement('div');
             div.className = 'windfall-row p-2 border border-secondary rounded bg-body-tertiary mb-2';
             div.innerHTML = `
                 <div class="d-flex justify-content-between mb-1">
-                    <input type="text" class="form-control form-control-sm bg-transparent border-0 fw-bold windfall-update" 
-                           placeholder="Event Name" value="${w.name}" data-idx="${idx}" data-field="name">
+                    <input type="text" class="form-control form-control-sm bg-transparent border-0 fw-bold windfall-update" placeholder="Event Name" value="${w.name}" data-idx="${idx}" data-field="name">
                     <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="app.removeWindfall(${idx})"><i class="bi bi-x-lg"></i></button>
                 </div>
                 <div class="row g-2 align-items-center">
-                    <div class="col-4">
-                        <div class="input-group input-group-sm">
-                            <span class="input-group-text border-secondary text-muted">$</span>
-                            <input type="text" class="form-control border-secondary formatted-num windfall-update" 
-                                   value="${w.amount.toLocaleString()}" data-idx="${idx}" data-field="amount">
-                        </div>
-                    </div>
-                    <div class="col-4">
-                        <select class="form-select form-select-sm border-secondary windfall-update" data-idx="${idx}" data-field="freq">
-                            <option value="one" ${w.freq==='one'?'selected':''}>One Time</option>
-                            <option value="month" ${w.freq==='month'?'selected':''}>/ Month</option>
-                            <option value="year" ${w.freq==='year'?'selected':''}>/ Year</option>
-                        </select>
-                    </div>
-                    <div class="col-4 p2-column" style="${this.state.mode === 'Couple' ? '' : 'display:none;'}">
-                         <select class="form-select form-select-sm border-secondary windfall-update" data-idx="${idx}" data-field="owner">
-                            <option value="p1" ${w.owner==='p1'?'selected':''}>Owner: P1</option>
-                            <option value="p2" ${w.owner==='p2'?'selected':''}>Owner: P2</option>
-                        </select>
-                    </div>
+                    <div class="col-4"><div class="input-group input-group-sm"><span class="input-group-text border-secondary text-muted">$</span><input type="text" class="form-control border-secondary formatted-num windfall-update" value="${w.amount.toLocaleString()}" data-idx="${idx}" data-field="amount"></div></div>
+                    <div class="col-4"><select class="form-select form-select-sm border-secondary windfall-update" data-idx="${idx}" data-field="freq"><option value="one" ${w.freq==='one'?'selected':''}>One Time</option><option value="month" ${w.freq==='month'?'selected':''}>/ Month</option><option value="year" ${w.freq==='year'?'selected':''}>/ Year</option></select></div>
+                    <div class="col-4 p2-column" style="${this.state.mode === 'Couple' ? '' : 'display:none;'}"><select class="form-select form-select-sm border-secondary windfall-update" data-idx="${idx}" data-field="owner"><option value="p1" ${w.owner==='p1'?'selected':''}>Owner: P1</option><option value="p2" ${w.owner==='p2'?'selected':''}>Owner: P2</option></select></div>
                 </div>
                 <div class="row g-2 mt-1">
-                    <div class="col-4">
-                        <label class="small text-muted" style="font-size:0.7rem;">Start Date</label>
-                        <input type="month" class="form-control form-control-sm border-secondary windfall-update" 
-                               value="${w.start || today}" data-idx="${idx}" data-field="start">
-                    </div>
-                    <div class="col-4" style="${hideEnd}">
-                        <label class="small text-muted" style="font-size:0.7rem;">End Date</label>
-                        <input type="month" class="form-control form-control-sm border-secondary windfall-update" 
-                               value="${w.end}" data-idx="${idx}" data-field="end">
-                    </div>
-                    <div class="col-4 d-flex align-items-center justify-content-end">
-                        <div class="form-check pt-3">
-                            <input class="form-check-input windfall-update" type="checkbox" id="wf_tax_${idx}" ${w.taxable ? 'checked' : ''} data-idx="${idx}" data-field="taxable">
-                            <label class="form-check-label text-muted small" for="wf_tax_${idx}">Taxable?</label>
-                        </div>
-                    </div>
+                    <div class="col-4"><label class="small text-muted" style="font-size:0.7rem;">Start Date</label><input type="month" class="form-control form-control-sm border-secondary windfall-update" value="${w.start || today}" data-idx="${idx}" data-field="start"></div>
+                    <div class="col-4" style="${hideEnd}"><label class="small text-muted" style="font-size:0.7rem;">End Date</label><input type="month" class="form-control form-control-sm border-secondary windfall-update" value="${w.end}" data-idx="${idx}" data-field="end"></div>
+                    <div class="col-4 d-flex align-items-center justify-content-end"><div class="form-check pt-3"><input class="form-check-input windfall-update" type="checkbox" id="wf_tax_${idx}" ${w.taxable ? 'checked' : ''} data-idx="${idx}" data-field="taxable"><label class="form-check-label text-muted small" for="wf_tax_${idx}">Taxable?</label></div></div>
                 </div>
             `;
             container.appendChild(div);
-            div.querySelectorAll('.formatted-num').forEach(el => {
-                el.addEventListener('input', (e) => this.formatInput(e.target));
-            });
+            div.querySelectorAll('.formatted-num').forEach(el => el.addEventListener('input', (e) => this.formatInput(e.target)));
         });
     }
 
     addWindfall() {
-        const today = new Date().toISOString().slice(0, 7);
-        this.state.windfalls.push({ name: "New Inheritance", amount: 0, freq: 'one', owner: 'p1', taxable: false, start: today, end: '' });
-        this.renderWindfalls();
-        this.run();
+        this.state.windfalls.push({ name: "New Inheritance", amount: 0, freq: 'one', owner: 'p1', taxable: false, start: new Date().toISOString().slice(0, 7), end: '' });
+        this.renderWindfalls(); this.run();
     }
 
-    removeWindfall(index) {
-        this.showConfirm("Remove this item?", () => {
-            this.state.windfalls.splice(index, 1);
-            this.renderWindfalls();
-            this.run();
-        });
-    }
+    removeWindfall(index) { this.showConfirm("Remove this item?", () => { this.state.windfalls.splice(index, 1); this.renderWindfalls(); this.run(); }); }
 
     renderAdditionalIncome() {
-        const containerP1 = document.getElementById('p1-additional-income-container');
-        const containerP2 = document.getElementById('p2-additional-income-container');
-        
-        if (containerP1) containerP1.innerHTML = '';
-        if (containerP2) containerP2.innerHTML = '';
+        const c1 = document.getElementById('p1-additional-income-container'); const c2 = document.getElementById('p2-additional-income-container');
+        if (c1) c1.innerHTML = ''; if (c2) c2.innerHTML = '';
 
         this.state.additionalIncome.forEach((w, idx) => {
-            const today = new Date().toISOString().slice(0, 7); 
-            const targetContainer = w.owner === 'p2' ? containerP2 : containerP1;
+            const targetContainer = w.owner === 'p2' ? c2 : c1;
             if (!targetContainer) return;
-            
             const div = document.createElement('div');
             div.className = 'income-stream-row p-2 border border-secondary rounded bg-body-tertiary mt-2 mb-2';
             div.innerHTML = `
-                <div class="d-flex justify-content-between mb-1">
-                    <input type="text" class="form-control form-control-sm bg-transparent border-0 fw-bold text-info income-stream-update" 
-                           placeholder="Income Name" value="${w.name}" data-idx="${idx}" data-field="name">
-                    <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="app.removeAdditionalIncome(${idx})"><i class="bi bi-x-lg"></i></button>
-                </div>
-                <div class="row g-2 align-items-center">
-                    <div class="col-6">
-                        <div class="input-group input-group-sm">
-                            <span class="input-group-text border-secondary text-muted">$</span>
-                            <input type="text" class="form-control border-secondary formatted-num income-stream-update" 
-                                   value="${w.amount.toLocaleString()}" data-idx="${idx}" data-field="amount">
-                        </div>
-                    </div>
-                    <div class="col-6">
-                        <select class="form-select form-select-sm border-secondary income-stream-update" data-idx="${idx}" data-field="freq">
-                            <option value="month" ${w.freq==='month'?'selected':''}>/ Month</option>
-                            <option value="year" ${w.freq==='year'?'selected':''}>/ Year</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="row g-2 mt-1">
-                    <div class="col-4">
-                        <label class="small text-muted" style="font-size:0.7rem;">Growth %</label>
-                        <div class="input-group input-group-sm">
-                            <input type="number" step="0.1" class="form-control border-secondary income-stream-update" 
-                                   value="${w.growth}" data-idx="${idx}" data-field="growth">
-                            <span class="input-group-text border-secondary text-muted">%</span>
-                        </div>
-                    </div>
-                    <div class="col-4">
-                        <label class="small text-muted" style="font-size:0.7rem;">Start Date</label>
-                        <input type="month" class="form-control form-control-sm border-secondary income-stream-update" 
-                               value="${w.start || today}" data-idx="${idx}" data-field="start">
-                    </div>
-                    <div class="col-4">
-                        <label class="small text-muted" style="font-size:0.7rem;">End Date</label>
-                        <input type="month" class="form-control form-control-sm border-secondary income-stream-update" 
-                               value="${w.end}" data-idx="${idx}" data-field="end">
-                    </div>
-                </div>
-                <div class="row g-2 mt-1">
-                    <div class="col-12 d-flex justify-content-end">
-                        <div class="form-check">
-                            <input class="form-check-input income-stream-update" type="checkbox" id="inc_tax_${idx}" ${w.taxable ? 'checked' : ''} data-idx="${idx}" data-field="taxable">
-                            <label class="form-check-label text-muted small" for="inc_tax_${idx}">Is Taxable Income?</label>
-                        </div>
-                    </div>
-                </div>
+                <div class="d-flex justify-content-between mb-1"><input type="text" class="form-control form-control-sm bg-transparent border-0 fw-bold text-info income-stream-update" placeholder="Income Name" value="${w.name}" data-idx="${idx}" data-field="name"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="app.removeAdditionalIncome(${idx})"><i class="bi bi-x-lg"></i></button></div>
+                <div class="row g-2 align-items-center"><div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text border-secondary text-muted">$</span><input type="text" class="form-control border-secondary formatted-num income-stream-update" value="${w.amount.toLocaleString()}" data-idx="${idx}" data-field="amount"></div></div><div class="col-6"><select class="form-select form-select-sm border-secondary income-stream-update" data-idx="${idx}" data-field="freq"><option value="month" ${w.freq==='month'?'selected':''}>/ Month</option><option value="year" ${w.freq==='year'?'selected':''}>/ Year</option></select></div></div>
+                <div class="row g-2 mt-1"><div class="col-4"><label class="small text-muted" style="font-size:0.7rem;">Growth %</label><div class="input-group input-group-sm"><input type="number" step="0.1" class="form-control border-secondary income-stream-update" value="${w.growth}" data-idx="${idx}" data-field="growth"><span class="input-group-text border-secondary text-muted">%</span></div></div><div class="col-4"><label class="small text-muted" style="font-size:0.7rem;">Start Date</label><input type="month" class="form-control form-control-sm border-secondary income-stream-update" value="${w.start || new Date().toISOString().slice(0, 7)}" data-idx="${idx}" data-field="start"></div><div class="col-4"><label class="small text-muted" style="font-size:0.7rem;">End Date</label><input type="month" class="form-control form-control-sm border-secondary income-stream-update" value="${w.end}" data-idx="${idx}" data-field="end"></div></div>
+                <div class="row g-2 mt-1"><div class="col-12 d-flex justify-content-end"><div class="form-check"><input class="form-check-input income-stream-update" type="checkbox" id="inc_tax_${idx}" ${w.taxable ? 'checked' : ''} data-idx="${idx}" data-field="taxable"><label class="form-check-label text-muted small" for="inc_tax_${idx}">Is Taxable Income?</label></div></div></div>
             `;
             targetContainer.appendChild(div);
-            div.querySelectorAll('.formatted-num').forEach(el => {
-                el.addEventListener('input', (e) => this.formatInput(e.target));
-            });
+            div.querySelectorAll('.formatted-num').forEach(el => el.addEventListener('input', (e) => this.formatInput(e.target)));
         });
     }
 
     addAdditionalIncome(owner) {
-        const today = new Date().toISOString().slice(0, 7);
-        this.state.additionalIncome.push({ name: "Side Hustle", amount: 0, freq: 'month', owner: owner, taxable: true, start: today, end: '', growth: 2.0 });
-        this.renderAdditionalIncome();
-        this.updateIncomeDisplay(); 
-        this.run();
+        this.state.additionalIncome.push({ name: "Side Hustle", amount: 0, freq: 'month', owner: owner, taxable: true, start: new Date().toISOString().slice(0, 7), end: '', growth: 2.0 });
+        this.renderAdditionalIncome(); this.updateIncomeDisplay(); this.run();
     }
 
-    removeAdditionalIncome(index) {
-        this.showConfirm("Remove this income stream?", () => {
-            this.state.additionalIncome.splice(index, 1);
-            this.renderAdditionalIncome();
-            this.updateIncomeDisplay();
-            this.run();
-        });
-    }
+    removeAdditionalIncome(index) { this.showConfirm("Remove this stream?", () => { this.state.additionalIncome.splice(index, 1); this.renderAdditionalIncome(); this.updateIncomeDisplay(); this.run(); }); }
 
     renderProperties() {
         const container = document.getElementById('real-estate-container');
         container.innerHTML = '';
-        
         this.state.properties.forEach((prop, idx) => {
             const div = document.createElement('div');
             div.className = 'property-row p-3 border border-secondary rounded bg-body-tertiary mb-3';
             div.innerHTML = `
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <input type="text" class="form-control form-control-sm bg-transparent border-0 fw-bold property-update" 
-                           style="max-width:200px;" value="${prop.name}" data-idx="${idx}" data-field="name">
-                    ${idx > 0 ? `<button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="app.removeProperty(${idx})"><i class="bi bi-x-lg"></i></button>` : ''}
-                </div>
+                <div class="d-flex justify-content-between align-items-center mb-2"><input type="text" class="form-control form-control-sm bg-transparent border-0 fw-bold property-update" style="max-width:200px;" value="${prop.name}" data-idx="${idx}" data-field="name">${idx > 0 ? `<button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="app.removeProperty(${idx})"><i class="bi bi-x-lg"></i></button>` : ''}</div>
                 <div class="row g-3">
-                    <div class="col-6 col-md-3">
-                        <label class="form-label text-muted small">Value</label>
-                        <div class="input-group input-group-sm">
-                            <span class="input-group-text border-secondary text-muted">$</span>
-                            <input type="text" class="form-control border-secondary formatted-num property-update" 
-                                   value="${prop.value.toLocaleString()}" data-idx="${idx}" data-field="value">
-                        </div>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <label class="form-label text-muted small">Mortgage</label>
-                        <div class="input-group input-group-sm">
-                            <span class="input-group-text border-secondary text-muted">$</span>
-                            <input type="text" class="form-control border-secondary formatted-num property-update" 
-                                   value="${prop.mortgage.toLocaleString()}" data-idx="${idx}" data-field="mortgage">
-                        </div>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <label class="form-label text-muted small">Growth %</label>
-                        <div class="input-group input-group-sm">
-                            <input type="number" step="0.01" class="form-control border-secondary property-update" 
-                                   value="${prop.growth}" data-idx="${idx}" data-field="growth">
-                            <span class="input-group-text border-secondary text-muted">%</span>
-                        </div>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <label class="form-label text-muted small">Rate %</label>
-                        <div class="input-group input-group-sm">
-                            <input type="number" step="0.01" class="form-control border-secondary property-update" 
-                                   value="${prop.rate}" data-idx="${idx}" data-field="rate">
-                            <span class="input-group-text border-secondary text-muted">%</span>
-                        </div>
-                    </div>
-                    <div class="col-12 col-md-4">
-                        <label class="form-label text-warning small">Monthly Pmt</label>
-                        <div class="input-group input-group-sm">
-                            <span class="input-group-text bg-warning text-black border-warning fw-bold">$</span>
-                            <input type="text" class="form-control border-warning formatted-num property-update" 
-                                   value="${Math.round(prop.payment).toLocaleString()}" data-idx="${idx}" data-field="payment">
-                        </div>
-                        <div class="mt-1 small" id="prop-payoff-${idx}"></div>
-                    </div>
-                    <div class="col-12 border-top border-secondary pt-2 mt-3">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input property-update" type="checkbox" id="prop_nw_${idx}" ${prop.includeInNW ? 'checked' : ''} data-idx="${idx}" data-field="includeInNW">
-                            <label class="form-check-label text-muted small" for="prop_nw_${idx}">Include equity in Total Net Worth calculations</label>
-                        </div>
-                    </div>
+                    <div class="col-6 col-md-3"><label class="form-label text-muted small">Value</label><div class="input-group input-group-sm"><span class="input-group-text border-secondary text-muted">$</span><input type="text" class="form-control border-secondary formatted-num property-update" value="${prop.value.toLocaleString()}" data-idx="${idx}" data-field="value"></div></div>
+                    <div class="col-6 col-md-3"><label class="form-label text-muted small">Mortgage</label><div class="input-group input-group-sm"><span class="input-group-text border-secondary text-muted">$</span><input type="text" class="form-control border-secondary formatted-num property-update" value="${prop.mortgage.toLocaleString()}" data-idx="${idx}" data-field="mortgage"></div></div>
+                    <div class="col-6 col-md-3"><label class="form-label text-muted small">Growth %</label><div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control border-secondary property-update" value="${prop.growth}" data-idx="${idx}" data-field="growth"><span class="input-group-text border-secondary text-muted">%</span></div></div>
+                    <div class="col-6 col-md-3"><label class="form-label text-muted small">Rate %</label><div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control border-secondary property-update" value="${prop.rate}" data-idx="${idx}" data-field="rate"><span class="input-group-text border-secondary text-muted">%</span></div></div>
+                    <div class="col-12 col-md-4"><label class="form-label text-warning small">Monthly Pmt</label><div class="input-group input-group-sm"><span class="input-group-text bg-warning text-black border-warning fw-bold">$</span><input type="text" class="form-control border-warning formatted-num property-update" value="${Math.round(prop.payment).toLocaleString()}" data-idx="${idx}" data-field="payment"></div><div class="mt-1 small" id="prop-payoff-${idx}"></div></div>
+                    <div class="col-12 border-top border-secondary pt-2 mt-3"><div class="form-check form-switch"><input class="form-check-input property-update" type="checkbox" id="prop_nw_${idx}" ${prop.includeInNW ? 'checked' : ''} data-idx="${idx}" data-field="includeInNW"><label class="form-check-label text-muted small" for="prop_nw_${idx}">Include equity in Total Net Worth calculations</label></div></div>
                 </div>
             `;
             container.appendChild(div);
-            // Re-apply listeners for formatted inputs
-            div.querySelectorAll('.formatted-num').forEach(el => {
-                el.addEventListener('input', (e) => this.formatInput(e.target));
-            });
+            div.querySelectorAll('.formatted-num').forEach(el => el.addEventListener('input', (e) => this.formatInput(e.target)));
         });
-        
         this.updateAllMortgages();
     }
 
-    addProperty() {
-        this.state.properties.push({ name: "New Property", value: 500000, mortgage: 400000, growth: 3.0, rate: 4.0, payment: 0, manual: false, includeInNW: false });
-        this.renderProperties();
-        this.run();
-    }
-
-    removeProperty(index) {
-        this.showConfirm("Remove this property?", () => {
-            this.state.properties.splice(index, 1);
-            this.renderProperties();
-            this.run();
-        });
-    }
-
-    updateAllMortgages() {
-        this.state.properties.forEach((p, idx) => {
-            if(!p.manual) this.calculateSingleMortgage(idx);
-            this.updatePropPayoffDisplay(idx);
-        });
-    }
+    addProperty() { this.state.properties.push({ name: "New Property", value: 500000, mortgage: 400000, growth: 3.0, rate: 4.0, payment: 0, manual: false, includeInNW: false }); this.renderProperties(); this.run(); }
+    removeProperty(index) { this.showConfirm("Remove property?", () => { this.state.properties.splice(index, 1); this.renderProperties(); this.run(); }); }
+    updateAllMortgages() { this.state.properties.forEach((p, idx) => { if(!p.manual) this.calculateSingleMortgage(idx); this.updatePropPayoffDisplay(idx); }); }
 
     calculateSingleMortgage(idx) {
         const p = this.state.properties[idx];
-        const P = p.mortgage;
         const annualRate = p.rate / 100;
         let monthlyPayment = 0;
-        
-        if (P > 0 && annualRate > 0) {
+        if (p.mortgage > 0 && annualRate > 0) {
             const r = annualRate / 12; const n = 25 * 12;
-            monthlyPayment = P * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
-        } else if (P > 0) { monthlyPayment = P / (25*12); }
-        
+            monthlyPayment = p.mortgage * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+        } else if (p.mortgage > 0) { monthlyPayment = p.mortgage / (25*12); }
         this.state.properties[idx].payment = monthlyPayment;
-        
         const inputs = document.querySelectorAll(`.property-update[data-idx="${idx}"][data-field="payment"]`);
         if(inputs.length > 0) inputs[0].value = Math.round(monthlyPayment).toLocaleString();
     }
@@ -1095,11 +685,9 @@ class RetirementPlanner {
         const p = this.state.properties[idx];
         const el = document.getElementById(`prop-payoff-${idx}`);
         if(!el) return;
-        
         if(p.mortgage <= 0) { el.innerHTML = ""; return; }
         const r = (p.rate/100) / 12;
         if(p.payment <= p.mortgage * r) { el.innerHTML = `<span class="text-danger fw-bold">Payment too low</span>`; return; }
-        
         const nMonths = -Math.log(1 - (r * p.mortgage) / p.payment) / Math.log(1 + r);
         if(!isNaN(nMonths) && isFinite(nMonths)) {
             const yrs = Math.floor(nMonths/12); const mos = Math.round(nMonths%12);
@@ -1107,34 +695,20 @@ class RetirementPlanner {
         }
     }
 
-    updateMortgagePayment() { this.updateAllMortgages(); }
-
     toggleRow(el) {
-        const group = el.parentElement;
-        const detail = group.querySelector('.grid-detail-wrapper');
+        const group = el.parentElement; const detail = group.querySelector('.grid-detail-wrapper');
         const isOpen = group.classList.contains('expanded');
-        
-        if(!isOpen) {
-            group.classList.add('expanded');
-            detail.classList.add('open');
-        } else {
-            group.classList.remove('expanded');
-            detail.classList.remove('open');
-        }
+        if(!isOpen) { group.classList.add('expanded'); detail.classList.add('open'); } 
+        else { group.classList.remove('expanded'); detail.classList.remove('open'); }
     }
 
     toggleModeDisplay() {
         const isCouple = this.state.mode === 'Couple';
         document.body.classList.toggle('is-couple', isCouple);
-        document.querySelectorAll('.p2-column').forEach(el => {
-            if(el.tagName === 'TH' || el.tagName === 'TD') return; 
-            el.style.display = isCouple ? '' : 'none';
-        });
-        
-        if(this.charts.nw) this.charts.nw.resize();
+        document.querySelectorAll('.p2-column').forEach(el => { if(el.tagName !== 'TH' && el.tagName !== 'TD') el.style.display = isCouple ? '' : 'none'; });
+        if(this.charts && this.charts.nw) this.charts.nw.resize();
     }
 
-    // --- MAIN ENGINE ---
     run() {
         try {
             this.estimateCPPOAS();
@@ -1146,67 +720,40 @@ class RetirementPlanner {
             if (this.state.projectionData.length > 0) {
                 let currentVal = parseInt(slider.value);
                 const maxIndex = this.state.projectionData.length - 1;
-                
                 if(currentVal > maxIndex) currentVal = 0;
                 slider.max = maxIndex; 
-                
                 if (currentVal > maxIndex) { slider.value = 0; currentVal = 0; }
-                
                 const d = this.state.projectionData[currentVal];
                 document.getElementById('sliderYearDisplay').innerText = d.year;
-                let ageText = (this.state.mode === 'Couple') ? `(P1: ${d.p1Age} / P2: ${d.p2Age})` : `(Age: ${d.p1Age})`;
-                document.getElementById('cfAgeDisplay').innerText = ageText;
-
+                document.getElementById('cfAgeDisplay').innerText = (this.state.mode === 'Couple') ? `(P1: ${d.p1Age} / P2: ${d.p2Age})` : `(Age: ${d.p1Age})`;
                 if(!this.charts.sankey) this.drawSankey(currentVal);
-                else {
-                    clearTimeout(this.sliderTimeout);
-                    this.sliderTimeout = setTimeout(() => this.drawSankey(currentVal), 50);
-                }
+                else { clearTimeout(this.sliderTimeout); this.sliderTimeout = setTimeout(() => this.drawSankey(currentVal), 50); }
             }
-
             this.saveToLocalStorage();
-
-        } catch (e) {
-            console.error("Calculation Error:", e);
-        }
+        } catch (e) { console.error("Calculation Error:", e); }
     }
 
     drawSankey(index) {
         if (!this.state.projectionData[index] || typeof google === 'undefined' || !google.visualization) return;
-
         const d = this.state.projectionData[index];
         const rows = [];
-        const fmt = (n) => {
-            if(n >= 1000000) return '$' + (n/1000000).toFixed(1) + 'M';
-            if(n >= 1000) return '$' + Math.round(n/1000) + 'k';
-            return '$' + Math.round(n);
-        };
-
+        const fmt = (n) => { if(n >= 1000000) return '$' + (n/1000000).toFixed(1) + 'M'; if(n >= 1000) return '$' + Math.round(n/1000) + 'k'; return '$' + Math.round(n); };
         const potName = `Available Cash\n${fmt(d.debugTotalInflow)}`;
 
         if (d.incomeP1 > 0) rows.push([`Employment P1\n${fmt(d.incomeP1)}`, potName, Math.round(d.incomeP1)]);
         if (d.incomeP2 > 0) rows.push([`Employment P2\n${fmt(d.incomeP2)}`, potName, Math.round(d.incomeP2)]);
         if (d.benefitsP1 > 0) rows.push([`Gov Benefits P1\n${fmt(d.benefitsP1)}`, potName, Math.round(d.benefitsP1)]);
         if (d.benefitsP2 > 0) rows.push([`Gov Benefits P2\n${fmt(d.benefitsP2)}`, potName, Math.round(d.benefitsP2)]);
-        
         if (d.dbP1 > 0) rows.push([`DB Pension P1\n${fmt(d.dbP1)}`, potName, Math.round(d.dbP1)]);
         if (d.dbP2 > 0) rows.push([`DB Pension P2\n${fmt(d.dbP2)}`, potName, Math.round(d.dbP2)]);
-        
         if (d.windfall > 0) rows.push([`Inheritance/Bonus\n${fmt(d.windfall)}`, potName, Math.round(d.windfall)]);
         if (d.postRetP1 > 0) rows.push([`Post-Ret Work P1\n${fmt(d.postRetP1)}`, potName, Math.round(d.postRetP1)]);
         if (d.postRetP2 > 0) rows.push([`Post-Ret Work P2\n${fmt(d.postRetP2)}`, potName, Math.round(d.postRetP2)]);
 
-        if (d.flows && d.flows.withdrawals) {
-            for (const [source, amount] of Object.entries(d.flows.withdrawals)) {
-                if (amount > 0) rows.push([`${source}\n${fmt(amount)}`, potName, Math.round(amount)]);
-            }
-        }
-
+        if (d.flows && d.flows.withdrawals) { for (const [source, amount] of Object.entries(d.flows.withdrawals)) if (amount > 0) rows.push([`${source}\n${fmt(amount)}`, potName, Math.round(amount)]); }
         const totalTax = d.taxP1 + d.taxP2;
         if (totalTax > 0) rows.push([potName, `Taxes\n${fmt(totalTax)}`, Math.round(totalTax)]);
-
         if (d.expenses > 0) rows.push([potName, `Living Exp.\n${fmt(d.expenses)}`, Math.round(d.expenses)]);
-
         const totalDebt = d.mortgagePay + d.debtPay;
         if (totalDebt > 0) rows.push([potName, `Mortgage/Debt\n${fmt(totalDebt)}`, Math.round(totalDebt)]);
 
@@ -1233,7 +780,6 @@ class RetirementPlanner {
             if (node.includes("Taxes")) color = '#ef4444'; 
             else if (node.includes("Living Exp")) color = '#f97316'; 
             else if (node.includes("Mortgage") || node.includes("Debt")) color = '#dc2626'; 
-
             nodeColors.push({ node: node, color: color });
         });
 
@@ -1244,30 +790,17 @@ class RetirementPlanner {
 
         const container = document.getElementById('sankey_chart');
         const dataTable = new google.visualization.DataTable();
-        dataTable.addColumn('string', 'From');
-        dataTable.addColumn('string', 'To');
-        dataTable.addColumn('number', 'Amount');
+        dataTable.addColumn('string', 'From'); dataTable.addColumn('string', 'To'); dataTable.addColumn('number', 'Amount');
         dataTable.addRows(rows);
-
         const labelColor = document.documentElement.getAttribute('data-bs-theme') === 'light' ? '#000000' : '#ffffff';
-
-        const options = {
-            sankey: {
-                node: { label: { color: labelColor, fontSize: 13, bold: true }, nodePadding: 30, width: 12, colors: nodesConfig.map(n => n.color) },
-                link: { colorMode: 'gradient', colors: ['#334155', '#475569'] }
-            },
-            backgroundColor: 'transparent',
-            height: 600,
-            width: '100%'
-        };
-
+        const options = { sankey: { node: { label: { color: labelColor, fontSize: 13, bold: true }, nodePadding: 30, width: 12, colors: nodesConfig.map(n => n.color) }, link: { colorMode: 'gradient', colors: ['#334155', '#475569'] } }, backgroundColor: 'transparent', height: 600, width: '100%' };
         const chart = new google.visualization.Sankey(container);
         chart.draw(dataTable, options);
         this.charts.sankey = chart;
     }
 
     getRrifFactor(age) {
-        if (age < 71) { return 1 / (90 - age); }
+        if (age < 71) return 1 / (90 - age);
         const rates = { 71: 0.0528, 72: 0.0540, 73: 0.0553, 74: 0.0567, 75: 0.0582, 76: 0.0598, 77: 0.0617, 78: 0.0636, 79: 0.0658, 80: 0.0682, 81: 0.0708, 82: 0.0738, 83: 0.0771, 84: 0.0808, 85: 0.0851, 86: 0.0899, 87: 0.0955, 88: 0.1021, 89: 0.1099, 90: 0.1192, 91: 0.1306, 92: 0.1449, 93: 0.1634, 94: 0.1879, 95: 0.2000 };
         if (age >= 95) return 0.20;
         return rates[age] || 0.0528; 
@@ -1301,8 +834,8 @@ class RetirementPlanner {
         const goGoLimit = parseInt(this.getRaw('exp_gogo_age')) || 75;
         const slowGoLimit = parseInt(this.getRaw('exp_slow_age')) || 85;
 
-        let p1 = { tfsa: this.getVal('p1_tfsa'), rrsp: this.getVal('p1_rrsp'), cash: this.getVal('p1_cash'), nreg: this.getVal('p1_nonreg'), crypto: this.getVal('p1_crypto'), inc: this.getVal('p1_income'), dob: new Date(this.getRaw('p1_dob')), retAge: this.getVal('p1_retireAge'), lifeExp: this.getVal('p1_lifeExp') };
-        let p2 = { tfsa: this.getVal('p2_tfsa'), rrsp: this.getVal('p2_rrsp'), cash: this.getVal('p2_cash'), nreg: this.getVal('p2_nonreg'), crypto: this.getVal('p2_crypto'), inc: this.getVal('p2_income'), dob: new Date(this.getRaw('p2_dob')), retAge: this.getVal('p2_retireAge'), lifeExp: this.getVal('p2_lifeExp') };
+        let p1 = { tfsa: this.getVal('p1_tfsa'), rrsp: this.getVal('p1_rrsp'), cash: this.getVal('p1_cash'), nreg: this.getVal('p1_nonreg'), crypto: this.getVal('p1_crypto'), inc: this.getVal('p1_income'), dob: new Date(this.getRaw('p1_dob')+"-01"), retAge: this.getVal('p1_retireAge'), lifeExp: this.getVal('p1_lifeExp') };
+        let p2 = { tfsa: this.getVal('p2_tfsa'), rrsp: this.getVal('p2_rrsp'), cash: this.getVal('p2_cash'), nreg: this.getVal('p2_nonreg'), crypto: this.getVal('p2_crypto'), inc: this.getVal('p2_income'), dob: new Date(this.getRaw('p2_dob')+"-01"), retAge: this.getVal('p2_retireAge'), lifeExp: this.getVal('p2_lifeExp') };
 
         const getRate = (id) => this.getVal(id)/100;
 
@@ -1316,14 +849,10 @@ class RetirementPlanner {
         const p1_db_start = parseInt(this.getRaw('p1_db_start_age')) || 60;
         const p2_db_start = parseInt(this.getRaw('p2_db_start_age')) || 60;
         
-        // Post-Retirement Logic Setup
-        let p1_post_base = this.getVal('p1_post_inc');
-        let p1_post_growth = this.getVal('p1_post_growth') / 100;
+        let p1_post_base = this.getVal('p1_post_inc'); let p1_post_growth = this.getVal('p1_post_growth') / 100;
         let p1_post_start = new Date((this.getRaw('p1_post_start') || '2100-01') + "-01");
         let p1_post_end = new Date((this.getRaw('p1_post_end') || '2100-01') + "-01");
-        
-        let p2_post_base = this.getVal('p2_post_inc');
-        let p2_post_growth = this.getVal('p2_post_growth') / 100;
+        let p2_post_base = this.getVal('p2_post_inc'); let p2_post_growth = this.getVal('p2_post_growth') / 100;
         let p2_post_start = new Date((this.getRaw('p2_post_start') || '2100-01') + "-01");
         let p2_post_end = new Date((this.getRaw('p2_post_end') || '2100-01') + "-01");
 
@@ -1331,13 +860,10 @@ class RetirementPlanner {
         for (const cat in this.expensesByCategory) {
             this.expensesByCategory[cat].items.forEach(item => {
                 const f = item.freq;
-                expenseTotals.curr += (item.curr||0) * f;
-                expenseTotals.ret += (item.ret||0) * f;
+                expenseTotals.curr += (item.curr||0) * f; expenseTotals.ret += (item.ret||0) * f;
                 if(expMode === 'Advanced') {
-                    expenseTotals.trans += (item.trans||0) * f;
-                    expenseTotals.gogo += (item.gogo||0) * f;
-                    expenseTotals.slow += (item.slow||0) * f;
-                    expenseTotals.nogo += (item.nogo||0) * f;
+                    expenseTotals.trans += (item.trans||0) * f; expenseTotals.gogo += (item.gogo||0) * f;
+                    expenseTotals.slow += (item.slow||0) * f; expenseTotals.nogo += (item.nogo||0) * f;
                 }
             });
         }
@@ -1370,9 +896,7 @@ class RetirementPlanner {
             const bracketInflator = Math.pow(1 + inflation, i);
             const inflatedTaxData = JSON.parse(JSON.stringify(this.CONSTANTS.TAX_DATA));
             for(const k in inflatedTaxData) {
-                 if(inflatedTaxData[k].brackets) {
-                     inflatedTaxData[k].brackets = inflatedTaxData[k].brackets.map(b => b * bracketInflator);
-                 }
+                 if(inflatedTaxData[k].brackets) inflatedTaxData[k].brackets = inflatedTaxData[k].brackets.map(b => b * bracketInflator);
                  if(inflatedTaxData[k].surtax) {
                      if(inflatedTaxData[k].surtax.t1) inflatedTaxData[k].surtax.t1 *= bracketInflator;
                      if(inflatedTaxData[k].surtax.t2) inflatedTaxData[k].surtax.t2 *= bracketInflator;
@@ -1422,22 +946,17 @@ class RetirementPlanner {
                 if(p1_age === p1.retAge && !triggeredEvents.has('P1 Retires')) { events.push('P1 Retires'); triggeredEvents.add('P1 Retires'); }
                 if(p1_age === p1_cpp_start && p1_cpp_on) events.push('P1 CPP');
                 if(p1_age === p1_oas_start && p1_oas_on) events.push('P1 OAS');
-            } else if (!triggeredEvents.has('P1 Dies')) {
-                events.push('P1 Dies'); triggeredEvents.add('P1 Dies');
-            }
+            } else if (!triggeredEvents.has('P1 Dies')) { events.push('P1 Dies'); triggeredEvents.add('P1 Dies'); }
+            
             if(mode==='Couple') {
                 if(p2_alive) {
                     if(p2_age === p2.retAge && !triggeredEvents.has('P2 Retires')) { events.push('P2 Retires'); triggeredEvents.add('P2 Retires'); }
                     if(p2_age === p2_cpp_start && p2_cpp_on) events.push('P2 CPP');
                     if(p2_age === p2_oas_start && p2_oas_on) events.push('P2 OAS');
-                } else if (!triggeredEvents.has('P2 Dies')) {
-                    events.push('P2 Dies'); triggeredEvents.add('P2 Dies');
-                }
+                } else if (!triggeredEvents.has('P2 Dies')) { events.push('P2 Dies'); triggeredEvents.add('P2 Dies'); }
             }
             let totalMortgageBalance = simProperties.reduce((acc, p) => acc + p.mortgage, 0);
-            if(totalMortgageBalance <= 0 && !triggeredEvents.has('Mortgage Paid')) { 
-                events.push('Mortgage Paid'); triggeredEvents.add('Mortgage Paid'); 
-            }
+            if(totalMortgageBalance <= 0 && !triggeredEvents.has('Mortgage Paid')) { events.push('Mortgage Paid'); triggeredEvents.add('Mortgage Paid'); }
             if(isCrashYear) events.push('Crash');
 
             let p1_gross = 0, p2_gross = 0;
@@ -1448,61 +967,35 @@ class RetirementPlanner {
 
             if(p1_alive) {
                 if(!p1_isRetired) { p1_gross += p1.inc; p1.inc *= (1 + currentRatesP1.inc); }
+                if (p1_age >= p1_db_start) p1_db_inc = p1_db_base * bracketInflator;
                 
-                if (p1_age >= p1_db_start) {
-                    p1_db_inc = p1_db_base * bracketInflator;
-                }
-                
-                // P1 Post-Retirement Income Calculation
                 if (enablePostRetP1 && p1_post_base > 0) {
-                    const startYear = p1_post_start.getFullYear();
-                    const endYear = p1_post_end.getFullYear();
-                    
+                    const startYear = p1_post_start.getFullYear(); const endYear = p1_post_end.getFullYear();
                     if (year >= startYear && year <= endYear) {
                          let grownAmount = p1_post_base * Math.pow(1 + p1_post_growth, i);
                          let factor = 1.0;
-                         if (year === startYear) {
-                             const months = 12 - p1_post_start.getMonth();
-                             factor = months / 12;
-                         }
-                         if (year === endYear) {
-                             const months = p1_post_end.getMonth() + 1;
-                             factor = Math.min(factor, months / 12); 
-                         }
+                         if (year === startYear) factor = (12 - p1_post_start.getMonth()) / 12;
+                         if (year === endYear) factor = Math.min(factor, (p1_post_end.getMonth() + 1) / 12); 
                          p1_post_val = grownAmount * factor;
                     }
                 }
-
                 if(p1_cpp_on && p1_age >= p1_cpp_start) p1_cpp_inc = this.calcBen(cpp_max_p1, p1_cpp_start, 1.0, p1.retAge);
                 if(p1_oas_on && p1_age >= p1_oas_start) p1_oas_inc = this.calcBen(oas_max_p1, p1_oas_start, 1.0, 65);
             }
             if(mode === 'Couple' && p2_alive) {
                 if(!p2_isRetired) { p2_gross += p2.inc; p2.inc *= (1 + currentRatesP2.inc); }
+                if (p2_age >= p2_db_start) p2_db_inc = p2_db_base * bracketInflator;
                 
-                if (p2_age >= p2_db_start) {
-                    p2_db_inc = p2_db_base * bracketInflator;
-                }
-                
-                // P2 Post-Retirement Income Calculation
                 if (enablePostRetP2 && p2_post_base > 0) {
-                    const startYear = p2_post_start.getFullYear();
-                    const endYear = p2_post_end.getFullYear();
-                    
+                    const startYear = p2_post_start.getFullYear(); const endYear = p2_post_end.getFullYear();
                     if (year >= startYear && year <= endYear) {
                          let grownAmount = p2_post_base * Math.pow(1 + p2_post_growth, i);
                          let factor = 1.0;
-                         if (year === startYear) {
-                             const months = 12 - p2_post_start.getMonth();
-                             factor = months / 12;
-                         }
-                         if (year === endYear) {
-                             const months = p2_post_end.getMonth() + 1;
-                             factor = Math.min(factor, months / 12);
-                         }
+                         if (year === startYear) factor = (12 - p2_post_start.getMonth()) / 12;
+                         if (year === endYear) factor = Math.min(factor, (p2_post_end.getMonth() + 1) / 12);
                          p2_post_val = grownAmount * factor;
                     }
                 }
-
                 if(p2_cpp_on && p2_age >= p2_cpp_start) p2_cpp_inc = this.calcBen(cpp_max_p2, p2_cpp_start, 1.0, p2.retAge);
                 if(p2_oas_on && p2_age >= p2_oas_start) p2_oas_inc = this.calcBen(oas_max_p2, p2_oas_start, 1.0, 65);
             }
@@ -1511,90 +1004,70 @@ class RetirementPlanner {
 
             let p1_rrif_inc = 0;
             if (p1_alive && p1.rrsp > 0 && p1_age >= this.CONSTANTS.RRIF_START_AGE) {
-                const factor = this.getRrifFactor(p1_age);
-                p1_rrif_inc = p1.rrsp * factor;
+                p1_rrif_inc = p1.rrsp * this.getRrifFactor(p1_age);
                 p1.rrsp -= p1_rrif_inc; 
                 if(p1_rrif_inc > 0) {
                       if(!yearWithdrawals['P1 RRIF']) yearWithdrawals['P1 RRIF'] = 0;
                       yearWithdrawals['P1 RRIF'] += p1_rrif_inc;
-                      w_p1.rrsp += p1_rrif_inc;
-                      wdBreakdown.p1["RRIF"] = (wdBreakdown.p1["RRIF"] || 0) + p1_rrif_inc;
+                      w_p1.rrsp += p1_rrif_inc; wdBreakdown.p1["RRIF"] = (wdBreakdown.p1["RRIF"] || 0) + p1_rrif_inc;
                 }
             }
             let p2_rrif_inc = 0;
             if (mode === 'Couple' && p2_alive && p2.rrsp > 0 && p2_age >= this.CONSTANTS.RRIF_START_AGE) {
-                const factor = this.getRrifFactor(p2_age);
-                p2_rrif_inc = p2.rrsp * factor;
+                p2_rrif_inc = p2.rrsp * this.getRrifFactor(p2_age);
                 p2.rrsp -= p2_rrif_inc;
                 if(p2_rrif_inc > 0) {
                       if(!yearWithdrawals['P2 RRIF']) yearWithdrawals['P2 RRIF'] = 0;
                       yearWithdrawals['P2 RRIF'] += p2_rrif_inc;
-                      w_p2.rrsp += p2_rrif_inc;
-                      wdBreakdown.p2["RRIF"] = (wdBreakdown.p2["RRIF"] || 0) + p2_rrif_inc;
+                      w_p2.rrsp += p2_rrif_inc; wdBreakdown.p2["RRIF"] = (wdBreakdown.p2["RRIF"] || 0) + p2_rrif_inc;
                 }
             }
 
-            // --- WINDFALL CALCULATIONS ---
             let wf_tax_p1 = 0, wf_tax_p2 = 0;
             let wf_nontax_p1 = 0, wf_nontax_p2 = 0;
             
             this.state.windfalls.forEach(w => {
                 const wStart = new Date(w.start + "-01");
                 const wStartYear = wStart.getFullYear();
-                
-                let active = false;
-                let annualAmt = 0;
+                let active = false; let annualAmt = 0;
                 
                 if (w.freq === 'one') {
                     if (wStartYear === year) { active = true; annualAmt = w.amount; }
                 } else {
                     const wEnd = w.end ? new Date(w.end + "-01") : new Date("2100-01-01");
-                    
                     if (year >= wStart.getFullYear() && year <= wEnd.getFullYear()) {
                         active = true;
                         if (w.freq === 'year') annualAmt = w.amount;
                         if (w.freq === 'month') {
                             let startMonth = (year === wStart.getFullYear()) ? wStart.getMonth() : 0;
                             let endMonth = (year === wEnd.getFullYear()) ? wEnd.getMonth() : 11;
-                            let months = Math.max(0, endMonth - startMonth + 1);
-                            annualAmt = w.amount * months;
+                            annualAmt = w.amount * Math.max(0, endMonth - startMonth + 1);
                         }
                     }
                 }
                 
                 if (active && annualAmt > 0) {
-                    if(!triggeredEvents.has('Windfall') && i === 0) {} 
                     if(w.freq === 'one') events.push('Windfall');
-                    
                     if (w.taxable) {
-                        if (w.owner === 'p2' && mode === 'Couple') wf_tax_p2 += annualAmt;
-                        else wf_tax_p1 += annualAmt;
+                        if (w.owner === 'p2' && mode === 'Couple') wf_tax_p2 += annualAmt; else wf_tax_p1 += annualAmt;
                     } else {
-                        if (w.owner === 'p2' && mode === 'Couple') wf_nontax_p2 += annualAmt;
-                        else wf_nontax_p1 += annualAmt;
+                        if (w.owner === 'p2' && mode === 'Couple') wf_nontax_p2 += annualAmt; else wf_nontax_p1 += annualAmt;
                     }
                 }
             });
 
-            // --- ADDITIONAL INCOME STREAMS PROCESSING ---
             this.state.additionalIncome.forEach(stream => {
                 const sStart = new Date(stream.start + "-01");
                 const sEnd = stream.end ? new Date(stream.end + "-01") : new Date("2100-01-01");
-                const startYear = sStart.getFullYear();
-                const endYear = sEnd.getFullYear();
+                const startYear = sStart.getFullYear(); const endYear = sEnd.getFullYear();
 
                 if (year >= startYear && year <= endYear) {
-                    let yearsActive = year - startYear;
-                    let growthFactor = Math.pow(1 + (stream.growth / 100), yearsActive);
-                    let annualAmt = stream.amount * growthFactor;
-
+                    let annualAmt = stream.amount * Math.pow(1 + (stream.growth / 100), year - startYear);
                     if(stream.freq === 'month') annualAmt *= 12;
 
-                    // Prorate start/end years
                     let factor = 1.0;
                     if (year === startYear) factor = (12 - sStart.getMonth()) / 12;
                     if (year === endYear) factor = Math.min(factor, (sEnd.getMonth() + 1) / 12);
-                    
                     annualAmt *= factor;
 
                     if (annualAmt > 0) {
@@ -1602,7 +1075,6 @@ class RetirementPlanner {
                              if (stream.owner === 'p1') p1_gross += annualAmt;
                              else if (mode === 'Couple') p2_gross += annualAmt;
                          } else {
-                             // Treat as non-taxable inflow (added to wf bucket for display simplicity)
                              if (stream.owner === 'p1') wf_nontax_p1 += annualAmt;
                              else if (mode === 'Couple') wf_nontax_p2 += annualAmt;
                          }
@@ -1610,15 +1082,13 @@ class RetirementPlanner {
                 }
             });
 
-            // Add taxable windfalls AND Post-Retirement Income to gross income for tax calc
             let p1_total_taxable = p1_gross + p1_cpp_inc + p1_oas_inc + p1_rrif_inc + p1_db_inc + wf_tax_p1 + p1_post_val;
             let p2_total_taxable = p2_gross + p2_cpp_inc + p2_oas_inc + p2_rrif_inc + p2_db_inc + wf_tax_p2 + p2_post_val;
 
             if (rrspMeltdown) {
                 const lowBracketLimit = inflatedTaxData.FED.brackets[0]; 
                 if (p1_alive && p1.rrsp > 0 && p1_total_taxable < lowBracketLimit) {
-                    let room = lowBracketLimit - p1_total_taxable;
-                    let draw = Math.min(room, p1.rrsp);
+                    let draw = Math.min(lowBracketLimit - p1_total_taxable, p1.rrsp);
                     if(draw > 0) {
                         p1.rrsp -= draw; p1_total_taxable += draw;
                         if(!yearWithdrawals['RRSP Top-Up']) yearWithdrawals['RRSP Top-Up'] = 0;
@@ -1628,8 +1098,7 @@ class RetirementPlanner {
                     }
                 }
                 if (mode === 'Couple' && p2_alive && p2.rrsp > 0 && p2_total_taxable < lowBracketLimit) {
-                    let room = lowBracketLimit - p2_total_taxable;
-                    let draw = Math.min(room, p2.rrsp);
+                    let draw = Math.min(lowBracketLimit - p2_total_taxable, p2.rrsp);
                     if(draw > 0) {
                         p2.rrsp -= draw; p2_total_taxable += draw;
                         if(!yearWithdrawals['RRSP Top-Up']) yearWithdrawals['RRSP Top-Up'] = 0;
@@ -1643,25 +1112,20 @@ class RetirementPlanner {
             let t1 = p1_alive ? this.calculateTaxDetailed(p1_total_taxable, province, inflatedTaxData) : { totalTax: 0 };
             let t2 = p2_alive ? this.calculateTaxDetailed(p2_total_taxable, province, inflatedTaxData) : { totalTax: 0 };
 
-            // ------------------------------------------
-            // CALCULATE SURPLUS & CASHFLOW ENGINE
-            // ------------------------------------------
             let activePhaseExpenses = 0;
             if(expMode === 'Simple') {
                 activePhaseExpenses = fullyRetired ? expRetire : expCurrent;
             } else {
                  if(!fullyRetired) activePhaseExpenses = expCurrent;
                  else {
-                      // Check against Phase Ages
-                      const ageCheck = p1_age;
-                      if(ageCheck < goGoLimit) activePhaseExpenses = expGoGo;
-                      else if(ageCheck < slowGoLimit) activePhaseExpenses = expSlow;
+                      if(p1_age < goGoLimit) activePhaseExpenses = expGoGo;
+                      else if(p1_age < slowGoLimit) activePhaseExpenses = expSlow;
                       else activePhaseExpenses = expNoGo;
                  }
             }
 
             let annualExp = activePhaseExpenses;
-            let debtRepayment = otherDebt > 0 ? Math.min(otherDebt, 500 * 12) : 0; // Simple debt repayment assumption
+            let debtRepayment = otherDebt > 0 ? Math.min(otherDebt, 500 * 12) : 0; 
             otherDebt -= debtRepayment;
 
             let totalActualMortgageOutflow = 0;
@@ -1676,29 +1140,19 @@ class RetirementPlanner {
                     if(p.mortgage < 0) p.mortgage = 0;
                     totalActualMortgageOutflow += annualPmt;
                 }
-                // Property Growth
                 p.value *= (1 + (p.growth/100));
             });
 
             const totalWindfall = (wf_tax_p1 + wf_nontax_p1) + (mode==='Couple' ? (wf_tax_p2 + wf_nontax_p2) : 0);
-
-            // Total Inflow (After Tax)
             const netInflowP1 = (p1_total_taxable - t1.totalTax) + wf_nontax_p1;
             const netInflowP2 = mode==='Couple' ? ((p2_total_taxable - t2.totalTax) + wf_nontax_p2) : 0;
             
-            // Apply Growth to Existing Assets (Start of Year Growth)
-            let g_p1 = { 
-                tfsa: p1.tfsa * currentRatesP1.tfsa, rrsp: p1.rrsp * currentRatesP1.rrsp, 
-                nreg: p1.nreg * currentRatesP1.nreg, cash: p1.cash * currentRatesP1.cash, cryp: p1.crypto * currentRatesP1.cryp 
-            };
+            let g_p1 = { tfsa: p1.tfsa * currentRatesP1.tfsa, rrsp: p1.rrsp * currentRatesP1.rrsp, nreg: p1.nreg * currentRatesP1.nreg, cash: p1.cash * currentRatesP1.cash, cryp: p1.crypto * currentRatesP1.cryp };
             p1.tfsa += g_p1.tfsa; p1.rrsp += g_p1.rrsp; p1.nreg += g_p1.nreg; p1.cash += g_p1.cash; p1.crypto += g_p1.cryp;
 
             let g_p2 = { tfsa:0, rrsp:0, nreg:0, cash:0, cryp:0 };
             if(mode==='Couple') {
-                g_p2 = { 
-                    tfsa: p2.tfsa * currentRatesP2.tfsa, rrsp: p2.rrsp * currentRatesP2.rrsp, 
-                    nreg: p2.nreg * currentRatesP2.nreg, cash: p2.cash * currentRatesP2.cash, cryp: p2.crypto * currentRatesP2.cryp 
-                };
+                g_p2 = { tfsa: p2.tfsa * currentRatesP2.tfsa, rrsp: p2.rrsp * currentRatesP2.rrsp, nreg: p2.nreg * currentRatesP2.nreg, cash: p2.cash * currentRatesP2.cash, cryp: p2.crypto * currentRatesP2.cryp };
                 p2.tfsa += g_p2.tfsa; p2.rrsp += g_p2.rrsp; p2.nreg += g_p2.nreg; p2.cash += g_p2.cash; p2.crypto += g_p2.cryp;
             }
 
@@ -1706,37 +1160,28 @@ class RetirementPlanner {
             let totalOutflow = annualExp + totalActualMortgageOutflow + debtRepayment;
             let surplus = householdNetIncome - totalOutflow;
 
-            // WATERFALL: SAVE or SPEND
             if (surplus > 0) {
-                // ACCUMULATION STRATEGY
                 let remainder = surplus;
                 const strat = this.state.strategies.accum;
                 
                 strat.forEach(type => {
                     if (remainder <= 0) return;
                     if (type === 'tfsa') {
-                        // Simplified TFSA Logic: Assume $7k room/yr + growth
-                        if (p1_alive && (!s1_tfsa || i>0)) { p1.tfsa += remainder; yearContributions.tfsa += remainder; remainder = 0; } // Dump all to P1 TFSA for sim
+                        if (p1_alive && (!s1_tfsa || i>0)) { p1.tfsa += remainder; yearContributions.tfsa += remainder; remainder = 0; } 
                         if (mode==='Couple' && p2_alive && remainder > 0 && (!s2_tfsa || i>0)) { p2.tfsa += remainder; yearContributions.tfsa += remainder; remainder = 0; }
                     } else if (type === 'rrsp') {
                          if (p1_alive && (!s1_rrsp || i>0)) { p1.rrsp += remainder; yearContributions.rrsp += remainder; remainder = 0; }
-                    } else if (type === 'nreg') {
-                         if (p1_alive) { p1.nreg += remainder; yearContributions.nreg += remainder; remainder = 0; }
-                    } else if (type === 'cash') {
-                         if (p1_alive) { p1.cash += remainder; yearContributions.cash += remainder; remainder = 0; }
-                    } else if (type === 'crypto') {
-                         if (p1_alive) { p1.crypto += remainder; yearContributions.crypto += remainder; remainder = 0; }
-                    }
+                    } else if (type === 'nreg') { if (p1_alive) { p1.nreg += remainder; yearContributions.nreg += remainder; remainder = 0; }
+                    } else if (type === 'cash') { if (p1_alive) { p1.cash += remainder; yearContributions.cash += remainder; remainder = 0; }
+                    } else if (type === 'crypto') { if (p1_alive) { p1.crypto += remainder; yearContributions.crypto += remainder; remainder = 0; } }
                 });
             } else {
-                // DECUMULATION STRATEGY
                 let deficit = Math.abs(surplus);
                 const strat = this.state.strategies.decum;
 
                 const withdraw = (person, type, amount) => {
                     if(amount <= 0) return 0;
-                    let avail = person[type];
-                    let taken = Math.min(avail, amount);
+                    let taken = Math.min(person[type], amount);
                     person[type] -= taken;
                     
                     let key = (person === p1 ? "P1 " : "P2 ") + this.strategyLabels[type];
@@ -1745,19 +1190,16 @@ class RetirementPlanner {
                     
                     let pKey = (person === p1) ? 'p1' : 'p2';
                     wdBreakdown[pKey][this.strategyLabels[type]] = (wdBreakdown[pKey][this.strategyLabels[type]] || 0) + taken;
-
                     return amount - taken;
                 };
 
                 strat.forEach(type => {
                     if (deficit <= 0.1) return;
-                    // Try P1 then P2
                     if(p1_alive) deficit = withdraw(p1, type, deficit);
                     if(mode === 'Couple' && p2_alive && deficit > 0) deficit = withdraw(p2, type, deficit);
                 });
             }
 
-            // RECALCULATE NET INCOME AFTER WITHDRAWALS (For Display)
             let nontax_wd_p1 = (yearWithdrawals['P1 TFSA']||0) + (yearWithdrawals['P1 Cash']||0) + (yearWithdrawals['P1 Non-Reg']||0) + (yearWithdrawals['P1 Crypto']||0);
             let nontax_wd_p2 = (yearWithdrawals['P2 TFSA']||0) + (yearWithdrawals['P2 Cash']||0) + (yearWithdrawals['P2 Non-Reg']||0) + (yearWithdrawals['P2 Crypto']||0);
 
@@ -1771,22 +1213,14 @@ class RetirementPlanner {
             const investTot = p1_tot + p2_tot;
             const liquidNW = investTot - otherDebt;
             
-            // NW Calculation updates: Separate Total vs Included Real Estate
-            let includedREValue = 0;
-            let includedREMortgage = 0;
-            let totalREValue = 0;
-            let totalREMortgage = 0;
+            let includedREValue = 0; let includedREMortgage = 0;
+            let totalREValue = 0; let totalREMortgage = 0;
             
             simProperties.forEach(p => {
-                totalREValue += p.value;
-                totalREMortgage += p.mortgage;
-                if(p.includeInNW) {
-                    includedREValue += p.value;
-                    includedREMortgage += p.mortgage;
-                }
+                totalREValue += p.value; totalREMortgage += p.mortgage;
+                if(p.includeInNW) { includedREValue += p.value; includedREMortgage += p.mortgage; }
             });
 
-            // Debug NW uses only the included Real Estate 
             const nw = liquidNW + (includedREValue - includedREMortgage);
             finalNW = nw;
 
@@ -1794,34 +1228,24 @@ class RetirementPlanner {
                 let totalWithdrawal = 0;
                 for(let k in yearWithdrawals) totalWithdrawal += yearWithdrawals[k];
 
-                let totalGrowth = g_p1.tfsa + g_p1.rrsp + g_p1.cryp + g_p1.nreg + g_p1.cash + 
-                                (mode==='Couple' ? (g_p2.tfsa + g_p2.rrsp + g_p2.cryp + g_p2.nreg + g_p2.cash) : 0);
+                let totalGrowth = g_p1.tfsa + g_p1.rrsp + g_p1.cryp + g_p1.nreg + g_p1.cash + (mode==='Couple' ? (g_p2.tfsa + g_p2.rrsp + g_p2.cryp + g_p2.nreg + g_p2.cash) : 0);
                 let growthPct = investTot > 0 ? (totalGrowth / (investTot - totalGrowth - surplus)) * 100 : 0;
 
                 this.state.projectionData.push({
-                    year: year, p1Age: p1_age, p2Age: mode==='Couple'?p2_age:null,
-                    p1Alive: p1_alive, p2Alive: p2_alive,
-                    incomeP1: p1_gross, incomeP2: p2_gross, 
-                    benefitsP1: p1_cpp_inc + p1_oas_inc, benefitsP2: p2_cpp_inc + p2_oas_inc, 
-                    cppP1: p1_cpp_inc, cppP2: p2_cpp_inc,
-                    oasP1: p1_oas_inc, oasP2: p2_oas_inc,
-                    dbP1: p1_db_inc, dbP2: p2_db_inc,
-                    taxP1: t1.totalTax, taxP2: t2.totalTax,
-                    p1Net: final_p1_net, p2Net: final_p2_net,
+                    year: year, p1Age: p1_age, p2Age: mode==='Couple'?p2_age:null, p1Alive: p1_alive, p2Alive: p2_alive,
+                    incomeP1: p1_gross, incomeP2: p2_gross, benefitsP1: p1_cpp_inc + p1_oas_inc, benefitsP2: p2_cpp_inc + p2_oas_inc, 
+                    cppP1: p1_cpp_inc, cppP2: p2_cpp_inc, oasP1: p1_oas_inc, oasP2: p2_oas_inc, dbP1: p1_db_inc, dbP2: p2_db_inc,
+                    taxP1: t1.totalTax, taxP2: t2.totalTax, p1Net: final_p1_net, p2Net: final_p2_net,
                     expenses: annualExp, mortgagePay: totalActualMortgageOutflow, debtPay: debtRepayment, 
                     surplus: surplus, drawdown: surplus < 0 ? Math.abs(surplus) : 0,
                     debugNW: nw, debugTotalInflow: (p1_gross + p2_gross + p1_cpp_inc + p1_oas_inc + p2_cpp_inc + p2_oas_inc + p1_db_inc + p2_db_inc + totalWithdrawal + totalWindfall + p1_post_val + p2_post_val),
-                    assetsP1: {...p1}, assetsP2: {...p2},
-                    wdBreakdown: wdBreakdown,
+                    assetsP1: {...p1}, assetsP2: {...p2}, wdBreakdown: wdBreakdown,
                     inv_tfsa: p1.tfsa + p2.tfsa, inv_rrsp: p1.rrsp + p2.rrsp, inv_cash: p1.cash + p2.cash, inv_nreg: p1.nreg + p2.nreg, inv_crypto: p1.crypto + p2.crypto,
                     flows: { contributions: yearContributions, withdrawals: yearWithdrawals },
-                    totalGrowth: totalGrowth, growthPct: growthPct,
-                    events: events,
+                    totalGrowth: totalGrowth, growthPct: growthPct, events: events,
                     householdNet: final_householdNet, visualExpenses: visualExpenses, 
-                    mortgage: totalREMortgage, homeValue: totalREValue, 
-                    investTot: investTot, liquidNW: liquidNW, isCrashYear: isCrashYear,
-                    windfall: totalWindfall,
-                    postRetP1: p1_post_val, postRetP2: p2_post_val
+                    mortgage: totalREMortgage, homeValue: totalREValue, investTot: investTot, liquidNW: liquidNW, isCrashYear: isCrashYear,
+                    windfall: totalWindfall, postRetP1: p1_post_val, postRetP2: p2_post_val
                 });
             }
             expCurrent *= (1 + inflation); expRetire *= (1 + inflation); tfsa_limit *= (1 + inflation);
@@ -1829,32 +1253,17 @@ class RetirementPlanner {
         }
 
         if (!onlyCalcNW) {
-            // --- THEME DETECTION FOR PROJECTION GRID ---
             const theme = document.documentElement.getAttribute('data-bs-theme') || 'dark';
-            
-            // Explicitly force text-dark in light mode for the headers
             const headerClass = theme === 'light' ? 'bg-white text-dark border-bottom border-dark-subtle' : 'bg-transparent text-white border-secondary';
             const timelineText = theme === 'light' ? 'text-dark' : 'text-body';
 
-            let html = `
-                <div class="grid-header ${headerClass}">
-                    <div class="col-start col-timeline ${timelineText}">Timeline</div>
-                    <div class="col-start">Status</div>
-                    <div class="text-body ${timelineText}">Net Income</div>
-                    <div class="text-danger">Expenses</div>
-                    <div class="${timelineText}">Surplus</div>
-                    <div class="${timelineText}">Net Worth</div>
-                    <div class="text-center ${timelineText}"><i class="bi bi-chevron-bar-down"></i></div>
-                </div>
-            `;
+            let html = `<div class="grid-header ${headerClass}"><div class="col-start col-timeline ${timelineText}">Timeline</div><div class="col-start">Status</div><div class="text-body ${timelineText}">Net Income</div><div class="text-danger">Expenses</div><div class="${timelineText}">Surplus</div><div class="${timelineText}">Net Worth</div><div class="text-center ${timelineText}"><i class="bi bi-chevron-bar-down"></i></div></div>`;
             
             this.state.projectionData.forEach((d, idx) => {
                 const df = this.getDiscountFactor(idx);
                 const fmtK = (num) => { 
-                    const val = num / df; 
-                    const abs = Math.abs(val); 
-                    if (Math.round(abs) === 0) return ''; 
-                    const sign = val < 0 ? '-' : ''; 
+                    const val = num / df; const abs = Math.abs(val); 
+                    if (Math.round(abs) === 0) return ''; const sign = val < 0 ? '-' : ''; 
                     if (abs >= 1000000) return sign + (abs / 1000000).toFixed(1) + 'M'; 
                     if (abs >= 1000) return sign + Math.round(abs / 1000) + 'k'; 
                     return sign + abs.toFixed(0); 
@@ -1864,8 +1273,7 @@ class RetirementPlanner {
                 const p2AgeDisplay = mode==='Couple' ? (d.p2Alive ? d.p2Age : '†') : '';
                 
                 let status = '';
-                const p1Ret = d.p1Age >= p1.retAge;
-                const p2Ret = mode === 'Couple' ? (d.p2Age >= p2.retAge) : true; 
+                const p1Ret = d.p1Age >= p1.retAge; const p2Ret = mode === 'Couple' ? (d.p2Age >= p2.retAge) : true; 
 
                 if (mode === 'Couple') {
                     if (!p1Ret && !p2Ret) status = `<span class="status-pill status-working">Working</span>`;
@@ -1886,48 +1294,28 @@ class RetirementPlanner {
 
                 const surplusClass = d.surplus < 0 ? 'val-negative' : 'val-positive';
                 const surplusSign = d.surplus > 0 ? '+' : '';
-
-                // Map event Keys to HTML using the helper
                 const eventIconsHTML = d.events.map(k => this.getIconHTML(k, theme)).join('');
 
-                const line = (label, val, className='') => {
-                    if(!val || Math.round(val) === 0) return '';
-                    return `<div class="detail-item"><span>${label}</span> <span class="${className}">${fmtK(val)}</span></div>`;
-                };
-                const subLine = (label, val) => {
-                    if(!val || Math.round(val) === 0) return '';
-                    return `<div class="detail-item sub"><span>${label}</span> <span>${fmtK(val)}</span></div>`;
-                };
+                const line = (label, val, className='') => { if(!val || Math.round(val) === 0) return ''; return `<div class="detail-item"><span>${label}</span> <span class="${className}">${fmtK(val)}</span></div>`; };
+                const subLine = (label, val) => { if(!val || Math.round(val) === 0) return ''; return `<div class="detail-item sub"><span>${label}</span> <span>${fmtK(val)}</span></div>`; };
 
                 let incomeLines = '';
                 incomeLines += line("Employment P1", d.incomeP1);
                 if(mode==='Couple') incomeLines += line("Employment P2", d.incomeP2);
-                
                 if (d.postRetP1 > 0) incomeLines += subLine("Post-Ret Work P1", d.postRetP1);
                 if (d.postRetP2 > 0) incomeLines += subLine("Post-Ret Work P2", d.postRetP2);
-
                 if (d.benefitsP1 + d.benefitsP2 > 0) {
                     incomeLines += subLine("CPP/OAS P1", d.cppP1 + d.oasP1);
                     if(mode==='Couple') incomeLines += subLine("CPP/OAS P2", d.cppP2 + d.oasP2);
                 }
                 if (d.dbP1 > 0) incomeLines += subLine("DB Pension P1", d.dbP1);
                 if (d.dbP2 > 0) incomeLines += subLine("DB Pension P2", d.dbP2);
-                
                 if (d.windfall > 0) incomeLines += line("Inheritance/Bonus", d.windfall, "text-success fw-bold");
 
                 for(const [type, amt] of Object.entries(d.wdBreakdown.p1)) incomeLines += subLine(`${type} W/D P1`, amt);
-                if(mode==='Couple') {
-                    for(const [type, amt] of Object.entries(d.wdBreakdown.p2)) incomeLines += subLine(`${type} W/D P2`, amt);
-                }
+                if(mode==='Couple') { for(const [type, amt] of Object.entries(d.wdBreakdown.p2)) incomeLines += subLine(`${type} W/D P2`, amt); }
 
-                let incomeDetails = `
-                    <div class="detail-box">
-                        <div class="detail-title">Income Sources</div>
-                        ${incomeLines}
-                        <div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;">
-                            <span class="text-white">Total Net</span> <span class="text-success fw-bold">${fmtK(d.householdNet)}</span>
-                        </div>
-                    </div>`;
+                let incomeDetails = `<div class="detail-box"><div class="detail-title">Income Sources</div>${incomeLines}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total Net</span> <span class="text-success fw-bold">${fmtK(d.householdNet)}</span></div></div>`;
 
                 let expenseLines = '';
                 expenseLines += line("Living Exp", d.expenses);
@@ -1936,57 +1324,27 @@ class RetirementPlanner {
                 expenseLines += line("Tax Paid P1", d.taxP1, "val-negative");
                 if(mode==='Couple') expenseLines += line("Tax Paid P2", d.taxP2, "val-negative");
 
-                let expenseDetails = `
-                    <div class="detail-box">
-                        <div class="detail-title">Outflows & Taxes</div>
-                        ${expenseLines}
-                        <div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;">
-                            <span class="text-white">Total Out</span> <span class="text-danger fw-bold">${fmtK(d.visualExpenses)}</span>
-                        </div>
-                    </div>`;
+                let expenseDetails = `<div class="detail-box"><div class="detail-title">Outflows & Taxes</div>${expenseLines}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total Out</span> <span class="text-danger fw-bold">${fmtK(d.visualExpenses)}</span></div></div>`;
 
-                let p1Assets = d.assetsP1;
-                let p2Assets = d.assetsP2;
+                let p1Assets = d.assetsP1; let p2Assets = d.assetsP2;
                 let assetLines = '';
-                assetLines += line("TFSA P1", p1Assets.tfsa);
-                if(mode==='Couple') assetLines += line("TFSA P2", p2Assets.tfsa);
-                
-                assetLines += line(d.p1Age >= this.CONSTANTS.RRIF_START_AGE ? 'RRIF P1' : 'RRSP P1', p1Assets.rrsp);
-                if(mode==='Couple') assetLines += line(d.p2Age >= this.CONSTANTS.RRIF_START_AGE ? 'RRIF P2' : 'RRSP P2', p2Assets.rrsp);
-                
-                assetLines += line("Non-Reg P1", p1Assets.nreg);
-                if(mode==='Couple') assetLines += line("Non-Reg P2", p2Assets.nreg);
-                
-                assetLines += line("Cash P1", p1Assets.cash);
-                if(mode==='Couple') assetLines += line("Cash P2", p2Assets.cash);
-                
+                assetLines += line("TFSA P1", p1Assets.tfsa); if(mode==='Couple') assetLines += line("TFSA P2", p2Assets.tfsa);
+                assetLines += line(d.p1Age >= this.CONSTANTS.RRIF_START_AGE ? 'RRIF P1' : 'RRSP P1', p1Assets.rrsp); if(mode==='Couple') assetLines += line(d.p2Age >= this.CONSTANTS.RRIF_START_AGE ? 'RRIF P2' : 'RRSP P2', p2Assets.rrsp);
+                assetLines += line("Non-Reg P1", p1Assets.nreg); if(mode==='Couple') assetLines += line("Non-Reg P2", p2Assets.nreg);
+                assetLines += line("Cash P1", p1Assets.cash); if(mode==='Couple') assetLines += line("Cash P2", p2Assets.cash);
                 assetLines += line("Liquid Net Worth", d.liquidNW, "text-info fw-bold"); 
                 assetLines += line("Total Real Estate Eq.", d.homeValue - d.mortgage);
 
-                let assetDetails = `
-                    <div class="detail-box">
-                        <div class="detail-title">Assets (End of Year)</div>
-                        ${assetLines}
-                        <div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;">
-                            <span class="text-white">Total NW</span> <span class="text-info fw-bold">${fmtK(d.debugNW)}</span>
-                        </div>
-                    </div>`;
+                let assetDetails = `<div class="detail-box"><div class="detail-title">Assets (End of Year)</div>${assetLines}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total NW</span> <span class="text-info fw-bold">${fmtK(d.debugNW)}</span></div></div>`;
 
                 const rowBg = theme === 'light' ? 'bg-white border-bottom border-dark-subtle' : '';
                 const rowText = theme === 'light' ? 'text-dark' : 'text-white';
-                // Year text specifically needs to toggle
                 const yearTextClass = theme === 'light' ? 'text-dark' : 'text-white';
 
                 html += `
                     <div class="grid-row-group" style="${theme === 'light' ? 'border-bottom:1px solid #ddd;' : ''}">
                         <div class="grid-summary-row ${rowBg}" onclick="app.toggleRow(this)">
-                            <div class="col-start col-timeline">
-                                <div class="d-flex align-items-center">
-                                    <span class="fw-bold fs-6 me-1 ${yearTextClass}">${d.year}</span>
-                                    <span class="event-icons-inline">${eventIconsHTML}</span>
-                                </div>
-                                <span class="age-text ${rowText}">${p1AgeDisplay} ${mode==='Couple' ? '/ '+p2AgeDisplay : ''}</span>
-                            </div>
+                            <div class="col-start col-timeline"><div class="d-flex align-items-center"><span class="fw-bold fs-6 me-1 ${yearTextClass}">${d.year}</span><span class="event-icons-inline">${eventIconsHTML}</span></div><span class="age-text ${rowText}">${p1AgeDisplay} ${mode==='Couple' ? '/ '+p2AgeDisplay : ''}</span></div>
                             <div class="col-start">${status}</div>
                             <div class="val-positive">${fmtK(d.householdNet)}</div>
                             <div class="val-neutral text-danger">${fmtK(d.visualExpenses)}</div>
@@ -1994,36 +1352,25 @@ class RetirementPlanner {
                             <div class="fw-bold ${rowText}">${fmtK(d.debugNW)}</div>
                             <div class="text-center toggle-icon ${rowText}"><i class="bi bi-chevron-down"></i></div>
                         </div>
-                        <div class="grid-detail-wrapper">
-                            <div class="detail-container">
-                                ${incomeDetails}
-                                ${expenseDetails}
-                                ${assetDetails}
-                            </div>
-                        </div>
+                        <div class="grid-detail-wrapper"><div class="detail-container">${incomeDetails}${expenseDetails}${assetDetails}</div></div>
                     </div>
                 `;
             });
-
             const gridContainer = document.getElementById('projectionGrid');
             if(gridContainer) gridContainer.innerHTML = html;
         }
         return finalNW;
     }
 
-    // --- NEW HELPER: Get Icon HTML dynamically based on Theme ---
     getIconHTML(key, theme) {
         const def = this.iconDefs[key];
         if(!def) return '';
-        
         let colorClass = def.color;
-        // Fix for light mode invisibility: swap white for dark, cyan to blue, yellow to dark
         if(theme === 'light') {
             if (colorClass.includes('text-white')) colorClass = 'text-dark';
             if (colorClass.includes('text-info')) colorClass = 'text-primary'; 
             if (colorClass.includes('text-warning')) colorClass = 'text-dark'; 
         }
-        
         return `<i class="bi ${def.icon} ${colorClass}" title="${def.title}"></i>`;
     }
 
@@ -2042,43 +1389,23 @@ class RetirementPlanner {
     }
 
     calculateProgressiveTax(income, brackets, rates) {
-        let tax = 0;
-        let marg = rates[0];
-        let prevLimit = 0;
-        
+        let tax = 0; let marg = rates[0]; let prevLimit = 0;
         for (let i = 0; i < brackets.length; i++) {
-            let limit = brackets[i];
-            let rate = rates[i];
-            
-            if (income > limit) {
-                tax += (limit - prevLimit) * rate;
-                prevLimit = limit;
-            } else {
-                tax += (income - prevLimit) * rate;
-                marg = rate;
-                return { tax, marg };
-            }
+            let limit = brackets[i]; let rate = rates[i];
+            if (income > limit) { tax += (limit - prevLimit) * rate; prevLimit = limit; } 
+            else { tax += (income - prevLimit) * rate; marg = rate; return { tax, marg }; }
         }
         let topRate = rates[rates.length - 1];
-        tax += (income - prevLimit) * topRate;
-        marg = topRate;
+        tax += (income - prevLimit) * topRate; marg = topRate;
         return { tax, marg };
     }
 
     calculateTaxDetailed(income, province, taxData = null) {
         if(income <= 0) return { fed: 0, prov: 0, cpp_ei: 0, totalTax: 0, margRate: 0 };
-        
         const DATA = taxData || this.CONSTANTS.TAX_DATA;
-        const FED_DATA = DATA.FED;
-        const PROV_DATA = DATA[province] || { brackets: [999999999], rates: [0.10] }; 
-
-        let fedCalc = this.calculateProgressiveTax(income, FED_DATA.brackets, FED_DATA.rates);
-        let fed = fedCalc.tax;
-        let margFed = fedCalc.marg;
-
-        let provCalc = this.calculateProgressiveTax(income, PROV_DATA.brackets, PROV_DATA.rates);
-        let prov = provCalc.tax;
-        let margProv = provCalc.marg;
+        const FED_DATA = DATA.FED; const PROV_DATA = DATA[province] || { brackets: [999999999], rates: [0.10] }; 
+        let fedCalc = this.calculateProgressiveTax(income, FED_DATA.brackets, FED_DATA.rates); let fed = fedCalc.tax; let margFed = fedCalc.marg;
+        let provCalc = this.calculateProgressiveTax(income, PROV_DATA.brackets, PROV_DATA.rates); let prov = provCalc.tax; let margProv = provCalc.marg;
         
         if(province === 'ON') {
             let surtax = 0;
@@ -2088,27 +1415,16 @@ class RetirementPlanner {
             }
             if(surtax > 0) margProv = margProv * 1.56; 
             prov += surtax;
-            let health = 0; 
-            if(income > 20000) health = Math.min(900, (income-20000)*0.06); 
+            let health = 0; if(income > 20000) health = Math.min(900, (income-20000)*0.06); 
             prov += health;
         }
-
-        if(province === 'PE' && PROV_DATA.surtax) {
-             if(prov > PROV_DATA.surtax.t1) {
-                 prov += (prov - PROV_DATA.surtax.t1) * PROV_DATA.surtax.r1;
-             }
-        }
-
-        if(province === 'QC' && PROV_DATA.abatement) {
-            let abatement = fed * PROV_DATA.abatement;
-            fed -= abatement;
-        }
+        if(province === 'PE' && PROV_DATA.surtax) { if(prov > PROV_DATA.surtax.t1) prov += (prov - PROV_DATA.surtax.t1) * PROV_DATA.surtax.r1; }
+        if(province === 'QC' && PROV_DATA.abatement) { let abatement = fed * PROV_DATA.abatement; fed -= abatement; }
 
         let cpp = 0; const ympe = 74600; const yampe = 85000;
         if(income > 3500) cpp += (Math.min(income, ympe) - 3500) * 0.0595;
         if(income > ympe) cpp += (Math.min(income, yampe) - ympe) * 0.04;
         let ei = Math.min(income, 68900) * 0.0164;
-
         return { fed: fed, prov: prov, cpp_ei: cpp + ei, totalTax: fed + prov + cpp + ei, margRate: margFed + margProv };
     }
 
@@ -2122,190 +1438,63 @@ class RetirementPlanner {
     }
 
     toggleSidebar() {
-        const expanded = document.getElementById('sidebarExpanded');
-        const collapsed = document.getElementById('sidebarCollapsed');
-        const sidebarCol = document.getElementById('sidebarCol');
-        if(expanded.style.display === 'none') {
-            expanded.style.display = 'block';
-            collapsed.style.display = 'none';
-            sidebarCol.style.width = '320px';
-        } else {
-            expanded.style.display = 'none';
-            collapsed.style.display = 'block'; 
-            sidebarCol.style.width = '50px';
-        }
+        const expanded = document.getElementById('sidebarExpanded'); const collapsed = document.getElementById('sidebarCollapsed'); const sidebarCol = document.getElementById('sidebarCol');
+        if(expanded.style.display === 'none') { expanded.style.display = 'block'; collapsed.style.display = 'none'; sidebarCol.style.width = '320px'; } 
+        else { expanded.style.display = 'none'; collapsed.style.display = 'block'; sidebarCol.style.width = '50px'; }
         setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
     }
 
     renderExpenseRows() {
-        const tbody = document.getElementById('expenseTableBody'); 
-        const thead = document.getElementById('expenseTableHeader');
-        
-        // --- DYNAMIC HEADER STYLING ---
+        const tbody = document.getElementById('expenseTableBody'); const thead = document.getElementById('expenseTableHeader');
         const theme = document.documentElement.getAttribute('data-bs-theme') || 'dark';
         const rowBg = theme === 'light' ? 'bg-white' : 'bg-body-tertiary';
         const rowText = theme === 'light' ? 'text-dark' : 'text-white';
         const rowBorder = theme === 'light' ? 'border-dark-subtle' : 'border-secondary';
         const addBtnClass = theme === 'light' ? 'text-secondary' : 'text-white';
         const inputClass = theme === 'light' ? 'bg-white text-dark' : 'bg-transparent text-white';
-        
-        // Use bg-white and text-dark for headers in light mode, otherwise standard text-muted
         const headerClass = theme === 'light' ? 'bg-white text-dark border-bottom border-dark-subtle' : 'bg-transparent text-muted border-secondary';
 
         let headerHTML = ``;
         if(this.state.expenseMode === 'Simple') {
-            headerHTML = `
-                <th class="text-uppercase small ps-3 ${headerClass}" style="width: 40%;">Category / Item</th>
-                <th class="text-uppercase small ${headerClass}" style="width: 30%;">Current Spending</th>
-                <th class="text-uppercase small ${headerClass}" style="width: 30%;">Retirement Spending</th>
-            `;
+            headerHTML = `<th class="text-uppercase small ps-3 ${headerClass}" style="width: 40%;">Category / Item</th><th class="text-uppercase small ${headerClass}" style="width: 30%;">Current Spending</th><th class="text-uppercase small ${headerClass}" style="width: 30%;">Retirement Spending</th>`;
         } else {
-            const goGoAge = this.getRaw('exp_gogo_age') || 75;
-            const slowGoAge = this.getRaw('exp_slow_age') || 85;
-
-            headerHTML = `
-                <th class="text-uppercase small ps-3 ${headerClass}" style="width: 20%;">Item</th>
-                <th class="text-uppercase small ${headerClass}" style="width: 16%;">Current</th>
-                <th class="text-uppercase small ${headerClass}" style="width: 16%;">Trans</th>
-                <th class="text-uppercase small ${headerClass}" style="width: 16%;">Go-Go <span style="font-size:0.6rem">(<${goGoAge})</span></th>
-                <th class="text-uppercase small ${headerClass}" style="width: 16%;">Slow-Go <span style="font-size:0.6rem">(<${slowGoAge})</span></th>
-                <th class="text-uppercase small ${headerClass}" style="width: 16%;">No-Go <span style="font-size:0.6rem">(${slowGoAge}+)</span></th>
-            `;
+            const goGoAge = this.getRaw('exp_gogo_age') || 75; const slowGoAge = this.getRaw('exp_slow_age') || 85;
+            headerHTML = `<th class="text-uppercase small ps-3 ${headerClass}" style="width: 20%;">Item</th><th class="text-uppercase small ${headerClass}" style="width: 16%;">Current</th><th class="text-uppercase small ${headerClass}" style="width: 16%;">Trans</th><th class="text-uppercase small ${headerClass}" style="width: 16%;">Go-Go <span style="font-size:0.6rem">(<${goGoAge})</span></th><th class="text-uppercase small ${headerClass}" style="width: 16%;">Slow-Go <span style="font-size:0.6rem">(<${slowGoAge})</span></th><th class="text-uppercase small ${headerClass}" style="width: 16%;">No-Go <span style="font-size:0.6rem">(${slowGoAge}+)</span></th>`;
         }
         thead.innerHTML = headerHTML;
 
         let html = '';
-        const catMeta = {
-            "Housing": { icon: "bi-house-door-fill", color: "text-primary" },
-            "Living": { icon: "bi-basket2-fill", color: "text-success" },
-            "Kids": { icon: "bi-balloon-heart-fill", color: "text-warning" },
-            "Lifestyle": { icon: "bi-airplane-engines-fill", color: "text-info" }
-        };
-
-        const renderInput = (item, field, idx, cat, inputClass) => `
-            <div class="input-group input-group-sm mb-1" style="flex-wrap: nowrap;">
-                <span class="input-group-text border-secondary text-muted">$</span>
-                <input type="text" class="form-control border-secondary formatted-num expense-update ${inputClass}" 
-                       style="min-width: 60px;" value="${(item[field]||0).toLocaleString()}" data-cat="${cat}" data-idx="${idx}" data-field="${field}">
-            </div>
-        `;
+        const catMeta = { "Housing": { icon: "bi-house-door-fill", color: "text-primary" }, "Living": { icon: "bi-basket2-fill", color: "text-success" }, "Kids": { icon: "bi-balloon-heart-fill", color: "text-warning" }, "Lifestyle": { icon: "bi-airplane-engines-fill", color: "text-info" } };
+        const renderInput = (item, field, idx, cat, inputClass) => `<div class="input-group input-group-sm mb-1" style="flex-wrap: nowrap;"><span class="input-group-text border-secondary text-muted">$</span><input type="text" class="form-control border-secondary formatted-num expense-update ${inputClass}" style="min-width: 60px;" value="${(item[field]||0).toLocaleString()}" data-cat="${cat}" data-idx="${idx}" data-field="${field}"></div>`;
 
         for (const [category, data] of Object.entries(this.expensesByCategory)) {
            const meta = catMeta[category] || { icon: "bi-tag-fill", color: "text-white" };
            const colspan = this.state.expenseMode === 'Simple' ? 3 : 6;
            
-           html += `
-           <tr class="expense-category-row">
-               <td colspan="${colspan}" class="py-3 ps-3 border-bottom ${rowBorder} ${rowBg} ${rowText}">
-                   <div class="d-flex align-items-center justify-content-between">
-                       <div class="d-flex align-items-center">
-                           <i class="bi ${meta.icon} ${meta.color} me-2 fs-6"></i>
-                           <span class="text-uppercase fw-bold ${meta.color} small" style="letter-spacing: 1px;">${category}</span>
-                       </div>
-                       <button type="button" class="btn btn-sm btn-link ${addBtnClass} p-0 me-3" title="Add Row" onclick="app.addExpense('${category}')">
-                           <i class="bi bi-plus-circle-fill text-success fs-5"></i>
-                       </button>
-                   </div>
-               </td>
-           </tr>`;
+           html += `<tr class="expense-category-row"><td colspan="${colspan}" class="py-3 ps-3 border-bottom ${rowBorder} ${rowBg} ${rowText}"><div class="d-flex align-items-center justify-content-between"><div class="d-flex align-items-center"><i class="bi ${meta.icon} ${meta.color} me-2 fs-6"></i><span class="text-uppercase fw-bold ${meta.color} small" style="letter-spacing: 1px;">${category}</span></div><button type="button" class="btn btn-sm btn-link ${addBtnClass} p-0 me-3" title="Add Row" onclick="app.addExpense('${category}')"><i class="bi bi-plus-circle-fill text-success fs-5"></i></button></div></td></tr>`;
            
            data.items.forEach((item, index) => {
-             html += `<tr class="expense-row"><td class="ps-3 align-middle border-bottom border-secondary ${rowBg} ${rowText}">
-                    <input type="text" class="form-control form-control-sm border-0 expense-update ${inputClass}" 
-                           value="${item.name}" data-cat="${category}" data-idx="${index}" data-field="name">
-                </td>`;
-                
+             html += `<tr class="expense-row"><td class="ps-3 align-middle border-bottom border-secondary ${rowBg} ${rowText}"><input type="text" class="form-control form-control-sm border-0 expense-update ${inputClass}" value="${item.name}" data-cat="${category}" data-idx="${index}" data-field="name"></td>`;
              if(this.state.expenseMode === 'Simple') {
-                 html += `
-                 <td class="align-middle border-bottom border-secondary ${rowBg} ${rowText}">
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text border-secondary text-muted">$</span>
-                        <input type="text" class="form-control border-secondary formatted-num expense-update ${inputClass}" 
-                               style="width: 100px; flex-grow: 1;" value="${item.curr.toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="curr">
-                        <select class="form-select border-secondary expense-update ${inputClass}" style="width: auto; flex-grow: 0; min-width: 85px;"
-                                data-cat="${category}" data-idx="${index}" data-field="freq">
-                            <option value="12" ${item.freq===12?'selected':''}>/month</option>
-                            <option value="1" ${item.freq===1?'selected':''}>/year</option>
-                        </select>
-                    </div>
-                 </td>
-                 <td class="align-middle border-bottom border-secondary ${rowBg} ${rowText}">
-                     <div class="d-flex align-items-center">
-                        <div class="input-group input-group-sm flex-grow-1">
-                            <span class="input-group-text border-secondary text-muted">$</span>
-                            <input type="text" class="form-control border-secondary formatted-num expense-update ${inputClass}" 
-                                   style="width: 100px; flex-grow: 1;" value="${item.ret.toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="ret">
-                            <select class="form-select border-secondary expense-update ${inputClass}" style="width: auto; flex-grow: 0; min-width: 85px;"
-                                    data-cat="${category}" data-idx="${index}" data-field="freq"> 
-                                <option value="12" ${item.freq===12?'selected':''}>/month</option>
-                                <option value="1" ${item.freq===1?'selected':''}>/year</option>
-                            </select>
-                        </div>
-                        <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-3 me-2" title="Delete Line" onclick="app.removeExpense('${category}', ${index})">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                     </div>
-                 </td>`;
+                 html += `<td class="align-middle border-bottom border-secondary ${rowBg} ${rowText}"><div class="input-group input-group-sm"><span class="input-group-text border-secondary text-muted">$</span><input type="text" class="form-control border-secondary formatted-num expense-update ${inputClass}" style="width: 100px; flex-grow: 1;" value="${item.curr.toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="curr"><select class="form-select border-secondary expense-update ${inputClass}" style="width: auto; flex-grow: 0; min-width: 85px;" data-cat="${category}" data-idx="${index}" data-field="freq"><option value="12" ${item.freq===12?'selected':''}>/month</option><option value="1" ${item.freq===1?'selected':''}>/year</option></select></div></td><td class="align-middle border-bottom border-secondary ${rowBg} ${rowText}"><div class="d-flex align-items-center"><div class="input-group input-group-sm flex-grow-1"><span class="input-group-text border-secondary text-muted">$</span><input type="text" class="form-control border-secondary formatted-num expense-update ${inputClass}" style="width: 100px; flex-grow: 1;" value="${item.ret.toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="ret"><select class="form-select border-secondary expense-update ${inputClass}" style="width: auto; flex-grow: 0; min-width: 85px;" data-cat="${category}" data-idx="${index}" data-field="freq"><option value="12" ${item.freq===12?'selected':''}>/month</option><option value="1" ${item.freq===1?'selected':''}>/year</option></select></div><button type="button" class="btn btn-sm btn-link text-danger p-0 ms-3 me-2" title="Delete Line" onclick="app.removeExpense('${category}', ${index})"><i class="bi bi-trash"></i></button></div></td>`;
              } else {
-                 html += `
-                 <td class="align-middle border-bottom border-secondary ${rowBg} ${rowText}">
-                    <div class="input-group input-group-sm mb-1" style="flex-wrap: nowrap;">
-                        <span class="input-group-text border-secondary text-muted">$</span>
-                        <input type="text" class="form-control border-secondary formatted-num expense-update ${inputClass}" 
-                               style="min-width: 60px;" value="${(item.curr||0).toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="curr">
-                         <select class="form-select border-secondary expense-update ${inputClass}" style="width: auto; flex-grow: 0; min-width: 85px;"
-                                data-cat="${category}" data-idx="${index}" data-field="freq">
-                            <option value="12" ${item.freq===12?'selected':''}>/month</option>
-                            <option value="1" ${item.freq===1?'selected':''}>/year</option>
-                        </select>
-                    </div>
-                 </td>
-                 <td class="align-middle border-bottom border-secondary ${rowBg} ${rowText}">${renderInput(item, 'trans', index, category, inputClass)}</td>
-                 <td class="align-middle border-bottom border-secondary ${rowBg} ${rowText}">${renderInput(item, 'gogo', index, category, inputClass)}</td>
-                 <td class="align-middle border-bottom border-secondary ${rowBg} ${rowText}">${renderInput(item, 'slow', index, category, inputClass)}</td>
-                 <td class="align-middle border-bottom border-secondary ${rowBg} ${rowText}">
-                     <div class="d-flex align-items-center justify-content-between">
-                        ${renderInput(item, 'nogo', index, category, inputClass)}
-                        <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2" onclick="app.removeExpense('${category}', ${index})">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                     </div>
-                 </td>`;
+                 html += `<td class="align-middle border-bottom border-secondary ${rowBg} ${rowText}"><div class="input-group input-group-sm mb-1" style="flex-wrap: nowrap;"><span class="input-group-text border-secondary text-muted">$</span><input type="text" class="form-control border-secondary formatted-num expense-update ${inputClass}" style="min-width: 60px;" value="${(item.curr||0).toLocaleString()}" data-cat="${category}" data-idx="${index}" data-field="curr"><select class="form-select border-secondary expense-update ${inputClass}" style="width: auto; flex-grow: 0; min-width: 85px;" data-cat="${category}" data-idx="${index}" data-field="freq"><option value="12" ${item.freq===12?'selected':''}>/month</option><option value="1" ${item.freq===1?'selected':''}>/year</option></select></div></td><td class="align-middle border-bottom border-secondary ${rowBg} ${rowText}">${renderInput(item, 'trans', index, category, inputClass)}</td><td class="align-middle border-bottom border-secondary ${rowBg} ${rowText}">${renderInput(item, 'gogo', index, category, inputClass)}</td><td class="align-middle border-bottom border-secondary ${rowBg} ${rowText}">${renderInput(item, 'slow', index, category, inputClass)}</td><td class="align-middle border-bottom border-secondary ${rowBg} ${rowText}"><div class="d-flex align-items-center justify-content-between">${renderInput(item, 'nogo', index, category, inputClass)}<button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2" onclick="app.removeExpense('${category}', ${index})"><i class="bi bi-trash"></i></button></div></td>`;
              }
              html += `</tr>`;
            });
         }
         tbody.innerHTML = html;
-        document.querySelectorAll('.expense-update').forEach(el => {
-            if(el.classList.contains('formatted-num')) {
-               el.addEventListener('input', (e) => this.formatInput(e.target));
-            }
-        });
+        document.querySelectorAll('.expense-update').forEach(el => { if(el.classList.contains('formatted-num')) el.addEventListener('input', (e) => this.formatInput(e.target)); });
     }
 
-    addExpense(category) {
-        this.expensesByCategory[category].items.push({ name: "New Expense", curr: 0, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 });
-        this.renderExpenseRows();
-        this.calcExpenses();
-        this.run();
-    }
-
-    removeExpense(category, index) {
-        this.showConfirm('Delete this expense line?', () => {
-            this.expensesByCategory[category].items.splice(index, 1);
-            this.renderExpenseRows();
-            this.calcExpenses();
-            this.run();
-        });
-    }
+    addExpense(category) { this.expensesByCategory[category].items.push({ name: "New Expense", curr: 0, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 }); this.renderExpenseRows(); this.calcExpenses(); this.run(); }
+    removeExpense(category, index) { this.showConfirm('Delete this expense line?', () => { this.expensesByCategory[category].items.splice(index, 1); this.renderExpenseRows(); this.calcExpenses(); this.run(); }); }
 
     addDebtRow() {
         const container = document.getElementById('debt-container');
-        const div = document.createElement('div');
-        div.className = 'row g-3 mb-2 align-items-center debt-row';
+        const div = document.createElement('div'); div.className = 'row g-3 mb-2 align-items-center debt-row';
         div.innerHTML = `<div class="col-12 col-md-5"><input type="text" class="form-control form-control-sm" placeholder="Debt Name (e.g. LOC)"></div><div class="col-8 col-md-4"><div class="input-group input-group-sm"><span class="input-group-text">$</span><input type="text" class="form-control formatted-num live-calc debt-amount" value="0"></div></div><div class="col-4 col-md-3"><button type="button" class="btn btn-outline-danger btn-sm w-100"><i class="bi bi-trash"></i></button></div>`;
         container.appendChild(div);
-        
         const input = div.querySelector('.debt-amount');
         input.addEventListener('input', (e) => { this.formatInput(e.target); this.debouncedRun(); });
         div.querySelector('.btn-outline-danger').addEventListener('click', () => { div.remove(); this.debouncedRun(); });
@@ -2313,65 +1502,24 @@ class RetirementPlanner {
 
     renderStrategy() {
         this.renderList('strat-accum-list', this.state.strategies.accum, 'accum', document.getElementById('strat-accum-container'));
-        
-        const decumContainer = document.getElementById('strat-decumulation');
-        decumContainer.innerHTML = ''; 
-        
-        const optCard = document.createElement('div');
-        optCard.className = 'card bg-black border-secondary mb-3 strategy-opt-box';
-        optCard.innerHTML = `
-            <div class="card-header border-secondary text-uppercase small fw-bold text-muted bg-dark bg-opacity-50">
-                <i class="bi bi-stars text-warning me-2"></i>Optimization Strategies
-            </div>
-            <div class="card-body p-3">
-                <div class="form-check form-switch">
-                    <input class="form-check-input live-calc" type="checkbox" role="switch" id="strat_rrsp_topup" ${this.state.inputs['strat_rrsp_topup'] ? 'checked' : ''}>
-                    <label class="form-check-label text-white small fw-bold" for="strat_rrsp_topup">
-                        RRSP Low-Income Top-Up
-                        <div class="text-muted fw-normal mt-1" style="font-size:0.75rem; line-height: 1.2;">
-                            Withdraws RRSP to fill the lowest tax bracket (~$55k) in years with low income. Funds are reinvested automatically.
-                        </div>
-                    </label>
-                </div>
-            </div>
-        `;
+        const decumContainer = document.getElementById('strat-decumulation'); decumContainer.innerHTML = ''; 
+        const optCard = document.createElement('div'); optCard.className = 'card bg-black border-secondary mb-3 strategy-opt-box';
+        optCard.innerHTML = `<div class="card-header border-secondary text-uppercase small fw-bold text-muted bg-dark bg-opacity-50"><i class="bi bi-stars text-warning me-2"></i>Optimization Strategies</div><div class="card-body p-3"><div class="form-check form-switch"><input class="form-check-input live-calc" type="checkbox" role="switch" id="strat_rrsp_topup" ${this.state.inputs['strat_rrsp_topup'] ? 'checked' : ''}><label class="form-check-label text-white small fw-bold" for="strat_rrsp_topup">RRSP Low-Income Top-Up<div class="text-muted fw-normal mt-1" style="font-size:0.75rem; line-height: 1.2;">Withdraws RRSP to fill the lowest tax bracket (~$55k) in years with low income. Funds are reinvested automatically.</div></label></div></div>`;
         decumContainer.appendChild(optCard);
-
-        const title = document.createElement('h6');
-        title.className = "text-white small fw-bold mb-2 text-uppercase";
-        title.innerText = "Withdrawal Order (Drag to Reorder)";
-        decumContainer.appendChild(title);
-
+        const title = document.createElement('h6'); title.className = "text-white small fw-bold mb-2 text-uppercase"; title.innerText = "Withdrawal Order (Drag to Reorder)"; decumContainer.appendChild(title);
         this.renderList('strat-decum-list', this.state.strategies.decum, 'decum', decumContainer);
     }
 
     renderList(listId, array, type, container) {
         let list = document.getElementById(listId);
-        if(!list) {
-            const ul = document.createElement('ul');
-            ul.id = listId;
-            ul.className = 'strategy-list p-0 m-0';
-            ul.style.listStyle = 'none';
-            container.appendChild(ul);
-            list = ul;
-        } else {
-            list.innerHTML = '';
-        }
+        if(!list) { const ul = document.createElement('ul'); ul.id = listId; ul.className = 'strategy-list p-0 m-0'; ul.style.listStyle = 'none'; container.appendChild(ul); list = ul; } 
+        else list.innerHTML = '';
         
         array.forEach((key, index) => {
-            const li = document.createElement('li');
-            li.className = 'strat-item';
-            li.draggable = true;
-            li.setAttribute('data-key', key);
+            const li = document.createElement('li'); li.className = 'strat-item'; li.draggable = true; li.setAttribute('data-key', key);
             li.innerHTML = `<span class="fw-bold text-white small"><span class="badge bg-secondary me-2 rounded-circle">${index + 1}</span> ${this.strategyLabels[key]}</span> <i class="bi bi-grip-vertical grip-icon fs-5"></i>`;
-            
             li.addEventListener('dragstart', () => { li.classList.add('dragging'); li.style.opacity = '0.5'; });
-            li.addEventListener('dragend', () => { 
-                li.classList.remove('dragging'); 
-                li.style.opacity = '1';
-                this.updateArrayOrder(listId, type);
-                this.run();
-            });
+            li.addEventListener('dragend', () => { li.classList.remove('dragging'); li.style.opacity = '1'; this.updateArrayOrder(listId, type); this.run(); });
             list.appendChild(li);
         });
         
@@ -2379,53 +1527,40 @@ class RetirementPlanner {
             e.preventDefault();
             const afterElement = this.getDragAfterElement(list, e.clientY);
             const draggable = document.querySelector('.dragging');
-            if (afterElement == null) { list.appendChild(draggable); } 
-            else { list.insertBefore(draggable, afterElement); }
+            if (afterElement == null) list.appendChild(draggable); else list.insertBefore(draggable, afterElement);
         });
     }
 
     getDragAfterElement(container, y) {
         const draggableElements = [...container.querySelectorAll('.strat-item:not(.dragging)')];
         return draggableElements.reduce((closest, child) => {
-            const box = child.getBoundingClientRect();
-            const offset = y - box.top - box.height / 2;
-            if (offset < 0 && offset > closest.offset) return { offset: offset, element: child };
-            else return closest;
+            const box = child.getBoundingClientRect(); const offset = y - box.top - box.height / 2;
+            if (offset < 0 && offset > closest.offset) return { offset: offset, element: child }; else return closest;
         }, { offset: Number.NEGATIVE_INFINITY }).element;
     }
 
     updateArrayOrder(listId, type) {
-        const list = document.getElementById(listId);
-        const newOrder = [];
-        list.querySelectorAll('.strat-item').forEach(item => {
-            newOrder.push(item.getAttribute('data-key'));
-        });
-        if(type === 'accum') this.state.strategies.accum = newOrder;
-        else this.state.strategies.decum = newOrder;
+        const list = document.getElementById(listId); const newOrder = [];
+        list.querySelectorAll('.strat-item').forEach(item => newOrder.push(item.getAttribute('data-key')));
+        if(type === 'accum') this.state.strategies.accum = newOrder; else this.state.strategies.decum = newOrder;
         this.renderStrategy(); 
     }
 
     getDiscountFactor(yearIdx) {
         if (!document.getElementById('useRealDollars').checked) return 1;
-        const inflation = this.getVal('inflation_rate') / 100;
-        return Math.pow(1 + inflation, yearIdx);
+        return Math.pow(1 + (this.getVal('inflation_rate') / 100), yearIdx);
     }
 
     formatInput(el) { 
         let val = el.value.replace(/,/g, ''); 
-        if(!isNaN(val) && val !== '') { el.value = Number(val).toLocaleString('en-US'); } 
+        if(!isNaN(val) && val !== '') el.value = Number(val).toLocaleString('en-US'); 
     }
 
     toggleGroup(type) {
         const btn = document.querySelector(`span[data-type="${type}"]`);
         const isCurrentlyShown = document.body.classList.contains(`show-${type}`);
-        if(isCurrentlyShown) {
-            document.body.classList.remove(`show-${type}`);
-            btn.innerText = '[+]';
-        } else {
-            document.body.classList.add(`show-${type}`);
-            btn.innerText = '[-]';
-        }
+        if(isCurrentlyShown) { document.body.classList.remove(`show-${type}`); btn.innerText = '[+]'; } 
+        else { document.body.classList.add(`show-${type}`); btn.innerText = '[-]'; }
     }
 
     restoreDetailsState() {
@@ -2437,45 +1572,33 @@ class RetirementPlanner {
     }
 
     findOptimal() {
-        const p1CPP = document.getElementById('p1_cpp_start');
-        const p1OAS = document.getElementById('p1_oas_start');
-        
+        const p1CPP = document.getElementById('p1_cpp_start'); const p1OAS = document.getElementById('p1_oas_start');
         let maxNW = -Infinity; let bestC = 65; let bestO = 65;
         const origC = p1CPP.value; const origO = p1OAS.value;
 
-        const p1_cpp_on = this.state.inputs['p1_cpp_enabled'];
-        const p1_oas_on = this.state.inputs['p1_oas_enabled'];
+        const p1_cpp_on = this.state.inputs['p1_cpp_enabled']; const p1_oas_on = this.state.inputs['p1_oas_enabled'];
 
         if (p1_cpp_on || p1_oas_on) {
             for(let c=60; c<=70; c+=5) {
                 for(let o=65; o<=70; o+=5) {
                     if (p1_cpp_on) this.state.inputs['p1_cpp_start'] = c;
                     if (p1_oas_on) this.state.inputs['p1_oas_start'] = o;
-                    
                     const nw = this.generateProjectionTable(true);
                     if(nw > maxNW) { maxNW = nw; bestC = c; bestO = o; }
                 }
             }
             if (p1_cpp_on) this.optimalAges.p1_cpp = bestC;
             if (p1_oas_on) this.optimalAges.p1_oas = bestO;
-            
-            this.state.inputs['p1_cpp_start'] = origC;
-            this.state.inputs['p1_oas_start'] = origO;
+            this.state.inputs['p1_cpp_start'] = origC; this.state.inputs['p1_oas_start'] = origO;
         }
 
-        const cppOptText = p1_cpp_on ? `Optimal: Age ${this.optimalAges.p1_cpp} (<a href="javascript:void(0)" class="text-success text-decoration-none fw-bold opt-apply" data-target="p1_cpp">Apply</a>)` : `Optimization Disabled`;
-        const oasOptText = p1_oas_on ? `Optimal: Age ${this.optimalAges.p1_oas} (<a href="javascript:void(0)" class="text-success text-decoration-none fw-bold opt-apply" data-target="p1_oas">Apply</a>)` : `Optimization Disabled`;
-
-        document.getElementById('p1_cpp_opt').innerHTML = cppOptText;
-        document.getElementById('p1_oas_opt').innerHTML = oasOptText;
+        document.getElementById('p1_cpp_opt').innerHTML = p1_cpp_on ? `Optimal: Age ${this.optimalAges.p1_cpp} (<a href="javascript:void(0)" class="text-success text-decoration-none fw-bold opt-apply" data-target="p1_cpp">Apply</a>)` : `Optimization Disabled`;
+        document.getElementById('p1_oas_opt').innerHTML = p1_oas_on ? `Optimal: Age ${this.optimalAges.p1_oas} (<a href="javascript:void(0)" class="text-success text-decoration-none fw-bold opt-apply" data-target="p1_oas">Apply</a>)` : `Optimization Disabled`;
 
         if(this.state.mode === 'Couple') {
-            const p2CPP = document.getElementById('p2_cpp_start');
-            const p2OAS = document.getElementById('p2_oas_start');
+            const p2CPP = document.getElementById('p2_cpp_start'); const p2OAS = document.getElementById('p2_oas_start');
             const origC2 = p2CPP.value; const origO2 = p2OAS.value;
-            
-            const p2_cpp_on = this.state.inputs['p2_cpp_enabled'];
-            const p2_oas_on = this.state.inputs['p2_oas_enabled'];
+            const p2_cpp_on = this.state.inputs['p2_cpp_enabled']; const p2_oas_on = this.state.inputs['p2_oas_enabled'];
 
             if (p2_cpp_on || p2_oas_on) {
                 maxNW = -Infinity; bestC = 65; bestO = 65;
@@ -2483,23 +1606,17 @@ class RetirementPlanner {
                     for(let o=65; o<=70; o+=5) {
                         if (p2_cpp_on) this.state.inputs['p2_cpp_start'] = c;
                         if (p2_oas_on) this.state.inputs['p2_oas_start'] = o;
-                        
                         const nw = this.generateProjectionTable(true);
                         if(nw > maxNW) { maxNW = nw; bestC = c; bestO = o; }
                     }
                 }
                 if (p2_cpp_on) this.optimalAges.p2_cpp = bestC;
                 if (p2_oas_on) this.optimalAges.p2_oas = bestO;
-                
-                this.state.inputs['p2_cpp_start'] = origC2;
-                this.state.inputs['p2_oas_start'] = origO2;
+                this.state.inputs['p2_cpp_start'] = origC2; this.state.inputs['p2_oas_start'] = origO2;
             }
 
-            const cppOptText2 = p2_cpp_on ? `Optimal: Age ${this.optimalAges.p2_cpp} (<a href="javascript:void(0)" class="text-success text-decoration-none fw-bold opt-apply" data-target="p2_cpp">Apply</a>)` : `Optimization Disabled`;
-            const oasOptText2 = p2_oas_on ? `Optimal: Age ${this.optimalAges.p2_oas} (<a href="javascript:void(0)" class="text-success text-decoration-none fw-bold opt-apply" data-target="p2_oas">Apply</a>)` : `Optimization Disabled`;
-
-            document.getElementById('p2_cpp_opt').innerHTML = cppOptText2;
-            document.getElementById('p2_oas_opt').innerHTML = oasOptText2;
+            document.getElementById('p2_cpp_opt').innerHTML = p2_cpp_on ? `Optimal: Age ${this.optimalAges.p2_cpp} (<a href="javascript:void(0)" class="text-success text-decoration-none fw-bold opt-apply" data-target="p2_cpp">Apply</a>)` : `Optimization Disabled`;
+            document.getElementById('p2_oas_opt').innerHTML = p2_oas_on ? `Optimal: Age ${this.optimalAges.p2_oas} (<a href="javascript:void(0)" class="text-success text-decoration-none fw-bold opt-apply" data-target="p2_oas">Apply</a>)` : `Optimization Disabled`;
         }
     }
 
@@ -2513,65 +1630,43 @@ class RetirementPlanner {
 
     estimateCPPOAS() {
         const update = (prefix) => {
-            const retAge = this.getVal(prefix+'_retireAge');
-            const cppStart = parseInt(this.getRaw(prefix+'_cpp_start'));
-            const oasStart = parseInt(this.getRaw(prefix+'_oas_start'));
-            const cppEnabled = this.state.inputs[prefix+'_cpp_enabled'];
-            const oasEnabled = this.state.inputs[prefix+'_oas_enabled'];
+            const retAge = this.getVal(prefix+'_retireAge'); const cppStart = parseInt(this.getRaw(prefix+'_cpp_start')); const oasStart = parseInt(this.getRaw(prefix+'_oas_start'));
+            const cppEnabled = this.state.inputs[prefix+'_cpp_enabled']; const oasEnabled = this.state.inputs[prefix+'_oas_enabled'];
             
-            let cppVal = this.CONSTANTS.MAX_CPP_2026;
-            let mDiff = (cppStart - 65) * 12;
-            if(mDiff < 0) cppVal *= (1 - (Math.abs(mDiff)*0.006));
-            else cppVal *= (1 + (mDiff*0.007));
+            let cppVal = this.CONSTANTS.MAX_CPP_2026; let mDiff = (cppStart - 65) * 12;
+            if(mDiff < 0) cppVal *= (1 - (Math.abs(mDiff)*0.006)); else cppVal *= (1 + (mDiff*0.007));
+            if(retAge < 60) { let zeroYears = 65 - retAge; let penalizable = Math.max(0, zeroYears - 8); cppVal *= Math.max(0, (39 - penalizable) / 39); }
             
-            if(retAge < 60) {
-                let zeroYears = 65 - retAge; 
-                let penalizable = Math.max(0, zeroYears - 8);
-                let factor = (39 - penalizable) / 39; 
-                cppVal *= Math.max(0, factor);
-            }
             const elCPP = document.getElementById(prefix+'_cpp_est');
             if(elCPP) {
                 elCPP.innerText = cppEnabled ? `Est: $${Math.round(cppVal).toLocaleString()}/yr` : "Disabled";
                 if (!cppEnabled) elCPP.classList.add('text-danger'); else elCPP.classList.remove('text-danger');
             }
 
-            let oasVal = this.CONSTANTS.MAX_OAS_2026;
-            let oDiff = (oasStart - 65) * 12;
+            let oasVal = this.CONSTANTS.MAX_OAS_2026; let oDiff = (oasStart - 65) * 12;
             if(oDiff > 0) oasVal *= (1 + (oDiff * 0.006));
+            
             const elOAS = document.getElementById(prefix+'_oas_est');
             if(elOAS) {
                 elOAS.innerText = oasEnabled ? `Est: $${Math.round(oasVal).toLocaleString()}/yr` : "Disabled";
                 if (!oasEnabled) elOAS.classList.add('text-danger'); else elOAS.classList.remove('text-danger');
             }
         }
-        update('p1');
-        update('p2');
+        update('p1'); update('p2');
     }
 
     updateIncomeDisplay() {
-        const prov = this.getRaw('tax_province');
-        const p1Inc = this.getVal('p1_income'); 
-        const p2Inc = this.getVal('p2_income');
-        const mode = this.state.mode;
-        
+        const prov = this.getRaw('tax_province'); const p1Inc = this.getVal('p1_income'); const p2Inc = this.getVal('p2_income'); const mode = this.state.mode;
         const currentYear = new Date().getFullYear();
-
-        // Calculate current year additional income
-        let p1AddTaxable = 0, p1AddNonTaxable = 0;
-        let p2AddTaxable = 0, p2AddNonTaxable = 0;
+        let p1AddTaxable = 0, p1AddNonTaxable = 0, p2AddTaxable = 0, p2AddNonTaxable = 0;
 
         this.state.additionalIncome.forEach(stream => {
-            const sStart = new Date(stream.start + "-01");
-            const sEnd = stream.end ? new Date(stream.end + "-01") : new Date("2100-01-01");
-            const startYear = sStart.getFullYear();
-            const endYear = sEnd.getFullYear();
+            const sStart = new Date(stream.start + "-01"); const sEnd = stream.end ? new Date(stream.end + "-01") : new Date("2100-01-01");
+            const startYear = sStart.getFullYear(); const endYear = sEnd.getFullYear();
 
             if (currentYear >= startYear && currentYear <= endYear) {
                 let yearsActive = currentYear - startYear;
-                let growthFactor = Math.pow(1 + (stream.growth / 100), yearsActive);
-                let annualAmt = stream.amount * growthFactor;
-
+                let annualAmt = stream.amount * Math.pow(1 + (stream.growth / 100), yearsActive);
                 if(stream.freq === 'month') annualAmt *= 12;
 
                 let factor = 1.0;
@@ -2580,35 +1675,22 @@ class RetirementPlanner {
                 annualAmt *= factor;
 
                 if (annualAmt > 0) {
-                    if (stream.owner === 'p1') {
-                        if (stream.taxable) p1AddTaxable += annualAmt;
-                        else p1AddNonTaxable += annualAmt;
-                    } else if (stream.owner === 'p2') {
-                        if (stream.taxable) p2AddTaxable += annualAmt;
-                        else p2AddNonTaxable += annualAmt;
-                    }
+                    if (stream.owner === 'p1') { if (stream.taxable) p1AddTaxable += annualAmt; else p1AddNonTaxable += annualAmt; } 
+                    else if (stream.owner === 'p2') { if (stream.taxable) p2AddTaxable += annualAmt; else p2AddNonTaxable += annualAmt; }
                 }
             }
         });
 
-        // For tax calculations, we use base gross + taxable additional income
-        const p1TaxableGross = p1Inc + p1AddTaxable;
-        const p2TaxableGross = p2Inc + p2AddTaxable;
-
+        const p1TaxableGross = p1Inc + p1AddTaxable; const p2TaxableGross = p2Inc + p2AddTaxable;
         const hhGross = (mode === 'Couple') ? (p1TaxableGross + p2TaxableGross + p1AddNonTaxable + p2AddNonTaxable) : (p1TaxableGross + p1AddNonTaxable);
         
         const grossEl = document.getElementById('household_gross_display');
         if(grossEl) grossEl.innerHTML = '$' + hhGross.toLocaleString() + ` <span class="monthly-sub">($${Math.round(hhGross/12).toLocaleString()}/mo)</span>`;
         
-        const p1Data = this.calculateTaxDetailed(p1TaxableGross, prov); 
-        this.renderTaxDetails('p1', p1TaxableGross, p1Data);
+        const p1Data = this.calculateTaxDetailed(p1TaxableGross, prov); this.renderTaxDetails('p1', p1TaxableGross, p1Data);
+        const p2Data = this.calculateTaxDetailed(p2TaxableGross, prov); this.renderTaxDetails('p2', p2TaxableGross, p2Data);
         
-        const p2Data = this.calculateTaxDetailed(p2TaxableGross, prov); 
-        this.renderTaxDetails('p2', p2TaxableGross, p2Data);
-        
-        const hhNet = (p1TaxableGross - p1Data.totalTax) + p1AddNonTaxable + 
-                      (mode === 'Couple' ? ((p2TaxableGross - p2Data.totalTax) + p2AddNonTaxable) : 0);
-                      
+        const hhNet = (p1TaxableGross - p1Data.totalTax) + p1AddNonTaxable + (mode === 'Couple' ? ((p2TaxableGross - p2Data.totalTax) + p2AddNonTaxable) : 0);
         const netEl = document.getElementById('household_net_display');
         if(netEl) netEl.innerHTML = '$' + Math.round(hhNet).toLocaleString() + ` <span class="monthly-sub">($${Math.round(hhNet/12).toLocaleString()}/mo)</span>`;
         return hhNet;
@@ -2618,85 +1700,19 @@ class RetirementPlanner {
         const container = document.getElementById(prefix + '_tax_details');
         if (!container) return;
         if(gross > 0) {
-            container.innerHTML = `
-                <div class="d-flex justify-content-between border-bottom border-secondary pb-1 mb-1"><span class="text-muted">Federal Tax</span> <span class="text-white">($${Math.round(data.fed).toLocaleString()}) ${((data.fed/gross)*100).toFixed(1)}%</span></div>
-                <div class="d-flex justify-content-between border-bottom border-secondary pb-1 mb-1"><span class="text-muted">Provincial Tax</span> <span class="text-white">($${Math.round(data.prov).toLocaleString()}) ${((data.prov/gross)*100).toFixed(1)}%</span></div>
-                <div class="d-flex justify-content-between border-bottom border-secondary pb-1 mb-1"><span class="text-muted">CPP/EI Premiums</span> <span class="text-white">($${Math.round(data.cpp_ei).toLocaleString()})</span></div>
-                <div class="d-flex justify-content-between mt-2"><span class="text-warning fw-bold">Total Tax</span> <span class="text-warning fw-bold">($${Math.round(data.totalTax).toLocaleString()})</span></div>
-                <div class="d-flex justify-content-between"><span class="text-muted">Marginal Rate</span> <span class="text-white">${(data.margRate*100).toFixed(2)}%</span></div>
-                <div class="d-flex justify-content-between mt-2 pt-2 border-top border-white"><span class="text-success fw-bold">After-Tax Income</span> <span class="text-success fw-bold">$${Math.round(gross - data.totalTax).toLocaleString()}</span></div>
-            `;
+            container.innerHTML = `<div class="d-flex justify-content-between border-bottom border-secondary pb-1 mb-1"><span class="text-muted">Federal Tax</span> <span class="text-white">($${Math.round(data.fed).toLocaleString()}) ${((data.fed/gross)*100).toFixed(1)}%</span></div><div class="d-flex justify-content-between border-bottom border-secondary pb-1 mb-1"><span class="text-muted">Provincial Tax</span> <span class="text-white">($${Math.round(data.prov).toLocaleString()}) ${((data.prov/gross)*100).toFixed(1)}%</span></div><div class="d-flex justify-content-between border-bottom border-secondary pb-1 mb-1"><span class="text-muted">CPP/EI Premiums</span> <span class="text-white">($${Math.round(data.cpp_ei).toLocaleString()})</span></div><div class="d-flex justify-content-between mt-2"><span class="text-warning fw-bold">Total Tax</span> <span class="text-warning fw-bold">($${Math.round(data.totalTax).toLocaleString()})</span></div><div class="d-flex justify-content-between"><span class="text-muted">Marginal Rate</span> <span class="text-white">${(data.margRate*100).toFixed(2)}%</span></div><div class="d-flex justify-content-between mt-2 pt-2 border-top border-white"><span class="text-success fw-bold">After-Tax Income</span> <span class="text-success fw-bold">$${Math.round(gross - data.totalTax).toLocaleString()}</span></div>`;
         } else { container.innerHTML = `<span class="text-muted text-center d-block small">No Income Entered</span>`; }
-    }
-
-    updateMortgagePayment() {
-        if (this.state.manualMortgage) return;
-        const P = this.getVal('mortgage_amt');
-        const annualRate = this.getVal('mortgage_rate') / 100;
-        let monthlyPayment = 0;
-        if (P > 0 && annualRate > 0) {
-            const r = annualRate / 12; const n = 25 * 12;
-            monthlyPayment = P * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
-        } else if (P > 0) { monthlyPayment = P / (25*12); }
-        
-        const val = Math.round(monthlyPayment).toLocaleString('en-US');
-        document.getElementById('mortgage_payment').value = val;
-        this.state.inputs['mortgage_payment'] = val;
-        
-        this.updateMortgagePayoffDate();
-    }
-
-    updateMortgagePayoffDate() {
-        const P = this.getVal('mortgage_amt');
-        const annualRate = this.getVal('mortgage_rate') / 100;
-        const pmt = this.getVal('mortgage_payment');
-        const el = document.getElementById('mortgage_payoff_display');
-        if(P <= 0) { el.innerHTML = ""; return; }
-        const r = annualRate / 12;
-        if(pmt <= P * r) { el.innerHTML = `<span class="text-danger small fw-bold">Payment too low</span>`; return; }
-        const nMonths = -Math.log(1 - (r * P) / pmt) / Math.log(1 + r);
-        if(!isNaN(nMonths) && isFinite(nMonths)) {
-            const now = new Date();
-            const futureDate = new Date(now.setMonth(now.getMonth() + nMonths));
-            const dateStr = futureDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-            const yrs = Math.floor(nMonths/12); const mos = Math.round(nMonths%12);
-            el.innerHTML = `<span class="small text-success fw-bold"><i class="bi bi-check-circle me-1"></i>Payoff: ${dateStr} (${yrs}y ${mos}m)</span>`;
-        } else { el.innerHTML = ""; }
-    }
-
-    getRawExpenseTotals() {
-        let cur = 0, ret = 0;
-        for (const cat in this.expensesByCategory) {
-            this.expensesByCategory[cat].items.forEach(item => {
-                cur += item.curr * item.freq;
-                ret += item.ret * item.freq;
-            });
-        }
-        return { current: cur, retirement: ret };
-    }
-
-    getTotalDebt() {
-        let total = 0;
-        document.querySelectorAll('.debt-amount').forEach(el => { total += Number(el.value.replace(/,/g, '')) || 0; });
-        return total;
     }
 
     calcExpenses() {
         const footer = document.getElementById('expenseFooter');
-        
         const useReal = document.getElementById('useRealDollars') ? document.getElementById('useRealDollars').checked : false;
         const inflation = this.getVal('inflation_rate') / 100;
-        
         const p1_age = this.getVal('p1_age') || 0; 
-        const p1_dob_val = this.getRaw('p1_dob');
-        const dob = new Date(p1_dob_val + "-01");
-        const currentAge = new Date(Date.now() - dob.getTime()).getUTCFullYear() - 1970;
+        const currentAge = new Date(Date.now() - new Date(this.getRaw('p1_dob') + "-01").getTime()).getUTCFullYear() - 1970;
         
-        const p1_ret = this.getVal('p1_retireAge');
-        const p2_ret = this.state.mode === 'Couple' ? this.getVal('p2_retireAge') : 999;
-        
-        const goGoLimit = parseInt(this.getRaw('exp_gogo_age')) || 75;
-        const slowGoLimit = parseInt(this.getRaw('exp_slow_age')) || 85;
+        const p1_ret = this.getVal('p1_retireAge'); const p2_ret = this.state.mode === 'Couple' ? this.getVal('p2_retireAge') : 999;
+        const goGoLimit = parseInt(this.getRaw('exp_gogo_age')) || 75; const slowGoLimit = parseInt(this.getRaw('exp_slow_age')) || 85;
 
         const yearsToTrans = Math.max(0, Math.min(p1_ret, p2_ret) - currentAge);
         const yearsToFullRet = Math.max(0, Math.max(p1_ret, this.state.mode==='Couple'?p2_ret:0) - currentAge);
@@ -2705,136 +1721,72 @@ class RetirementPlanner {
 
         const getFactor = (years) => useReal ? 1.0 : Math.pow(1 + inflation, years);
 
-        const f_now = 1.0;
-        const f_trans = getFactor(yearsToTrans);
-        const f_gogo = getFactor(yearsToFullRet); 
-        const f_slow = getFactor(yearsToSlowStart);
-        const f_nogo = getFactor(yearsToNoGoStart);
+        const f_trans = getFactor(yearsToTrans); const f_gogo = getFactor(yearsToFullRet); 
+        const f_slow = getFactor(yearsToSlowStart); const f_nogo = getFactor(yearsToNoGoStart);
 
         let totals = { curr: 0, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0 };
         for (const cat in this.expensesByCategory) {
             this.expensesByCategory[cat].items.forEach(item => {
                 const f = item.freq;
-                totals.curr += (item.curr||0) * f;
-                totals.ret += (item.ret||0) * f;
-                totals.trans += (item.trans||0) * f;
-                totals.gogo += (item.gogo||0) * f;
-                totals.slow += (item.slow||0) * f;
-                totals.nogo += (item.nogo||0) * f;
+                totals.curr += (item.curr||0) * f; totals.ret += (item.ret||0) * f;
+                totals.trans += (item.trans||0) * f; totals.gogo += (item.gogo||0) * f;
+                totals.slow += (item.slow||0) * f; totals.nogo += (item.nogo||0) * f;
             });
         }
 
         const fmt = (n) => '$' + Math.round(n).toLocaleString();
-        
         const cellStyle = "border:none; border-left: 1px solid #444; padding-left:12px;";
         const labelStyle = "border:none; text-align:right; padding-right:12px; color: #94a3b8; font-weight:bold; font-size: 0.75rem; text-transform:uppercase;";
 
         if (this.state.expenseMode === 'Simple') {
             const simpleRetFactor = useReal ? 1.0 : Math.pow(1 + inflation, yearsToFullRet);
-            footer.innerHTML = `
-                <table class="table table-sm table-borderless mb-0 bg-transparent" style="table-layout: fixed;">
-                    <tr>
-                        <td width="40%" style="${labelStyle}">Total Annual</td>
-                        <td width="30%" style="${cellStyle}"><span class="text-danger fw-bold fs-6">${fmt(totals.curr)}</span></td>
-                        <td width="30%" style="${cellStyle}"><span class="text-warning fw-bold fs-6">${fmt(totals.ret * simpleRetFactor)}</span></td>
-                    </tr>
-                </table>
-            `;
+            footer.innerHTML = `<table class="table table-sm table-borderless mb-0 bg-transparent" style="table-layout: fixed;"><tr><td width="40%" style="${labelStyle}">Total Annual</td><td width="30%" style="${cellStyle}"><span class="text-danger fw-bold fs-6">${fmt(totals.curr)}</span></td><td width="30%" style="${cellStyle}"><span class="text-warning fw-bold fs-6">${fmt(totals.ret * simpleRetFactor)}</span></td></tr></table>`;
         } else {
-            footer.innerHTML = `
-                <table class="table table-sm table-borderless mb-0 bg-transparent" style="table-layout: fixed;">
-                    <tr>
-                        <td width="20%" style="${labelStyle}">Total</td>
-                        <td width="16%" style="${cellStyle}"><div class="text-danger fw-bold">${fmt(totals.curr)}</div><div class="small text-muted" style="font-size:0.7rem">Now</div></td>
-                        <td width="16%" style="${cellStyle}"><div class="text-warning fw-bold">${fmt(totals.trans * f_trans)}</div><div class="small text-muted" style="font-size:0.7rem">Trans</div></td>
-                        <td width="16%" style="${cellStyle}"><div class="text-info fw-bold">${fmt(totals.gogo * f_gogo)}</div><div class="small text-muted" style="font-size:0.7rem">Go-Go</div></td>
-                        <td width="16%" style="${cellStyle}"><div class="text-primary fw-bold">${fmt(totals.slow * f_slow)}</div><div class="small text-muted" style="font-size:0.7rem">Slow</div></td>
-                        <td width="16%" style="${cellStyle}"><div class="text-secondary fw-bold">${fmt(totals.nogo * f_nogo)}</div><div class="small text-muted" style="font-size:0.7rem">No-Go</div></td>
-                    </tr>
-                </table>
-            `;
+            footer.innerHTML = `<table class="table table-sm table-borderless mb-0 bg-transparent" style="table-layout: fixed;"><tr><td width="20%" style="${labelStyle}">Total</td><td width="16%" style="${cellStyle}"><div class="text-danger fw-bold">${fmt(totals.curr)}</div><div class="small text-muted" style="font-size:0.7rem">Now</div></td><td width="16%" style="${cellStyle}"><div class="text-warning fw-bold">${fmt(totals.trans * f_trans)}</div><div class="small text-muted" style="font-size:0.7rem">Trans</div></td><td width="16%" style="${cellStyle}"><div class="text-info fw-bold">${fmt(totals.gogo * f_gogo)}</div><div class="small text-muted" style="font-size:0.7rem">Go-Go</div></td><td width="16%" style="${cellStyle}"><div class="text-primary fw-bold">${fmt(totals.slow * f_slow)}</div><div class="small text-muted" style="font-size:0.7rem">Slow</div></td><td width="16%" style="${cellStyle}"><div class="text-secondary fw-bold">${fmt(totals.nogo * f_nogo)}</div><div class="small text-muted" style="font-size:0.7rem">No-Go</div></td></tr></table>`;
         }
     }
 
     initSidebar() {
-        if(document.getElementById('p1_retireAge')) {
-            document.getElementById('qa_p1_retireAge_range').value = document.getElementById('p1_retireAge').value;
-            document.getElementById('qa_p1_retireAge_val').innerText = document.getElementById('p1_retireAge').value;
-        }
-        
-        document.getElementById('qa_p1_retireAge_range').addEventListener('input', (e) => {
-            const val = e.target.value;
-            document.getElementById('p1_retireAge').value = val;
-            this.state.inputs['p1_retireAge'] = val;
-            document.getElementById('qa_p1_retireAge_val').innerText = val;
-            this.debouncedRun();
+        ['p1_retireAge', 'p2_retireAge'].forEach(id => {
+            if(document.getElementById(id)) {
+                document.getElementById(`qa_${id}_range`).value = document.getElementById(id).value;
+                document.getElementById(`qa_${id}_val`).innerText = document.getElementById(id).value;
+            }
         });
         
         const bindSlider = (sliderId, inputId, labelId, suffix='') => {
             const slider = document.getElementById(sliderId);
             if(slider) {
                 slider.addEventListener('input', (e) => {
-                    const val = e.target.value;
-                    const input = document.getElementById(inputId);
+                    const val = e.target.value; const input = document.getElementById(inputId);
                     if(input) {
-                        input.value = val;
-                        this.state.inputs[inputId] = val;
+                        input.value = val; this.state.inputs[inputId] = val;
                         if(labelId) document.getElementById(labelId).innerText = val + suffix;
                         this.debouncedRun();
                     }
                 });
             }
         };
+        bindSlider('qa_p1_retireAge_range', 'p1_retireAge', 'qa_p1_retireAge_val');
         bindSlider('qa_p2_retireAge_range', 'p2_retireAge', 'qa_p2_retireAge_val');
         bindSlider('qa_inflation_range', 'inflation_rate', 'qa_inflation_val', '%');
         bindSlider('qa_return_range', 'p1_tfsa_ret', 'qa_return_val', '%'); 
     }
 
     populateAgeSelects() {
-        const cppSelects = document.querySelectorAll('.cpp-age-select');
-        cppSelects.forEach(sel => {
-            let html = '';
-            for(let i=60; i<=70; i++) html += `<option value="${i}" ${i===65?'selected':''}>${i}</option>`;
-            sel.innerHTML = html;
-        });
-        const oasSelects = document.querySelectorAll('.oas-age-select');
-        oasSelects.forEach(sel => {
-            let html = '';
-            for(let i=65; i<=70; i++) html += `<option value="${i}" ${i===65?'selected':''}>${i}</option>`;
-            sel.innerHTML = html;
-        });
+        document.querySelectorAll('.cpp-age-select').forEach(sel => { let html = ''; for(let i=60; i<=70; i++) html += `<option value="${i}" ${i===65?'selected':''}>${i}</option>`; sel.innerHTML = html; });
+        document.querySelectorAll('.oas-age-select').forEach(sel => { let html = ''; for(let i=65; i<=70; i++) html += `<option value="${i}" ${i===65?'selected':''}>${i}</option>`; sel.innerHTML = html; });
     }
 
     loadScenariosList() {
-        const list = document.getElementById('scenarioList');
-        const compareArea = document.getElementById('compareSelectionArea');
+        const list = document.getElementById('scenarioList'); const compareArea = document.getElementById('compareSelectionArea');
         list.innerHTML = '';
-        
-        let compHTML = `<div class="d-flex align-items-center mb-2 p-2 rounded" style="background: rgba(255,255,255,0.05);">
-            <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" role="switch" value="current" id="comp_current" checked>
-                <label class="form-check-label text-white small" for="comp_current">Current Unsaved Plan</label>
-            </div>
-        </div>`;
-
+        let compHTML = `<div class="d-flex align-items-center mb-2 p-2 rounded" style="background: rgba(255,255,255,0.05);"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" value="current" id="comp_current" checked><label class="form-check-label text-white small" for="comp_current">Current Unsaved Plan</label></div></div>`;
         let scenarios = JSON.parse(localStorage.getItem('rp_scenarios') || '[]');
         
         scenarios.forEach((s, idx) => {
-            list.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center bg-dark text-white border-secondary">
-                ${s.name}
-                <div>
-                    <button class="btn btn-sm btn-success me-2" onclick="app.loadScenario(${idx})" title="Load into planner"><i class="bi bi-arrow-clockwise"></i></button>
-                    <button class="btn btn-sm btn-outline-info me-2" onclick="app.exportScenario(${idx})" title="Download as JSON"><i class="bi bi-download"></i></button>
-                    <button class="btn btn-sm btn-danger" onclick="app.deleteScenario(${idx})" title="Delete"><i class="bi bi-trash"></i></button>
-                </div>
-            </li>`;
-            
-            compHTML += `<div class="d-flex align-items-center mb-2 p-2 rounded" style="background: rgba(255,255,255,0.05);">
-                <div class="form-check form-switch">
-                    <input class="form-check-input" type="checkbox" role="switch" value="${idx}" id="comp_${idx}">
-                    <label class="form-check-label text-white small" for="comp_${idx}">${s.name}</label>
-                </div>
-            </div>`;
+            list.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center bg-dark text-white border-secondary">${s.name}<div><button class="btn btn-sm btn-success me-2" onclick="app.loadScenario(${idx})" title="Load into planner"><i class="bi bi-arrow-clockwise"></i></button><button class="btn btn-sm btn-outline-info me-2" onclick="app.exportScenario(${idx})" title="Download as JSON"><i class="bi bi-download"></i></button><button class="btn btn-sm btn-danger" onclick="app.deleteScenario(${idx})" title="Delete"><i class="bi bi-trash"></i></button></div></li>`;
+            compHTML += `<div class="d-flex align-items-center mb-2 p-2 rounded" style="background: rgba(255,255,255,0.05);"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" value="${idx}" id="comp_${idx}"><label class="form-check-label text-white small" for="comp_${idx}">${s.name}</label></div></div>`;
         });
         compareArea.innerHTML = compHTML;
     }
@@ -2843,88 +1795,101 @@ class RetirementPlanner {
         let scenarios = JSON.parse(localStorage.getItem('rp_scenarios') || '[]');
         const s = scenarios[idx];
         if(!s) return;
-        this.loadStateToDOM(s.data);
-        this.run();
-        alert("Loaded " + s.name);
+        this.loadStateToDOM(s.data); this.run(); alert("Loaded " + s.name);
     }
 
     exportScenario(idx) {
         let scenarios = JSON.parse(localStorage.getItem('rp_scenarios') || '[]');
         const s = scenarios[idx];
         if(!s) return;
-        
         const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(s.data, null, 2));
         const downloadAnchorNode = document.createElement('a');
-        downloadAnchorNode.setAttribute("href", dataStr);
-        downloadAnchorNode.setAttribute("download", s.name.replace(/\s+/g, '_').toLowerCase() + ".json");
-        document.body.appendChild(downloadAnchorNode); 
-        downloadAnchorNode.click();
-        downloadAnchorNode.remove();
+        downloadAnchorNode.setAttribute("href", dataStr); downloadAnchorNode.setAttribute("download", s.name.replace(/\s+/g, '_').toLowerCase() + ".json");
+        document.body.appendChild(downloadAnchorNode); downloadAnchorNode.click(); downloadAnchorNode.remove();
     }
 
     loadStateToDOM(data) {
-        this.state.inputs = {...data.inputs};
-        this.state.strategies = {...data.strategies};
+        this.state.inputs = {...data.inputs}; this.state.strategies = {...data.strategies};
         
         for (const [id, val] of Object.entries(this.state.inputs)) {
             if (id.startsWith('comp_')) continue;
-
             const el = document.getElementById(id);
-            if(el) {
-                if(el.type === 'checkbox' || el.type === 'radio') el.checked = val;
-                else el.value = val;
+            if(el) { if(el.type === 'checkbox' || el.type === 'radio') el.checked = val; else el.value = val; }
+        }
+        
+        ['p1_retireAge', 'p2_retireAge', 'inflation_rate'].forEach(id => {
+            if (this.state.inputs[id]) {
+                const val = this.state.inputs[id];
+                const slider = document.getElementById(`qa_${id}_range`); const label = document.getElementById(`qa_${id}_val`);
+                if(slider) slider.value = val; if(label) label.innerText = id === 'inflation_rate' ? val + '%' : val;
             }
-        }
-        
-        // Update Sidebar Sliders explicitly
-        if (this.state.inputs['p1_retireAge']) {
-            const val = this.state.inputs['p1_retireAge'];
-            const slider = document.getElementById('qa_p1_retireAge_range');
-            const label = document.getElementById('qa_p1_retireAge_val');
-            if(slider) slider.value = val;
-            if(label) label.innerText = val;
-        }
-        if (this.state.inputs['p2_retireAge']) {
-            const val = this.state.inputs['p2_retireAge'];
-            const slider = document.getElementById('qa_p2_retireAge_range');
-            const label = document.getElementById('qa_p2_retireAge_val');
-            if(slider) slider.value = val;
-            if(label) label.innerText = val;
-        }
-        if (this.state.inputs['inflation_rate']) {
-            const val = this.state.inputs['inflation_rate'];
-            const slider = document.getElementById('qa_inflation_range');
-            const label = document.getElementById('qa_inflation_val');
-            if(slider) slider.value = val;
-            if(label) label.innerText = val + '%';
-        }
-        if (this.state.inputs['p1_tfsa_ret']) { // Proxy for market return
+        });
+        if (this.state.inputs['p1_tfsa_ret']) { 
             const val = this.state.inputs['p1_tfsa_ret'];
-            const slider = document.getElementById('qa_return_range');
-            const label = document.getElementById('qa_return_val');
-            if(slider) slider.value = val;
-            if(label) label.innerText = val + '%';
+            const slider = document.getElementById('qa_return_range'); const label = document.getElementById('qa_return_val');
+            if(slider) slider.value = val; if(label) label.innerText = val + '%';
         }
         
-        if (data.expensesData) {
-            this.expensesByCategory = data.expensesData;
-        } 
+        if (data.expensesData) this.expensesByCategory = data.expensesData; 
         this.renderExpenseRows();
 
-        if (data.properties) {
-            this.state.properties = data.properties;
-            this.renderProperties();
-        }
-        
-        if (data.windfalls) {
-            this.state.windfalls = data.windfalls;
-            this.renderWindfalls();
-        }
-        
-        if (data.additionalIncome) {
-            this.state.additionalIncome = data.additionalIncome;
-            this.renderAdditionalIncome();
-        }
+        if (data.properties) { this.state.properties = data.properties; this.renderProperties(); }
+        if (data.windfalls) { this.state.windfalls = data.windfalls; this.renderWindfalls(); }
+        if (data.additionalIncome) { this.state.additionalIncome = data.additionalIncome; this.renderAdditionalIncome(); }
 
-        const debtContainer = document.getElementById('debt-container');
-        debtContainer.innerHTML = '';
+        const debtContainer = document.getElementById('debt-container'); debtContainer.innerHTML = '';
+        if (data.debt) {
+            data.debt.forEach(amt => {
+                this.addDebtRow();
+                const inputs = debtContainer.querySelectorAll('.debt-amount');
+                inputs[inputs.length-1].value = amt;
+            });
+        }
+        
+        this.toggleModeDisplay(); this.renderStrategy();
+        
+        document.getElementById('exp_gogo_val').innerText = this.getRaw('exp_gogo_age') || 75;
+        document.getElementById('exp_slow_val').innerText = this.getRaw('exp_slow_age') || 85;
+        
+        const advMode = document.getElementById('expense_mode_advanced').checked;
+        const sliderDiv = document.getElementById('expense-phase-controls');
+        if(sliderDiv) sliderDiv.style.display = advMode ? 'flex' : 'none';
+
+        document.getElementById('p1_db_start_val').innerText = this.getRaw('p1_db_start_age') || '60';
+        document.getElementById('p2_db_start_val').innerText = this.getRaw('p2_db_start_age') || '60';
+
+        this.state.portfolioMode = document.getElementById('portfolio_mode_advanced').checked ? 'Advanced' : 'Simple';
+        this.togglePortfolioMode();
+        this.updatePostRetIncomeVisibility();
+    }
+
+    deleteScenario(idx) {
+        this.showConfirm("Are you sure you want to delete this scenario?", () => {
+            let scenarios = JSON.parse(localStorage.getItem('rp_scenarios') || '[]');
+            scenarios.splice(idx, 1); localStorage.setItem('rp_scenarios', JSON.stringify(scenarios)); this.loadScenariosList();
+        });
+    }
+    
+    saveScenario() {
+        const nameInput = document.getElementById('scenarioName');
+        if (!nameInput.value) { alert("Enter a name!"); return; }
+        let scenarios = JSON.parse(localStorage.getItem('rp_scenarios') || '[]');
+        scenarios.push({ name: nameInput.value, data: this.getCurrentSnapshot() });
+        localStorage.setItem('rp_scenarios', JSON.stringify(scenarios));
+        this.loadScenariosList(); nameInput.value = ''; alert("Scenario saved.");
+    }
+
+    getCurrentSnapshot() {
+        const snapshot = {
+            inputs: {...this.state.inputs}, strategies: {...this.state.strategies}, debt: [], 
+            properties: JSON.parse(JSON.stringify(this.state.properties)),
+            expensesData: JSON.parse(JSON.stringify(this.expensesByCategory)),
+            windfalls: JSON.parse(JSON.stringify(this.state.windfalls)),
+            additionalIncome: JSON.parse(JSON.stringify(this.state.additionalIncome))
+        };
+        document.querySelectorAll('.debt-amount').forEach(el => snapshot.debt.push(el.value));
+        return snapshot;
+    }
+}
+
+const app = new RetirementPlanner();
