@@ -1,5 +1,5 @@
 /**
- * Retirement Planner Pro - Logic v10.15 (Dynamic Net Worth Toggles & Safe LocalStorage Migrations)
+ * Retirement Planner Pro - Logic v10.15 (Advanced Asset Returns & Safe LocalStorage)
  */
 class RetirementPlanner {
     constructor() {
@@ -173,6 +173,14 @@ class RetirementPlanner {
                 if($('expense-phase-controls')) $('expense-phase-controls').style.display = e.target.checked ? 'flex' : 'none';
                 this.renderExpenseRows(); this.calcExpenses(); this.run();
             }
+            if (e.target.id === 'asset_mode_advanced') {
+                const isAdv = e.target.checked;
+                document.querySelectorAll('.asset-bal-col').forEach(el => el.className = isAdv ? 'col-3 asset-bal-col' : 'col-5 asset-bal-col');
+                document.querySelectorAll('.asset-ret-col').forEach(el => el.className = isAdv ? 'col-3 asset-ret-col' : 'col-4 asset-ret-col');
+                document.querySelectorAll('.adv-asset-col').forEach(el => el.style.display = isAdv ? 'block' : 'none');
+                document.querySelectorAll('.lbl-ret').forEach(el => el.innerText = isAdv ? 'Pre-Ret(%)' : 'Return (%)');
+                this.run();
+            }
             if (e.target.id === 'enable_post_ret_income_p1' || e.target.id === 'enable_post_ret_income_p2') this.updatePostRetIncomeVisibility();
             if (e.target.classList.contains('live-calc') && (e.target.tagName === 'SELECT' || e.target.type === 'checkbox' || e.target.type === 'radio')) {
                 if(e.target.id && !e.target.id.startsWith('comp_')) this.state.inputs[e.target.id] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
@@ -302,7 +310,13 @@ class RetirementPlanner {
     }
 
     resetAllData() {
-        const defs = { p1_dob: '1990-01', p2_dob: '1990-01', p1_retireAge: '65', p2_retireAge: '65', p1_lifeExp: '90', p2_lifeExp: '90', inflation_rate: '2.0', tax_province: 'ON', p1_cash_ret: '2.0', p2_cash_ret: '2.0', p1_tfsa_ret: '6.0', p2_tfsa_ret: '6.0', p1_rrsp_ret: '6.0', p2_rrsp_ret: '6.0', p1_nonreg_ret: '5.0', p2_nonreg_ret: '5.0', p1_crypto_ret: '8.0', p2_crypto_ret: '8.0', p1_income_growth: '2.0', p2_income_growth: '2.0', p1_db_pension: '0', p2_db_pension: '0', p1_db_start_age: '60', p2_db_start_age: '60', p1_cpp_enabled: true, p1_oas_enabled: true, p2_cpp_enabled: true, p2_oas_enabled: true, exp_gogo_age: '75', exp_slow_age: '85', enable_post_ret_income_p1: false, enable_post_ret_income_p2: false, p1_post_inc: '0', p1_post_growth: '2.0', p2_post_inc: '0', p2_post_growth: '2.0' };
+        const defs = { p1_dob: '1990-01', p2_dob: '1990-01', p1_retireAge: '65', p2_retireAge: '65', p1_lifeExp: '90', p2_lifeExp: '90', inflation_rate: '2.0', tax_province: 'ON', 
+            p1_cash_ret: '2.0', p1_cash_ret_retire: '2.0', p2_cash_ret: '2.0', p2_cash_ret_retire: '2.0', 
+            p1_tfsa_ret: '6.0', p1_tfsa_ret_retire: '6.0', p2_tfsa_ret: '6.0', p2_tfsa_ret_retire: '6.0', 
+            p1_rrsp_ret: '6.0', p1_rrsp_ret_retire: '6.0', p2_rrsp_ret: '6.0', p2_rrsp_ret_retire: '6.0', 
+            p1_nonreg_ret: '5.0', p1_nonreg_ret_retire: '5.0', p2_nonreg_ret: '5.0', p2_nonreg_ret_retire: '5.0', 
+            p1_crypto_ret: '8.0', p1_crypto_ret_retire: '8.0', p2_crypto_ret: '8.0', p2_crypto_ret_retire: '8.0', 
+            p1_income_growth: '2.0', p2_income_growth: '2.0', p1_db_pension: '0', p2_db_pension: '0', p1_db_start_age: '60', p2_db_start_age: '60', p1_cpp_enabled: true, p1_oas_enabled: true, p2_cpp_enabled: true, p2_oas_enabled: true, exp_gogo_age: '75', exp_slow_age: '85', enable_post_ret_income_p1: false, enable_post_ret_income_p2: false, p1_post_inc: '0', p1_post_growth: '2.0', p2_post_inc: '0', p2_post_growth: '2.0' };
         document.querySelectorAll('input, select').forEach(el => {
             if(el.id && !el.id.startsWith('comp_') && !el.className.includes('-update') && !el.classList.contains('debt-amount')) {
                 if(defs[el.id] !== undefined) el.type === 'checkbox' ? el.checked = defs[el.id] : el.value = defs[el.id];
@@ -442,9 +456,13 @@ class RetirementPlanner {
 
     generateProjectionTable(onlyCalcNW = false) {
         if(!onlyCalcNW) this.state.projectionData = [];
-        const mode = this.state.mode, prov = this.getRaw('tax_province'), infl = this.getVal('inflation_rate')/100, stress = this.state.inputs['stressTestEnabled'], rrspM = this.state.inputs['strat_rrsp_topup'], expM = this.state.expenseMode, gLim = parseInt(this.getRaw('exp_gogo_age'))||75, sLim = parseInt(this.getRaw('exp_slow_age'))||85;
+        const mode = this.state.mode, prov = this.getRaw('tax_province'), infl = this.getVal('inflation_rate')/100, stress = this.state.inputs['stressTestEnabled'], rrspM = this.state.inputs['strat_rrsp_topup'], expM = this.state.expenseMode, assetAdv = this.state.inputs['asset_mode_advanced'], gLim = parseInt(this.getRaw('exp_gogo_age'))||75, sLim = parseInt(this.getRaw('exp_slow_age'))||85;
         let p1 = { tfsa: this.getVal('p1_tfsa'), rrsp: this.getVal('p1_rrsp'), cash: this.getVal('p1_cash'), nreg: this.getVal('p1_nonreg'), crypto: this.getVal('p1_crypto'), inc: this.getVal('p1_income'), dob: new Date(this.getRaw('p1_dob')), retAge: this.getVal('p1_retireAge'), lifeExp: this.getVal('p1_lifeExp') }, p2 = { tfsa: this.getVal('p2_tfsa'), rrsp: this.getVal('p2_rrsp'), cash: this.getVal('p2_cash'), nreg: this.getVal('p2_nonreg'), crypto: this.getVal('p2_crypto'), inc: this.getVal('p2_income'), dob: new Date(this.getRaw('p2_dob')), retAge: this.getVal('p2_retireAge'), lifeExp: this.getVal('p2_lifeExp') };
-        const gR = id => this.getVal(id)/100, bR1 = { tfsa:gR('p1_tfsa_ret'), rrsp:gR('p1_rrsp_ret'), cash:gR('p1_cash_ret'), nreg:gR('p1_nonreg_ret'), cryp:gR('p1_crypto_ret'), inc:gR('p1_income_growth') }, bR2 = { tfsa:gR('p2_tfsa_ret'), rrsp:gR('p2_tfsa_ret'), cash:gR('p2_cash_ret'), nreg:gR('p2_nonreg_ret'), cryp:gR('p2_crypto_ret'), inc:gR('p2_income_growth') };
+        const gR = id => this.getVal(id)/100;
+        const bR1 = { tfsa:gR('p1_tfsa_ret'), rrsp:gR('p1_rrsp_ret'), cash:gR('p1_cash_ret'), nreg:gR('p1_nonreg_ret'), cryp:gR('p1_crypto_ret'), inc:gR('p1_income_growth') };
+        const bR2 = { tfsa:gR('p2_tfsa_ret'), rrsp:gR('p2_rrsp_ret'), cash:gR('p2_cash_ret'), nreg:gR('p2_nonreg_ret'), cryp:gR('p2_crypto_ret'), inc:gR('p2_income_growth') };
+        const bR1_ret = { tfsa:gR('p1_tfsa_ret_retire'), rrsp:gR('p1_rrsp_ret_retire'), cash:gR('p1_cash_ret_retire'), nreg:gR('p1_nonreg_ret_retire'), cryp:gR('p1_crypto_ret_retire'), inc:gR('p1_income_growth') };
+        const bR2_ret = { tfsa:gR('p2_tfsa_ret_retire'), rrsp:gR('p2_rrsp_ret_retire'), cash:gR('p2_cash_ret_retire'), nreg:gR('p2_nonreg_ret_retire'), cryp:gR('p2_crypto_ret_retire'), inc:gR('p2_income_growth') };
         
         let p1DB = this.getVal('p1_db_pension')*12, p2DB = this.getVal('p2_db_pension')*12;
         let extVals = {
@@ -465,15 +483,17 @@ class RetirementPlanner {
             
             const bInf = Math.pow(1+infl, i), tDat = JSON.parse(JSON.stringify(this.CONSTANTS.TAX_DATA));
             Object.values(tDat).forEach(d => { if(d.brackets) d.brackets = d.brackets.map(b=>b*bInf); if(d.surtax){ if(d.surtax.t1) d.surtax.t1*=bInf; if(d.surtax.t2) d.surtax.t2*=bInf; } });
-            let cR1 = {...bR1}, cR2 = {...bR2}, cYr = false;
+            
+            const p1R = a1>=p1.retAge, p2R = mode==='Couple'?a2>=p2.retAge:true, fRet = (al1?p1R:true) && (al2?p2R:true);
+            let cR1 = {...(assetAdv && p1R ? bR1_ret : bR1)}, cR2 = {...(assetAdv && p2R ? bR2_ret : bR2)}, cYr = false;
+            
             if(stress && a1>=p1.retAge && a1<p1.retAge+2) { cYr=true; ['tfsa','rrsp','nreg','cash'].forEach(k=>{ cR1[k]=-0.15; cR2[k]=-0.15; }); cR1.cryp=-0.40; cR2.cryp=-0.40; }
             
             let yCont = {tfsa:0,rrsp:0,nreg:0,cash:0,crypto:0}, yWd = {}, wDBrk = {p1:{},p2:{}}, evt = [];
-            if(al1){ if(a1===p1.retAge && !trg.has('P1 Retires')){ evt.push('P1 Retires'); trg.add('P1 Retires'); } if(a1===parseInt(this.getRaw('p1_cpp_start')) && this.state.inputs['p1_cpp_enabled']) evt.push('P1 CPP'); if(a1===parseInt(this.getRaw('p1_oas_start')) && this.state.inputs['p1_oas_enabled']) evt.push('P1 OAS'); } else if(!trg.has('P1 Dies')){ evt.push('P1 Dies'); trg.add('P1 Dies'); }
-            if(mode==='Couple'){ if(al2){ if(a2===p2.retAge && !trg.has('P2 Retires')){ evt.push('P2 Retires'); trg.add('P2 Retires'); } if(a2===parseInt(this.getRaw('p2_cpp_start')) && this.state.inputs['p2_cpp_enabled']) evt.push('P2 CPP'); if(a2===parseInt(this.getRaw('p2_oas_start')) && this.state.inputs['p2_oas_enabled']) evt.push('P2 OAS'); } else if(!trg.has('P2 Dies')){ evt.push('P2 Dies'); trg.add('P2 Dies'); } }
+            if(al1){ if(p1R && !trg.has('P1 Retires')){ evt.push('P1 Retires'); trg.add('P1 Retires'); } if(a1===parseInt(this.getRaw('p1_cpp_start')) && this.state.inputs['p1_cpp_enabled']) evt.push('P1 CPP'); if(a1===parseInt(this.getRaw('p1_oas_start')) && this.state.inputs['p1_oas_enabled']) evt.push('P1 OAS'); } else if(!trg.has('P1 Dies')){ evt.push('P1 Dies'); trg.add('P1 Dies'); }
+            if(mode==='Couple'){ if(al2){ if(p2R && !trg.has('P2 Retires')){ evt.push('P2 Retires'); trg.add('P2 Retires'); } if(a2===parseInt(this.getRaw('p2_cpp_start')) && this.state.inputs['p2_cpp_enabled']) evt.push('P2 CPP'); if(a2===parseInt(this.getRaw('p2_oas_start')) && this.state.inputs['p2_oas_enabled']) evt.push('P2 OAS'); } else if(!trg.has('P2 Dies')){ evt.push('P2 Dies'); trg.add('P2 Dies'); } }
             if(simP.reduce((s,p)=>s+p.mortgage,0)<=0 && !trg.has('Mortgage Paid')){ evt.push('Mortgage Paid'); trg.add('Mortgage Paid'); } if(cYr) evt.push('Crash');
 
-            const p1R = a1>=p1.retAge, p2R = mode==='Couple'?a2>=p2.retAge:true, fRet = (al1?p1R:true) && (al2?p2R:true);
             let g1=0, g2=0, c1=0, o1=0, c2=0, o2=0, db1=0, db2=0, pst1=0, pst2=0;
 
             const calcPost = (on, base, start, end, grw) => {
@@ -776,6 +796,15 @@ class RetirementPlanner {
         Object.entries(this.state.inputs).forEach(([id, val]) => { if(id.startsWith('comp_')) return; const el=document.getElementById(id); if(el) el.type==='checkbox'||el.type==='radio'?el.checked=val:el.value=val; });
         ['p1_retireAge','p2_retireAge','inflation_rate'].forEach(k => { if(this.state.inputs[k]) this.updateSidebarSync(k, this.state.inputs[k]); });
         if(this.state.inputs['p1_tfsa_ret']) this.updateSidebarSync('p1_tfsa_ret', this.state.inputs['p1_tfsa_ret']);
+        
+        const assetAdvM = document.getElementById('asset_mode_advanced')?.checked;
+        if(document.getElementById('asset_mode_advanced')) {
+            document.querySelectorAll('.asset-bal-col').forEach(el => el.className = assetAdvM ? 'col-3 asset-bal-col' : 'col-5 asset-bal-col');
+            document.querySelectorAll('.asset-ret-col').forEach(el => el.className = assetAdvM ? 'col-3 asset-ret-col' : 'col-4 asset-ret-col');
+            document.querySelectorAll('.adv-asset-col').forEach(el => el.style.display = assetAdvM ? 'block' : 'none');
+            document.querySelectorAll('.lbl-ret').forEach(el => el.innerText = assetAdvM ? 'Pre-Ret(%)' : 'Return (%)');
+        }
+
         if(d.expensesData) { Object.keys(this.expensesByCategory).forEach(c => { if(!d.expensesData[c]) d.expensesData[c] = this.expensesByCategory[c]; }); this.expensesByCategory = d.expensesData; } this.renderExpenseRows();
         if(d.properties) { d.properties.forEach(p => { if(p.includeInNW === undefined) p.includeInNW = false; }); this.state.properties = d.properties; } this.renderProperties();
         this.state.windfalls = d.windfalls || []; this.renderWindfalls();
