@@ -188,15 +188,21 @@ class RetirementPlanner {
             }
         });
 
-        ['exp_gogo_age', 'exp_slow_age'].forEach((id, i) => {
-            if($(id)) $(id).addEventListener('input', e => {
-                let v = parseInt(e.target.value);
-                if(id === 'exp_gogo_age' && $('exp_slow_age') && v > parseInt($('exp_slow_age').value)) { $('exp_slow_age').value = v; $('exp_slow_val').innerText = v; this.state.inputs['exp_slow_age'] = v; }
-                if(id === 'exp_slow_age' && $('exp_gogo_age') && v < parseInt($('exp_gogo_age').value)) { $('exp_gogo_age').value = v; $('exp_gogo_val').innerText = v; this.state.inputs['exp_gogo_age'] = v; }
-                $(['exp_gogo_val', 'exp_slow_val'][i]).innerText = v; this.state.inputs[id] = v;
+        const gogoS = $('exp_gogo_age'), slowS = $('exp_slow_age');
+        if (gogoS && slowS) {
+            gogoS.addEventListener('input', e => {
+                let v = parseInt(e.target.value), sV = parseInt(slowS.value);
+                $('exp_gogo_val').innerText = v; this.state.inputs['exp_gogo_age'] = v;
+                if(v > sV) { slowS.value = v; $('exp_slow_val').innerText = v; this.state.inputs['exp_slow_age'] = v; }
                 this.renderExpenseRows(); this.calcExpenses(); this.debouncedRun();
             });
-        });
+            slowS.addEventListener('input', e => {
+                let v = parseInt(e.target.value), gV = parseInt(gogoS.value);
+                $('exp_slow_val').innerText = v; this.state.inputs['exp_slow_age'] = v;
+                if(v < gV) { gogoS.value = v; $('exp_gogo_val').innerText = v; this.state.inputs['exp_gogo_age'] = v; }
+                this.renderExpenseRows(); this.calcExpenses(); this.debouncedRun();
+            });
+        }
 
         $('btnClearAll').addEventListener('click', () => this.showConfirm("Clear all data?", () => this.resetAllData()));
         $('btnAddProperty').addEventListener('click', () => this.addProperty());
@@ -211,7 +217,7 @@ class RetirementPlanner {
             const cl = e.target.classList;
             if (cl.contains('live-calc')) {
                 if (cl.contains('formatted-num')) this.formatInput(e.target);
-                if (e.target.id && !e.target.id.startsWith('comp_') && !cl.contains('property-update') && !cl.contains('windfall-update') && !cl.contains('debt-amount') && !cl.contains('income-stream-update')) {
+                if (e.target.id && !e.target.id.startsWith('comp_') && e.target.id !== 'exp_gogo_age' && e.target.id !== 'exp_slow_age' && !cl.contains('property-update') && !cl.contains('windfall-update') && !cl.contains('debt-amount') && !cl.contains('income-stream-update')) {
                     this.state.inputs[e.target.id] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
                     this.updateSidebarSync(e.target.id, e.target.value);
                 }
