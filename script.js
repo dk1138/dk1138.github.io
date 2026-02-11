@@ -1,5 +1,5 @@
 /**
- * Retirement Planner Pro - Logic v10.12 (Additional Income Streams + DB Slider)
+ * Retirement Planner Pro - Logic v10.13 (Additional Income Streams tied to P1/P2)
  * Features:
  * - Auto-save to LocalStorage
  * - Save/Load/Export JSON Configuration
@@ -7,7 +7,7 @@
  * - Sidebar Sync on Load
  * - Light/Dark Theme Support
  * - DB Pension Start Age Sliders
- * - Dynamic Additional Income Streams with Growth
+ * - Dynamic Additional Income Streams with Growth (Tied to Players & Live Tax Update)
  */
 
 class RetirementPlanner {
@@ -22,7 +22,7 @@ class RetirementPlanner {
             ],
             // Windfalls State
             windfalls: [],
-            // NEW: Additional Income Streams
+            // Additional Income Streams (Now explicitly mapped via 'owner' to p1/p2)
             additionalIncome: [],
             
             strategies: {
@@ -433,7 +433,14 @@ class RetirementPlanner {
 
         document.getElementById('btnAddProperty').addEventListener('click', () => this.addProperty());
         document.getElementById('btnAddWindfall').addEventListener('click', () => this.addWindfall());
-        document.getElementById('btnAddIncomeStream').addEventListener('click', () => this.addAdditionalIncome()); 
+        
+        // Setup buttons for additional income based on owner
+        const btnAddIncP1 = document.getElementById('btnAddIncomeP1');
+        if (btnAddIncP1) btnAddIncP1.addEventListener('click', () => this.addAdditionalIncome('p1'));
+
+        const btnAddIncP2 = document.getElementById('btnAddIncomeP2');
+        if (btnAddIncP2) btnAddIncP2.addEventListener('click', () => this.addAdditionalIncome('p2'));
+        
         document.getElementById('btnExportCSV').addEventListener('click', () => this.exportToCSV());
 
         document.getElementById('fileUpload').addEventListener('change', (e) => this.handleFileUpload(e));
@@ -503,7 +510,7 @@ class RetirementPlanner {
                 this.debouncedRun();
             }
             
-            // --- INCOME STREAM UPDATE LISTENER ---
+            // --- ADDITIONAL INCOME STREAM UPDATE LISTENER ---
             if (e.target.classList.contains('income-stream-update')) {
                 const idx = parseInt(e.target.dataset.idx);
                 const field = e.target.dataset.field;
@@ -515,6 +522,9 @@ class RetirementPlanner {
                     this.state.additionalIncome[idx][field] = val;
                 }
                 if (e.target.classList.contains('formatted-num')) this.formatInput(e.target);
+                
+                // Immediately update income display and recalculate tax pane
+                this.updateIncomeDisplay();
                 this.debouncedRun();
             }
         });
@@ -585,7 +595,7 @@ class RetirementPlanner {
             if(e.target.classList.contains('toggle-btn')) {
                 this.toggleGroup(e.target.dataset.type);
             }
-            if(e.target.classList.contains('opt-apply')) this.applyOpt(e.target.dataset.target);
+            if(e.target.classList.contains('opt-apply')) this.applyOpt(e.target.target);
         });
     }
 
@@ -717,7 +727,7 @@ class RetirementPlanner {
         const mode = this.state.mode;
         const headers = [
             "Year", "P1 Age", mode === "Couple" ? "P2 Age" : null,
-            "P1 Income", mode === "Couple" ? "P2 Income" : null,
+            "P1 Base Income", mode === "Couple" ? "P2 Base Income" : null,
             "P1 Post-Ret Inc", mode === "Couple" ? "P2 Post-Ret Inc" : null,
             "P1 Benefits", mode === "Couple" ? "P2 Benefits" : null,
             "P1 DB Pension", mode === "Couple" ? "P2 DB Pension" : null,
@@ -849,41 +859,39 @@ class RetirementPlanner {
         });
     }
 
-    // --- NEW: RENDER ADDITIONAL INCOME ---
+    // --- RESTRUCTURED: ADDITIONAL INCOME TIED TO PLAYERS ---
     renderAdditionalIncome() {
-        const container = document.getElementById('additional-income-container');
-        if(!container) return;
-        container.innerHTML = '';
+        const containerP1 = document.getElementById('p1-additional-income-container');
+        const containerP2 = document.getElementById('p2-additional-income-container');
+        
+        if (containerP1) containerP1.innerHTML = '';
+        if (containerP2) containerP2.innerHTML = '';
 
         this.state.additionalIncome.forEach((w, idx) => {
             const today = new Date().toISOString().slice(0, 7); 
+            const targetContainer = w.owner === 'p2' ? containerP2 : containerP1;
+            if (!targetContainer) return;
             
             const div = document.createElement('div');
-            div.className = 'income-stream-row p-2 border border-secondary rounded bg-body-tertiary mb-2';
+            div.className = 'income-stream-row p-2 border border-secondary rounded bg-body-tertiary mt-2 mb-2';
             div.innerHTML = `
                 <div class="d-flex justify-content-between mb-1">
-                    <input type="text" class="form-control form-control-sm bg-transparent border-0 fw-bold income-stream-update" 
-                           placeholder="Income Source Name" value="${w.name}" data-idx="${idx}" data-field="name">
+                    <input type="text" class="form-control form-control-sm bg-transparent border-0 fw-bold text-info income-stream-update" 
+                           placeholder="Income Name" value="${w.name}" data-idx="${idx}" data-field="name">
                     <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="app.removeAdditionalIncome(${idx})"><i class="bi bi-x-lg"></i></button>
                 </div>
                 <div class="row g-2 align-items-center">
-                    <div class="col-4">
+                    <div class="col-6">
                         <div class="input-group input-group-sm">
                             <span class="input-group-text border-secondary text-muted">$</span>
                             <input type="text" class="form-control border-secondary formatted-num income-stream-update" 
                                    value="${w.amount.toLocaleString()}" data-idx="${idx}" data-field="amount">
                         </div>
                     </div>
-                    <div class="col-4">
+                    <div class="col-6">
                         <select class="form-select form-select-sm border-secondary income-stream-update" data-idx="${idx}" data-field="freq">
                             <option value="month" ${w.freq==='month'?'selected':''}>/ Month</option>
                             <option value="year" ${w.freq==='year'?'selected':''}>/ Year</option>
-                        </select>
-                    </div>
-                    <div class="col-4 p2-column" style="${this.state.mode === 'Couple' ? '' : 'display:none;'}">
-                         <select class="form-select form-select-sm border-secondary income-stream-update" data-idx="${idx}" data-field="owner">
-                            <option value="p1" ${w.owner==='p1'?'selected':''}>Owner: P1</option>
-                            <option value="p2" ${w.owner==='p2'?'selected':''}>Owner: P2</option>
                         </select>
                     </div>
                 </div>
@@ -916,17 +924,18 @@ class RetirementPlanner {
                     </div>
                 </div>
             `;
-            container.appendChild(div);
+            targetContainer.appendChild(div);
             div.querySelectorAll('.formatted-num').forEach(el => {
                 el.addEventListener('input', (e) => this.formatInput(e.target));
             });
         });
     }
 
-    addAdditionalIncome() {
+    addAdditionalIncome(owner) {
         const today = new Date().toISOString().slice(0, 7);
-        this.state.additionalIncome.push({ name: "Rental Income", amount: 0, freq: 'month', owner: 'p1', taxable: true, start: today, end: '', growth: 2.0 });
+        this.state.additionalIncome.push({ name: "Side Hustle", amount: 0, freq: 'month', owner: owner, taxable: true, start: today, end: '', growth: 2.0 });
         this.renderAdditionalIncome();
+        this.updateIncomeDisplay(); 
         this.run();
     }
 
@@ -934,6 +943,7 @@ class RetirementPlanner {
         this.showConfirm("Remove this income stream?", () => {
             this.state.additionalIncome.splice(index, 1);
             this.renderAdditionalIncome();
+            this.updateIncomeDisplay();
             this.run();
         });
     }
@@ -1123,20 +1133,6 @@ class RetirementPlanner {
         }
     }
 
-    getIconHTML(key, theme) {
-        const def = this.iconDefs[key];
-        if(!def) return '';
-        
-        let colorClass = def.color;
-        if(theme === 'light') {
-            if (colorClass.includes('text-white')) colorClass = 'text-dark';
-            if (colorClass.includes('text-info')) colorClass = 'text-primary'; 
-            if (colorClass.includes('text-warning')) colorClass = 'text-dark'; 
-        }
-        
-        return `<i class="bi ${def.icon} ${colorClass}" title="${def.title}"></i>`;
-    }
-
     drawSankey(index) {
         if (!this.state.projectionData[index] || typeof google === 'undefined' || !google.visualization) return;
 
@@ -1246,7 +1242,6 @@ class RetirementPlanner {
         const province = this.getRaw('tax_province');
         const inflation = this.getVal('inflation_rate') / 100;
         let tfsa_limit = 7000;
-        const taxEfficient = this.state.inputs['taxEfficient']; 
         const stressTest = this.state.inputs['stressTestEnabled'];
         const rrspMeltdown = this.state.inputs['strat_rrsp_topup']; 
         const expMode = this.state.expenseMode;
@@ -1281,7 +1276,6 @@ class RetirementPlanner {
         const p2_cpp_start = parseInt(this.getRaw('p2_cpp_start'));
         const p2_oas_start = parseInt(this.getRaw('p2_oas_start'));
 
-        // --- DB PENSION SETUP (UPDATED) ---
         let p1_db_base = this.getVal('p1_db_pension') * 12;
         let p2_db_base = this.getVal('p2_db_pension') * 12;
         const p1_db_start = parseInt(this.getRaw('p1_db_start_age')) || 60;
@@ -1329,7 +1323,6 @@ class RetirementPlanner {
         let cpp_max_p1 = this.CONSTANTS.MAX_CPP_2026, oas_max_p1 = this.CONSTANTS.MAX_OAS_2026;
         let cpp_max_p2 = this.CONSTANTS.MAX_CPP_2026, oas_max_p2 = this.CONSTANTS.MAX_OAS_2026;
         let finalNW = 0;
-        let currentTaxData = JSON.parse(JSON.stringify(this.CONSTANTS.TAX_DATA));
 
         for (let i = 0; i <= yearsToRun; i++) {
             const year = currentYear + i;
@@ -1366,7 +1359,7 @@ class RetirementPlanner {
             let w_p1 = { rrsp: 0 }; let w_p2 = { rrsp: 0 }; 
 
             let events = [];
-            // FIXED: Pushing Keys instead of HTML strings
+            
             if(p1_alive) {
                 if(p1_age === p1.retAge && !triggeredEvents.has('P1 Retires')) { events.push('P1 Retires'); triggeredEvents.add('P1 Retires'); }
                 if(p1_age === p1_cpp_start && p1_cpp_on) events.push('P1 CPP');
@@ -1404,7 +1397,6 @@ class RetirementPlanner {
             if(p1_alive) {
                 if(!p1_isRetired) { p1_gross += p1.inc; p1.inc *= (1 + currentRatesP1.inc); }
                 
-                // UPDATED DB LOGIC: Check Age Only (Decoupled from Retirement Status)
                 if (p1_age >= p1_db_start) {
                     p1_db_inc = p1_db_base * bracketInflator;
                 }
@@ -1423,7 +1415,7 @@ class RetirementPlanner {
                          }
                          if (year === endYear) {
                              const months = p1_post_end.getMonth() + 1;
-                             factor = Math.min(factor, months / 12); // Use min in case start == end
+                             factor = Math.min(factor, months / 12); 
                          }
                          p1_post_val = grownAmount * factor;
                     }
@@ -1435,7 +1427,6 @@ class RetirementPlanner {
             if(mode === 'Couple' && p2_alive) {
                 if(!p2_isRetired) { p2_gross += p2.inc; p2.inc *= (1 + currentRatesP2.inc); }
                 
-                // UPDATED DB LOGIC: Check Age Only
                 if (p2_age >= p2_db_start) {
                     p2_db_inc = p2_db_base * bracketInflator;
                 }
@@ -1506,8 +1497,6 @@ class RetirementPlanner {
                     if (wStartYear === year) { active = true; annualAmt = w.amount; }
                 } else {
                     const wEnd = w.end ? new Date(w.end + "-01") : new Date("2100-01-01");
-                    const yearStart = new Date(year, 0, 1);
-                    const yearEnd = new Date(year, 11, 31);
                     
                     if (year >= wStart.getFullYear() && year <= wEnd.getFullYear()) {
                         active = true;
@@ -1535,7 +1524,7 @@ class RetirementPlanner {
                 }
             });
 
-            // --- NEW: ADDITIONAL INCOME STREAMS PROCESSING ---
+            // --- ADDITIONAL INCOME STREAMS PROCESSING ---
             this.state.additionalIncome.forEach(stream => {
                 const sStart = new Date(stream.start + "-01");
                 const sEnd = stream.end ? new Date(stream.end + "-01") : new Date("2100-01-01");
@@ -2499,17 +2488,60 @@ class RetirementPlanner {
         const p2Inc = this.getVal('p2_income');
         const mode = this.state.mode;
         
-        const hhGross = mode === 'Couple' ? p1Inc + p2Inc : p1Inc;
+        const currentYear = new Date().getFullYear();
+
+        // Calculate current year additional income
+        let p1AddTaxable = 0, p1AddNonTaxable = 0;
+        let p2AddTaxable = 0, p2AddNonTaxable = 0;
+
+        this.state.additionalIncome.forEach(stream => {
+            const sStart = new Date(stream.start + "-01");
+            const sEnd = stream.end ? new Date(stream.end + "-01") : new Date("2100-01-01");
+            const startYear = sStart.getFullYear();
+            const endYear = sEnd.getFullYear();
+
+            if (currentYear >= startYear && currentYear <= endYear) {
+                let yearsActive = currentYear - startYear;
+                let growthFactor = Math.pow(1 + (stream.growth / 100), yearsActive);
+                let annualAmt = stream.amount * growthFactor;
+
+                if(stream.freq === 'month') annualAmt *= 12;
+
+                let factor = 1.0;
+                if (currentYear === startYear) factor = (12 - sStart.getMonth()) / 12;
+                if (currentYear === endYear) factor = Math.min(factor, (sEnd.getMonth() + 1) / 12);
+                annualAmt *= factor;
+
+                if (annualAmt > 0) {
+                    if (stream.owner === 'p1') {
+                        if (stream.taxable) p1AddTaxable += annualAmt;
+                        else p1AddNonTaxable += annualAmt;
+                    } else if (stream.owner === 'p2') {
+                        if (stream.taxable) p2AddTaxable += annualAmt;
+                        else p2AddNonTaxable += annualAmt;
+                    }
+                }
+            }
+        });
+
+        // For tax calculations, we use base gross + taxable additional income
+        const p1TaxableGross = p1Inc + p1AddTaxable;
+        const p2TaxableGross = p2Inc + p2AddTaxable;
+
+        const hhGross = (mode === 'Couple') ? (p1TaxableGross + p2TaxableGross + p1AddNonTaxable + p2AddNonTaxable) : (p1TaxableGross + p1AddNonTaxable);
+        
         const grossEl = document.getElementById('household_gross_display');
         if(grossEl) grossEl.innerHTML = '$' + hhGross.toLocaleString() + ` <span class="monthly-sub">($${Math.round(hhGross/12).toLocaleString()}/mo)</span>`;
         
-        const p1Data = this.calculateTaxDetailed(p1Inc, prov); 
-        this.renderTaxDetails('p1', p1Inc, p1Data);
+        const p1Data = this.calculateTaxDetailed(p1TaxableGross, prov); 
+        this.renderTaxDetails('p1', p1TaxableGross, p1Data);
         
-        const p2Data = this.calculateTaxDetailed(p2Inc, prov); 
-        this.renderTaxDetails('p2', p2Inc, p2Data);
+        const p2Data = this.calculateTaxDetailed(p2TaxableGross, prov); 
+        this.renderTaxDetails('p2', p2TaxableGross, p2Data);
         
-        const hhNet = (p1Inc - p1Data.totalTax) + (mode === 'Couple' ? (p2Inc - p2Data.totalTax) : 0);
+        const hhNet = (p1TaxableGross - p1Data.totalTax) + p1AddNonTaxable + 
+                      (mode === 'Couple' ? ((p2TaxableGross - p2Data.totalTax) + p2AddNonTaxable) : 0);
+                      
         const netEl = document.getElementById('household_net_display');
         if(netEl) netEl.innerHTML = '$' + Math.round(hhNet).toLocaleString() + ` <span class="monthly-sub">($${Math.round(hhNet/12).toLocaleString()}/mo)</span>`;
         return hhNet;
