@@ -1,156 +1,64 @@
 <!DOCTYPE html>
 <html lang="en" data-bs-theme="dark">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
   <title>Retirement Planner Pro</title>
-
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📈</text></svg>">
-
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
-
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
-
   <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
   <div class="container-fluid py-4" style="max-width: 1700px;">
-
     <div class="main-header d-flex justify-content-between align-items-center shadow-sm">
-      <div class="d-flex align-items-center">
-        <h4 class="mb-0"><i class="bi bi-graph-up-arrow text-primary me-2"></i>Retirement Planner</h4>
-      </div>
-
+      <div class="d-flex align-items-center"><h4 class="mb-0"><i class="bi bi-graph-up-arrow text-primary me-2"></i>Retirement Planner</h4></div>
       <div class="d-flex align-items-center gap-3">
-        <button class="btn btn-outline-secondary btn-sm" id="btnThemeToggle" title="Toggle Light/Dark Mode">
-          <i class="bi bi-sun-fill"></i>
-        </button>
-
+        <button class="btn btn-outline-secondary btn-sm" id="btnThemeToggle" title="Toggle Light/Dark Mode"><i class="bi bi-sun-fill"></i></button>
         <div class="d-none d-md-block text-end">
           <div class="d-flex align-items-center gap-3">
-            <div class="form-check form-switch mb-0">
-              <input class="form-check-input" type="checkbox" id="useRealDollars">
-              <label class="form-check-label small" for="useRealDollars">Show in Today's $</label>
-            </div>
-            
-            <div class="d-flex align-items-center text-success" title="Auto-save is active. Your changes are saved locally." style="cursor: help;">
-              <i class="bi bi-check-circle-fill fs-5"></i>
-            </div>
+            <div class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" id="useRealDollars"><label class="form-check-label small" for="useRealDollars">Show in Today's $</label></div>
+            <div class="d-flex align-items-center text-success" title="Auto-save is active. Your changes are saved locally." style="cursor: help;"><i class="bi bi-check-circle-fill fs-5"></i></div>
           </div>
         </div>
       </div>
     </div>
 
     <div class="row g-4 align-items-start">
-
       <div class="col-auto" id="sidebarCol" style="width: 320px; transition: width 0.3s; z-index: 1000;">
-
         <div id="sidebarExpanded" class="card bg-card border-secondary sticky-sidebar">
-          <div
-            class="card-header border-bottom border-secondary bg-opacity-10 bg-black d-flex justify-content-between align-items-center">
+          <div class="card-header border-bottom border-secondary bg-opacity-10 bg-black d-flex justify-content-between align-items-center">
             <h5 class="text-info mb-0"><i class="bi bi-lightning-charge me-2"></i>Quick Adjust</h5>
-            <button class="btn btn-sm btn-outline-secondary border-0 text-muted" id="btnCollapseSidebar" title="Collapse Sidebar">
-              <i class="bi bi-arrow-bar-left"></i>
-            </button>
+            <button class="btn btn-sm btn-outline-secondary border-0 text-muted" id="btnCollapseSidebar" title="Collapse Sidebar"><i class="bi bi-arrow-bar-left"></i></button>
           </div>
           <div class="card-body">
             <p class="small text-muted mb-4">Tweak key variables to see instant impacts on your charts.</p>
-
-            <div class="mb-3">
-              <label class="form-label">P1 Retirement Age</label>
-              <input type="range" class="form-range" min="45" max="80" id="qa_p1_retireAge_range">
-              <div class="d-flex justify-content-between">
-                <span class="small text-muted">45</span>
-                <span class="fw-bold text-info" id="qa_p1_retireAge_val">60</span>
-                <span class="small text-muted">80</span>
-              </div>
-            </div>
-
-            <div class="mb-3 p2-column">
-              <label class="form-label text-purple">P2 Retirement Age</label>
-              <input type="range" class="form-range" min="45" max="80" id="qa_p2_retireAge_range">
-              <div class="d-flex justify-content-between">
-                <span class="small text-muted">45</span>
-                <span class="fw-bold text-purple" id="qa_p2_retireAge_val">60</span>
-                <span class="small text-muted">80</span>
-              </div>
-            </div>
-
+            <div class="mb-3"><label class="form-label">P1 Retirement Age</label><input type="range" class="form-range" min="45" max="80" id="qa_p1_retireAge_range"><div class="d-flex justify-content-between"><span class="small text-muted">45</span><span class="fw-bold text-info" id="qa_p1_retireAge_val">60</span><span class="small text-muted">80</span></div></div>
+            <div class="mb-3 p2-column"><label class="form-label text-purple">P2 Retirement Age</label><input type="range" class="form-range" min="45" max="80" id="qa_p2_retireAge_range"><div class="d-flex justify-content-between"><span class="small text-muted">45</span><span class="fw-bold text-purple" id="qa_p2_retireAge_val">60</span><span class="small text-muted">80</span></div></div>
             <hr class="border-secondary">
-
-            <div class="mb-3">
-              <label class="form-label">Inflation Rate (%)</label>
-              <input type="range" class="form-range" min="1" max="8" step="0.1" id="qa_inflation_range">
-              <div class="d-flex justify-content-between">
-                <span class="small text-muted">1%</span>
-                <span class="fw-bold text-warning" id="qa_inflation_val">2.1%</span>
-                <span class="small text-muted">8%</span>
-              </div>
-            </div>
-
+            <div class="mb-3"><label class="form-label">Inflation Rate (%)</label><input type="range" class="form-range" min="1" max="8" step="0.1" id="qa_inflation_range"><div class="d-flex justify-content-between"><span class="small text-muted">1%</span><span class="fw-bold text-warning" id="qa_inflation_val">2.1%</span><span class="small text-muted">8%</span></div></div>
             <hr class="border-secondary">
-
-            <div class="mb-3">
-              <label class="form-label">Market Return (TFSA/RRSP)</label>
-              <input type="range" class="form-range" min="1" max="12" step="0.1" id="qa_return_range">
-              <div class="d-flex justify-content-between">
-                <span class="small text-muted">1%</span>
-                <span class="fw-bold text-success" id="qa_return_val">6.0%</span>
-                <span class="small text-muted">12%</span>
-              </div>
-              <p class="small text-muted mt-1" style="font-size: 0.7rem;">*Updates P1 & P2 TFSA/RRSP rates.</p>
-            </div>
-
+            <div class="mb-3"><label class="form-label">Market Return (TFSA/RRSP)</label><input type="range" class="form-range" min="1" max="12" step="0.1" id="qa_return_range"><div class="d-flex justify-content-between"><span class="small text-muted">1%</span><span class="fw-bold text-success" id="qa_return_val">6.0%</span><span class="small text-muted">12%</span></div><p class="small text-muted mt-1" style="font-size: 0.7rem;">*Updates P1 & P2 TFSA/RRSP rates.</p></div>
             <hr class="border-secondary">
-            <div class="mb-3">
-              <label class="form-label small text-uppercase fw-bold ls-1">Risk Simulation</label>
-              <div class="form-check form-switch bg-black bg-opacity-25 p-2 rounded border border-secondary">
-                <input class="form-check-input live-calc" type="checkbox" role="switch" id="stressTestEnabled" style="margin-left: 0.5em;">
-                <label class="form-check-label ps-2" for="stressTestEnabled">
-                  Stress Test <br><span class="text-danger small" style="font-size: 0.75rem;">(-15% Crash in Yr 1-2)</span>
-                </label>
-              </div>
-            </div>
+            <div class="mb-3"><label class="form-label small text-uppercase fw-bold ls-1">Risk Simulation</label><div class="form-check form-switch bg-black bg-opacity-25 p-2 rounded border border-secondary"><input class="form-check-input live-calc" type="checkbox" role="switch" id="stressTestEnabled" style="margin-left: 0.5em;"><label class="form-check-label ps-2" for="stressTestEnabled">Stress Test <br><span class="text-danger small" style="font-size: 0.75rem;">(-15% Crash in Yr 1-2)</span></label></div></div>
           </div>
         </div>
-
-        <div id="sidebarCollapsed" class="sticky-sidebar" style="display: none;">
-          <div class="sidebar-collapsed-btn" id="btnExpandSidebar" title="Open Quick Adjust">
-            <i class="bi bi-lightning-charge-fill"></i>
-          </div>
-        </div>
-
+        <div id="sidebarCollapsed" class="sticky-sidebar" style="display: none;"><div class="sidebar-collapsed-btn" id="btnExpandSidebar" title="Open Quick Adjust"><i class="bi bi-lightning-charge-fill"></i></div></div>
       </div>
 
       <div class="col" id="mainCol" style="min-width: 0;">
-
         <ul class="nav nav-tabs" id="myTab" role="tablist">
-          <li class="nav-item" role="presentation">
-            <button class="nav-link active" id="plan-tab" data-bs-toggle="tab" data-bs-target="#plan-pane" type="button" role="tab"><i class="bi bi-pencil-square me-2"></i>Plan Inputs</button>
-          </li>
-          <li class="nav-item" role="presentation">
-            <button class="nav-link" id="summary-tab" data-bs-toggle="tab" data-bs-target="#summary-pane" type="button" role="tab"><i class="bi bi-table me-2"></i>Projection Table</button>
-          </li>
-          <li class="nav-item" role="presentation">
-            <button class="nav-link" id="strategy-tab" data-bs-toggle="tab" data-bs-target="#strategy-pane" type="button" role="tab"><i class="bi bi-sliders me-2"></i>Strategy</button>
-          </li>
-          <li class="nav-item" role="presentation">
-            <button class="nav-link" id="cashflow-tab" data-bs-toggle="tab" data-bs-target="#cashflow-pane" type="button" role="tab"><i class="bi bi-diagram-3 me-2"></i>Cash Flow</button>
-          </li>
-          <li class="nav-item" role="presentation">
-            <button class="nav-link" id="scenarios-tab" data-bs-toggle="tab" data-bs-target="#scenarios-pane" type="button" role="tab"><i class="bi bi-save me-2"></i>Scenarios</button>
-          </li>
-          <li class="nav-item" role="presentation">
-            <button class="nav-link" id="compare-tab" data-bs-toggle="tab" data-bs-target="#compare-pane" type="button" role="tab"><i class="bi bi-bar-chart-line me-2"></i>Compare</button>
-          </li>
+          <li class="nav-item"><button class="nav-link active" id="plan-tab" data-bs-toggle="tab" data-bs-target="#plan-pane" type="button"><i class="bi bi-pencil-square me-2"></i>Plan Inputs</button></li>
+          <li class="nav-item"><button class="nav-link" id="summary-tab" data-bs-toggle="tab" data-bs-target="#summary-pane" type="button"><i class="bi bi-table me-2"></i>Projection Table</button></li>
+          <li class="nav-item"><button class="nav-link" id="strategy-tab" data-bs-toggle="tab" data-bs-target="#strategy-pane" type="button"><i class="bi bi-sliders me-2"></i>Strategy</button></li>
+          <li class="nav-item"><button class="nav-link" id="cashflow-tab" data-bs-toggle="tab" data-bs-target="#cashflow-pane" type="button"><i class="bi bi-diagram-3 me-2"></i>Cash Flow</button></li>
+          <li class="nav-item"><button class="nav-link" id="scenarios-tab" data-bs-toggle="tab" data-bs-target="#scenarios-pane" type="button"><i class="bi bi-save me-2"></i>Scenarios</button></li>
+          <li class="nav-item"><button class="nav-link" id="compare-tab" data-bs-toggle="tab" data-bs-target="#compare-pane" type="button"><i class="bi bi-bar-chart-line me-2"></i>Compare</button></li>
         </ul>
 
         <div class="card shadow-sm mb-5">
@@ -158,7 +66,6 @@
             <div class="tab-content" id="myTabContent">
 
               <div class="tab-pane fade show active p-3 p-md-4" id="plan-pane" role="tabpanel">
-
                 <div class="d-flex justify-content-end mb-4">
                   <button class="btn btn-outline-danger me-3" id="btnClearAll" type="button"><i class="bi bi-trash3-fill me-1"></i> Clear All</button>
                   <div class="btn-group" role="group">
@@ -171,56 +78,21 @@
 
                 <form id="financialForm">
                   <div class="card mb-4">
-                    <div class="card-header d-flex align-items-center">
-                      <i class="bi bi-person-vcard text-info fs-5 me-2"></i>
-                      <h5>1. Personal Information</h5>
-                    </div>
+                    <div class="card-header d-flex align-items-center"><i class="bi bi-person-vcard text-info fs-5 me-2"></i><h5>1. Personal Information</h5></div>
                     <div class="card-body">
                       <div class="row g-4">
                         <div class="col-12 col-xl-6">
                           <div class="p-3 border border-secondary rounded-3 bg-black bg-opacity-25 h-100">
                             <h6 class="text-info mb-3"><i class="bi bi-person-fill me-2"></i>Player 1 (P1)</h6>
-                            <div class="mb-3">
-                              <label class="form-label">Date of Birth</label>
-                              <div class="d-flex align-items-center gap-3">
-                                <input type="month" class="form-control live-calc" id="p1_dob" value="1988-09" required style="max-width: 200px;">
-                                <span class="age-display" id="p1_age">-- years old</span>
-                              </div>
-                            </div>
-                            <div class="row g-3">
-                              <div class="col-6">
-                                <label class="form-label">Retirement Age</label>
-                                <input type="text" class="form-control live-calc formatted-num" id="p1_retireAge" value="60">
-                              </div>
-                              <div class="col-6">
-                                <label class="form-label">Life Expectancy</label>
-                                <input type="text" class="form-control live-calc formatted-num" id="p1_lifeExp" value="90">
-                              </div>
-                            </div>
+                            <div class="mb-3"><label class="form-label">Date of Birth</label><div class="d-flex align-items-center gap-3"><input type="month" class="form-control live-calc" id="p1_dob" value="1988-09" style="max-width: 200px;"><span class="age-display" id="p1_age">-- years old</span></div></div>
+                            <div class="row g-3"><div class="col-6"><label class="form-label">Retirement Age</label><input type="text" class="form-control live-calc formatted-num" id="p1_retireAge" value="60"></div><div class="col-6"><label class="form-label">Life Expectancy</label><input type="text" class="form-control live-calc formatted-num" id="p1_lifeExp" value="90"></div></div>
                           </div>
                         </div>
                         <div class="col-12 col-xl-6 p2-column">
                           <div class="p-3 border border-secondary rounded-3 bg-black bg-opacity-25 h-100">
-                            <h6 class="text-purple mb-3" style="color: var(--purple)">
-                              <i class="bi bi-person-fill me-2"></i>Player 2 (P2)
-                            </h6>
-                            <div class="mb-3">
-                              <label class="form-label">Date of Birth</label>
-                              <div class="d-flex align-items-center gap-3">
-                                <input type="month" class="form-control live-calc" id="p2_dob" value="1992-07" style="max-width: 200px;">
-                                <span class="age-display" id="p2_age" style="color: var(--purple)">-- years old</span>
-                              </div>
-                            </div>
-                            <div class="row g-3">
-                              <div class="col-6">
-                                <label class="form-label">Retirement Age</label>
-                                <input type="text" class="form-control live-calc formatted-num" id="p2_retireAge" value="60">
-                              </div>
-                              <div class="col-6">
-                                <label class="form-label">Life Expectancy</label>
-                                <input type="text" class="form-control live-calc formatted-num" id="p2_lifeExp" value="95">
-                              </div>
-                            </div>
+                            <h6 class="text-purple mb-3" style="color: var(--purple)"><i class="bi bi-person-fill me-2"></i>Player 2 (P2)</h6>
+                            <div class="mb-3"><label class="form-label">Date of Birth</label><div class="d-flex align-items-center gap-3"><input type="month" class="form-control live-calc" id="p2_dob" value="1992-07" style="max-width: 200px;"><span class="age-display" id="p2_age" style="color: var(--purple)">-- years old</span></div></div>
+                            <div class="row g-3"><div class="col-6"><label class="form-label">Retirement Age</label><input type="text" class="form-control live-calc formatted-num" id="p2_retireAge" value="60"></div><div class="col-6"><label class="form-label">Life Expectancy</label><input type="text" class="form-control live-calc formatted-num" id="p2_lifeExp" value="95"></div></div>
                           </div>
                         </div>
                       </div>
@@ -229,14 +101,8 @@
 
                   <div class="card mb-4">
                     <div class="card-header d-flex align-items-center justify-content-between">
-                      <div class="d-flex align-items-center">
-                        <i class="bi bi-wallet2 text-success fs-5 me-2"></i>
-                        <h5 class="mb-0">2. Portfolio Assets</h5>
-                      </div>
-                      <div class="form-check form-switch">
-                        <input class="form-check-input live-calc" type="checkbox" id="portfolio_mode_advanced" role="switch">
-                        <label class="form-check-label small fw-bold" for="portfolio_mode_advanced">Advanced Mode</label>
-                      </div>
+                      <div class="d-flex align-items-center"><i class="bi bi-wallet2 text-success fs-5 me-2"></i><h5 class="mb-0">2. Portfolio Assets</h5></div>
+                      <div class="form-check form-switch"><input class="form-check-input live-calc" type="checkbox" id="portfolio_mode_advanced" role="switch"><label class="form-check-label small fw-bold" for="portfolio_mode_advanced">Advanced Mode</label></div>
                     </div>
                     <div class="card-body">
                       <div class="row g-4">
@@ -250,66 +116,14 @@
                                 <div class="col-4 port-ret-col"><label class="form-label mb-1" id="lbl_p1_ret_pre">Return (%)</label></div>
                                 <div class="col-3 adv-portfolio-col" style="display:none;"><label class="form-label mb-1">Post-Ret (%)</label></div>
                               </div>
-                              
-                              <div class="row g-1 mb-2">
-                                <div class="col-3 pt-1 small">Cash</div>
-                                <div class="col-5 port-bal-col"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p1_cash" value="20,000"></div>
-                                <div class="col-4 port-ret-col">
-                                  <div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p1_cash_ret" value="2.0"><span class="input-group-text px-1">%</span></div>
-                                </div>
-                                <div class="col-3 adv-portfolio-col" style="display:none;">
-                                  <div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p1_cash_ret_retire" value="2.0"><span class="input-group-text px-1">%</span></div>
-                                </div>
-                              </div>
-
-                              <div class="row g-1 mb-2">
-                                <div class="col-3 pt-1 small">TFSA</div>
-                                <div class="col-5 port-bal-col"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p1_tfsa" value="52,000"></div>
-                                <div class="col-4 port-ret-col">
-                                  <div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p1_tfsa_ret" value="6.0"><span class="input-group-text px-1">%</span></div>
-                                </div>
-                                <div class="col-3 adv-portfolio-col" style="display:none;">
-                                  <div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p1_tfsa_ret_retire" value="4.0"><span class="input-group-text px-1">%</span></div>
-                                </div>
-                              </div>
-
-                              <div class="row g-1 mb-2">
-                                <div class="col-3 pt-1 small">RRSP</div>
-                                <div class="col-5 port-bal-col"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p1_rrsp" value="85,000"></div>
-                                <div class="col-4 port-ret-col">
-                                  <div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p1_rrsp_ret" value="6.0"><span class="input-group-text px-1">%</span></div>
-                                </div>
-                                <div class="col-3 adv-portfolio-col" style="display:none;">
-                                  <div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p1_rrsp_ret_retire" value="4.0"><span class="input-group-text px-1">%</span></div>
-                                </div>
-                              </div>
-
-                              <div class="row g-1 mb-2">
-                                <div class="col-3 pt-1 small">Non-Reg</div>
-                                <div class="col-5 port-bal-col"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p1_nonreg" value="10,000"></div>
-                                <div class="col-4 port-ret-col">
-                                  <div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p1_nonreg_ret" value="5.0"><span class="input-group-text px-1">%</span></div>
-                                </div>
-                                <div class="col-3 adv-portfolio-col" style="display:none;">
-                                  <div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p1_nonreg_ret_retire" value="4.0"><span class="input-group-text px-1">%</span></div>
-                                </div>
-                              </div>
-
-                              <div class="row g-1">
-                                <div class="col-3 pt-1 small">Crypto</div>
-                                <div class="col-5 port-bal-col"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p1_crypto" value="5,000"></div>
-                                <div class="col-4 port-ret-col">
-                                  <div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p1_crypto_ret" value="8.0"><span class="input-group-text px-1">%</span></div>
-                                </div>
-                                <div class="col-3 adv-portfolio-col" style="display:none;">
-                                  <div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p1_crypto_ret_retire" value="4.0"><span class="input-group-text px-1">%</span></div>
-                                </div>
-                              </div>
-
+                              <div class="row g-1 mb-2"><div class="col-3 pt-1 small">Cash</div><div class="col-5 port-bal-col"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p1_cash" value="20,000"></div><div class="col-4 port-ret-col"><div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p1_cash_ret" value="2.0"><span class="input-group-text px-1">%</span></div></div><div class="col-3 adv-portfolio-col" style="display:none;"><div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p1_cash_ret_retire" value="2.0"><span class="input-group-text px-1">%</span></div></div></div>
+                              <div class="row g-1 mb-2"><div class="col-3 pt-1 small">TFSA</div><div class="col-5 port-bal-col"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p1_tfsa" value="52,000"></div><div class="col-4 port-ret-col"><div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p1_tfsa_ret" value="6.0"><span class="input-group-text px-1">%</span></div></div><div class="col-3 adv-portfolio-col" style="display:none;"><div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p1_tfsa_ret_retire" value="4.0"><span class="input-group-text px-1">%</span></div></div></div>
+                              <div class="row g-1 mb-2"><div class="col-3 pt-1 small">RRSP</div><div class="col-5 port-bal-col"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p1_rrsp" value="85,000"></div><div class="col-4 port-ret-col"><div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p1_rrsp_ret" value="6.0"><span class="input-group-text px-1">%</span></div></div><div class="col-3 adv-portfolio-col" style="display:none;"><div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p1_rrsp_ret_retire" value="4.0"><span class="input-group-text px-1">%</span></div></div></div>
+                              <div class="row g-1 mb-2"><div class="col-3 pt-1 small">Non-Reg</div><div class="col-5 port-bal-col"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p1_nonreg" value="10,000"></div><div class="col-4 port-ret-col"><div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p1_nonreg_ret" value="5.0"><span class="input-group-text px-1">%</span></div></div><div class="col-3 adv-portfolio-col" style="display:none;"><div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p1_nonreg_ret_retire" value="4.0"><span class="input-group-text px-1">%</span></div></div></div>
+                              <div class="row g-1"><div class="col-3 pt-1 small">Crypto</div><div class="col-5 port-bal-col"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p1_crypto" value="5,000"></div><div class="col-4 port-ret-col"><div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p1_crypto_ret" value="8.0"><span class="input-group-text px-1">%</span></div></div><div class="col-3 adv-portfolio-col" style="display:none;"><div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p1_crypto_ret_retire" value="4.0"><span class="input-group-text px-1">%</span></div></div></div>
                             </div>
                           </div>
                         </div>
-
                         <div class="col-12 col-xl-6 p2-column">
                           <div class="card border-0 bg-black bg-opacity-25 h-100">
                             <div class="card-body">
@@ -320,62 +134,11 @@
                                 <div class="col-4 port-ret-col"><label class="form-label mb-1" id="lbl_p2_ret_pre">Return (%)</label></div>
                                 <div class="col-3 adv-portfolio-col" style="display:none;"><label class="form-label mb-1">Post-Ret (%)</label></div>
                               </div>
-
-                              <div class="row g-1 mb-2">
-                                <div class="col-3 pt-1 small">Cash</div>
-                                <div class="col-5 port-bal-col"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p2_cash" value="15,000"></div>
-                                <div class="col-4 port-ret-col">
-                                  <div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p2_cash_ret" value="2.0"><span class="input-group-text px-1">%</span></div>
-                                </div>
-                                <div class="col-3 adv-portfolio-col" style="display:none;">
-                                  <div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p2_cash_ret_retire" value="2.0"><span class="input-group-text px-1">%</span></div>
-                                </div>
-                              </div>
-
-                              <div class="row g-1 mb-2">
-                                <div class="col-3 pt-1 small">TFSA</div>
-                                <div class="col-5 port-bal-col"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p2_tfsa" value="35,000"></div>
-                                <div class="col-4 port-ret-col">
-                                  <div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p2_tfsa_ret" value="6.0"><span class="input-group-text px-1">%</span></div>
-                                </div>
-                                <div class="col-3 adv-portfolio-col" style="display:none;">
-                                  <div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p2_tfsa_ret_retire" value="4.0"><span class="input-group-text px-1">%</span></div>
-                                </div>
-                              </div>
-
-                              <div class="row g-1 mb-2">
-                                <div class="col-3 pt-1 small">RRSP</div>
-                                <div class="col-5 port-bal-col"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p2_rrsp" value="42,000"></div>
-                                <div class="col-4 port-ret-col">
-                                  <div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p2_rrsp_ret" value="6.0"><span class="input-group-text px-1">%</span></div>
-                                </div>
-                                <div class="col-3 adv-portfolio-col" style="display:none;">
-                                  <div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p2_rrsp_ret_retire" value="4.0"><span class="input-group-text px-1">%</span></div>
-                                </div>
-                              </div>
-
-                              <div class="row g-1 mb-2">
-                                <div class="col-3 pt-1 small">Non-Reg</div>
-                                <div class="col-5 port-bal-col"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p2_nonreg" value="5,000"></div>
-                                <div class="col-4 port-ret-col">
-                                  <div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p2_nonreg_ret" value="5.0"><span class="input-group-text px-1">%</span></div>
-                                </div>
-                                <div class="col-3 adv-portfolio-col" style="display:none;">
-                                  <div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p2_nonreg_ret_retire" value="4.0"><span class="input-group-text px-1">%</span></div>
-                                </div>
-                              </div>
-
-                              <div class="row g-1">
-                                <div class="col-3 pt-1 small">Crypto</div>
-                                <div class="col-5 port-bal-col"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p2_crypto" value="2,000"></div>
-                                <div class="col-4 port-ret-col">
-                                  <div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p2_crypto_ret" value="8.0"><span class="input-group-text px-1">%</span></div>
-                                </div>
-                                <div class="col-3 adv-portfolio-col" style="display:none;">
-                                  <div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p2_crypto_ret_retire" value="4.0"><span class="input-group-text px-1">%</span></div>
-                                </div>
-                              </div>
-
+                              <div class="row g-1 mb-2"><div class="col-3 pt-1 small">Cash</div><div class="col-5 port-bal-col"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p2_cash" value="15,000"></div><div class="col-4 port-ret-col"><div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p2_cash_ret" value="2.0"><span class="input-group-text px-1">%</span></div></div><div class="col-3 adv-portfolio-col" style="display:none;"><div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p2_cash_ret_retire" value="2.0"><span class="input-group-text px-1">%</span></div></div></div>
+                              <div class="row g-1 mb-2"><div class="col-3 pt-1 small">TFSA</div><div class="col-5 port-bal-col"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p2_tfsa" value="35,000"></div><div class="col-4 port-ret-col"><div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p2_tfsa_ret" value="6.0"><span class="input-group-text px-1">%</span></div></div><div class="col-3 adv-portfolio-col" style="display:none;"><div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p2_tfsa_ret_retire" value="4.0"><span class="input-group-text px-1">%</span></div></div></div>
+                              <div class="row g-1 mb-2"><div class="col-3 pt-1 small">RRSP</div><div class="col-5 port-bal-col"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p2_rrsp" value="42,000"></div><div class="col-4 port-ret-col"><div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p2_rrsp_ret" value="6.0"><span class="input-group-text px-1">%</span></div></div><div class="col-3 adv-portfolio-col" style="display:none;"><div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p2_rrsp_ret_retire" value="4.0"><span class="input-group-text px-1">%</span></div></div></div>
+                              <div class="row g-1 mb-2"><div class="col-3 pt-1 small">Non-Reg</div><div class="col-5 port-bal-col"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p2_nonreg" value="5,000"></div><div class="col-4 port-ret-col"><div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p2_nonreg_ret" value="5.0"><span class="input-group-text px-1">%</span></div></div><div class="col-3 adv-portfolio-col" style="display:none;"><div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p2_nonreg_ret_retire" value="4.0"><span class="input-group-text px-1">%</span></div></div></div>
+                              <div class="row g-1"><div class="col-3 pt-1 small">Crypto</div><div class="col-5 port-bal-col"><input type="text" class="form-control form-control-sm live-calc formatted-num" id="p2_crypto" value="2,000"></div><div class="col-4 port-ret-col"><div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p2_crypto_ret" value="8.0"><span class="input-group-text px-1">%</span></div></div><div class="col-3 adv-portfolio-col" style="display:none;"><div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control live-calc px-1" id="p2_crypto_ret_retire" value="4.0"><span class="input-group-text px-1">%</span></div></div></div>
                             </div>
                           </div>
                         </div>
@@ -385,36 +148,18 @@
 
                   <div class="card mb-4">
                     <div class="card-header d-flex align-items-center justify-content-between">
-                      <div class="d-flex align-items-center">
-                        <i class="bi bi-house-heart text-danger fs-5 me-2"></i>
-                        <h5>3. Real Estate & Mortgage</h5>
-                      </div>
+                      <div class="d-flex align-items-center"><i class="bi bi-house-heart text-danger fs-5 me-2"></i><h5>3. Real Estate & Mortgage</h5></div>
                       <button type="button" class="btn btn-sm btn-success" id="btnAddProperty"><i class="bi bi-plus-lg me-1"></i>Add Property</button>
                     </div>
-                    <div class="card-body">
-                      <div id="real-estate-container">
-                      </div>
-                    </div>
+                    <div class="card-body"><div id="real-estate-container"></div></div>
                   </div>
 
                   <div class="card mb-4">
-                    <div class="card-header d-flex align-items-center"><i class="bi bi-cash-coin text-warning fs-5 me-2"></i>
-                      <h5>4. Income & Taxation</h5>
-                    </div>
+                    <div class="card-header d-flex align-items-center"><i class="bi bi-cash-coin text-warning fs-5 me-2"></i><h5>4. Income & Taxation</h5></div>
                     <div class="card-body">
                       <div class="row mb-3">
-                        <div class="col-12 col-md-4"><label class="form-label">Province of Residence</label><select class="form-select live-calc" id="tax_province">
-                            <option value="ON" selected>Ontario</option>
-                            <option value="AB">Alberta</option>
-                            <option value="BC">British Columbia</option>
-                            <option value="MB">Manitoba</option>
-                            <option value="NB">New Brunswick</option>
-                            <option value="NL">Newfoundland & Labrador</option>
-                            <option value="NS">Nova Scotia</option>
-                            <option value="PE">Prince Edward Island</option>
-                            <option value="QC">Quebec</option>
-                            <option value="SK">Saskatchewan</option>
-                          </select>
+                        <div class="col-12 col-md-4"><label class="form-label">Province of Residence</label>
+                          <select class="form-select live-calc" id="tax_province"><option value="ON" selected>Ontario</option><option value="AB">Alberta</option><option value="BC">British Columbia</option><option value="MB">Manitoba</option><option value="NB">New Brunswick</option><option value="NL">Newfoundland & Labrador</option><option value="NS">Nova Scotia</option><option value="PE">Prince Edward Island</option><option value="QC">Quebec</option><option value="SK">Saskatchewan</option></select>
                           <div class="mt-1"><a href="https://www.canada.ca/en/revenue-agency/services/tax/individuals/frequently-asked-questions-individuals/canadian-income-tax-rates-individuals-current-previous-years.html" target="_blank" class="small text-muted text-decoration-underline" style="font-size: 0.75rem;">Source: CRA 2026</a></div>
                         </div>
                       </div>
@@ -422,21 +167,9 @@
                         <div class="col-12 col-xl-6">
                           <div class="card h-100 border-0 bg-black bg-opacity-25">
                             <div class="card-body">
-                              <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h6 class="text-info mb-0">Player 1 Income</h6>
-                                <button type="button" class="btn btn-sm btn-outline-success py-0" style="font-size: 0.75rem;" id="btnAddIncomeP1"><i class="bi bi-plus-lg me-1"></i>Add Stream</button>
-                              </div>
-                              <div class="row g-2 mb-3">
-                                <div class="col-8"><label class="form-label">Gross Annual Income</label>
-                                  <div class="input-group"><span class="input-group-text">$</span><input type="text" class="form-control live-calc formatted-num" id="p1_income" value="95,000"></div>
-                                </div>
-                                <div class="col-4"><label class="form-label">Growth</label>
-                                  <div class="input-group"><input type="text" class="form-control live-calc formatted-num" id="p1_income_growth" value="2.0"><span class="input-group-text">%</span></div>
-                                </div>
-                              </div>
-                              
+                              <div class="d-flex justify-content-between align-items-center mb-3"><h6 class="text-info mb-0">Player 1 Income</h6><button type="button" class="btn btn-sm btn-outline-success py-0" style="font-size: 0.75rem;" id="btnAddIncomeP1"><i class="bi bi-plus-lg me-1"></i>Add Stream</button></div>
+                              <div class="row g-2 mb-3"><div class="col-8"><label class="form-label">Gross Annual Income</label><div class="input-group"><span class="input-group-text">$</span><input type="text" class="form-control live-calc formatted-num" id="p1_income" value="95,000"></div></div><div class="col-4"><label class="form-label">Growth</label><div class="input-group"><input type="text" class="form-control live-calc formatted-num" id="p1_income_growth" value="2.0"><span class="input-group-text">%</span></div></div></div>
                               <div id="p1-additional-income-container" class="mb-3"></div>
-                              
                               <div class="tax-details-box" id="p1_tax_details"></div>
                             </div>
                           </div>
@@ -444,21 +177,9 @@
                         <div class="col-12 col-xl-6 p2-column">
                           <div class="card h-100 border-0 bg-black bg-opacity-25">
                             <div class="card-body">
-                              <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h6 class="text-purple mb-0" style="color: var(--purple)">Player 2 Income</h6>
-                                <button type="button" class="btn btn-sm btn-outline-success py-0" style="font-size: 0.75rem;" id="btnAddIncomeP2"><i class="bi bi-plus-lg me-1"></i>Add Stream</button>
-                              </div>
-                              <div class="row g-2 mb-3">
-                                <div class="col-8"><label class="form-label">Gross Annual Income</label>
-                                  <div class="input-group"><span class="input-group-text">$</span><input type="text" class="form-control live-calc formatted-num" id="p2_income" value="70,000"></div>
-                                </div>
-                                <div class="col-4"><label class="form-label">Growth</label>
-                                  <div class="input-group"><input type="text" class="form-control live-calc formatted-num" id="p2_income_growth" value="2.0"><span class="input-group-text">%</span></div>
-                                </div>
-                              </div>
-                              
+                              <div class="d-flex justify-content-between align-items-center mb-3"><h6 class="text-purple mb-0" style="color: var(--purple)">Player 2 Income</h6><button type="button" class="btn btn-sm btn-outline-success py-0" style="font-size: 0.75rem;" id="btnAddIncomeP2"><i class="bi bi-plus-lg me-1"></i>Add Stream</button></div>
+                              <div class="row g-2 mb-3"><div class="col-8"><label class="form-label">Gross Annual Income</label><div class="input-group"><span class="input-group-text">$</span><input type="text" class="form-control live-calc formatted-num" id="p2_income" value="70,000"></div></div><div class="col-4"><label class="form-label">Growth</label><div class="input-group"><input type="text" class="form-control live-calc formatted-num" id="p2_income_growth" value="2.0"><span class="input-group-text">%</span></div></div></div>
                               <div id="p2-additional-income-container" class="mb-3"></div>
-                              
                               <div class="tax-details-box" id="p2_tax_details"></div>
                             </div>
                           </div>
@@ -466,18 +187,8 @@
                       </div>
 
                       <div class="row g-4 mb-3 pt-3 border-top border-secondary align-items-center">
-                        <div class="col-12 col-xl-6">
-                          <div class="form-check form-switch">
-                            <input class="form-check-input live-calc" type="checkbox" id="enable_post_ret_income_p1">
-                            <label class="form-check-label" for="enable_post_ret_income_p1">Enable P1 Post-Retirement Income</label>
-                          </div>
-                        </div>
-                        <div class="col-12 col-xl-6 p2-column">
-                          <div class="form-check form-switch">
-                            <input class="form-check-input live-calc" type="checkbox" id="enable_post_ret_income_p2">
-                            <label class="form-check-label" for="enable_post_ret_income_p2">Enable P2 Post-Retirement Income</label>
-                          </div>
-                        </div>
+                        <div class="col-12 col-xl-6"><div class="form-check form-switch"><input class="form-check-input live-calc" type="checkbox" id="enable_post_ret_income_p1"><label class="form-check-label" for="enable_post_ret_income_p1">Enable P1 Post-Retirement Income</label></div></div>
+                        <div class="col-12 col-xl-6 p2-column"><div class="form-check form-switch"><input class="form-check-input live-calc" type="checkbox" id="enable_post_ret_income_p2"><label class="form-check-label" for="enable_post_ret_income_p2">Enable P2 Post-Retirement Income</label></div></div>
                       </div>
 
                       <div id="post-ret-income-container">
@@ -487,22 +198,8 @@
                             <div class="card h-100 border-0 bg-black bg-opacity-25" id="p1-post-ret-card" style="display:none;">
                               <div class="card-body">
                                 <h6 class="text-info">P1 Post-Retirement Income</h6>
-                                <div class="row g-2 mb-2">
-                                  <div class="col-8"><label class="form-label">Annual Amount</label>
-                                    <div class="input-group input-group-sm"><span class="input-group-text">$</span><input type="text" class="form-control live-calc formatted-num" id="p1_post_inc" value="20,000"></div>
-                                  </div>
-                                  <div class="col-4"><label class="form-label">Growth %</label>
-                                    <div class="input-group input-group-sm"><input type="text" class="form-control live-calc formatted-num" id="p1_post_growth" value="2.0"><span class="input-group-text">%</span></div>
-                                  </div>
-                                </div>
-                                <div class="row g-2">
-                                  <div class="col-6"><label class="form-label">Start Month/Year</label>
-                                    <input type="month" class="form-control form-control-sm live-calc" id="p1_post_start">
-                                  </div>
-                                  <div class="col-6"><label class="form-label">End Month/Year</label>
-                                    <input type="month" class="form-control form-control-sm live-calc" id="p1_post_end">
-                                  </div>
-                                </div>
+                                <div class="row g-2 mb-2"><div class="col-8"><label class="form-label">Annual Amount</label><div class="input-group input-group-sm"><span class="input-group-text">$</span><input type="text" class="form-control live-calc formatted-num" id="p1_post_inc" value="20,000"></div></div><div class="col-4"><label class="form-label">Growth %</label><div class="input-group input-group-sm"><input type="text" class="form-control live-calc formatted-num" id="p1_post_growth" value="2.0"><span class="input-group-text">%</span></div></div></div>
+                                <div class="row g-2"><div class="col-6"><label class="form-label">Start Month/Year</label><input type="month" class="form-control form-control-sm live-calc" id="p1_post_start"></div><div class="col-6"><label class="form-label">End Month/Year</label><input type="month" class="form-control form-control-sm live-calc" id="p1_post_end"></div></div>
                               </div>
                             </div>
                           </div>
@@ -510,22 +207,8 @@
                             <div class="card h-100 border-0 bg-black bg-opacity-25" id="p2-post-ret-card" style="display:none;">
                               <div class="card-body">
                                 <h6 class="text-purple" style="color: var(--purple)">P2 Post-Retirement Income</h6>
-                                <div class="row g-2 mb-2">
-                                  <div class="col-8"><label class="form-label">Annual Amount</label>
-                                    <div class="input-group input-group-sm"><span class="input-group-text">$</span><input type="text" class="form-control live-calc formatted-num" id="p2_post_inc" value="15,000"></div>
-                                  </div>
-                                  <div class="col-4"><label class="form-label">Growth %</label>
-                                    <div class="input-group input-group-sm"><input type="text" class="form-control live-calc formatted-num" id="p2_post_growth" value="2.0"><span class="input-group-text">%</span></div>
-                                  </div>
-                                </div>
-                                <div class="row g-2">
-                                  <div class="col-6"><label class="form-label">Start Month/Year</label>
-                                    <input type="month" class="form-control form-control-sm live-calc" id="p2_post_start">
-                                  </div>
-                                  <div class="col-6"><label class="form-label">End Month/Year</label>
-                                    <input type="month" class="form-control form-control-sm live-calc" id="p2_post_end">
-                                  </div>
-                                </div>
+                                <div class="row g-2 mb-2"><div class="col-8"><label class="form-label">Annual Amount</label><div class="input-group input-group-sm"><span class="input-group-text">$</span><input type="text" class="form-control live-calc formatted-num" id="p2_post_inc" value="15,000"></div></div><div class="col-4"><label class="form-label">Growth %</label><div class="input-group input-group-sm"><input type="text" class="form-control live-calc formatted-num" id="p2_post_growth" value="2.0"><span class="input-group-text">%</span></div></div></div>
+                                <div class="row g-2"><div class="col-6"><label class="form-label">Start Month/Year</label><input type="month" class="form-control form-control-sm live-calc" id="p2_post_start"></div><div class="col-6"><label class="form-label">End Month/Year</label><input type="month" class="form-control form-control-sm live-calc" id="p2_post_end"></div></div>
                               </div>
                             </div>
                           </div>
@@ -535,14 +218,8 @@
                       <div class="card bg-black border-secondary">
                         <div class="card-body py-3">
                           <div class="row text-center">
-                            <div class="col-md-6 border-end border-secondary">
-                              <div class="household-total-label mb-1">Total Household (Gross)</div>
-                              <div class="household-total-val" id="household_gross_display">$0</div>
-                            </div>
-                            <div class="col-md-6">
-                              <div class="household-total-label mb-1">Total Household (Net)</div>
-                              <div class="household-total-val text-success" id="household_net_display">$0</div>
-                            </div>
+                            <div class="col-md-6 border-end border-secondary"><div class="household-total-label mb-1">Total Household (Gross)</div><div class="household-total-val" id="household_gross_display">$0</div></div>
+                            <div class="col-md-6"><div class="household-total-label mb-1">Total Household (Net)</div><div class="household-total-val text-success" id="household_net_display">$0</div></div>
                           </div>
                         </div>
                       </div>
@@ -551,109 +228,52 @@
 
                   <div class="card mb-4">
                     <div class="card-header d-flex align-items-center justify-content-between">
-                      <div class="d-flex align-items-center">
-                        <i class="bi bi-cart4 text-white fs-5 me-2"></i>
-                        <h5 class="mb-0">5. Living Expenses</h5>
-                      </div>
-                      <div class="form-check form-switch">
-                        <input class="form-check-input live-calc" type="checkbox" id="expense_mode_advanced" role="switch">
-                        <label class="form-check-label small fw-bold" for="expense_mode_advanced">Advanced Mode</label>
-                      </div>
+                      <div class="d-flex align-items-center"><i class="bi bi-cart4 text-white fs-5 me-2"></i><h5 class="mb-0">5. Living Expenses</h5></div>
+                      <div class="form-check form-switch"><input class="form-check-input live-calc" type="checkbox" id="expense_mode_advanced" role="switch"><label class="form-check-label small fw-bold" for="expense_mode_advanced">Advanced Mode</label></div>
                     </div>
                     <div class="card-body">
                       <div id="expense-phase-controls" class="row g-3 mb-4 p-3 border border-secondary rounded bg-black bg-opacity-10" style="display:none;">
-                        <div class="col-md-6">
-                          <label class="form-label text-info small">Go-Go Phase Ends (Age)</label>
-                          <input type="range" class="form-range live-calc" id="exp_gogo_age" min="60" max="90" value="75">
-                          <div class="d-flex justify-content-between text-muted small" style="font-size: 0.75rem;">
-                            <span>60</span><span id="exp_gogo_val" class="fw-bold">75</span><span>90</span>
-                          </div>
-                        </div>
-                        <div class="col-md-6">
-                          <label class="form-label text-primary small">Slow-Go Phase Ends (Age)</label>
-                          <input type="range" class="form-range live-calc" id="exp_slow_age" min="70" max="100" value="85">
-                          <div class="d-flex justify-content-between text-muted small" style="font-size: 0.75rem;">
-                            <span>70</span><span id="exp_slow_val" class="fw-bold">85</span><span>100</span>
-                          </div>
-                        </div>
+                        <div class="col-md-6"><label class="form-label text-info small">Go-Go Phase Ends (Age)</label><input type="range" class="form-range live-calc" id="exp_gogo_age" min="60" max="90" value="75"><div class="d-flex justify-content-between text-muted small" style="font-size: 0.75rem;"><span>60</span><span id="exp_gogo_val" class="fw-bold">75</span><span>90</span></div></div>
+                        <div class="col-md-6"><label class="form-label text-primary small">Slow-Go Phase Ends (Age)</label><input type="range" class="form-range live-calc" id="exp_slow_age" min="70" max="100" value="85"><div class="d-flex justify-content-between text-muted small" style="font-size: 0.75rem;"><span>70</span><span id="exp_slow_val" class="fw-bold">85</span><span>100</span></div></div>
                       </div>
-
                       <div class="table-responsive rounded-3 border border-secondary mb-3">
                         <table class="table table-dark table-sm align-middle mb-0" id="expensesTable">
-                          <thead>
-                            <tr class="bg-black bg-opacity-25" id="expenseTableHeader">
-                            </tr>
-                          </thead>
+                          <thead><tr class="bg-black bg-opacity-25" id="expenseTableHeader"></tr></thead>
                           <tbody id="expenseTableBody" class="border-top-0"></tbody>
                         </table>
                       </div>
-                      <div class="card bg-black border-secondary">
-                        <div class="card-body py-2 text-center" id="expenseFooter">
-                        </div>
-                      </div>
+                      <div class="card bg-black border-secondary"><div class="card-body py-2 text-center" id="expenseFooter"></div></div>
                     </div>
                   </div>
 
                   <div class="card mb-4">
-                    <div class="card-header d-flex align-items-center"><i class="bi bi-credit-card-2-front text-danger fs-5 me-2"></i>
-                      <h5>6. Other Liabilities</h5>
-                    </div>
-                    <div class="card-body">
-                      <div id="debt-container" class="mb-3"></div><button type="button" class="btn btn-outline-secondary btn-sm" id="btnAddDebt"><i class="bi bi-plus-lg me-1"></i>Add Liability</button>
-                    </div>
+                    <div class="card-header d-flex align-items-center"><i class="bi bi-credit-card-2-front text-danger fs-5 me-2"></i><h5>6. Other Liabilities</h5></div>
+                    <div class="card-body"><div id="debt-container" class="mb-3"></div><button type="button" class="btn btn-outline-secondary btn-sm" id="btnAddDebt"><i class="bi bi-plus-lg me-1"></i>Add Liability</button></div>
                   </div>
 
                   <div class="card mb-4">
                     <div class="card-header d-flex align-items-center justify-content-between">
-                      <div class="d-flex align-items-center">
-                        <i class="bi bi-gift text-success fs-5 me-2"></i>
-                        <h5>7. Windfalls & Inheritance</h5>
-                      </div>
+                      <div class="d-flex align-items-center"><i class="bi bi-gift text-success fs-5 me-2"></i><h5>7. Windfalls & Inheritance</h5></div>
                       <button type="button" class="btn btn-sm btn-success" id="btnAddWindfall"><i class="bi bi-plus-lg me-1"></i>Add Event</button>
                     </div>
-                    <div class="card-body">
-                      <div id="windfall-container"></div>
-                      <p class="small text-muted mt-2 mb-0">Track one-time inheritances, large bonuses, or sale of assets here.</p>
-                    </div>
+                    <div class="card-body"><div id="windfall-container"></div><p class="small text-muted mt-2 mb-0">Track one-time inheritances, large bonuses, or sale of assets here.</p></div>
                   </div>
 
                   <div class="card mb-4">
-                    <div class="card-header d-flex align-items-center"><i class="bi bi-bank text-primary fs-5 me-2"></i>
-                      <h5>8. Government Benefits (CPP / OAS)</h5>
-                    </div>
+                    <div class="card-header d-flex align-items-center"><i class="bi bi-bank text-primary fs-5 me-2"></i><h5>8. Government Benefits (CPP / OAS)</h5></div>
                     <div class="card-body">
                       <div class="row g-4">
                         <div class="col-12 col-md-6">
                           <div class="p-3 border border-secondary rounded-3">
                             <h6 class="text-info mb-3">Player 1 Optimization</h6>
                             <div class="row g-3">
-                              <div class="col-6">
-                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                  <label class="form-label mb-0">CPP Start</label>
-                                  <div class="form-check form-switch min-h-0 mb-0">
-                                    <input class="form-check-input live-calc" type="checkbox" role="switch" id="p1_cpp_enabled" checked>
-                                  </div>
-                                </div>
-                                <select class="form-select live-calc cpp-age-select" id="p1_cpp_start"></select>
-                                <div class="d-flex flex-column mt-2"><span class="est-benefit small text-muted" id="p1_cpp_est"></span><span class="opt-benefit small" id="p1_cpp_opt"></span></div>
-                              </div>
-                              <div class="col-6">
-                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                  <label class="form-label mb-0">OAS Start</label>
-                                  <div class="form-check form-switch min-h-0 mb-0">
-                                    <input class="form-check-input live-calc" type="checkbox" role="switch" id="p1_oas_enabled" checked>
-                                  </div>
-                                </div>
-                                <select class="form-select live-calc oas-age-select" id="p1_oas_start"></select>
-                                <div class="d-flex flex-column mt-2"><span class="est-benefit small text-muted" id="p1_oas_est"></span><span class="opt-benefit small" id="p1_oas_opt"></span></div>
-                              </div>
+                              <div class="col-6"><div class="d-flex justify-content-between align-items-center mb-1"><label class="form-label mb-0">CPP Start</label><div class="form-check form-switch min-h-0 mb-0"><input class="form-check-input live-calc" type="checkbox" role="switch" id="p1_cpp_enabled" checked></div></div><select class="form-select live-calc cpp-age-select" id="p1_cpp_start"></select><div class="d-flex flex-column mt-2"><span class="est-benefit small text-muted" id="p1_cpp_est"></span><span class="opt-benefit small" id="p1_cpp_opt"></span></div></div>
+                              <div class="col-6"><div class="d-flex justify-content-between align-items-center mb-1"><label class="form-label mb-0">OAS Start</label><div class="form-check form-switch min-h-0 mb-0"><input class="form-check-input live-calc" type="checkbox" role="switch" id="p1_oas_enabled" checked></div></div><select class="form-select live-calc oas-age-select" id="p1_oas_start"></select><div class="d-flex flex-column mt-2"><span class="est-benefit small text-muted" id="p1_oas_est"></span><span class="opt-benefit small" id="p1_oas_opt"></span></div></div>
                             </div>
                             <div class="mt-4 pt-3 border-top border-secondary">
                               <label class="form-label">Defined Benefit (DB) Pension</label>
                               <div class="input-group mb-2"><span class="input-group-text">$</span><input type="text" class="form-control live-calc formatted-num" id="p1_db_pension" value="0"><span class="input-group-text">/mo</span></div>
-                              
-                              <label class="form-label small text-muted mt-1">Starts at Age: <span id="p1_db_start_val" class="text-info fw-bold">60</span></label>
-                              <input type="range" class="form-range live-calc" id="p1_db_start_age" min="55" max="75" value="60" oninput="document.getElementById('p1_db_start_val').innerText = this.value">
+                              <label class="form-label small text-muted mt-1">Starts at Age: <span id="p1_db_start_val" class="text-info fw-bold">60</span></label><input type="range" class="form-range live-calc" id="p1_db_start_age" min="55" max="75" value="60" oninput="document.getElementById('p1_db_start_val').innerText = this.value">
                             </div>
                           </div>
                         </div>
@@ -661,33 +281,13 @@
                           <div class="p-3 border border-secondary rounded-3">
                             <h6 class="text-purple mb-3" style="color: var(--purple)">Player 2 Optimization</h6>
                             <div class="row g-3">
-                              <div class="col-6">
-                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                  <label class="form-label mb-0">CPP Start</label>
-                                  <div class="form-check form-switch min-h-0 mb-0">
-                                    <input class="form-check-input live-calc" type="checkbox" role="switch" id="p2_cpp_enabled" checked>
-                                  </div>
-                                </div>
-                                <select class="form-select live-calc cpp-age-select" id="p2_cpp_start"></select>
-                                <div class="d-flex flex-column mt-2"><span class="est-benefit small text-muted" id="p2_cpp_est"></span><span class="opt-benefit small" id="p2_cpp_opt"></span></div>
-                              </div>
-                              <div class="col-6">
-                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                  <label class="form-label mb-0">OAS Start</label>
-                                  <div class="form-check form-switch min-h-0 mb-0">
-                                    <input class="form-check-input live-calc" type="checkbox" role="switch" id="p2_oas_enabled" checked>
-                                  </div>
-                                </div>
-                                <select class="form-select live-calc oas-age-select" id="p2_oas_start"></select>
-                                <div class="d-flex flex-column mt-2"><span class="est-benefit small text-muted" id="p2_oas_est"></span><span class="opt-benefit small" id="p2_oas_opt"></span></div>
-                              </div>
+                              <div class="col-6"><div class="d-flex justify-content-between align-items-center mb-1"><label class="form-label mb-0">CPP Start</label><div class="form-check form-switch min-h-0 mb-0"><input class="form-check-input live-calc" type="checkbox" role="switch" id="p2_cpp_enabled" checked></div></div><select class="form-select live-calc cpp-age-select" id="p2_cpp_start"></select><div class="d-flex flex-column mt-2"><span class="est-benefit small text-muted" id="p2_cpp_est"></span><span class="opt-benefit small" id="p2_cpp_opt"></span></div></div>
+                              <div class="col-6"><div class="d-flex justify-content-between align-items-center mb-1"><label class="form-label mb-0">OAS Start</label><div class="form-check form-switch min-h-0 mb-0"><input class="form-check-input live-calc" type="checkbox" role="switch" id="p2_oas_enabled" checked></div></div><select class="form-select live-calc oas-age-select" id="p2_oas_start"></select><div class="d-flex flex-column mt-2"><span class="est-benefit small text-muted" id="p2_oas_est"></span><span class="opt-benefit small" id="p2_oas_opt"></span></div></div>
                             </div>
                             <div class="mt-4 pt-3 border-top border-secondary">
                               <label class="form-label">Defined Benefit (DB) Pension</label>
                               <div class="input-group mb-2"><span class="input-group-text">$</span><input type="text" class="form-control live-calc formatted-num" id="p2_db_pension" value="0"><span class="input-group-text">/mo</span></div>
-                              
-                              <label class="form-label small text-muted mt-1">Starts at Age: <span id="p2_db_start_val" class="text-purple fw-bold">60</span></label>
-                              <input type="range" class="form-range live-calc" id="p2_db_start_age" min="55" max="75" value="60" oninput="document.getElementById('p2_db_start_val').innerText = this.value">
+                              <label class="form-label small text-muted mt-1">Starts at Age: <span id="p2_db_start_val" class="text-purple fw-bold">60</span></label><input type="range" class="form-range live-calc" id="p2_db_start_age" min="55" max="75" value="60" oninput="document.getElementById('p2_db_start_val').innerText = this.value">
                             </div>
                           </div>
                         </div>
@@ -696,43 +296,27 @@
                   </div>
 
                   <div class="card mb-4">
-                    <div class="card-header d-flex align-items-center"><i class="bi bi-graph-up-arrow text-secondary fs-5 me-2"></i>
-                      <h5>9. Economic Assumptions</h5>
-                    </div>
+                    <div class="card-header d-flex align-items-center"><i class="bi bi-graph-up-arrow text-secondary fs-5 me-2"></i><h5>9. Economic Assumptions</h5></div>
                     <div class="card-body">
                       <div class="row">
-                        <div class="col-md-4"><label class="form-label">Inflation Rate</label>
-                          <div class="input-group"><input type="number" step="0.01" class="form-control live-calc" id="inflation_rate" value="2.1"><span class="input-group-text">%</span></div>
-                          <div class="mt-1"><a href="https://www.bankofcanada.ca/core-functions/monetary-policy/inflation/" target="_blank" class="small text-muted text-decoration-underline" style="font-size: 0.75rem;">BoC Target: 2%</a></div>
-                        </div>
+                        <div class="col-md-4"><label class="form-label">Inflation Rate</label><div class="input-group"><input type="number" step="0.01" class="form-control live-calc" id="inflation_rate" value="2.1"><span class="input-group-text">%</span></div><div class="mt-1"><a href="https://www.bankofcanada.ca/core-functions/monetary-policy/inflation/" target="_blank" class="small text-muted text-decoration-underline" style="font-size: 0.75rem;">BoC Target: 2%</a></div></div>
                       </div>
                     </div>
                   </div>
-
                 </form>
               </div>
 
               <div class="tab-pane fade p-0" id="summary-pane" role="tabpanel">
                 <div class="card">
-                  <div class="card-header d-flex justify-content-end p-2 border-bottom border-secondary bg-black bg-opacity-25">
-                    <button class="btn btn-sm btn-outline-success" id="btnExportCSV"><i class="bi bi-file-earmark-spreadsheet me-2"></i>Export CSV</button>
-                  </div>
-                  <div class="card-body p-0">
-                    <div class="table-container" id="summaryTableContainer" style="max-height: 85vh; overflow-y: auto;">
-                      <div id="projectionGrid"></div>
-                      <table class="summary-table" id="oldSummaryTable" style="display:none;">
-                      </table>
-                    </div>
-                  </div>
+                  <div class="card-header d-flex justify-content-end p-2 border-bottom border-secondary bg-black bg-opacity-25"><button class="btn btn-sm btn-outline-success" id="btnExportCSV"><i class="bi bi-file-earmark-spreadsheet me-2"></i>Export CSV</button></div>
+                  <div class="card-body p-0"><div class="table-container" id="summaryTableContainer" style="max-height: 85vh; overflow-y: auto;"><div id="projectionGrid"></div><table class="summary-table" id="oldSummaryTable" style="display:none;"></table></div></div>
                 </div>
               </div>
 
               <div class="tab-pane fade p-3 p-md-5" id="strategy-pane" role="tabpanel">
                 <div class="row g-5">
                   <div class="col-md-6">
-                    <div class="d-flex align-items-center mb-3"><i class="bi bi-piggy-bank text-success fs-3 me-2"></i>
-                      <h5 class="text-success mb-0">Accumulation Strategy (Surplus)</h5>
-                    </div>
+                    <div class="d-flex align-items-center mb-3"><i class="bi bi-piggy-bank text-success fs-3 me-2"></i><h5 class="text-success mb-0">Accumulation Strategy (Surplus)</h5></div>
                     <p class="small text-muted">Drag to prioritize where surplus cash is saved. Top items fill first.</p>
                     <div id="strat-accum-container" class="mb-4"></div>
                     <div class="strategy-opt-box">
@@ -746,9 +330,7 @@
                     </div>
                   </div>
                   <div class="col-md-6">
-                    <div class="d-flex align-items-center mb-3"><i class="bi bi-wallet2 text-warning fs-3 me-2"></i>
-                      <h5 class="text-warning mb-0">Decumulation Strategy (Deficit)</h5>
-                    </div>
+                    <div class="d-flex align-items-center mb-3"><i class="bi bi-wallet2 text-warning fs-3 me-2"></i><h5 class="text-warning mb-0">Decumulation Strategy (Deficit)</h5></div>
                     <p class="small text-muted">Drag to prioritize withdrawal sources during retirement/deficits.</p>
                     <div id="strat-decumulation" class="mb-4"></div>
                   </div>
@@ -759,10 +341,7 @@
                 <div class="card border-0 bg-transparent shadow-none" style="overflow: hidden; width: 100%;">
                   <div class="card-body p-0">
                     <div class="d-flex align-items-center justify-content-center mb-4"><label class="form-label me-3 mb-0">Timeline:</label><input type="range" class="form-range" id="yearSlider" min="0" max="40" value="0" style="max-width: 400px;">
-                      <div class="ms-4 text-center">
-                        <div class="fs-4 fw-bold text-info" id="sliderYearDisplay">2026</div>
-                        <div class="text-muted small" id="cfAgeDisplay">(Age: --)</div>
-                      </div>
+                      <div class="ms-4 text-center"><div class="fs-4 fw-bold text-info" id="sliderYearDisplay">2026</div><div class="text-muted small" id="cfAgeDisplay">(Age: --)</div></div>
                     </div>
                     <div id="sankey_chart" style="width: 100%; height: 600px;"></div>
                   </div>
@@ -774,43 +353,24 @@
                   <div class="col-md-5">
                     <h5 class="text-info mb-3">Save Current State</h5>
                     <div class="card p-3 mb-4"><label class="form-label">Scenario Name</label>
-                      <div class="input-group mb-3"><input type="text" id="scenarioName" class="form-control" placeholder="e.g. Early Retirement"><button class="btn btn-primary" id="btnSaveScenario"><i class="bi bi-save"></i> Save</button></div>
-                      <p class="small text-muted">Saves all inputs, expenses, and debt configurations.</p>
+                      <div class="input-group mb-3"><input type="text" id="scenarioName" class="form-control" placeholder="e.g. Early Retirement"><button class="btn btn-primary" id="btnSaveScenario"><i class="bi bi-save"></i> Save</button></div><p class="small text-muted">Saves all inputs, expenses, and debt configurations.</p>
                     </div>
-                    
                     <h5 class="text-muted small text-uppercase fw-bold mb-3 mt-4 pt-4 border-top border-secondary">Advanced File Options</h5>
                     <div class="d-grid gap-2">
-                        <div class="d-flex gap-2">
-                            <button class="btn btn-outline-secondary flex-grow-1 btn-sm" onclick="document.getElementById('fileUpload').click()"><i class="bi bi-upload me-2"></i>Import from File</button>
-                            <input type="file" id="fileUpload" style="display: none;" accept=".json">
-                        </div>
+                        <div class="d-flex gap-2"><button class="btn btn-outline-secondary flex-grow-1 btn-sm" onclick="document.getElementById('fileUpload').click()"><i class="bi bi-upload me-2"></i>Import from File</button><input type="file" id="fileUpload" style="display: none;" accept=".json"></div>
                         <button class="btn btn-outline-danger btn-sm" id="btnClearStorage"><i class="bi bi-trash3 me-2"></i>Reset All Data</button>
                     </div>
                   </div>
-                  <div class="col-md-7">
-                    <h5 class="text-info mb-3">Load Saved Scenarios</h5>
-                    <ul class="list-group" id="scenarioList"></ul>
-                  </div>
+                  <div class="col-md-7"><h5 class="text-info mb-3">Load Saved Scenarios</h5><ul class="list-group" id="scenarioList"></ul></div>
                 </div>
               </div>
 
               <div class="tab-pane fade p-3 p-md-5" id="compare-pane" role="tabpanel">
                 <div class="row mb-4">
-                  <div class="col-12">
-                    <h5 class="text-info mb-3">Comparison Controls</h5>
-                    <div class="card p-3 mb-3">
-                      <p class="small text-muted mb-2">Check scenarios to compare. Chart updates automatically on toggle.</p>
-                      <div class="d-flex flex-wrap gap-2" id="compareSelectionArea"></div>
-                    </div>
-                  </div>
+                  <div class="col-12"><h5 class="text-info mb-3">Comparison Controls</h5><div class="card p-3 mb-3"><p class="small text-muted mb-2">Check scenarios to compare. Chart updates automatically on toggle.</p><div class="d-flex flex-wrap gap-2" id="compareSelectionArea"></div></div></div>
                 </div>
                 <div class="row g-4">
-                  <div class="col-12">
-                    <div class="card p-3">
-                      <h6 class="text-center text-success mb-3">Net Worth Trajectory Comparison</h6>
-                      <div style="height: 500px; position: relative; width: 100%;"><canvas id="chartNW"></canvas></div>
-                    </div>
-                  </div>
+                  <div class="col-12"><div class="card p-3"><h6 class="text-center text-success mb-3">Net Worth Trajectory Comparison</h6><div style="height: 500px; position: relative; width: 100%;"><canvas id="chartNW"></canvas></div></div></div>
                 </div>
               </div>
 
@@ -823,27 +383,17 @@
     <div class="modal fade" id="confirmationModal" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-          <div class="modal-header border-secondary">
-            <h5 class="modal-title fs-6">Confirmation</h5>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-          </div>
-          <div class="modal-body small text-muted">
-          </div>
-          <div class="modal-footer border-secondary p-1">
-            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-            <button type="button" class="btn btn-sm btn-danger" id="btnConfirmAction">Confirm</button>
-          </div>
+          <div class="modal-header border-secondary"><h5 class="modal-title fs-6">Confirmation</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button></div>
+          <div class="modal-body small text-muted"></div>
+          <div class="modal-footer border-secondary p-1"><button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="button" class="btn btn-sm btn-danger" id="btnConfirmAction">Confirm</button></div>
         </div>
       </div>
     </div>
 
-    <div class="text-center text-muted small pb-4">
-      Retirement Planner Pro &copy; 2026. Data is processed locally in your browser.
-    </div>
+    <div class="text-center text-muted small pb-4">Retirement Planner Pro &copy; 2026. Data is processed locally in your browser.</div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="script.js"></script>
 </body>
-
 </html>
