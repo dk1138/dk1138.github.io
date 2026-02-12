@@ -1,9 +1,9 @@
 /**
- * Retirement Planner Pro - Logic v10.17 (Phase Age Boundary Enforcement)
+ * Retirement Planner Pro - Logic v10.18 (Added Popovers)
  */
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.17";
+        this.APP_VERSION = "10.18";
         this.state = {
             inputs: {}, debt: [],
             properties: [{ name: "Primary Home", value: 1000000, mortgage: 430000, growth: 3.0, rate: 3.29, payment: 0, manual: false, includeInNW: false }],
@@ -78,10 +78,21 @@ class RetirementPlanner {
             this.initTheme(); this.loadScenariosList(); this.syncStateFromDOM(); this.toggleModeDisplay(); 
             this.updatePostRetIncomeVisibility(); this.updateAgeDisplay('p1'); this.updateAgeDisplay('p2');
             this.updateAllMortgages(); this.findOptimal(); this.bindEvents(); this.initSidebar();
+            
+            this.initPopovers(); // Initialize Bootstrap popovers
+
             setTimeout(() => { this.syncStateFromDOM(); this.run(); }, 500); 
         };
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup);
         else setup(); 
+    }
+
+    initPopovers() {
+        const popoverTriggerList = document.querySelectorAll('[data-bs-toggle="popover"]');
+        [...popoverTriggerList].map(popoverTriggerEl => new bootstrap.Popover(popoverTriggerEl, {
+            trigger: 'focus', 
+            html: true 
+        }));
     }
 
     initTheme() {
