@@ -99,7 +99,13 @@
 
                 <form id="financialForm">
                   <div class="card mb-4">
-                    <div class="card-header d-flex align-items-center"><i class="bi bi-person-vcard text-info fs-5 me-2"></i><h5>1. Personal Information</h5></div>
+                    <div class="card-header d-flex align-items-center">
+                        <i class="bi bi-person-vcard text-info fs-5 me-2"></i>
+                        <h5 class="mb-0 me-2">1. Personal Information</h5>
+                        <button type="button" class="btn btn-link p-0 text-muted" data-bs-toggle="popover" data-bs-title="Personal Details" data-bs-content="Set your Date of Birth and targeted Retirement Age. <b>Life Expectancy</b> defines how long the simulation runs (ensuring you don't run out of money too early).">
+                          <i class="bi bi-info-circle"></i>
+                        </button>
+                    </div>
                     <div class="card-body">
                       <div class="row g-4">
                         <div class="col-12 col-xl-6">
@@ -138,7 +144,13 @@
 
                   <div class="card mb-4">
                     <div class="card-header d-flex align-items-center justify-content-between">
-                      <div class="d-flex align-items-center"><i class="bi bi-wallet2 text-success fs-5 me-2"></i><h5 class="mb-0">2. Portfolio Assets</h5></div>
+                      <div class="d-flex align-items-center">
+                        <i class="bi bi-wallet2 text-success fs-5 me-2"></i>
+                        <h5 class="mb-0 me-2">2. Portfolio Assets</h5>
+                        <button type="button" class="btn btn-link p-0 text-muted" data-bs-toggle="popover" data-bs-title="Assets & Returns" data-bs-content="Enter your <b>current</b> balances. The <b>Return %</b> is your expected annual growth. <br><br>Toggle <b>Advanced Mode</b> to set different return rates for after you retire (e.g., shifting to safer, lower-return investments).">
+                          <i class="bi bi-info-circle"></i>
+                        </button>
+                      </div>
                       <div class="form-check form-switch"><input class="form-check-input live-calc" type="checkbox" id="asset_mode_advanced" role="switch"><label class="form-check-label small fw-bold" for="asset_mode_advanced">Advanced Mode</label></div>
                     </div>
                     <div class="card-body">
@@ -175,14 +187,26 @@
 
                   <div class="card mb-4">
                     <div class="card-header d-flex align-items-center justify-content-between">
-                      <div class="d-flex align-items-center"><i class="bi bi-house-heart text-danger fs-5 me-2"></i><h5>3. Real Estate & Mortgage</h5></div>
+                      <div class="d-flex align-items-center">
+                        <i class="bi bi-house-heart text-danger fs-5 me-2"></i>
+                        <h5 class="mb-0 me-2">3. Real Estate & Mortgage</h5>
+                        <button type="button" class="btn btn-link p-0 text-muted" data-bs-toggle="popover" data-bs-title="Property Tracking" data-bs-content="Track home equity and mortgage payoff. <br><b>Growth:</b> Annual increase in property value.<br><b>Include in NW:</b> Toggle this if you plan to sell the home to fund retirement. If unchecked, it remains an asset but isn't counted as liquid retirement cash.">
+                          <i class="bi bi-info-circle"></i>
+                        </button>
+                      </div>
                       <button type="button" class="btn btn-sm btn-success" id="btnAddProperty"><i class="bi bi-plus-lg me-1"></i>Add Property</button>
                     </div>
                     <div class="card-body"><div id="real-estate-container"></div></div>
                   </div>
 
                   <div class="card mb-4">
-                    <div class="card-header d-flex align-items-center"><i class="bi bi-cash-coin text-warning fs-5 me-2"></i><h5>4. Income & Taxation</h5></div>
+                    <div class="card-header d-flex align-items-center">
+                        <i class="bi bi-cash-coin text-warning fs-5 me-2"></i>
+                        <h5 class="mb-0 me-2">4. Income & Taxation</h5>
+                        <button type="button" class="btn btn-link p-0 text-muted" data-bs-toggle="popover" data-bs-title="Income & Tax" data-bs-content="Enter <b>Gross Annual Income</b> (before tax). The system automatically calculates Federal and Provincial taxes based on your selected Province. <br><br>Use 'Add Stream' for side hustles or rental income.">
+                          <i class="bi bi-info-circle"></i>
+                        </button>
+                    </div>
                     <div class="card-body">
                       <div class="row mb-3">
                         <div class="col-12 col-md-4"><label class="form-label">Province of Residence</label>
@@ -258,7 +282,13 @@
 
                   <div class="card mb-4">
                     <div class="card-header d-flex align-items-center justify-content-between">
-                      <div class="d-flex align-items-center"><i class="bi bi-cart4 text-white fs-5 me-2"></i><h5 class="mb-0">5. Living Expenses</h5></div>
+                      <div class="d-flex align-items-center">
+                        <i class="bi bi-cart4 text-white fs-5 me-2"></i>
+                        <h5 class="mb-0 me-2">5. Living Expenses</h5>
+                        <button type="button" class="btn btn-link p-0 text-muted" data-bs-toggle="popover" data-bs-title="Budgeting" data-bs-content="Enter your current monthly or annual spending. <br><br><b>Simple Mode:</b> Set one budget for working years and one for retirement.<br><b>Advanced Mode:</b> Define spending for 3 phases of retirement: Go-Go (Active), Slow-Go (Less active), and No-Go (Late stage).">
+                          <i class="bi bi-info-circle"></i>
+                        </button>
+                      </div>
                       <div class="form-check form-switch"><input class="form-check-input live-calc" type="checkbox" id="expense_mode_advanced" role="switch"><label class="form-check-label small fw-bold" for="expense_mode_advanced">Advanced Mode</label></div>
                     </div>
                     <div class="card-body">
@@ -296,7 +326,13 @@
                   </div>
 
                   <div class="card mb-4">
-                    <div class="card-header d-flex align-items-center"><i class="bi bi-bank text-primary fs-5 me-2"></i><h5>8. Government Benefits (CPP / OAS)</h5></div>
+                    <div class="card-header d-flex align-items-center">
+                        <i class="bi bi-bank text-primary fs-5 me-2"></i>
+                        <h5 class="mb-0 me-2">8. Government Benefits (CPP / OAS)</h5>
+                        <button type="button" class="btn btn-link p-0 text-muted" data-bs-toggle="popover" data-bs-title="CPP / OAS / Pension" data-bs-content="Adjust the age you plan to take CPP (Canada Pension Plan) and OAS (Old Age Security). Taking it later usually increases the monthly payout.<br><br>If you have a workplace <b>Defined Benefit (DB)</b> pension, enter the monthly amount here.">
+                          <i class="bi bi-info-circle"></i>
+                        </button>
+                    </div>
                     <div class="card-body">
                       <div class="row g-4">
                         <div class="col-12 col-md-6">
@@ -368,7 +404,13 @@
               <div class="tab-pane fade p-3 p-md-5" id="strategy-pane" role="tabpanel">
                 <div class="row g-5">
                   <div class="col-md-6">
-                    <div class="d-flex align-items-center mb-3"><i class="bi bi-piggy-bank text-success fs-3 me-2"></i><h5 class="text-success mb-0">Accumulation Strategy (Surplus)</h5></div>
+                    <div class="d-flex align-items-center mb-3">
+                      <i class="bi bi-piggy-bank text-success fs-3 me-2"></i>
+                      <h5 class="text-success mb-0 me-2">Accumulation Strategy (Surplus)</h5>
+                      <button type="button" class="btn btn-link p-0 text-muted" data-bs-toggle="popover" data-bs-title="Savings Priority" data-bs-content="<b>Drag and Drop</b> the items below to change the order.<br><br>When you have extra money at the end of the year, this list determines which account gets filled first (e.g., max out TFSA, then RRSP, then Cash).">
+                        <i class="bi bi-info-circle"></i>
+                      </button>
+                    </div>
                     <p class="small text-muted">Drag to prioritize where surplus cash is saved. Top items fill first.</p>
                     <div id="strat-accum-container" class="mb-4"></div>
                     <div class="strategy-opt-box">
@@ -382,7 +424,13 @@
                     </div>
                   </div>
                   <div class="col-md-6">
-                    <div class="d-flex align-items-center mb-3"><i class="bi bi-wallet2 text-warning fs-3 me-2"></i><h5 class="text-warning mb-0">Decumulation Strategy (Deficit)</h5></div>
+                    <div class="d-flex align-items-center mb-3">
+                      <i class="bi bi-wallet2 text-warning fs-3 me-2"></i>
+                      <h5 class="text-warning mb-0 me-2">Decumulation Strategy (Deficit)</h5>
+                      <button type="button" class="btn btn-link p-0 text-muted" data-bs-toggle="popover" data-bs-title="Withdrawal Order" data-bs-content="<b>Drag and Drop</b> to prioritize.<br><br>When you retire (or spend more than you earn), this determines which assets are sold first to cover your expenses. Optimizing this can save significant tax dollars.">
+                        <i class="bi bi-info-circle"></i>
+                      </button>
+                    </div>
                     <p class="small text-muted">Drag to prioritize withdrawal sources during retirement/deficits.</p>
                     <div id="strat-decumulation" class="mb-4"></div>
                   </div>
