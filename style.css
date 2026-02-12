@@ -87,8 +87,9 @@ body.is-couple .p2-column:not(td):not(th) { display: block; }
 body:not(.is-couple) .p2-column:not(td):not(th) { display: none; }
 
 .super-header th { z-index: 31 !important; top: 0; background-color: var(--bg-inner) !important; color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; padding: 4px 0; border-bottom: 1px solid var(--border-color); }
-.sticky-left { position: sticky; left: 0; z-index: 20; background-color: var(--bg-card) !important; border-right: 1px solid var(--border-color); }
-.sticky-right { position: sticky; right: 0; z-index: 20; background-color: var(--bg-card) !important; border-left: 2px solid var(--border-color); }
+.sticky-left, .sticky-right { background-color: var(--bg-card) !important; }
+.sticky-left { position: sticky; left: 0; z-index: 20; border-right: 1px solid var(--border-color); }
+.sticky-right { position: sticky; right: 0; z-index: 20; border-left: 2px solid var(--border-color); }
 .col-events { left: 0; width: 50px; text-align: center; }
 .col-year   { left: 50px; width: 60px; text-align: center; }
 .col-age    { left: 110px; width: 80px; text-align: center; border-right: 2px solid var(--border-color) !important; }
@@ -167,4 +168,33 @@ body:not(.is-couple) .p2-column:not(td):not(th) { display: none; }
   .nav-tabs { flex-wrap: nowrap; overflow-x: scroll; justify-content: flex-start; }
   .nav-item { min-width: 100px; }
   .household-row { text-align: center; margin-bottom: 1rem; }
+}
+
+/* Info Button Styling */
+.btn-link.text-muted:hover {
+    color: var(--info) !important;
+    transform: scale(1.1);
+}
+
+/* Popover Styling for Dark Mode */
+[data-bs-theme="dark"] .popover {
+    --bs-popover-bg: #1e293b;
+    --bs-popover-border-color: #475569;
+    --bs-popover-header-bg: rgba(255, 255, 255, 0.05);
+    --bs-popover-header-color: #fff;
+    --bs-popover-body-color: #cbd5e1;
+}
+
+[data-bs-theme="dark"] .popover-header {
+    border-bottom: 1px solid var(--border-color);
+}
+
+[data-bs-theme="dark"] .bs-popover-auto[data-popper-placement^=top] > .popover-arrow::after, 
+[data-bs-theme="dark"] .bs-popover-top > .popover-arrow::after {
+    border-top-color: #1e293b;
+}
+
+[data-bs-theme="dark"] .bs-popover-auto[data-popper-placement^=bottom] > .popover-arrow::after, 
+[data-bs-theme="dark"] .bs-popover-bottom > .popover-arrow::after {
+    border-bottom-color: #1e293b; /* Match card bg */
 }
