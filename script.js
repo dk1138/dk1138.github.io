@@ -1,9 +1,9 @@
 /**
- * Retirement Planner Pro - Logic v10.18 (Added Popovers)
+ * Retirement Planner Pro - Logic v10.20 (Final: Popovers, Collapsible Assets & New Account Types)
  */
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.18";
+        this.APP_VERSION = "10.20";
         this.state = {
             inputs: {}, debt: [],
             properties: [{ name: "Primary Home", value: 1000000, mortgage: 430000, growth: 3.0, rate: 3.29, payment: 0, manual: false, includeInNW: false }],
@@ -334,8 +334,14 @@ class RetirementPlanner {
             p1_tfsa_ret: '6.0', p1_tfsa_ret_retire: '6.0', p2_tfsa_ret: '6.0', p2_tfsa_ret_retire: '6.0', 
             p1_rrsp_ret: '6.0', p1_rrsp_ret_retire: '6.0', p2_rrsp_ret: '6.0', p2_rrsp_ret_retire: '6.0', 
             p1_nonreg_ret: '5.0', p1_nonreg_ret_retire: '5.0', p2_nonreg_ret: '5.0', p2_nonreg_ret_retire: '5.0', 
-            p1_crypto_ret: '8.0', p1_crypto_ret_retire: '8.0', p2_crypto_ret: '8.0', p2_crypto_ret_retire: '8.0', 
+            p1_crypto_ret: '8.0', p1_crypto_ret_retire: '8.0', p2_crypto_ret: '8.0', p2_crypto_ret_retire: '8.0',
+            // New defaults
+            p1_lirf_ret: '6.0', p1_lirf_ret_retire: '6.0', p2_lirf_ret: '6.0', p2_lirf_ret_retire: '6.0',
+            p1_lif_ret: '5.0', p1_lif_ret_retire: '5.0', p2_lif_ret: '5.0', p2_lif_ret_retire: '5.0',
+            p1_rrif_acct_ret: '5.0', p1_rrif_acct_ret_retire: '5.0', p2_rrif_acct_ret: '5.0', p2_rrif_acct_ret_retire: '5.0',
+            
             p1_income_growth: '2.0', p2_income_growth: '2.0', p1_db_pension: '0', p2_db_pension: '0', p1_db_start_age: '60', p2_db_start_age: '60', p1_cpp_enabled: true, p1_oas_enabled: true, p2_cpp_enabled: true, p2_oas_enabled: true, exp_gogo_age: '75', exp_slow_age: '85', enable_post_ret_income_p1: false, enable_post_ret_income_p2: false, p1_post_inc: '0', p1_post_growth: '2.0', p2_post_inc: '0', p2_post_growth: '2.0' };
+        
         document.querySelectorAll('input, select').forEach(el => {
             if(el.id && !el.id.startsWith('comp_') && !el.className.includes('-update') && !el.classList.contains('debt-amount')) {
                 if(defs[el.id] !== undefined) el.type === 'checkbox' ? el.checked = defs[el.id] : el.value = defs[el.id];
@@ -476,12 +482,20 @@ class RetirementPlanner {
     generateProjectionTable(onlyCalcNW = false) {
         if(!onlyCalcNW) this.state.projectionData = [];
         const mode = this.state.mode, prov = this.getRaw('tax_province'), infl = this.getVal('inflation_rate')/100, stress = this.state.inputs['stressTestEnabled'], rrspM = this.state.inputs['strat_rrsp_topup'], expM = this.state.expenseMode, assetAdv = this.state.inputs['asset_mode_advanced'], gLim = parseInt(this.getRaw('exp_gogo_age'))||75, sLim = parseInt(this.getRaw('exp_slow_age'))||85;
-        let p1 = { tfsa: this.getVal('p1_tfsa'), rrsp: this.getVal('p1_rrsp'), cash: this.getVal('p1_cash'), nreg: this.getVal('p1_nonreg'), crypto: this.getVal('p1_crypto'), inc: this.getVal('p1_income'), dob: new Date(this.getRaw('p1_dob')), retAge: this.getVal('p1_retireAge'), lifeExp: this.getVal('p1_lifeExp') }, p2 = { tfsa: this.getVal('p2_tfsa'), rrsp: this.getVal('p2_rrsp'), cash: this.getVal('p2_cash'), nreg: this.getVal('p2_nonreg'), crypto: this.getVal('p2_crypto'), inc: this.getVal('p2_income'), dob: new Date(this.getRaw('p2_dob')), retAge: this.getVal('p2_retireAge'), lifeExp: this.getVal('p2_lifeExp') };
+        
+        // --- 1. Get Values including new asset types ---
+        // Added: lirf, lif, rrif_acct to both P1 and P2 objects
+        let p1 = { tfsa: this.getVal('p1_tfsa'), rrsp: this.getVal('p1_rrsp'), cash: this.getVal('p1_cash'), nreg: this.getVal('p1_nonreg'), crypto: this.getVal('p1_crypto'), lirf: this.getVal('p1_lirf'), lif: this.getVal('p1_lif'), rrif_acct: this.getVal('p1_rrif_acct'), inc: this.getVal('p1_income'), dob: new Date(this.getRaw('p1_dob')), retAge: this.getVal('p1_retireAge'), lifeExp: this.getVal('p1_lifeExp') };
+        let p2 = { tfsa: this.getVal('p2_tfsa'), rrsp: this.getVal('p2_rrsp'), cash: this.getVal('p2_cash'), nreg: this.getVal('p2_nonreg'), crypto: this.getVal('p2_crypto'), lirf: this.getVal('p2_lirf'), lif: this.getVal('p2_lif'), rrif_acct: this.getVal('p2_rrif_acct'), inc: this.getVal('p2_income'), dob: new Date(this.getRaw('p2_dob')), retAge: this.getVal('p2_retireAge'), lifeExp: this.getVal('p2_lifeExp') };
+        
         const gR = id => this.getVal(id)/100;
-        const bR1 = { tfsa:gR('p1_tfsa_ret'), rrsp:gR('p1_rrsp_ret'), cash:gR('p1_cash_ret'), nreg:gR('p1_nonreg_ret'), cryp:gR('p1_crypto_ret'), inc:gR('p1_income_growth') };
-        const bR2 = { tfsa:gR('p2_tfsa_ret'), rrsp:gR('p2_rrsp_ret'), cash:gR('p2_cash_ret'), nreg:gR('p2_nonreg_ret'), cryp:gR('p2_crypto_ret'), inc:gR('p2_income_growth') };
-        const bR1_ret = { tfsa:gR('p1_tfsa_ret_retire'), rrsp:gR('p1_rrsp_ret_retire'), cash:gR('p1_cash_ret_retire'), nreg:gR('p1_nonreg_ret_retire'), cryp:gR('p1_crypto_ret_retire'), inc:gR('p1_income_growth') };
-        const bR2_ret = { tfsa:gR('p2_tfsa_ret_retire'), rrsp:gR('p2_rrsp_ret_retire'), cash:gR('p2_cash_ret_retire'), nreg:gR('p2_nonreg_ret_retire'), cryp:gR('p2_crypto_ret_retire'), inc:gR('p2_income_growth') };
+        
+        // --- 2. Get Growth Rates including new asset types ---
+        const bR1 = { tfsa:gR('p1_tfsa_ret'), rrsp:gR('p1_rrsp_ret'), cash:gR('p1_cash_ret'), nreg:gR('p1_nonreg_ret'), cryp:gR('p1_crypto_ret'), lirf:gR('p1_lirf_ret'), lif:gR('p1_lif_ret'), rrif_acct:gR('p1_rrif_acct_ret'), inc:gR('p1_income_growth') };
+        const bR2 = { tfsa:gR('p2_tfsa_ret'), rrsp:gR('p2_rrsp_ret'), cash:gR('p2_cash_ret'), nreg:gR('p2_nonreg_ret'), cryp:gR('p2_crypto_ret'), lirf:gR('p2_lirf_ret'), lif:gR('p2_lif_ret'), rrif_acct:gR('p2_rrif_acct_ret'), inc:gR('p2_income_growth') };
+        
+        const bR1_ret = { tfsa:gR('p1_tfsa_ret_retire'), rrsp:gR('p1_rrsp_ret_retire'), cash:gR('p1_cash_ret_retire'), nreg:gR('p1_nonreg_ret_retire'), cryp:gR('p1_crypto_ret_retire'), lirf:gR('p1_lirf_ret_retire'), lif:gR('p1_lif_ret_retire'), rrif_acct:gR('p1_rrif_acct_ret_retire'), inc:gR('p1_income_growth') };
+        const bR2_ret = { tfsa:gR('p2_tfsa_ret_retire'), rrsp:gR('p2_rrsp_ret_retire'), cash:gR('p2_cash_ret_retire'), nreg:gR('p2_nonreg_ret_retire'), cryp:gR('p2_crypto_ret_retire'), lirf:gR('p2_lirf_ret_retire'), lif:gR('p2_lif_ret_retire'), rrif_acct:gR('p2_rrif_acct_ret_retire'), inc:gR('p2_income_growth') };
         
         let p1DB = this.getVal('p1_db_pension')*12, p2DB = this.getVal('p2_db_pension')*12;
         let extVals = {
@@ -506,7 +520,11 @@ class RetirementPlanner {
             const p1R = a1>=p1.retAge, p2R = mode==='Couple'?a2>=p2.retAge:true, fRet = (al1?p1R:true) && (al2?p2R:true);
             let cR1 = {...(assetAdv && p1R ? bR1_ret : bR1)}, cR2 = {...(assetAdv && p2R ? bR2_ret : bR2)}, cYr = false;
             
-            if(stress && a1>=p1.retAge && a1<p1.retAge+2) { cYr=true; ['tfsa','rrsp','nreg','cash'].forEach(k=>{ cR1[k]=-0.15; cR2[k]=-0.15; }); cR1.cryp=-0.40; cR2.cryp=-0.40; }
+            if(stress && a1>=p1.retAge && a1<p1.retAge+2) { 
+                cYr=true; 
+                ['tfsa','rrsp','nreg','cash','lirf','lif','rrif_acct'].forEach(k=>{ cR1[k]=-0.15; cR2[k]=-0.15; }); 
+                cR1.cryp=-0.40; cR2.cryp=-0.40; 
+            }
             
             let yCont = {tfsa:0,rrsp:0,nreg:0,cash:0,crypto:0}, yWd = {}, wDBrk = {p1:{},p2:{}}, evt = [];
             if(al1){ if(p1R && !trg.has('P1 Retires')){ evt.push('P1 Retires'); trg.add('P1 Retires'); } if(a1===parseInt(this.getRaw('p1_cpp_start')) && this.state.inputs['p1_cpp_enabled']) evt.push('P1 CPP'); if(a1===parseInt(this.getRaw('p1_oas_start')) && this.state.inputs['p1_oas_enabled']) evt.push('P1 OAS'); } else if(!trg.has('P1 Dies')){ evt.push('P1 Dies'); trg.add('P1 Dies'); }
@@ -524,6 +542,7 @@ class RetirementPlanner {
             if(mode==='Couple' && al2){ if(!p2R){ g2+=p2.inc; p2.inc*=(1+cR2.inc); } if(a2>=parseInt(this.getRaw('p2_db_start_age')||60)) db2=p2DB*bInf; pst2=calcPost(this.state.inputs['enable_post_ret_income_p2'], extVals.p2PI, extVals.p2PS, extVals.p2PE, extVals.p2PG); if(this.state.inputs['p2_cpp_enabled'] && a2>=parseInt(this.getRaw('p2_cpp_start'))) c2=this.calcBen(cMax2, parseInt(this.getRaw('p2_cpp_start')), 1, p2.retAge); if(this.state.inputs['p2_oas_enabled'] && a2>=parseInt(this.getRaw('p2_oas_start'))) o2=this.calcBen(oMax2, parseInt(this.getRaw('p2_oas_start')), 1, 65); }
             cMax1*=(1+infl); oMax1*=(1+infl); cMax2*=(1+infl); oMax2*=(1+infl);
 
+            // RRIF Logic (Simulated conversion at 71 for RRSP)
             let rrif1=0; if(al1 && p1.rrsp>0 && a1>=this.CONSTANTS.RRIF_START_AGE){ rrif1=p1.rrsp*this.getRrifFactor(a1); p1.rrsp-=rrif1; if(rrif1>0){ yWd['P1 RRIF']=(yWd['P1 RRIF']||0)+rrif1; wDBrk.p1.RRIF=rrif1; } }
             let rrif2=0; if(al2 && p2.rrsp>0 && a2>=this.CONSTANTS.RRIF_START_AGE){ rrif2=p2.rrsp*this.getRrifFactor(a2); p2.rrsp-=rrif2; if(rrif2>0){ yWd['P2 RRIF']=(yWd['P2 RRIF']||0)+rrif2; wDBrk.p2.RRIF=rrif2; } }
 
@@ -556,8 +575,22 @@ class RetirementPlanner {
             let mOut = 0; simP.forEach(p => { if(p.mortgage>0 && p.payment>0) { let pA=p.payment*12, int=p.mortgage*(p.rate/100), prn=pA-int; if(prn>p.mortgage) { prn=p.mortgage; pA=prn+int; } p.mortgage=Math.max(0, p.mortgage-prn); mOut+=pA; } p.value*=(1+(p.growth/100)); });
 
             const nI1 = tTx1-t1.totalTax+wfN1, nI2 = al2 ? tTx2-t2.totalTax+wfN2 : 0;
-            let gr1 = {tfsa:p1.tfsa*cR1.tfsa, rrsp:p1.rrsp*cR1.rrsp, nreg:p1.nreg*cR1.nreg, cash:p1.cash*cR1.cash, cryp:p1.crypto*cR1.cryp}; p1.tfsa+=gr1.tfsa; p1.rrsp+=gr1.rrsp; p1.nreg+=gr1.nreg; p1.cash+=gr1.cash; p1.crypto+=gr1.cryp;
-            let gr2 = {tfsa:0,rrsp:0,nreg:0,cash:0,cryp:0}; if(al2){ gr2 = {tfsa:p2.tfsa*cR2.tfsa, rrsp:p2.rrsp*cR2.rrsp, nreg:p2.nreg*cR2.nreg, cash:p2.cash*cR2.cash, cryp:p2.crypto*cR2.cryp}; p2.tfsa+=gr2.tfsa; p2.rrsp+=gr2.rrsp; p2.nreg+=gr2.nreg; p2.cash+=gr2.cash; p2.crypto+=gr2.cryp; }
+            
+            // --- 3. Apply Growth to All Assets ---
+            let gr1 = {
+                tfsa:p1.tfsa*cR1.tfsa, rrsp:p1.rrsp*cR1.rrsp, nreg:p1.nreg*cR1.nreg, cash:p1.cash*cR1.cash, cryp:p1.crypto*cR1.cryp,
+                lirf:p1.lirf*cR1.lirf, lif:p1.lif*cR1.lif, rrif_acct:p1.rrif_acct*cR1.rrif_acct
+            }; 
+            p1.tfsa+=gr1.tfsa; p1.rrsp+=gr1.rrsp; p1.nreg+=gr1.nreg; p1.cash+=gr1.cash; p1.crypto+=gr1.cryp; p1.lirf+=gr1.lirf; p1.lif+=gr1.lif; p1.rrif_acct+=gr1.rrif_acct;
+            
+            let gr2 = {tfsa:0,rrsp:0,nreg:0,cash:0,cryp:0,lirf:0,lif:0,rrif_acct:0}; 
+            if(al2){ 
+                gr2 = {
+                    tfsa:p2.tfsa*cR2.tfsa, rrsp:p2.rrsp*cR2.rrsp, nreg:p2.nreg*cR2.nreg, cash:p2.cash*cR2.cash, cryp:p2.crypto*cR2.cryp,
+                    lirf:p2.lirf*cR2.lirf, lif:p2.lif*cR2.lif, rrif_acct:p2.rrif_acct*cR2.rrif_acct
+                }; 
+                p2.tfsa+=gr2.tfsa; p2.rrsp+=gr2.rrsp; p2.nreg+=gr2.nreg; p2.cash+=gr2.cash; p2.crypto+=gr2.cryp; p2.lirf+=gr2.lirf; p2.lif+=gr2.lif; p2.rrif_acct+=gr2.rrif_acct; 
+            }
 
             let surp = (nI1+nI2) - (aExp+mOut+dRep);
             if(surp>0) {
@@ -572,7 +605,10 @@ class RetirementPlanner {
 
             const getWd = pfix => ['TFSA','Cash','Non-Reg','Crypto'].reduce((s,k)=>s+(yWd[`${pfix} ${k}`]||0), 0);
             let fN1 = al1 ? nI1+getWd('P1') : 0, fN2 = al2 ? nI2+getWd('P2') : 0;
-            const iTot = p1.tfsa+p1.rrsp+p1.crypto+p1.nreg+p1.cash+(al2?p2.tfsa+p2.rrsp+p2.crypto+p2.nreg+p2.cash:0), lNW = iTot-othD;
+            
+            // --- 4. Total Including New Assets ---
+            const iTot = p1.tfsa+p1.rrsp+p1.crypto+p1.nreg+p1.cash+p1.lirf+p1.lif+p1.rrif_acct + (al2 ? p2.tfsa+p2.rrsp+p2.crypto+p2.nreg+p2.cash+p2.lirf+p2.lif+p2.rrif_acct : 0);
+            const lNW = iTot-othD;
             let iRE = 0, iRM = 0, tRE = 0, tRM = 0; simP.forEach(p => { tRE+=p.value; tRM+=p.mortgage; if(p.includeInNW){ iRE+=p.value; iRM+=p.mortgage; } });
             fNW = lNW+(iRE-iRM);
 
@@ -599,7 +635,13 @@ class RetirementPlanner {
                 let iL = ln("Employment P1",d.incomeP1) + (mode==='Couple'?ln("Employment P2",d.incomeP2):'') + sL("Post-Ret Work P1",d.postRetP1) + sL("Post-Ret Work P2",d.postRetP2) + ((d.benefitsP1+d.benefitsP2)>0?sL("CPP/OAS P1",d.cppP1+d.oasP1)+(mode==='Couple'?sL("CPP/OAS P2",d.cppP2+d.oasP2):''):'') + sL("DB Pension P1",d.dbP1) + sL("DB Pension P2",d.dbP2) + ln("Inheritance/Bonus",d.windfall,"text-success fw-bold");
                 Object.entries(d.wdBreakdown.p1).forEach(([t,a])=>iL+=sL(`${t} W/D P1`,a)); if(mode==='Couple') Object.entries(d.wdBreakdown.p2).forEach(([t,a])=>iL+=sL(`${t} W/D P2`,a));
                 let eL = ln("Living Exp",d.expenses)+ln("Mortgage",d.mortgagePay)+ln("Debt Repayment",d.debtPay)+ln("Tax Paid P1",d.taxP1,"val-negative")+(mode==='Couple'?ln("Tax Paid P2",d.taxP2,"val-negative"):'');
-                let aL = ln("TFSA P1",d.assetsP1.tfsa)+(mode==='Couple'?ln("TFSA P2",d.assetsP2.tfsa):'')+ln(d.p1Age>=72?'RRIF P1':'RRSP P1',d.assetsP1.rrsp)+(mode==='Couple'?ln(d.p2Age>=72?'RRIF P2':'RRSP P2',d.assetsP2.rrsp):'')+ln("Non-Reg P1",d.assetsP1.nreg)+(mode==='Couple'?ln("Non-Reg P2",d.assetsP2.nreg):'')+ln("Cash P1",d.assetsP1.cash)+(mode==='Couple'?ln("Cash P2",d.assetsP2.cash):'')+ln("Liquid Net Worth",d.liquidNW,"text-info fw-bold")+ln("Total Real Estate Eq.",d.homeValue-d.mortgage);
+                
+                // --- 5. Update Asset List Display in Detail Box ---
+                let aL = ln("TFSA P1",d.assetsP1.tfsa)+(mode==='Couple'?ln("TFSA P2",d.assetsP2.tfsa):'')+ln(d.p1Age>=72?'RRIF P1':'RRSP P1',d.assetsP1.rrsp)+(mode==='Couple'?ln(d.p2Age>=72?'RRIF P2':'RRSP P2',d.assetsP2.rrsp):'');
+                aL += ln("LIRF P1",d.assetsP1.lirf) + (mode==='Couple'?ln("LIRF P2",d.assetsP2.lirf):'');
+                aL += ln("LIF P1",d.assetsP1.lif) + (mode==='Couple'?ln("LIF P2",d.assetsP2.lif):'');
+                aL += ln("Manual RRIF P1",d.assetsP1.rrif_acct) + (mode==='Couple'?ln("Manual RRIF P2",d.assetsP2.rrif_acct):'');
+                aL += ln("Non-Reg P1",d.assetsP1.nreg)+(mode==='Couple'?ln("Non-Reg P2",d.assetsP2.nreg):'')+ln("Cash P1",d.assetsP1.cash)+(mode==='Couple'?ln("Cash P2",d.assetsP2.cash):'')+ln("Liquid Net Worth",d.liquidNW,"text-info fw-bold")+ln("Total Real Estate Eq.",d.homeValue-d.mortgage);
                 
                 const rB = th==='light'?'bg-white border-bottom border-dark-subtle':'', rT = th==='light'?'text-dark':'text-white';
                 html += `<div class="grid-row-group" style="${th==='light'?'border-bottom:1px solid #ddd;':''}"><div class="grid-summary-row ${rB}" onclick="app.toggleRow(this)"><div class="col-start col-timeline"><div class="d-flex align-items-center"><span class="fw-bold fs-6 me-1 ${rT}">${d.year}</span><span class="event-icons-inline">${d.events.map(k=>this.getIconHTML(k,th)).join('')}</span></div><span class="age-text ${rT}">${p1A} ${mode==='Couple'?'/ '+p2A:''}</span></div><div class="col-start">${stat}</div><div class="val-positive">${fmtK(d.householdNet)}</div><div class="val-neutral text-danger">${fmtK(d.visualExpenses)}</div><div class="${d.surplus<0?'val-negative':'val-positive'}">${d.surplus>0?'+':''}${fmtK(d.surplus)}</div><div class="fw-bold ${rT}">${fmtK(d.debugNW)}</div><div class="text-center toggle-icon ${rT}"><i class="bi bi-chevron-down"></i></div></div><div class="grid-detail-wrapper"><div class="detail-container"><div class="detail-box"><div class="detail-title">Income Sources</div>${iL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total Net</span> <span class="text-success fw-bold">${fmtK(d.householdNet)}</span></div></div><div class="detail-box"><div class="detail-title">Outflows & Taxes</div>${eL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total Out</span> <span class="text-danger fw-bold">${fmtK(d.visualExpenses)}</span></div></div><div class="detail-box"><div class="detail-title">Assets (End of Year)</div>${aL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total NW</span> <span class="text-info fw-bold">${fmtK(d.debugNW)}</span></div></div></div></div></div>`;
