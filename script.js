@@ -1,5 +1,5 @@
 /**
- * Retirement Planner Pro - Logic v10.25 (Final: Complete & Unabridged)
+ * Retirement Planner Pro - Logic v10.25 (Final: Complete & Fixed)
  */
 class RetirementPlanner {
     constructor() {
@@ -223,6 +223,7 @@ class RetirementPlanner {
             }
             if (e.target.id === 'enable_post_ret_income_p1' || e.target.id === 'enable_post_ret_income_p2') this.updatePostRetIncomeVisibility();
             
+            // Check for Compare selection changes
             if (e.target.id && e.target.id.startsWith('comp_')) {
                 this.updateComparisonChart();
             } else if (e.target.classList.contains('live-calc') && (e.target.tagName === 'SELECT' || e.target.type === 'checkbox' || e.target.type === 'radio')) {
@@ -247,12 +248,12 @@ class RetirementPlanner {
             });
         }
 
-        $('btnClearAll').addEventListener('click', () => this.showConfirm("Clear all data?", () => this.resetAllData()));
-        $('btnAddProperty').addEventListener('click', () => this.addProperty());
-        $('btnAddWindfall').addEventListener('click', () => this.addWindfall());
+        if($('btnClearAll')) $('btnClearAll').addEventListener('click', () => this.showConfirm("Clear all data?", () => this.resetAllData()));
+        if($('btnAddProperty')) $('btnAddProperty').addEventListener('click', () => this.addProperty());
+        if($('btnAddWindfall')) $('btnAddWindfall').addEventListener('click', () => this.addWindfall());
         if ($('btnAddIncomeP1')) $('btnAddIncomeP1').addEventListener('click', () => this.addAdditionalIncome('p1'));
         if ($('btnAddIncomeP2')) $('btnAddIncomeP2').addEventListener('click', () => this.addAdditionalIncome('p2'));
-        $('btnExportCSV').addEventListener('click', () => this.exportToCSV());
+        if($('btnExportCSV')) $('btnExportCSV').addEventListener('click', () => this.exportToCSV());
         if ($('fileUpload')) $('fileUpload').addEventListener('change', e => this.handleFileUpload(e));
         if ($('btnClearStorage')) $('btnClearStorage').addEventListener('click', () => this.clearStorage());
 
@@ -315,18 +316,22 @@ class RetirementPlanner {
 
         if($('yearSlider')) {
             $('yearSlider').addEventListener('input', e => {
-                const index = parseInt(e.target.value);
-                if (this.state.projectionData[index]) {
-                    const d = this.state.projectionData[index];
+                const cur = parseInt(e.target.value);
+                if (this.state.projectionData[cur]) {
+                    const d = this.state.projectionData[cur];
                     if($('sliderYearDisplay')) $('sliderYearDisplay').innerText = d.year;
                     if($('cfAgeDisplay')) $('cfAgeDisplay').innerText = this.state.mode === 'Couple' ? `(P1: ${d.p1Age} / P2: ${d.p2Age})` : `(Age: ${d.p1Age})`;
                     document.querySelectorAll('.grid-row-group').forEach(r => r.style.backgroundColor = ''); 
-                    if(document.querySelectorAll('.grid-row-group')[index]) {
-                        document.querySelectorAll('.grid-row-group')[index].style.backgroundColor = 'rgba(255,193,7,0.1)';
-                        document.querySelectorAll('.grid-row-group')[index].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    
+                    const gridGroups = document.querySelectorAll('.grid-row-group');
+                    if(gridGroups[cur]) {
+                        gridGroups[cur].style.backgroundColor = 'rgba(255,193,7,0.1)';
+                        if(document.activeElement && document.activeElement.tagName !== 'INPUT') {
+                            gridGroups[cur].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        }
                     }
                     clearTimeout(this.sliderTimeout);
-                    this.sliderTimeout = setTimeout(() => this.drawSankey(index), 50);
+                    this.sliderTimeout = setTimeout(() => this.drawSankey(cur), 50);
                 }
             });
         }
@@ -337,7 +342,7 @@ class RetirementPlanner {
                 if(sl) this.drawSankey(parseInt(sl.value));
             });
         }
-        
+
         if(document.querySelector('button[data-bs-target="#compare-pane"]')) {
             document.querySelector('button[data-bs-target="#compare-pane"]').addEventListener('shown.bs.tab', () => {
                 this.updateComparisonChart();
@@ -542,17 +547,18 @@ class RetirementPlanner {
                 if(document.getElementById('sliderYearDisplay')) document.getElementById('sliderYearDisplay').innerText = d.year;
                 if(document.getElementById('cfAgeDisplay')) document.getElementById('cfAgeDisplay').innerText = this.state.mode === 'Couple' ? `(P1: ${d.p1Age} / P2: ${d.p2Age})` : `(Age: ${d.p1Age})`;
                 document.querySelectorAll('.grid-row-group').forEach(r => r.style.backgroundColor = ''); 
+                
                 const gridGroups = document.querySelectorAll('.grid-row-group');
                 if(gridGroups[cur]) {
                     gridGroups[cur].style.backgroundColor = 'rgba(255,193,7,0.1)';
-                    // Prevent scrolling the window if the user is just typing numbers
-                    if(document.activeElement.tagName !== 'INPUT' || document.activeElement.type === 'range') {
+                    if(document.activeElement && document.activeElement.tagName !== 'INPUT') {
                         gridGroups[cur].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                     }
                 }
-                clearTimeout(this.sliderTimeout); this.sliderTimeout = setTimeout(() => this.drawSankey(cur), 50);
+                clearTimeout(this.sliderTimeout);
+                this.sliderTimeout = setTimeout(() => this.drawSankey(cur), 50);
             }
-            this.updateComparisonChart(); // Ensure chart updates on new data
+            if(typeof this.updateComparisonChart === 'function') this.updateComparisonChart();
             this.saveToLocalStorage();
         } catch (e) { console.error("Error in run loop:", e); }
     }
@@ -577,7 +583,7 @@ class RetirementPlanner {
             return { color: c };
         });
 
-        if(rows.length === 0) return; // Prevent crash on empty chart
+        if(rows.length === 0) return;
 
         const dt = new google.visualization.DataTable(); dt.addColumn('string','From'); dt.addColumn('string','To'); dt.addColumn('number','Amount'); dt.addRows(rows);
         const sankeyEl = document.getElementById('sankey_chart');
@@ -625,9 +631,9 @@ class RetirementPlanner {
         let oMax1 = this.CONSTANTS.MAX_OAS_2026 * (Math.max(0, Math.min(40, this.getVal('p1_oas_years'))) / 40);
         let cMax2 = this.getVal('p2_cpp_est_base');
         let oMax2 = this.CONSTANTS.MAX_OAS_2026 * (Math.max(0, Math.min(40, this.getVal('p2_oas_years'))) / 40);
-        let fNW = 0;
         
         let comparisonReturnData = [];
+        let fNW = 0;
 
         for (let i=0; i<=yrR; i++) {
             const yr = curY+i, a1 = p1SA+i, a2 = p2SA+i, al1 = a1<=p1.lifeExp, al2 = mode==='Couple'?a2<=p2.lifeExp:false;
@@ -774,7 +780,6 @@ class RetirementPlanner {
         const ctx = document.getElementById('chartNW');
         if (!ctx) return;
 
-        // Destroy old chart if exists
         if (this.charts.nw) {
             this.charts.nw.destroy();
         }
@@ -792,14 +797,12 @@ class RetirementPlanner {
             let dataArr = [];
 
             if (val === 'current') {
-                // Already calculated, just map it
                 dataArr = this.state.projectionData.map(d => d.debugNW);
                 if(labels.length === 0) labels = this.state.projectionData.map(d => d.year);
             } else {
-                // Temporarily load scenario, calculate silently, restore
                 const sc = JSON.parse(localStorage.getItem('rp_scenarios')||'[]')[parseInt(val)];
                 if(sc) {
-                    const snap = JSON.stringify(this.state); // save current
+                    const snap = JSON.stringify(this.state); 
                     this.state.inputs = sc.data.inputs;
                     this.state.properties = sc.data.properties;
                     this.expensesByCategory = sc.data.expensesData;
@@ -808,7 +811,6 @@ class RetirementPlanner {
                     dataArr = simData.map(d => d.nw);
                     if(labels.length === 0) labels = simData.map(d => d.year);
                     
-                    // restore
                     const oldState = JSON.parse(snap);
                     this.state.inputs = oldState.inputs;
                     this.state.properties = oldState.properties;
