@@ -1,9 +1,9 @@
 /**
- * Retirement Planner Pro - Logic v10.23 (Final: Complete & Unabridged)
+ * Retirement Planner Pro - Logic v10.25 (Final: Complete & Unabridged)
  */
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.23";
+        this.APP_VERSION = "10.25";
         this.state = {
             inputs: {}, debt: [],
             properties: [{ name: "Primary Home", value: 1000000, mortgage: 430000, growth: 3.0, rate: 3.29, payment: 0, manual: false, includeInNW: false }],
@@ -67,7 +67,9 @@ class RetirementPlanner {
 
     init() {
         const setup = () => {
-            this.confirmModal = new bootstrap.Modal(document.getElementById('confirmationModal'));
+            if(document.getElementById('confirmationModal')) {
+                this.confirmModal = new bootstrap.Modal(document.getElementById('confirmationModal'));
+            }
             if(document.getElementById('saveScenarioModal')) {
                 this.saveModalInstance = new bootstrap.Modal(document.getElementById('saveScenarioModal'));
             }
@@ -125,8 +127,10 @@ class RetirementPlanner {
 
     updateThemeIcon(theme) {
         const btn = document.getElementById('btnThemeToggle');
-        btn.innerHTML = theme === 'dark' ? '<i class="bi bi-sun-fill"></i>' : '<i class="bi bi-moon-stars-fill"></i>';
-        btn.className = theme === 'dark' ? 'btn btn-outline-secondary d-flex align-items-center justify-content-center' : 'btn btn-outline-dark d-flex align-items-center justify-content-center text-dark';
+        if(btn) {
+            btn.innerHTML = theme === 'dark' ? '<i class="bi bi-sun-fill"></i>' : '<i class="bi bi-moon-stars-fill"></i>';
+            btn.className = theme === 'dark' ? 'btn btn-outline-secondary d-flex align-items-center justify-content-center' : 'btn btn-outline-dark d-flex align-items-center justify-content-center text-dark';
+        }
     }
 
     updateImportButton(theme) {
@@ -144,6 +148,7 @@ class RetirementPlanner {
     }
 
     showConfirm(message, onConfirm) {
+        if(!this.confirmModal) return;
         const modalEl = document.getElementById('confirmationModal');
         modalEl.querySelector('.modal-body').textContent = message;
         const btn = document.getElementById('btnConfirmAction');
@@ -217,8 +222,11 @@ class RetirementPlanner {
                 this.run();
             }
             if (e.target.id === 'enable_post_ret_income_p1' || e.target.id === 'enable_post_ret_income_p2') this.updatePostRetIncomeVisibility();
-            if (e.target.classList.contains('live-calc') && (e.target.tagName === 'SELECT' || e.target.type === 'checkbox' || e.target.type === 'radio')) {
-                if(e.target.id && !e.target.id.startsWith('comp_')) this.state.inputs[e.target.id] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+            
+            if (e.target.id && e.target.id.startsWith('comp_')) {
+                this.updateComparisonChart();
+            } else if (e.target.classList.contains('live-calc') && (e.target.tagName === 'SELECT' || e.target.type === 'checkbox' || e.target.type === 'radio')) {
+                this.state.inputs[e.target.id] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
                 this.findOptimal(); this.run(); this.calcExpenses(); 
             }
         });
@@ -245,8 +253,8 @@ class RetirementPlanner {
         if ($('btnAddIncomeP1')) $('btnAddIncomeP1').addEventListener('click', () => this.addAdditionalIncome('p1'));
         if ($('btnAddIncomeP2')) $('btnAddIncomeP2').addEventListener('click', () => this.addAdditionalIncome('p2'));
         $('btnExportCSV').addEventListener('click', () => this.exportToCSV());
-        $('fileUpload').addEventListener('change', e => this.handleFileUpload(e));
-        $('btnClearStorage').addEventListener('click', () => this.clearStorage());
+        if ($('fileUpload')) $('fileUpload').addEventListener('change', e => this.handleFileUpload(e));
+        if ($('btnClearStorage')) $('btnClearStorage').addEventListener('click', () => this.clearStorage());
 
         document.body.addEventListener('input', e => {
             const cl = e.target.classList;
@@ -294,34 +302,49 @@ class RetirementPlanner {
             }
         });
 
-        $('p1_dob').addEventListener('change', () => this.updateAgeDisplay('p1'));
-        $('p2_dob').addEventListener('change', () => this.updateAgeDisplay('p2'));
+        if($('p1_dob')) $('p1_dob').addEventListener('change', () => this.updateAgeDisplay('p1'));
+        if($('p2_dob')) $('p2_dob').addEventListener('change', () => this.updateAgeDisplay('p2'));
+        
         document.getElementsByName('planMode').forEach(r => r.addEventListener('change', () => { 
             if($('modeCouple')) this.state.mode = $('modeCouple').checked ? 'Couple' : 'Single';
             this.toggleModeDisplay(); this.run(); this.calcExpenses();
         }));
 
-        $('btnCollapseSidebar').addEventListener('click', () => this.toggleSidebar());
-        $('btnExpandSidebar').addEventListener('click', () => this.toggleSidebar());
+        if($('btnCollapseSidebar')) $('btnCollapseSidebar').addEventListener('click', () => this.toggleSidebar());
+        if($('btnExpandSidebar')) $('btnExpandSidebar').addEventListener('click', () => this.toggleSidebar());
 
-        $('yearSlider').addEventListener('input', e => {
-            const index = parseInt(e.target.value);
-            if (this.state.projectionData[index]) {
-                const d = this.state.projectionData[index];
-                $('sliderYearDisplay').innerText = d.year;
-                $('cfAgeDisplay').innerText = this.state.mode === 'Couple' ? `(P1: ${d.p1Age} / P2: ${d.p2Age})` : `(Age: ${d.p1Age})`;
-                document.querySelectorAll('.grid-row-group').forEach(r => r.style.backgroundColor = ''); 
-                if(document.querySelectorAll('.grid-row-group')[index]) {
-                    document.querySelectorAll('.grid-row-group')[index].style.backgroundColor = 'rgba(255,193,7,0.1)';
-                    document.querySelectorAll('.grid-row-group')[index].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if($('yearSlider')) {
+            $('yearSlider').addEventListener('input', e => {
+                const index = parseInt(e.target.value);
+                if (this.state.projectionData[index]) {
+                    const d = this.state.projectionData[index];
+                    if($('sliderYearDisplay')) $('sliderYearDisplay').innerText = d.year;
+                    if($('cfAgeDisplay')) $('cfAgeDisplay').innerText = this.state.mode === 'Couple' ? `(P1: ${d.p1Age} / P2: ${d.p2Age})` : `(Age: ${d.p1Age})`;
+                    document.querySelectorAll('.grid-row-group').forEach(r => r.style.backgroundColor = ''); 
+                    if(document.querySelectorAll('.grid-row-group')[index]) {
+                        document.querySelectorAll('.grid-row-group')[index].style.backgroundColor = 'rgba(255,193,7,0.1)';
+                        document.querySelectorAll('.grid-row-group')[index].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                    clearTimeout(this.sliderTimeout);
+                    this.sliderTimeout = setTimeout(() => this.drawSankey(index), 50);
                 }
-                clearTimeout(this.sliderTimeout);
-                this.sliderTimeout = setTimeout(() => this.drawSankey(index), 50);
-            }
-        });
+            });
+        }
 
-        if(document.querySelector('button[data-bs-target="#cashflow-pane"]')) document.querySelector('button[data-bs-target="#cashflow-pane"]').addEventListener('shown.bs.tab', () => this.drawSankey(parseInt($('yearSlider').value)));
-        $('btnAddDebt').addEventListener('click', () => this.addDebtRow());
+        if(document.querySelector('button[data-bs-target="#cashflow-pane"]')) {
+            document.querySelector('button[data-bs-target="#cashflow-pane"]').addEventListener('shown.bs.tab', () => {
+                const sl = document.getElementById('yearSlider');
+                if(sl) this.drawSankey(parseInt(sl.value));
+            });
+        }
+        
+        if(document.querySelector('button[data-bs-target="#compare-pane"]')) {
+            document.querySelector('button[data-bs-target="#compare-pane"]').addEventListener('shown.bs.tab', () => {
+                this.updateComparisonChart();
+            });
+        }
+        
+        if($('btnAddDebt')) $('btnAddDebt').addEventListener('click', () => this.addDebtRow());
         
         if($('btnModalSaveScenario')) {
             $('btnModalSaveScenario').addEventListener('click', () => this.saveScenarioFromModal());
@@ -329,7 +352,11 @@ class RetirementPlanner {
 
         document.body.addEventListener('click', e => {
             if(e.target.classList.contains('toggle-btn')) this.toggleGroup(e.target.dataset.type);
-            if(e.target.classList.contains('opt-apply')) this.applyOpt(e.target.target);
+            
+            if(e.target.classList.contains('opt-apply')) {
+                const targetId = e.target.dataset.target || e.target.getAttribute('data-target');
+                if(targetId) this.applyOpt(targetId);
+            }
         });
     }
 
@@ -408,12 +435,22 @@ class RetirementPlanner {
         this.state.windfalls = []; this.state.additionalIncome = []; 
         for (const cat in this.expensesByCategory) this.expensesByCategory[cat].items = [];
         this.renderProperties(); this.renderWindfalls(); this.renderAdditionalIncome(); this.renderExpenseRows(); this.calcExpenses();
-        document.getElementById('debt-container').innerHTML = ''; this.state.debt = [];
+        if(document.getElementById('debt-container')) document.getElementById('debt-container').innerHTML = ''; 
+        this.state.debt = [];
+        
         this.updateSidebarSync('p1_retireAge', 65); this.updateSidebarSync('p2_retireAge', 65); this.updateSidebarSync('inflation_rate', 2.0); this.updateSidebarSync('p1_tfsa_ret', 6.0);
-        document.getElementById('exp_gogo_val').innerText = '75'; document.getElementById('exp_slow_val').innerText = '85'; document.getElementById('p1_db_start_val').innerText = '60'; document.getElementById('p2_db_start_val').innerText = '60';
+        
+        if(document.getElementById('exp_gogo_val')) document.getElementById('exp_gogo_val').innerText = '75'; 
+        if(document.getElementById('exp_slow_val')) document.getElementById('exp_slow_val').innerText = '85'; 
+        if(document.getElementById('p1_db_start_val')) document.getElementById('p1_db_start_val').innerText = '60'; 
+        if(document.getElementById('p2_db_start_val')) document.getElementById('p2_db_start_val').innerText = '60';
         
         if(document.getElementById('p1_oas_years_val')) document.getElementById('p1_oas_years_val').innerText = '40';
         if(document.getElementById('p2_oas_years_val')) document.getElementById('p2_oas_years_val').innerText = '40';
+        if(document.getElementById('p1_cpp_start_val')) document.getElementById('p1_cpp_start_val').innerText = '65';
+        if(document.getElementById('p1_oas_start_val')) document.getElementById('p1_oas_start_val').innerText = '65';
+        if(document.getElementById('p2_cpp_start_val')) document.getElementById('p2_cpp_start_val').innerText = '65';
+        if(document.getElementById('p2_oas_start_val')) document.getElementById('p2_oas_start_val').innerText = '65';
         
         this.updatePostRetIncomeVisibility(); this.updateAgeDisplay('p1'); this.updateAgeDisplay('p2'); 
         this.updateScenarioBadge(null);
@@ -448,7 +485,7 @@ class RetirementPlanner {
         if(cP1) cP1.innerHTML = ''; if(cP2) cP2.innerHTML = '';
         this.state.additionalIncome.forEach((w, idx) => {
             const tgt = w.owner === 'p2' ? cP2 : cP1; if(!tgt) return;
-            const div = document.createElement('div'); div.className = 'income-stream-row p-3 border border-secondary rounded-3 bg-black bg-opacity-25 mt-3 mb-3';
+            const div = document.createElement('div'); div.className = 'income-stream-row p-3 border border-secondary rounded-3 surface-card mt-3 mb-3';
             div.innerHTML = `<div class="d-flex justify-content-between mb-3"><input type="text" class="form-control form-control-sm bg-transparent border-0 fw-bold text-info fs-6 income-stream-update px-0" placeholder="Stream Name" value="${w.name}" data-idx="${idx}" data-field="name"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-2 rounded-circle" onclick="app.removeAdditionalIncome(${idx})"><i class="bi bi-x-lg"></i></button></div><div class="row g-3 align-items-center mb-2"><div class="col-6"><label class="form-label small text-muted mb-1">Amount</label><div class="input-group input-group-sm"><span class="input-group-text border-secondary text-muted">$</span><input type="text" class="form-control border-secondary formatted-num income-stream-update" value="${w.amount.toLocaleString()}" data-idx="${idx}" data-field="amount"></div></div><div class="col-6"><label class="form-label small text-muted mb-1">Frequency</label><select class="form-select form-select-sm border-secondary income-stream-update" data-idx="${idx}" data-field="freq"><option value="month" ${w.freq==='month'?'selected':''}>/ Month</option><option value="year" ${w.freq==='year'?'selected':''}>/ Year</option></select></div></div><div class="row g-3 align-items-end"><div class="col-4"><label class="form-label small text-muted mb-1">Growth %</label><div class="input-group input-group-sm"><input type="number" step="0.1" class="form-control border-secondary income-stream-update" value="${w.growth}" data-idx="${idx}" data-field="growth"><span class="input-group-text border-secondary text-muted">%</span></div></div><div class="col-4"><label class="form-label small text-muted mb-1">Start Date</label><input type="month" class="form-control form-control-sm border-secondary income-stream-update" value="${w.start || new Date().toISOString().slice(0, 7)}" data-idx="${idx}" data-field="start"></div><div class="col-4"><label class="form-label small text-muted mb-1">End Date</label><input type="month" class="form-control form-control-sm border-secondary income-stream-update" value="${w.end}" data-idx="${idx}" data-field="end"></div></div><div class="row mt-3 pt-2 border-top border-secondary"><div class="col-12 d-flex justify-content-end"><div class="form-check"><input class="form-check-input income-stream-update" type="checkbox" id="inc_tax_${idx}" ${w.taxable?'checked':''} data-idx="${idx}" data-field="taxable"><label class="form-check-label text-muted small" for="inc_tax_${idx}">Is Taxable?</label></div></div></div>`;
             tgt.appendChild(div); div.querySelectorAll('.formatted-num').forEach(el => el.addEventListener('input', e => this.formatInput(e.target)));
         });
@@ -498,16 +535,26 @@ class RetirementPlanner {
         try {
             this.estimateCPPOAS(); this.updateIncomeDisplay(); this.calcExpenses(); this.generateProjectionTable(); 
             const slider = document.getElementById('yearSlider');
-            if (this.state.projectionData.length) {
+            if (this.state.projectionData.length && slider) {
                 let cur = parseInt(slider.value), max = this.state.projectionData.length - 1;
                 slider.max = max; if(cur > max) { slider.value = 0; cur = 0; }
                 const d = this.state.projectionData[cur];
-                document.getElementById('sliderYearDisplay').innerText = d.year;
-                document.getElementById('cfAgeDisplay').innerText = this.state.mode === 'Couple' ? `(P1: ${d.p1Age} / P2: ${d.p2Age})` : `(Age: ${d.p1Age})`;
+                if(document.getElementById('sliderYearDisplay')) document.getElementById('sliderYearDisplay').innerText = d.year;
+                if(document.getElementById('cfAgeDisplay')) document.getElementById('cfAgeDisplay').innerText = this.state.mode === 'Couple' ? `(P1: ${d.p1Age} / P2: ${d.p2Age})` : `(Age: ${d.p1Age})`;
+                document.querySelectorAll('.grid-row-group').forEach(r => r.style.backgroundColor = ''); 
+                const gridGroups = document.querySelectorAll('.grid-row-group');
+                if(gridGroups[cur]) {
+                    gridGroups[cur].style.backgroundColor = 'rgba(255,193,7,0.1)';
+                    // Prevent scrolling the window if the user is just typing numbers
+                    if(document.activeElement.tagName !== 'INPUT' || document.activeElement.type === 'range') {
+                        gridGroups[cur].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+                }
                 clearTimeout(this.sliderTimeout); this.sliderTimeout = setTimeout(() => this.drawSankey(cur), 50);
             }
+            this.updateComparisonChart(); // Ensure chart updates on new data
             this.saveToLocalStorage();
-        } catch (e) { console.error("Error:", e); }
+        } catch (e) { console.error("Error in run loop:", e); }
     }
 
     drawSankey(idx) {
@@ -530,9 +577,14 @@ class RetirementPlanner {
             return { color: c };
         });
 
+        if(rows.length === 0) return; // Prevent crash on empty chart
+
         const dt = new google.visualization.DataTable(); dt.addColumn('string','From'); dt.addColumn('string','To'); dt.addColumn('number','Amount'); dt.addRows(rows);
-        this.charts.sankey = new google.visualization.Sankey(document.getElementById('sankey_chart'));
-        this.charts.sankey.draw(dt, { sankey: { node: { label: { color: document.documentElement.getAttribute('data-bs-theme')==='light'?'#000':'#fff', fontSize:13, bold:true }, nodePadding:30, width:12, colors: nodesCfg.map(x=>x.color) }, link: { colorMode: 'gradient', colors: ['#334155','#475569'] } }, backgroundColor: 'transparent', height: 600, width: '100%' });
+        const sankeyEl = document.getElementById('sankey_chart');
+        if(sankeyEl) {
+            this.charts.sankey = new google.visualization.Sankey(sankeyEl);
+            this.charts.sankey.draw(dt, { sankey: { node: { label: { color: document.documentElement.getAttribute('data-bs-theme')==='light'?'#000':'#fff', fontSize:13, bold:true }, nodePadding:30, width:12, colors: nodesCfg.map(x=>x.color) }, link: { colorMode: 'gradient', colors: ['#334155','#475569'] } }, backgroundColor: 'transparent', height: 600, width: '100%' });
+        }
     }
 
     getRrifFactor(age) {
@@ -574,6 +626,8 @@ class RetirementPlanner {
         let cMax2 = this.getVal('p2_cpp_est_base');
         let oMax2 = this.CONSTANTS.MAX_OAS_2026 * (Math.max(0, Math.min(40, this.getVal('p2_oas_years'))) / 40);
         let fNW = 0;
+        
+        let comparisonReturnData = [];
 
         for (let i=0; i<=yrR; i++) {
             const yr = curY+i, a1 = p1SA+i, a2 = p2SA+i, al1 = a1<=p1.lifeExp, al2 = mode==='Couple'?a2<=p2.lifeExp:false;
@@ -675,6 +729,8 @@ class RetirementPlanner {
             let iRE = 0, iRM = 0, tRE = 0, tRM = 0; simP.forEach(p => { tRE+=p.value; tRM+=p.mortgage; if(p.includeInNW){ iRE+=p.value; iRM+=p.mortgage; } });
             fNW = lNW+(iRE-iRM);
 
+            comparisonReturnData.push({ year: yr, nw: fNW });
+
             if(!onlyCalcNW) {
                 let tWd = Object.values(yWd).reduce((a,b)=>a+b,0), tGr = Object.values(gr1).reduce((a,b)=>a+b,0)+Object.values(gr2).reduce((a,b)=>a+b,0);
                 this.state.projectionData.push({
@@ -710,7 +766,95 @@ class RetirementPlanner {
             });
             const grid = document.getElementById('projectionGrid'); if(grid) grid.innerHTML = html;
         }
-        return fNW;
+        
+        return comparisonReturnData.length ? comparisonReturnData : fNW;
+    }
+
+    updateComparisonChart() {
+        const ctx = document.getElementById('chartNW');
+        if (!ctx) return;
+
+        // Destroy old chart if exists
+        if (this.charts.nw) {
+            this.charts.nw.destroy();
+        }
+
+        const checks = document.querySelectorAll('#compareSelectionArea input[type="checkbox"]:checked');
+        const datasets = [];
+        let labels = [];
+
+        const colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444'];
+        let cIdx = 0;
+
+        checks.forEach(chk => {
+            const val = chk.value;
+            const lbl = chk.nextElementSibling.innerText;
+            let dataArr = [];
+
+            if (val === 'current') {
+                // Already calculated, just map it
+                dataArr = this.state.projectionData.map(d => d.debugNW);
+                if(labels.length === 0) labels = this.state.projectionData.map(d => d.year);
+            } else {
+                // Temporarily load scenario, calculate silently, restore
+                const sc = JSON.parse(localStorage.getItem('rp_scenarios')||'[]')[parseInt(val)];
+                if(sc) {
+                    const snap = JSON.stringify(this.state); // save current
+                    this.state.inputs = sc.data.inputs;
+                    this.state.properties = sc.data.properties;
+                    this.expensesByCategory = sc.data.expensesData;
+                    this.state.mode = sc.data.inputs['modeCouple'] ? 'Couple' : 'Single';
+                    const simData = this.generateProjectionTable(true);
+                    dataArr = simData.map(d => d.nw);
+                    if(labels.length === 0) labels = simData.map(d => d.year);
+                    
+                    // restore
+                    const oldState = JSON.parse(snap);
+                    this.state.inputs = oldState.inputs;
+                    this.state.properties = oldState.properties;
+                    this.expensesByCategory = oldState.expensesByCategory;
+                    this.state.mode = oldState.mode;
+                }
+            }
+
+            if(dataArr.length > 0) {
+                datasets.push({
+                    label: lbl,
+                    data: dataArr,
+                    borderColor: colors[cIdx % colors.length],
+                    tension: 0.3,
+                    borderWidth: 2,
+                    pointRadius: 0
+                });
+                cIdx++;
+            }
+        });
+
+        this.charts.nw = new Chart(ctx, {
+            type: 'line',
+            data: { labels: labels, datasets: datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { labels: { color: document.documentElement.getAttribute('data-bs-theme')==='light'?'#334155':'#cbd5e1' } },
+                    tooltip: {
+                        callbacks: { label: function(context) { let label = context.dataset.label || ''; if (label) { label += ': '; } if (context.parsed.y !== null) { label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(context.parsed.y); } return label; } }
+                    }
+                },
+                scales: {
+                    x: { ticks: { color: document.documentElement.getAttribute('data-bs-theme')==='light'?'#64748b':'#94a3b8' }, grid: { color: document.documentElement.getAttribute('data-bs-theme')==='light'?'rgba(0,0,0,0.05)':'rgba(255,255,255,0.05)' } },
+                    y: { 
+                        ticks: { 
+                            color: document.documentElement.getAttribute('data-bs-theme')==='light'?'#64748b':'#94a3b8',
+                            callback: function(value) { return value >= 1000000 ? '$' + (value/1000000).toFixed(1) + 'M' : '$' + Math.round(value/1000) + 'k'; }
+                        },
+                        grid: { color: document.documentElement.getAttribute('data-bs-theme')==='light'?'rgba(0,0,0,0.05)':'rgba(255,255,255,0.05)' }
+                    }
+                }
+            }
+        });
     }
 
     getIconHTML(k, th) {
@@ -741,12 +885,13 @@ class RetirementPlanner {
 
     updateAgeDisplay(pfx) {
         const dI = this.getRaw(`${pfx}_dob`), el = document.getElementById(`${pfx}_age`);
-        if(!dI){ el.innerHTML="--"; return; }
-        el.innerHTML = Math.abs(new Date(Date.now() - new Date(dI+"-01").getTime()).getUTCFullYear() - 1970) + " years old";
+        if(!dI){ if(el) el.innerHTML="--"; return; }
+        if(el) el.innerHTML = Math.abs(new Date(Date.now() - new Date(dI+"-01").getTime()).getUTCFullYear() - 1970) + " years old";
     }
 
     toggleSidebar() {
         const ex = document.getElementById('sidebarExpanded'), co = document.getElementById('sidebarCollapsed'), col = document.getElementById('sidebarCol');
+        if(!ex || !co || !col) return;
         if(ex.style.display==='none'){ ex.style.display='block'; co.style.display='none'; col.style.width='320px'; } else { ex.style.display='none'; co.style.display='block'; col.style.width='50px'; }
         setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
     }
@@ -754,6 +899,7 @@ class RetirementPlanner {
     renderExpenseRows() {
         const tb = document.getElementById('expenseTableBody'), th = document.getElementById('expenseTableHeader'), t = document.documentElement.getAttribute('data-bs-theme')||'dark', rB=t==='light'?'bg-white':'bg-body-tertiary', rT=t==='light'?'text-dark':'text-white', rBd=t==='light'?'border-dark-subtle':'border-secondary', ab=t==='light'?'text-secondary':'text-white', ic=t==='light'?'bg-white text-dark':'bg-transparent text-white', hc=t==='light'?'bg-white text-dark border-bottom border-dark-subtle':'bg-transparent text-muted border-secondary';
         const gLim=parseInt(this.getRaw('exp_gogo_age'))||75, sLim=parseInt(this.getRaw('exp_slow_age'))||85;
+        if(!th || !tb) return;
         th.innerHTML = this.state.expenseMode==='Simple' ? `<th class="text-uppercase small ps-3 ${hc}" style="width: 40%;">Category / Item</th><th class="text-uppercase small ${hc}" style="width: 30%;">Current</th><th class="text-uppercase small ${hc}" style="width: 30%;">Retirement</th>` : `<th class="text-uppercase small ps-3 ${hc}" style="width: 20%;">Item</th><th class="text-uppercase small ${hc}" style="width: 16%;">Current</th><th class="text-uppercase small ${hc}" style="width: 16%;">Trans</th><th class="text-uppercase small ${hc}" style="width: 16%;">Go-Go <span style="font-size:0.6rem">(&lt;${gLim})</span></th><th class="text-uppercase small ${hc}" style="width: 16%;">Slow-Go <span style="font-size:0.6rem">(&lt;${sLim})</span></th><th class="text-uppercase small ${hc}" style="width: 16%;">No-Go <span style="font-size:0.6rem">(${sLim}+)</span></th>`;
         let h='', m={"Housing":{i:"bi-house-door-fill",c:"text-primary"},"Living":{i:"bi-basket2-fill",c:"text-success"},"Kids":{i:"bi-balloon-heart-fill",c:"text-warning"},"Lifestyle":{i:"bi-airplane-engines-fill",c:"text-info"}};
         const rI = (i,f,x,c,cls) => `<div class="input-group input-group-sm mb-1" style="flex-wrap:nowrap;"><span class="input-group-text border-secondary text-muted">$</span><input type="text" class="form-control border-secondary formatted-num expense-update ${cls}" style="min-width:60px;" value="${(i[f]||0).toLocaleString()}" data-cat="${c}" data-idx="${x}" data-field="${f}"></div>`;
@@ -776,19 +922,23 @@ class RetirementPlanner {
     removeExpense(c, i) { this.showConfirm('Delete expense?', () => { this.expensesByCategory[c].items.splice(i, 1); this.renderExpenseRows(); this.calcExpenses(); this.run(); }); }
 
     addDebtRow() {
-        const c = document.getElementById('debt-container'), div = document.createElement('div'); div.className = 'row g-3 mb-2 align-items-center debt-row';
+        const c = document.getElementById('debt-container');
+        if(!c) return;
+        const div = document.createElement('div'); div.className = 'row g-3 mb-2 align-items-center debt-row';
         div.innerHTML = `<div class="col-12 col-md-5"><input type="text" class="form-control form-control-sm" placeholder="Debt Name"></div><div class="col-8 col-md-4"><div class="input-group input-group-sm"><span class="input-group-text">$</span><input type="text" class="form-control formatted-num live-calc debt-amount" value="0"></div></div><div class="col-4 col-md-3"><button type="button" class="btn btn-outline-danger btn-sm w-100"><i class="bi bi-trash"></i></button></div>`;
         c.appendChild(div); div.querySelector('.debt-amount').addEventListener('input', e => { this.formatInput(e.target); this.debouncedRun(); });
         div.querySelector('.btn-outline-danger').addEventListener('click', () => { div.remove(); this.debouncedRun(); });
     }
 
     renderStrategy() {
-        this.renderList('strat-accum-list', this.state.strategies.accum, 'accum', document.getElementById('strat-accum-container'));
-        const d = document.getElementById('strat-decumulation'); d.innerHTML = `<div class="card border-secondary mb-3 strategy-opt-box surface-card"><div class="card-header border-secondary text-uppercase small fw-bold text-muted"><i class="bi bi-stars text-warning me-2"></i>Optimization Strategies</div><div class="card-body p-3"><div class="form-check form-switch"><input class="form-check-input live-calc" type="checkbox" role="switch" id="strat_rrsp_topup" ${this.state.inputs['strat_rrsp_topup']?'checked':''}><label class="form-check-label small fw-bold" for="strat_rrsp_topup">RRSP Low-Income Top-Up<div class="text-muted fw-normal mt-1" style="font-size:0.75rem; line-height:1.2;">Withdraws RRSP to fill the lowest tax bracket (~$55k) in years with low income.</div></label></div></div></div><h6 class="small fw-bold mb-3 text-uppercase text-muted">Withdrawal Order (Drag to Reorder)</h6>`;
-        this.renderList('strat-decum-list', this.state.strategies.decum, 'decum', d);
+        const c1 = document.getElementById('strat-accum-container');
+        const c2 = document.getElementById('strat-decumulation');
+        if(c1) this.renderList('strat-accum-list', this.state.strategies.accum, 'accum', c1);
+        if(c2) this.renderList('strat-decum-list', this.state.strategies.decum, 'decum', c2);
     }
 
     renderList(id, arr, type, cont) {
+        if(!cont) return;
         let ul = document.getElementById(id); if(!ul) { ul = document.createElement('ul'); ul.id=id; ul.className='strategy-list p-0 m-0'; ul.style.listStyle='none'; cont.appendChild(ul); } else ul.innerHTML='';
         arr.forEach((k, i) => {
             const li = document.createElement('li'); li.className='strat-item shadow-sm'; li.draggable=true; li.setAttribute('data-key', k);
@@ -811,247 +961,7 @@ class RetirementPlanner {
     formatInput(el) { const v = el.value.replace(/,/g, ''); if(!isNaN(v) && v!=='') el.value = Number(v).toLocaleString('en-US'); }
     toggleGroup(t) { const b = document.querySelector(`span[data-type="${t}"]`); document.body.classList.toggle(`show-${t}`); b.innerText = document.body.classList.contains(`show-${t}`) ? '[-]' : '[+]'; }
     restoreDetailsState() { ['inv','inc','exp'].forEach(t => { const b=document.querySelector(`span[data-type="${t}"]`); if(b) b.innerText = document.body.classList.contains(`show-${t}`) ? '[-]' : '[+]'; }); }
-
-    findOptimal() {
-        const findFor = (pfx) => {
-            const cppOn=this.state.inputs[`${pfx}_cpp_enabled`], oasOn=this.state.inputs[`${pfx}_oas_enabled`];
-            if(cppOn||oasOn) {
-                const oC=document.getElementById(`${pfx}_cpp_start`).value, oO=document.getElementById(`${pfx}_oas_start`).value;
-                let mx=-Infinity, bC=65, bO=65;
-                for(let c=60; c<=70; c+=5){ for(let o=65; o<=70; o+=5){ if(cppOn) this.state.inputs[`${pfx}_cpp_start`]=c; if(oasOn) this.state.inputs[`${pfx}_oas_start`]=o; const nw=this.generateProjectionTable(true); if(nw>mx){mx=nw;bC=c;bO=o;} } }
-                if(cppOn) this.optimalAges[`${pfx}_cpp`]=bC; if(oasOn) this.optimalAges[`${pfx}_oas`]=bO;
-                this.state.inputs[`${pfx}_cpp_start`]=oC; this.state.inputs[`${pfx}_oas_start`]=oO;
-            }
-            document.getElementById(`${pfx}_cpp_opt`).innerHTML = cppOn ? `Optimal: Age ${this.optimalAges[`${pfx}_cpp`]} (<a href="javascript:void(0)" class="text-success text-decoration-none fw-bold opt-apply" data-target="${pfx}_cpp">Apply</a>)` : `Optimization Disabled`;
-            document.getElementById(`${pfx}_oas_opt`).innerHTML = oasOn ? `Optimal: Age ${this.optimalAges[`${pfx}_oas`]} (<a href="javascript:void(0)" class="text-success text-decoration-none fw-bold opt-apply" data-target="${pfx}_oas">Apply</a>)` : `Optimization Disabled`;
-        };
-        findFor('p1'); if(this.state.mode==='Couple') findFor('p2');
-    }
-
-    applyOpt(t) { 
-        document.getElementById(`${t}_start`).value = this.optimalAges[t]; 
-        document.getElementById(`${t}_start_val`).innerText = this.optimalAges[t]; 
-        this.state.inputs[`${t}_start`] = this.optimalAges[t]; 
-        this.run(); 
-    }
-
-    estimateCPPOAS() {
-        ['p1','p2'].forEach(p => {
-            const rA=this.getVal(`${p}_retireAge`);
-            const cS=parseInt(this.getRaw(`${p}_cpp_start`));
-            const oS=parseInt(this.getRaw(`${p}_oas_start`));
-            const cE=this.state.inputs[`${p}_cpp_enabled`];
-            const oE=this.state.inputs[`${p}_oas_enabled`];
-            
-            let cppBase = this.getVal(`${p}_cpp_est_base`);
-            let md = (cS - 65) * 12; 
-            let cV = cppBase;
-            cV *= md < 0 ? (1 - (Math.abs(md) * 0.006)) : (1 + (md * 0.007)); 
-            if(rA < 60) cV *= Math.max(0, (39 - Math.max(0, (65 - rA) - 8)) / 39); 
-            
-            const eC = document.getElementById(`${p}_cpp_est`); 
-            if(eC){ 
-                eC.innerText = cE ? `$${Math.round(cV).toLocaleString()}/yr` : "Disabled"; 
-                cE ? eC.classList.remove('text-danger') : eC.classList.add('text-danger'); 
-            }
-            
-            let oasYears = Math.max(0, Math.min(40, this.getVal(`${p}_oas_years`)));
-            let oV = this.CONSTANTS.MAX_OAS_2026 * (oasYears / 40);
-            let od = (oS - 65) * 12; 
-            if(od > 0) oV *= (1 + (od * 0.006)); 
-            
-            const eO = document.getElementById(`${p}_oas_est`); 
-            if(eO){ 
-                eO.innerText = oE ? `$${Math.round(oV).toLocaleString()}/yr` : "Disabled"; 
-                oE ? eO.classList.remove('text-danger') : eO.classList.add('text-danger'); 
-            }
-        });
-    }
-
-    updateIncomeDisplay() {
-        const prov=this.getRaw('tax_province'), cY=new Date().getFullYear();
-        let add = { p1T:0, p1N:0, p2T:0, p2N:0 };
-        this.state.additionalIncome.forEach(s => {
-            let sY=new Date(s.start+"-01").getFullYear(), eY=(s.end?new Date(s.end+"-01"):new Date("2100-01-01")).getFullYear();
-            if(cY>=sY && cY<=eY) {
-                let a = s.amount * Math.pow(1+(s.growth/100), cY-sY) * (s.freq==='month'?12:1) * (cY===sY?(12-new Date(s.start+"-01").getMonth())/12:(cY===eY?Math.min(1, (new Date(s.end+"-01").getMonth()+1)/12):1));
-                if(a>0){ if(s.owner==='p1'){ s.taxable?add.p1T+=a:add.p1N+=a; } else { s.taxable?add.p2T+=a:add.p2N+=a; } }
-            }
-        });
-        const p1G=this.getVal('p1_income')+add.p1T, p2G=this.getVal('p2_income')+add.p2T, hhG=p1G+add.p1N+(this.state.mode==='Couple'?p2G+add.p2N:0);
-        if(document.getElementById('household_gross_display')) document.getElementById('household_gross_display').innerHTML = `$${hhG.toLocaleString()} <span class="monthly-sub">($${Math.round(hhG/12).toLocaleString()}/mo)</span>`;
-        const p1D=this.calculateTaxDetailed(p1G, prov), p2D=this.calculateTaxDetailed(p2G, prov);
-        this.renderTaxDetails('p1', p1G, p1D); this.renderTaxDetails('p2', p2G, p2D);
-        const hhN = (p1G-p1D.totalTax)+add.p1N+(this.state.mode==='Couple'?(p2G-p2D.totalTax)+add.p2N:0);
-        if(document.getElementById('household_net_display')) document.getElementById('household_net_display').innerHTML = `$${Math.round(hhN).toLocaleString()} <span class="monthly-sub">($${Math.round(hhN/12).toLocaleString()}/mo)</span>`;
-        return hhN;
-    }
-
-    renderTaxDetails(pfx, g, d) {
-        const c=document.getElementById(`${pfx}_tax_details`); if(!c) return;
-        c.innerHTML = g>0 ? `<div class="d-flex justify-content-between border-bottom border-secondary pb-1 mb-1"><span class="text-muted">Federal</span> <span>($${Math.round(d.fed).toLocaleString()}) ${((d.fed/g)*100).toFixed(1)}%</span></div><div class="d-flex justify-content-between border-bottom border-secondary pb-1 mb-1"><span class="text-muted">Provincial</span> <span>($${Math.round(d.prov).toLocaleString()}) ${((d.prov/g)*100).toFixed(1)}%</span></div><div class="d-flex justify-content-between border-bottom border-secondary pb-1 mb-1"><span class="text-muted">CPP/EI</span> <span>($${Math.round(d.cpp_ei).toLocaleString()})</span></div><div class="d-flex justify-content-between mt-2"><span class="text-warning fw-bold">Total Tax</span> <span class="text-warning fw-bold">($${Math.round(d.totalTax).toLocaleString()})</span></div><div class="d-flex justify-content-between"><span class="text-muted">Marginal Rate</span> <span>${(d.margRate*100).toFixed(2)}%</span></div><div class="d-flex justify-content-between mt-2 pt-2 border-top border-secondary"><span class="text-success fw-bold">After-Tax</span> <span class="text-success fw-bold">$${Math.round(g-d.totalTax).toLocaleString()}</span></div>` : `<span class="text-muted text-center d-block small">No Income Entered</span>`;
-    }
-
-    updateMortgagePayment() {
-        if(this.state.manualMortgage) return;
-        const P=this.getVal('mortgage_amt'), r=this.getVal('mortgage_rate')/1200;
-        let pmt = (P>0&&r>0) ? P*(r*Math.pow(1+r,300))/(Math.pow(1+r,300)-1) : (P>0?P/300:0);
-        document.getElementById('mortgage_payment').value = this.state.inputs['mortgage_payment'] = Math.round(pmt).toLocaleString('en-US');
-        this.updateMortgagePayoffDate();
-    }
-
-    updateMortgagePayoffDate() {
-        const P=this.getVal('mortgage_amt'), r=(this.getVal('mortgage_rate')/100)/12, pmt=this.getVal('mortgage_payment'), el=document.getElementById('mortgage_payoff_display');
-        if(P<=0) return el.innerHTML=""; if(pmt<=P*r) return el.innerHTML=`<span class="text-danger small fw-bold">Payment too low</span>`;
-        const nMonths = -Math.log(1 - (r*P)/pmt) / Math.log(1+r);
-        if(isFinite(nMonths)) { const d=new Date(); d.setMonth(d.getMonth()+nMonths); el.innerHTML=`<span class="small text-success fw-bold"><i class="bi bi-check-circle me-1"></i>Payoff: ${d.toLocaleDateString('en-US',{month:'long',year:'numeric'})} (${Math.floor(nMonths/12)}y ${Math.round(nMonths%12)}m)</span>`; } else el.innerHTML="";
-    }
-
-    getRawExpenseTotals() { let c=0, r=0; Object.values(this.expensesByCategory).forEach(d=>d.items.forEach(i=>{c+=i.curr*i.freq; r+=i.ret*i.freq;})); return {current:c, retirement:r}; }
-    getTotalDebt() { let t=0; document.querySelectorAll('.debt-amount').forEach(el=>t+=Number(el.value.replace(/,/g,''))||0); return t; }
-
-    calcExpenses() {
-        const uR = document.getElementById('useRealDollars')?.checked, inf = this.getVal('inflation_rate')/100, cA = Math.abs(new Date(Date.now() - new Date(this.getRaw('p1_dob')+"-01").getTime()).getUTCFullYear() - 1970), p1R = this.getVal('p1_retireAge'), p2R = this.state.mode==='Couple'?this.getVal('p2_retireAge'):999, gLim=parseInt(this.getRaw('exp_gogo_age'))||75, sLim=parseInt(this.getRaw('exp_slow_age'))||85;
-        const gF = y => uR?1:Math.pow(1+inf, y), fT=gF(Math.max(0, Math.min(p1R,p2R)-cA)), fG=gF(Math.max(0, Math.max(p1R,this.state.mode==='Couple'?p2R:0)-cA)), fS=gF(Math.max(0, gLim-cA)), fN=gF(Math.max(0, sLim-cA));
-        let t={curr:0,ret:0,trans:0,gogo:0,slow:0,nogo:0}; Object.values(this.expensesByCategory).forEach(c=>c.items.forEach(i=>{ const f=i.freq; t.curr+=(i.curr||0)*f; t.ret+=(i.ret||0)*f; t.trans+=(i.trans||0)*f; t.gogo+=(i.gogo||0)*f; t.slow+=(i.slow||0)*f; t.nogo+=(i.nogo||0)*f; }));
-        const fmt = n => '$'+Math.round(n).toLocaleString(), cS="border:none;border-left:1px solid var(--border-color);padding-left:12px;", lS="border:none;text-align:right;padding-right:12px;color:var(--text-muted);font-weight:bold;font-size:0.75rem;text-transform:uppercase;";
-        document.getElementById('expenseFooter').innerHTML = this.state.expenseMode==='Simple' ? `<table class="table table-sm table-borderless mb-0 bg-transparent" style="table-layout:fixed;"><tr><td width="40%" style="${lS}">Total Annual</td><td width="30%" style="${cS}"><span class="text-danger fw-bold fs-6">${fmt(t.curr)}</span></td><td width="30%" style="${cS}"><span class="text-warning fw-bold fs-6">${fmt(t.ret*(uR?1:fG))}</span></td></tr></table>` : `<table class="table table-sm table-borderless mb-0 bg-transparent" style="table-layout:fixed;"><tr><td width="20%" style="${lS}">Total</td><td width="16%" style="${cS}"><div class="text-danger fw-bold">${fmt(t.curr)}</div><div class="small text-muted" style="font-size:0.7rem">Now</div></td><td width="16%" style="${cS}"><div class="text-warning fw-bold">${fmt(t.trans*fT)}</div><div class="small text-muted" style="font-size:0.7rem">Trans</div></td><td width="16%" style="${cS}"><div class="text-info fw-bold">${fmt(t.gogo*fG)}</div><div class="small text-muted" style="font-size:0.7rem">Go-Go (&lt;${gLim})</div></td><td width="16%" style="${cS}"><div class="text-primary fw-bold">${fmt(t.slow*fS)}</div><div class="small text-muted" style="font-size:0.7rem">Slow (&lt;${sLim})</div></td><td width="16%" style="${cS}"><div class="text-secondary fw-bold">${fmt(t.nogo*fN)}</div><div class="small text-muted" style="font-size:0.7rem">No-Go (${sLim}+)</div></td></tr></table>`;
-    }
-
-    initSidebar() {
-        const b = (sId, iId, lId, sfx='') => { const s=document.getElementById(sId); if(s) { s.value=this.getRaw(iId)||s.value; if(document.getElementById(lId)) document.getElementById(lId).innerText=s.value+sfx; s.addEventListener('input', e => { const i=document.getElementById(iId); if(i){ i.value=e.target.value; this.state.inputs[iId]=e.target.value; if(lId) document.getElementById(lId).innerText=e.target.value+sfx; this.debouncedRun(); } }); } };
-        b('qa_p1_retireAge_range', 'p1_retireAge', 'qa_p1_retireAge_val'); b('qa_p2_retireAge_range', 'p2_retireAge', 'qa_p2_retireAge_val'); b('qa_inflation_range', 'inflation_rate', 'qa_inflation_val', '%'); b('qa_return_range', 'p1_tfsa_ret', 'qa_return_val', '%');
-    }
-
-    populateAgeSelects() {
-        document.querySelectorAll('.cpp-age-select').forEach(s => { let h=''; for(let i=60;i<=70;i++) h+=`<option value="${i}" ${i===65?'selected':''}>${i}</option>`; s.innerHTML=h; });
-        document.querySelectorAll('.oas-age-select').forEach(s => { let h=''; for(let i=65;i<=70;i++) h+=`<option value="${i}" ${i===65?'selected':''}>${i}</option>`; s.innerHTML=h; });
-    }
-
-    saveScenarioFromModal() {
-        const nm = document.getElementById('modalScenarioName').value;
-        if(!nm) {
-            alert("Please enter a plan name.");
-            return;
-        }
-        this.saveScenarioData(nm);
-        if(this.saveModalInstance) {
-            this.saveModalInstance.hide();
-        }
-        document.getElementById('modalScenarioName').value = '';
-    }
-
-    saveScenarioData(name) {
-        let sc=JSON.parse(localStorage.getItem('rp_scenarios')||'[]'); 
-        sc.push({name: name, data: this.getCurrentSnapshot()}); 
-        localStorage.setItem('rp_scenarios', JSON.stringify(sc)); 
-        this.loadScenariosList(); 
-        this.updateScenarioBadge(name);
-        alert(`"${name}" has been saved.`);
-    }
-
-    loadScenariosList() {
-        const lst = document.getElementById('scenarioList');
-        const cmp = document.getElementById('compareSelectionArea');
-        const headerLst = document.getElementById('headerScenarioList');
-        const sc = JSON.parse(localStorage.getItem('rp_scenarios')||'[]');
-        
-        if(lst) lst.innerHTML = ''; 
-        if(headerLst) headerLst.innerHTML = '';
-
-        let cH = `<div class="d-flex align-items-center mb-2 p-2 rounded surface-card border border-secondary"><div class="form-check form-switch mb-0"><input class="form-check-input mt-1" type="checkbox" role="switch" value="current" id="comp_current" checked><label class="form-check-label fw-medium ms-2" for="comp_current">Current Unsaved Plan</label></div></div>`;
-        
-        if (sc.length === 0) {
-            if(headerLst) headerLst.innerHTML = `<li><span class="dropdown-item-text text-muted small">No saved plans</span></li>`;
-            if(lst) lst.innerHTML = `<li class="list-group-item bg-transparent text-muted small border-0">No saved scenarios yet.</li>`;
-        } else {
-            sc.forEach((s, idx) => {
-                if(lst) {
-                    lst.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center surface-card border-secondary mb-2 rounded-3">${s.name}<div><button class="btn btn-sm btn-outline-success me-2" onclick="app.loadScenario(${idx})" title="Load"><i class="bi bi-arrow-clockwise"></i></button><button class="btn btn-sm btn-outline-info me-2" onclick="app.exportScenario(${idx})" title="Export"><i class="bi bi-download"></i></button><button class="btn btn-sm btn-outline-danger" onclick="app.deleteScenario(${idx})"><i class="bi bi-trash"></i></button></div></li>`;
-                }
-                if(headerLst) {
-                    headerLst.innerHTML += `<li><a class="dropdown-item" href="javascript:void(0)" onclick="app.loadScenario(${idx})"><i class="bi bi-file-earmark-check me-2 text-success"></i>${s.name}</a></li>`;
-                }
-                
-                cH += `<div class="d-flex align-items-center mb-2 p-2 rounded surface-card border border-secondary"><div class="form-check form-switch mb-0"><input class="form-check-input mt-1" type="checkbox" role="switch" value="${idx}" id="comp_${idx}"><label class="form-check-label fw-medium ms-2" for="comp_${idx}">${s.name}</label></div></div>`;
-            });
-        }
-        
-        if(cmp) cmp.innerHTML = cH;
-    }
-
-    loadScenario(idx) { 
-        const s = JSON.parse(localStorage.getItem('rp_scenarios')||'[]')[idx]; 
-        if(!s) return; 
-        this.loadStateToDOM(s.data); 
-        this.run(); 
-        this.updateScenarioBadge(s.name);
-        alert(`Loaded plan: "${s.name}"`); 
-    }
-
-    exportScenario(idx) { 
-        const s = JSON.parse(localStorage.getItem('rp_scenarios')||'[]')[idx]; 
-        if(!s) return; 
-        const a = document.createElement('a'); 
-        a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(s.data, null, 2)); 
-        a.download = s.name.replace(/\s+/g, '_').toLowerCase() + ".json"; 
-        document.body.appendChild(a); 
-        a.click(); 
-        a.remove(); 
-    }
-
-    deleteScenario(idx) { 
-        this.showConfirm("Delete this scenario?", () => { 
-            let sc=JSON.parse(localStorage.getItem('rp_scenarios')||'[]'); 
-            sc.splice(idx, 1); 
-            localStorage.setItem('rp_scenarios', JSON.stringify(sc)); 
-            this.loadScenariosList(); 
-        }); 
-    }
-
-    loadStateToDOM(d) {
-        if(!d) return;
-        if(d.version !== this.APP_VERSION) console.warn(`Updating save data from v${d.version||'old'} to v${this.APP_VERSION}`);
-        this.state.inputs = {...(d.inputs||{})}; this.state.strategies = {...(d.strategies||{ accum: ['tfsa', 'rrsp', 'nreg', 'cash', 'crypto'], decum: ['rrsp', 'crypto', 'nreg', 'tfsa', 'cash'] })};
-        Object.entries(this.state.inputs).forEach(([id, val]) => { if(id.startsWith('comp_')) return; const el=document.getElementById(id); if(el) el.type==='checkbox'||el.type==='radio'?el.checked=val:el.value=val; });
-        ['p1_retireAge','p2_retireAge','inflation_rate'].forEach(k => { if(this.state.inputs[k]) this.updateSidebarSync(k, this.state.inputs[k]); });
-        if(this.state.inputs['p1_tfsa_ret']) this.updateSidebarSync('p1_tfsa_ret', this.state.inputs['p1_tfsa_ret']);
-        
-        const assetAdvM = document.getElementById('asset_mode_advanced')?.checked;
-        if(document.getElementById('asset_mode_advanced')) {
-            document.querySelectorAll('.asset-bal-col').forEach(el => el.className = assetAdvM ? 'col-3 asset-bal-col' : 'col-5 asset-bal-col');
-            document.querySelectorAll('.asset-ret-col').forEach(el => el.className = assetAdvM ? 'col-3 asset-ret-col' : 'col-4 asset-ret-col');
-            document.querySelectorAll('.adv-asset-col').forEach(el => el.style.display = assetAdvM ? 'block' : 'none');
-            document.querySelectorAll('.lbl-ret').forEach(el => el.innerText = assetAdvM ? 'Pre-Ret(%)' : 'Return (%)');
-        }
-
-        if(d.expensesData) { Object.keys(this.expensesByCategory).forEach(c => { if(!d.expensesData[c]) d.expensesData[c] = this.expensesByCategory[c]; }); this.expensesByCategory = d.expensesData; } this.renderExpenseRows();
-        if(d.properties) { d.properties.forEach(p => { if(p.includeInNW === undefined) p.includeInNW = false; }); this.state.properties = d.properties; } this.renderProperties();
-        this.state.windfalls = d.windfalls || []; this.renderWindfalls();
-        this.state.additionalIncome = d.additionalIncome || []; this.renderAdditionalIncome();
-        const dC = document.getElementById('debt-container'); dC.innerHTML = ''; if(d.debt) d.debt.forEach(a => { this.addDebtRow(); const ins = dC.querySelectorAll('.debt-amount'); ins[ins.length-1].value = a; });
-        this.toggleModeDisplay(); this.renderStrategy();
-        if(document.getElementById('exp_gogo_val')) document.getElementById('exp_gogo_val').innerText = this.getRaw('exp_gogo_age')||75;
-        if(document.getElementById('exp_slow_val')) document.getElementById('exp_slow_val').innerText = this.getRaw('exp_slow_age')||85;
-        const advM = document.getElementById('expense_mode_advanced')?.checked; if(document.getElementById('expense-phase-controls')) document.getElementById('expense-phase-controls').style.display = advM?'flex':'none';
-        if(document.getElementById('p1_db_start_val')) document.getElementById('p1_db_start_val').innerText = this.getRaw('p1_db_start_age')||'60';
-        if(document.getElementById('p2_db_start_val')) document.getElementById('p2_db_start_val').innerText = this.getRaw('p2_db_start_age')||'60';
-        
-        if(document.getElementById('p1_oas_years_val')) document.getElementById('p1_oas_years_val').innerText = this.getRaw('p1_oas_years')||'40';
-        if(document.getElementById('p2_oas_years_val')) document.getElementById('p2_oas_years_val').innerText = this.getRaw('p2_oas_years')||'40';
-        if(document.getElementById('p1_cpp_start_val')) document.getElementById('p1_cpp_start_val').innerText = this.getRaw('p1_cpp_start')||'65';
-        if(document.getElementById('p1_oas_start_val')) document.getElementById('p1_oas_start_val').innerText = this.getRaw('p1_oas_start')||'65';
-        if(document.getElementById('p2_cpp_start_val')) document.getElementById('p2_cpp_start_val').innerText = this.getRaw('p2_cpp_start')||'65';
-        if(document.getElementById('p2_oas_start_val')) document.getElementById('p2_oas_start_val').innerText = this.getRaw('p2_oas_start')||'65';
-        
-        this.updatePostRetIncomeVisibility();
-    }
-    
-    getCurrentSnapshot() { 
-        const s = { version: this.APP_VERSION, inputs: {...this.state.inputs}, strategies: {...this.state.strategies}, debt: [], properties: JSON.parse(JSON.stringify(this.state.properties)), expensesData: JSON.parse(JSON.stringify(this.expensesByCategory)), windfalls: JSON.parse(JSON.stringify(this.state.windfalls)), additionalIncome: JSON.parse(JSON.stringify(this.state.additionalIncome)) }; 
-        document.querySelectorAll('.debt-amount').forEach(el=>s.debt.push(el.value)); 
-        return s; 
-    }
 }
 
+// Initialize Application
 const app = new RetirementPlanner();
