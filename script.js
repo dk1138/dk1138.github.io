@@ -1,9 +1,9 @@
 /**
- * Retirement Planner Pro - Logic v10.25 (Final: Complete & Fixed)
+ * Retirement Planner Pro - Logic v10.26 (Final: Unabridged & Cleaned)
  */
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.25";
+        this.APP_VERSION = "10.26";
         this.state = {
             inputs: {}, debt: [],
             properties: [{ name: "Primary Home", value: 1000000, mortgage: 430000, growth: 3.0, rate: 3.29, payment: 0, manual: false, includeInNW: false }],
@@ -57,6 +57,8 @@ class RetirementPlanner {
         this.init();
     }
 
+    /* --- INITIALIZATION & SETUP --- */
+
     debounce(func, wait) {
         let timeout;
         return function(...args) {
@@ -102,10 +104,7 @@ class RetirementPlanner {
 
     initPopovers() {
         const popoverTriggerList = document.querySelectorAll('[data-bs-toggle="popover"]');
-        [...popoverTriggerList].map(popoverTriggerEl => new bootstrap.Popover(popoverTriggerEl, {
-            trigger: 'focus', 
-            html: true 
-        }));
+        [...popoverTriggerList].map(popoverTriggerEl => new bootstrap.Popover(popoverTriggerEl, { trigger: 'focus', html: true }));
     }
 
     initTheme() {
@@ -171,6 +170,8 @@ class RetirementPlanner {
         } else container.appendChild(gridContainer);
     }
 
+    /* --- DATA MANAGEMENT --- */
+
     syncStateFromDOM() {
         document.querySelectorAll('input, select').forEach(el => {
             if (el.id && !el.id.startsWith('comp_') && !el.className.includes('-update') && !el.classList.contains('debt-amount')) {
@@ -202,6 +203,8 @@ class RetirementPlanner {
         }
     }
 
+    /* --- EVENT BINDING --- */
+
     bindEvents() {
         const $ = id => document.getElementById(id);
         if($('btnThemeToggle')) $('btnThemeToggle').addEventListener('click', () => this.toggleTheme());
@@ -223,7 +226,6 @@ class RetirementPlanner {
             }
             if (e.target.id === 'enable_post_ret_income_p1' || e.target.id === 'enable_post_ret_income_p2') this.updatePostRetIncomeVisibility();
             
-            // Check for Compare selection changes
             if (e.target.id && e.target.id.startsWith('comp_')) {
                 this.updateComparisonChart();
             } else if (e.target.classList.contains('live-calc') && (e.target.tagName === 'SELECT' || e.target.type === 'checkbox' || e.target.type === 'radio')) {
@@ -358,6 +360,7 @@ class RetirementPlanner {
         document.body.addEventListener('click', e => {
             if(e.target.classList.contains('toggle-btn')) this.toggleGroup(e.target.dataset.type);
             
+            // Handle optimization apply button
             if(e.target.classList.contains('opt-apply')) {
                 const targetId = e.target.dataset.target || e.target.getAttribute('data-target');
                 if(targetId) this.applyOpt(targetId);
@@ -365,111 +368,93 @@ class RetirementPlanner {
         });
     }
 
-    updateScenarioBadge(name) {
-        const badge = document.getElementById('currentScenarioBadge');
-        const nameEl = document.getElementById('currentScenarioName');
-        if(badge && nameEl) {
-            if(name) {
-                nameEl.innerText = name;
-                badge.classList.remove('d-none');
-            } else {
-                badge.classList.add('d-none');
-                nameEl.innerText = '';
-            }
-        }
+    /* --- UI & FORMATTING UTILITIES --- */
+
+    updateAgeDisplay(pfx) {
+        const dI = this.getRaw(`${pfx}_dob`), el = document.getElementById(`${pfx}_age`);
+        if(!dI){ if(el) el.innerHTML="--"; return; }
+        if(el) el.innerHTML = Math.abs(new Date(Date.now() - new Date(dI+"-01").getTime()).getUTCFullYear() - 1970) + " years old";
     }
 
-    updatePostRetIncomeVisibility() {
-        const $ = id => document.getElementById(id);
-        if($('p1-post-ret-card')) $('p1-post-ret-card').style.display = ($('enable_post_ret_income_p1')?.checked) ? 'block' : 'none';
-        if($('p2-post-ret-card')) $('p2-post-ret-card').style.display = ($('enable_post_ret_income_p2')?.checked) ? 'block' : 'none';
+    toggleSidebar() {
+        const ex = document.getElementById('sidebarExpanded'), co = document.getElementById('sidebarCollapsed'), col = document.getElementById('sidebarCol');
+        if(!ex || !co || !col) return;
+        if(ex.style.display==='none'){ ex.style.display='block'; co.style.display='none'; col.style.width='320px'; } else { ex.style.display='none'; co.style.display='block'; col.style.width='50px'; }
+        setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
     }
 
-    saveToLocalStorage() { localStorage.setItem(this.AUTO_SAVE_KEY, JSON.stringify(this.getCurrentSnapshot())); }
+    getDiscountFactor(y) { return !document.getElementById('useRealDollars').checked ? 1 : Math.pow(1 + this.getVal('inflation_rate')/100, y); }
+    formatInput(el) { const v = el.value.replace(/,/g, ''); if(!isNaN(v) && v!=='') el.value = Number(v).toLocaleString('en-US'); }
+    toggleGroup(t) { const b = document.querySelector(`span[data-type="${t}"]`); document.body.classList.toggle(`show-${t}`); b.innerText = document.body.classList.contains(`show-${t}`) ? '[-]' : '[+]'; }
+    restoreDetailsState() { ['inv','inc','exp'].forEach(t => { const b=document.querySelector(`span[data-type="${t}"]`); if(b) b.innerText = document.body.classList.contains(`show-${t}`) ? '[-]' : '[+]'; }); }
 
-    handleFileUpload(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = event => {
-            try { 
-                this.loadStateToDOM(JSON.parse(event.target.result)); 
-                this.run(); 
-                this.updateScenarioBadge(file.name.replace('.json',''));
-                alert('Configuration loaded successfully.'); 
-            } 
-            catch(err) { alert('Error parsing JSON.'); console.error(err); }
-        };
-        reader.readAsText(file); e.target.value = '';
+    getIconHTML(k, th) {
+        const d = this.iconDefs[k]; if(!d) return ''; let c = d.color;
+        if(th==='light'){ if(c.includes('text-white')||c.includes('text-warning')) c='text-dark'; if(c.includes('text-info')) c='text-primary'; }
+        return `<i class="bi ${d.icon} ${c}" title="${d.title}"></i>`;
     }
 
-    clearStorage() {
-        if(confirm("Delete auto-saved data and reset everything to defaults?")) { 
-            localStorage.removeItem(this.AUTO_SAVE_KEY); 
-            this.updateScenarioBadge(null);
-            location.reload(); 
-        }
+    /* --- RENDERING MODULES --- */
+
+    renderExpenseRows() {
+        const tb = document.getElementById('expenseTableBody'), th = document.getElementById('expenseTableHeader'), t = document.documentElement.getAttribute('data-bs-theme')||'dark', rB=t==='light'?'bg-white':'bg-body-tertiary', rT=t==='light'?'text-dark':'text-white', rBd=t==='light'?'border-dark-subtle':'border-secondary', ab=t==='light'?'text-secondary':'text-white', ic=t==='light'?'bg-white text-dark':'bg-transparent text-white', hc=t==='light'?'bg-white text-dark border-bottom border-dark-subtle':'bg-transparent text-muted border-secondary';
+        const gLim=parseInt(this.getRaw('exp_gogo_age'))||75, sLim=parseInt(this.getRaw('exp_slow_age'))||85;
+        if(!th || !tb) return;
+        th.innerHTML = this.state.expenseMode==='Simple' ? `<th class="text-uppercase small ps-3 ${hc}" style="width: 40%;">Category / Item</th><th class="text-uppercase small ${hc}" style="width: 30%;">Current</th><th class="text-uppercase small ${hc}" style="width: 30%;">Retirement</th>` : `<th class="text-uppercase small ps-3 ${hc}" style="width: 20%;">Item</th><th class="text-uppercase small ${hc}" style="width: 16%;">Current</th><th class="text-uppercase small ${hc}" style="width: 16%;">Trans</th><th class="text-uppercase small ${hc}" style="width: 16%;">Go-Go <span style="font-size:0.6rem">(&lt;${gLim})</span></th><th class="text-uppercase small ${hc}" style="width: 16%;">Slow-Go <span style="font-size:0.6rem">(&lt;${sLim})</span></th><th class="text-uppercase small ${hc}" style="width: 16%;">No-Go <span style="font-size:0.6rem">(${sLim}+)</span></th>`;
+        let h='', m={"Housing":{i:"bi-house-door-fill",c:"text-primary"},"Living":{i:"bi-basket2-fill",c:"text-success"},"Kids":{i:"bi-balloon-heart-fill",c:"text-warning"},"Lifestyle":{i:"bi-airplane-engines-fill",c:"text-info"}};
+        const rI = (i,f,x,c,cls) => `<div class="input-group input-group-sm mb-1" style="flex-wrap:nowrap;"><span class="input-group-text border-secondary text-muted">$</span><input type="text" class="form-control border-secondary formatted-num expense-update ${cls}" style="min-width:60px;" value="${(i[f]||0).toLocaleString()}" data-cat="${c}" data-idx="${x}" data-field="${f}"></div>`;
+        Object.entries(this.expensesByCategory).forEach(([c, d]) => {
+            const mt=m[c]||{i:"bi-tag-fill",c:"text-white"}, cs=this.state.expenseMode==='Simple'?3:6;
+            h+=`<tr class="expense-category-row"><td colspan="${cs}" class="py-3 ps-3 border-bottom ${rBd} ${rB} ${rT}"><div class="d-flex align-items-center justify-content-between"><div class="d-flex align-items-center"><i class="bi ${mt.i} ${mt.c} me-2 fs-6"></i><span class="text-uppercase fw-bold ${mt.c} small" style="letter-spacing:1px;">${c}</span></div><button type="button" class="btn btn-sm btn-link ${ab} p-0 me-3" onclick="app.addExpense('${c}')"><i class="bi bi-plus-circle-fill text-success fs-5"></i></button></div></td></tr>`;
+            d.items.forEach((i, x) => {
+                h+=`<tr class="expense-row"><td class="ps-3 align-middle border-bottom border-secondary ${rB} ${rT}"><input type="text" class="form-control form-control-sm border-0 expense-update ${ic}" value="${i.name}" data-cat="${c}" data-idx="${x}" data-field="name"></td>`;
+                if(this.state.expenseMode==='Simple'){
+                    h+=`<td class="align-middle border-bottom border-secondary ${rB} ${rT}"><div class="input-group input-group-sm"><span class="input-group-text border-secondary text-muted">$</span><input type="text" class="form-control border-secondary formatted-num expense-update ${ic}" style="width:100px;flex-grow:1;" value="${i.curr.toLocaleString()}" data-cat="${c}" data-idx="${x}" data-field="curr"><select class="form-select border-secondary expense-update ${ic}" style="width:auto;flex-grow:0;min-width:85px;" data-cat="${c}" data-idx="${x}" data-field="freq"><option value="12" ${i.freq===12?'selected':''}>/mo</option><option value="1" ${i.freq===1?'selected':''}>/yr</option></select></div></td><td class="align-middle border-bottom border-secondary ${rB} ${rT}"><div class="d-flex align-items-center"><div class="input-group input-group-sm flex-grow-1"><span class="input-group-text border-secondary text-muted">$</span><input type="text" class="form-control border-secondary formatted-num expense-update ${ic}" style="width:100px;flex-grow:1;" value="${i.ret.toLocaleString()}" data-cat="${c}" data-idx="${x}" data-field="ret"><select class="form-select border-secondary expense-update ${ic}" style="width:auto;flex-grow:0;min-width:85px;" data-cat="${c}" data-idx="${x}" data-field="freq"><option value="12" ${i.freq===12?'selected':''}>/mo</option><option value="1" ${i.freq===1?'selected':''}>/yr</option></select></div><button type="button" class="btn btn-sm btn-link text-danger p-0 ms-3 me-2" onclick="app.removeExpense('${c}', ${x})"><i class="bi bi-trash"></i></button></div></td>`;
+                } else {
+                    h+=`<td class="align-middle border-bottom border-secondary ${rB} ${rT}"><div class="input-group input-group-sm mb-1" style="flex-wrap:nowrap;"><span class="input-group-text border-secondary text-muted">$</span><input type="text" class="form-control border-secondary formatted-num expense-update ${ic}" style="min-width:60px;" value="${(i.curr||0).toLocaleString()}" data-cat="${c}" data-idx="${x}" data-field="curr"><select class="form-select border-secondary expense-update ${ic}" style="width:auto;flex-grow:0;min-width:85px;" data-cat="${c}" data-idx="${x}" data-field="freq"><option value="12" ${i.freq===12?'selected':''}>/mo</option><option value="1" ${i.freq===1?'selected':''}>/yr</option></select></div></td><td class="align-middle border-bottom border-secondary ${rB} ${rT}">${rI(i,'trans',x,c,ic)}</td><td class="align-middle border-bottom border-secondary ${rB} ${rT}">${rI(i,'gogo',x,c,ic)}</td><td class="align-middle border-bottom border-secondary ${rB} ${rT}">${rI(i,'slow',x,c,ic)}</td><td class="align-middle border-bottom border-secondary ${rB} ${rT}"><div class="d-flex align-items-center justify-content-between">${rI(i,'nogo',x,c,ic)}<button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2" onclick="app.removeExpense('${c}', ${x})"><i class="bi bi-trash"></i></button></div></td>`;
+                } h+=`</tr>`;
+            });
+        }); tb.innerHTML = h;
+        document.querySelectorAll('.expense-update.formatted-num').forEach(el => el.addEventListener('input', e => this.formatInput(e.target)));
     }
 
-    resetAllData() {
-        const defs = { 
-            p1_dob: '1990-01', p2_dob: '1990-01', p1_retireAge: '65', p2_retireAge: '65', p1_lifeExp: '90', p2_lifeExp: '90', inflation_rate: '2.0', tax_province: 'ON', 
-            p1_cash_ret: '2.0', p1_cash_ret_retire: '2.0', p2_cash_ret: '2.0', p2_cash_ret_retire: '2.0', 
-            p1_tfsa_ret: '6.0', p1_tfsa_ret_retire: '6.0', p2_tfsa_ret: '6.0', p2_tfsa_ret_retire: '6.0', 
-            p1_rrsp_ret: '6.0', p1_rrsp_ret_retire: '6.0', p2_rrsp_ret: '6.0', p2_rrsp_ret_retire: '6.0', 
-            p1_nonreg_ret: '5.0', p1_nonreg_ret_retire: '5.0', p2_nonreg_ret: '5.0', p2_nonreg_ret_retire: '5.0', 
-            p1_crypto_ret: '8.0', p1_crypto_ret_retire: '8.0', p2_crypto_ret: '8.0', p2_crypto_ret_retire: '8.0',
-            p1_lirf_ret: '6.0', p1_lirf_ret_retire: '6.0', p2_lirf_ret: '6.0', p2_lirf_ret_retire: '6.0',
-            p1_lif_ret: '5.0', p1_lif_ret_retire: '5.0', p2_lif_ret: '5.0', p2_lif_ret_retire: '5.0',
-            p1_rrif_acct_ret: '5.0', p1_rrif_acct_ret_retire: '5.0', p2_rrif_acct_ret: '5.0', p2_rrif_acct_ret_retire: '5.0',
-            
-            p1_cpp_est_base: '10,000', p2_cpp_est_base: '10,000',
-            p1_oas_years: '40', p2_oas_years: '40',
-            
-            p1_income_growth: '2.0', p2_income_growth: '2.0', p1_db_pension: '0', p2_db_pension: '0', p1_db_start_age: '60', p2_db_start_age: '60', p1_cpp_enabled: true, p1_oas_enabled: true, p2_cpp_enabled: true, p2_oas_enabled: true, exp_gogo_age: '75', exp_slow_age: '85', enable_post_ret_income_p1: false, enable_post_ret_income_p2: false, p1_post_inc: '0', p1_post_growth: '2.0', p2_post_inc: '0', p2_post_growth: '2.0' 
-        };
-        
-        document.querySelectorAll('input, select').forEach(el => {
-            if(el.id && !el.id.startsWith('comp_') && !el.className.includes('-update') && !el.classList.contains('debt-amount')) {
-                if(defs[el.id] !== undefined) el.type === 'checkbox' ? el.checked = defs[el.id] : el.value = defs[el.id];
-                else if (el.type === 'checkbox' || el.type === 'radio') { if(el.name !== 'planMode') el.checked = false; } else el.value = '0';
-                this.state.inputs[el.id] = el.type === 'checkbox' ? el.checked : el.value;
-            }
+    addExpense(c) { this.expensesByCategory[c].items.push({ name: "New Expense", curr: 0, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 }); this.renderExpenseRows(); this.calcExpenses(); this.run(); }
+    removeExpense(c, i) { this.showConfirm('Delete expense?', () => { this.expensesByCategory[c].items.splice(i, 1); this.renderExpenseRows(); this.calcExpenses(); this.run(); }); }
+
+    addDebtRow() {
+        const c = document.getElementById('debt-container');
+        if(!c) return;
+        const div = document.createElement('div'); div.className = 'row g-3 mb-2 align-items-center debt-row';
+        div.innerHTML = `<div class="col-12 col-md-5"><input type="text" class="form-control form-control-sm" placeholder="Debt Name"></div><div class="col-8 col-md-4"><div class="input-group input-group-sm"><span class="input-group-text">$</span><input type="text" class="form-control formatted-num live-calc debt-amount" value="0"></div></div><div class="col-4 col-md-3"><button type="button" class="btn btn-outline-danger btn-sm w-100"><i class="bi bi-trash"></i></button></div>`;
+        c.appendChild(div); div.querySelector('.debt-amount').addEventListener('input', e => { this.formatInput(e.target); this.debouncedRun(); });
+        div.querySelector('.btn-outline-danger').addEventListener('click', () => { div.remove(); this.debouncedRun(); });
+    }
+
+    renderStrategy() {
+        const c1 = document.getElementById('strat-accum-container');
+        const c2 = document.getElementById('strat-decumulation');
+        if(c1) this.renderList('strat-accum-list', this.state.strategies.accum, 'accum', c1);
+        if(c2) this.renderList('strat-decum-list', this.state.strategies.decum, 'decum', c2);
+    }
+
+    renderList(id, arr, type, cont) {
+        if(!cont) return;
+        let ul = document.getElementById(id); if(!ul) { ul = document.createElement('ul'); ul.id=id; ul.className='strategy-list p-0 m-0'; ul.style.listStyle='none'; cont.appendChild(ul); } else ul.innerHTML='';
+        arr.forEach((k, i) => {
+            const li = document.createElement('li'); li.className='strat-item shadow-sm'; li.draggable=true; li.setAttribute('data-key', k);
+            li.innerHTML = `<span class="fw-bold small"><span class="badge bg-secondary me-2 rounded-circle">${i+1}</span> ${this.strategyLabels[k] || k.toUpperCase()}</span> <i class="bi bi-grip-vertical grip-icon fs-5"></i>`;
+            li.addEventListener('dragstart', () => { li.classList.add('dragging'); li.style.opacity='0.5'; });
+            li.addEventListener('dragend', () => { li.classList.remove('dragging'); li.style.opacity='1'; this.updateArrayOrder(id, type); this.run(); }); ul.appendChild(li);
         });
-        this.state.properties = [{ name: "Primary Home", value: 0, mortgage: 0, growth: 3.0, rate: 3.5, payment: 0, manual: false, includeInNW: false }];
-        this.state.windfalls = []; this.state.additionalIncome = []; 
-        for (const cat in this.expensesByCategory) this.expensesByCategory[cat].items = [];
-        this.renderProperties(); this.renderWindfalls(); this.renderAdditionalIncome(); this.renderExpenseRows(); this.calcExpenses();
-        if(document.getElementById('debt-container')) document.getElementById('debt-container').innerHTML = ''; 
-        this.state.debt = [];
-        
-        this.updateSidebarSync('p1_retireAge', 65); this.updateSidebarSync('p2_retireAge', 65); this.updateSidebarSync('inflation_rate', 2.0); this.updateSidebarSync('p1_tfsa_ret', 6.0);
-        
-        if(document.getElementById('exp_gogo_val')) document.getElementById('exp_gogo_val').innerText = '75'; 
-        if(document.getElementById('exp_slow_val')) document.getElementById('exp_slow_val').innerText = '85'; 
-        if(document.getElementById('p1_db_start_val')) document.getElementById('p1_db_start_val').innerText = '60'; 
-        if(document.getElementById('p2_db_start_val')) document.getElementById('p2_db_start_val').innerText = '60';
-        
-        if(document.getElementById('p1_oas_years_val')) document.getElementById('p1_oas_years_val').innerText = '40';
-        if(document.getElementById('p2_oas_years_val')) document.getElementById('p2_oas_years_val').innerText = '40';
-        if(document.getElementById('p1_cpp_start_val')) document.getElementById('p1_cpp_start_val').innerText = '65';
-        if(document.getElementById('p1_oas_start_val')) document.getElementById('p1_oas_start_val').innerText = '65';
-        if(document.getElementById('p2_cpp_start_val')) document.getElementById('p2_cpp_start_val').innerText = '65';
-        if(document.getElementById('p2_oas_start_val')) document.getElementById('p2_oas_start_val').innerText = '65';
-        
-        this.updatePostRetIncomeVisibility(); this.updateAgeDisplay('p1'); this.updateAgeDisplay('p2'); 
-        this.updateScenarioBadge(null);
-        this.run();
+        ul.addEventListener('dragover', e => {
+            e.preventDefault(); const aE = [...ul.querySelectorAll('.strat-item:not(.dragging)')].reduce((c, ch) => { const b=ch.getBoundingClientRect(), o=e.clientY-b.top-b.height/2; return o<0&&o>c.offset ? {offset:o, e:ch} : c; }, {offset:Number.NEGATIVE_INFINITY}).e, drg=document.querySelector('.dragging');
+            aE==null ? ul.appendChild(drg) : ul.insertBefore(drg, aE);
+        });
     }
 
-    exportToCSV() {
-        if (!this.state.projectionData.length) return alert("No data available.");
-        const mode = this.state.mode, d = this.state.projectionData;
-        const h = ["Year", "P1 Age", mode==="Couple"?"P2 Age":null, "P1 Base Income", mode==="Couple"?"P2 Base Income":null, "P1 Post-Ret Inc", mode==="Couple"?"P2 Post-Ret Inc":null, "P1 Benefits", mode==="Couple"?"P2 Benefits":null, "P1 DB Pension", mode==="Couple"?"P2 DB Pension":null, "Windfall", "P1 Taxes", mode==="Couple"?"P2 Taxes":null, "Total Expenses", "Mortgage Payment", "Debt Payment", "Surplus/Deficit", "P1 TFSA", "P1 RRSP", "P1 Non-Reg", "P1 Cash", "P1 Crypto", "P1 LIRF", "P1 LIF", "P1 RRIF", mode==="Couple"?"P2 TFSA":null, mode==="Couple"?"P2 RRSP":null, mode==="Couple"?"P2 Non-Reg":null, mode==="Couple"?"P2 Cash":null, mode==="Couple"?"P2 Crypto":null, mode==="Couple"?"P2 LIRF":null, mode==="Couple"?"P2 LIF":null, mode==="Couple"?"P2 RRIF":null, "Liquid Net Worth", "Home Equity", "Total Net Worth"].filter(x=>x);
-        const rows = d.map(r => [r.year, r.p1Age, mode==="Couple"?(r.p2Age||""):null, Math.round(r.incomeP1), mode==="Couple"?Math.round(r.incomeP2):null, Math.round(r.postRetP1||0), mode==="Couple"?Math.round(r.postRetP2||0):null, Math.round(r.benefitsP1), mode==="Couple"?Math.round(r.benefitsP2):null, Math.round(r.dbP1), mode==="Couple"?Math.round(r.dbP2):null, Math.round(r.windfall), Math.round(r.taxP1), mode==="Couple"?Math.round(r.taxP2):null, Math.round(r.expenses), Math.round(r.mortgagePay), Math.round(r.debtPay), Math.round(r.surplus), Math.round(r.assetsP1.tfsa), Math.round(r.assetsP1.rrsp), Math.round(r.assetsP1.nreg), Math.round(r.assetsP1.cash), Math.round(r.assetsP1.crypto), Math.round(r.assetsP1.lirf), Math.round(r.assetsP1.lif), Math.round(r.assetsP1.rrif_acct), mode==="Couple"?Math.round(r.assetsP2.tfsa):null, mode==="Couple"?Math.round(r.assetsP2.rrsp):null, mode==="Couple"?Math.round(r.assetsP2.nreg):null, mode==="Couple"?Math.round(r.assetsP2.cash):null, mode==="Couple"?Math.round(r.assetsP2.crypto):null, mode==="Couple"?Math.round(r.assetsP2.lirf):null, mode==="Couple"?Math.round(r.assetsP2.lif):null, mode==="Couple"?Math.round(r.assetsP2.rrif_acct):null, Math.round(r.liquidNW), Math.round(r.homeValue-r.mortgage), Math.round(r.debugNW)].filter(x=>x!==null).join(","));
-        const link = document.createElement("a");
-        link.setAttribute("href", encodeURI("data:text/csv;charset=utf-8," + [h.join(","), ...rows].join("\n"))); link.setAttribute("download", "retirement_plan_pro.csv");
-        document.body.appendChild(link); link.click(); link.remove();
+    updateArrayOrder(id, type) {
+        const o = []; document.getElementById(id).querySelectorAll('.strat-item').forEach(i => o.push(i.getAttribute('data-key')));
+        type==='accum' ? this.state.strategies.accum=o : this.state.strategies.decum=o; this.renderStrategy();
     }
 
     renderWindfalls() {
@@ -529,73 +514,207 @@ class RetirementPlanner {
         if(isFinite(nMonths)) el.innerHTML = `<span class="text-success fw-bold"><i class="bi bi-calendar-check me-1"></i>Payoff: ${Math.floor(nMonths/12)}y ${Math.round(nMonths%12)}m</span>`;
     }
 
-    toggleRow(el) { el.parentElement.classList.toggle('expanded'); el.parentElement.querySelector('.grid-detail-wrapper').classList.toggle('open'); }
-    toggleModeDisplay() {
-        const c = this.state.mode === 'Couple'; document.body.classList.toggle('is-couple', c);
-        document.querySelectorAll('.p2-column').forEach(el => { if(!['TH','TD'].includes(el.tagName)) el.style.display = c ? '' : 'none'; });
-        if(this.charts.nw) this.charts.nw.resize();
-    }
+    /* --- ENGINE / MATH / LOGIC --- */
 
-    run() {
-        try {
-            this.estimateCPPOAS(); this.updateIncomeDisplay(); this.calcExpenses(); this.generateProjectionTable(); 
-            const slider = document.getElementById('yearSlider');
-            if (this.state.projectionData.length && slider) {
-                let cur = parseInt(slider.value), max = this.state.projectionData.length - 1;
-                slider.max = max; if(cur > max) { slider.value = 0; cur = 0; }
-                const d = this.state.projectionData[cur];
-                if(document.getElementById('sliderYearDisplay')) document.getElementById('sliderYearDisplay').innerText = d.year;
-                if(document.getElementById('cfAgeDisplay')) document.getElementById('cfAgeDisplay').innerText = this.state.mode === 'Couple' ? `(P1: ${d.p1Age} / P2: ${d.p2Age})` : `(Age: ${d.p1Age})`;
-                document.querySelectorAll('.grid-row-group').forEach(r => r.style.backgroundColor = ''); 
-                
-                const gridGroups = document.querySelectorAll('.grid-row-group');
-                if(gridGroups[cur]) {
-                    gridGroups[cur].style.backgroundColor = 'rgba(255,193,7,0.1)';
-                    if(document.activeElement && document.activeElement.tagName !== 'INPUT') {
-                        gridGroups[cur].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                    }
-                }
-                clearTimeout(this.sliderTimeout);
-                this.sliderTimeout = setTimeout(() => this.drawSankey(cur), 50);
+    findOptimal() {
+        const findFor = (pfx) => {
+            const cppOn=this.state.inputs[`${pfx}_cpp_enabled`], oasOn=this.state.inputs[`${pfx}_oas_enabled`];
+            if(cppOn||oasOn) {
+                const oC=document.getElementById(`${pfx}_cpp_start`).value, oO=document.getElementById(`${pfx}_oas_start`).value;
+                let mx=-Infinity, bC=65, bO=65;
+                for(let c=60; c<=70; c+=5){ for(let o=65; o<=70; o+=5){ if(cppOn) this.state.inputs[`${pfx}_cpp_start`]=c; if(oasOn) this.state.inputs[`${pfx}_oas_start`]=o; const nw=this.generateProjectionTable(true); if(nw>mx){mx=nw;bC=c;bO=o;} } }
+                if(cppOn) this.optimalAges[`${pfx}_cpp`]=bC; if(oasOn) this.optimalAges[`${pfx}_oas`]=bO;
+                this.state.inputs[`${pfx}_cpp_start`]=oC; this.state.inputs[`${pfx}_oas_start`]=oO;
             }
-            if(typeof this.updateComparisonChart === 'function') this.updateComparisonChart();
-            this.saveToLocalStorage();
-        } catch (e) { console.error("Error in run loop:", e); }
+            document.getElementById(`${pfx}_cpp_opt`).innerHTML = cppOn ? `Optimal: Age ${this.optimalAges[`${pfx}_cpp`]} (<a href="javascript:void(0)" class="text-success text-decoration-none fw-bold opt-apply" data-target="${pfx}_cpp">Apply</a>)` : `Optimization Disabled`;
+            document.getElementById(`${pfx}_oas_opt`).innerHTML = oasOn ? `Optimal: Age ${this.optimalAges[`${pfx}_oas`]} (<a href="javascript:void(0)" class="text-success text-decoration-none fw-bold opt-apply" data-target="${pfx}_oas">Apply</a>)` : `Optimization Disabled`;
+        };
+        findFor('p1'); if(this.state.mode==='Couple') findFor('p2');
     }
 
-    drawSankey(idx) {
-        if (!this.state.projectionData[idx] || !google?.visualization) return;
-        const d = this.state.projectionData[idx], rows = [], fmt = n => n>=1000000 ? '$'+(n/1000000).toFixed(1)+'M' : (n>=1000 ? '$'+Math.round(n/1000)+'k' : '$'+Math.round(n));
-        const potName = `Available Cash\n${fmt(d.debugTotalInflow)}`;
-        
-        [['incomeP1','Employment P1'], ['incomeP2','Employment P2'], ['benefitsP1','Gov Benefits P1'], ['benefitsP2','Gov Benefits P2'], ['dbP1','DB Pension P1'], ['dbP2','DB Pension P2'], ['windfall','Inheritance/Bonus'], ['postRetP1','Post-Ret Work P1'], ['postRetP2','Post-Ret Work P2']].forEach(([k,n]) => { if(d[k]>0) rows.push([`${n}\n${fmt(d[k])}`, potName, Math.round(d[k])]); });
-        if(d.flows?.withdrawals) Object.entries(d.flows.withdrawals).forEach(([s,a]) => { if(a>0) rows.push([`${s}\n${fmt(a)}`, potName, Math.round(a)]); });
-        
-        const tTax = d.taxP1 + d.taxP2, tDebt = d.mortgagePay + d.debtPay;
-        if(tTax>0) rows.push([potName, `Taxes\n${fmt(tTax)}`, Math.round(tTax)]);
-        if(d.expenses>0) rows.push([potName, `Living Exp.\n${fmt(d.expenses)}`, Math.round(d.expenses)]);
-        if(tDebt>0) rows.push([potName, `Mortgage/Debt\n${fmt(tDebt)}`, Math.round(tDebt)]);
-        if(d.flows?.contributions) Object.entries(d.flows.contributions).forEach(([t,a]) => { if(a>0) rows.push([potName, `To ${this.strategyLabels[t]||t}\n${fmt(a)}`, Math.round(a)]); });
+    applyOpt(t) { 
+        document.getElementById(`${t}_start`).value = this.optimalAges[t]; 
+        document.getElementById(`${t}_start_val`).innerText = this.optimalAges[t]; 
+        this.state.inputs[`${t}_start`] = this.optimalAges[t]; 
+        this.run(); 
+    }
 
-        const unq = new Set(); rows.forEach(r => { unq.add(r[0]); unq.add(r[1]); });
-        const nodesCfg = Array.from(unq).map(n => {
-            let c='#a8a29e'; if(n.includes("Cash")) c='#f59e0b'; else if(n.includes("Emp")||n.includes("Post")) c='#10b981'; else if(n.includes("Gov")||n.includes("DB")) c='#06b6d4'; else if(n.includes("Inh")) c='#22c55e'; else if(n.includes("Taxes")) c='#ef4444'; else if(n.includes("Exp")) c='#f97316'; else if(n.includes("Mort")||n.includes("Debt")) c='#dc2626'; else if(["RRIF","TFSA","RRSP","Non-Reg","Crypto","Cash"].some(x=>n.includes(x))) c=n.startsWith("To ")?'#3b82f6':'#8b5cf6';
-            return { color: c };
+    estimateCPPOAS() {
+        ['p1','p2'].forEach(p => {
+            const rA=this.getVal(`${p}_retireAge`);
+            const cS=parseInt(this.getRaw(`${p}_cpp_start`));
+            const oS=parseInt(this.getRaw(`${p}_oas_start`));
+            const cE=this.state.inputs[`${p}_cpp_enabled`];
+            const oE=this.state.inputs[`${p}_oas_enabled`];
+            
+            let cppBase = this.getVal(`${p}_cpp_est_base`);
+            let md = (cS - 65) * 12; 
+            let cV = cppBase;
+            cV *= md < 0 ? (1 - (Math.abs(md) * 0.006)) : (1 + (md * 0.007)); 
+            if(rA < 60) cV *= Math.max(0, (39 - Math.max(0, (65 - rA) - 8)) / 39); 
+            
+            const eC = document.getElementById(`${p}_cpp_est`); 
+            if(eC){ 
+                eC.innerText = cE ? `$${Math.round(cV).toLocaleString()}/yr` : "Disabled"; 
+                cE ? eC.classList.remove('text-danger') : eC.classList.add('text-danger'); 
+            }
+            
+            let oasYears = Math.max(0, Math.min(40, this.getVal(`${p}_oas_years`)));
+            let oV = this.CONSTANTS.MAX_OAS_2026 * (oasYears / 40);
+            let od = (oS - 65) * 12; 
+            if(od > 0) oV *= (1 + (od * 0.006)); 
+            
+            const eO = document.getElementById(`${p}_oas_est`); 
+            if(eO){ 
+                eO.innerText = oE ? `$${Math.round(oV).toLocaleString()}/yr` : "Disabled"; 
+                oE ? eO.classList.remove('text-danger') : eO.classList.add('text-danger'); 
+            }
+        });
+    }
+
+    updateIncomeDisplay() {
+        const prov=this.getRaw('tax_province'), cY=new Date().getFullYear();
+        let add = { p1T:0, p1N:0, p2T:0, p2N:0 };
+        this.state.additionalIncome.forEach(s => {
+            let sY=new Date(s.start+"-01").getFullYear(), eY=(s.end?new Date(s.end+"-01"):new Date("2100-01-01")).getFullYear();
+            if(cY>=sY && cY<=eY) {
+                let a = s.amount * Math.pow(1+(s.growth/100), cY-sY) * (s.freq==='month'?12:1) * (cY===sY?(12-new Date(s.start+"-01").getMonth())/12:(cY===eY?Math.min(1, (new Date(s.end+"-01").getMonth()+1)/12):1));
+                if(a>0){ if(s.owner==='p1'){ s.taxable?add.p1T+=a:add.p1N+=a; } else { s.taxable?add.p2T+=a:add.p2N+=a; } }
+            }
+        });
+        const p1G=this.getVal('p1_income')+add.p1T, p2G=this.getVal('p2_income')+add.p2T, hhG=p1G+add.p1N+(this.state.mode==='Couple'?p2G+add.p2N:0);
+        if(document.getElementById('household_gross_display')) document.getElementById('household_gross_display').innerHTML = `$${hhG.toLocaleString()} <span class="monthly-sub">($${Math.round(hhG/12).toLocaleString()}/mo)</span>`;
+        const p1D=this.calculateTaxDetailed(p1G, prov), p2D=this.calculateTaxDetailed(p2G, prov);
+        this.renderTaxDetails('p1', p1G, p1D); this.renderTaxDetails('p2', p2G, p2D);
+        const hhN = (p1G-p1D.totalTax)+add.p1N+(this.state.mode==='Couple'?(p2G-p2D.totalTax)+add.p2N:0);
+        if(document.getElementById('household_net_display')) document.getElementById('household_net_display').innerHTML = `$${Math.round(hhN).toLocaleString()} <span class="monthly-sub">($${Math.round(hhN/12).toLocaleString()}/mo)</span>`;
+        return hhN;
+    }
+
+    renderTaxDetails(pfx, g, d) {
+        const c=document.getElementById(`${pfx}_tax_details`); if(!c) return;
+        c.innerHTML = g>0 ? `<div class="d-flex justify-content-between border-bottom border-secondary pb-1 mb-1"><span class="text-muted">Federal</span> <span>($${Math.round(d.fed).toLocaleString()}) ${((d.fed/g)*100).toFixed(1)}%</span></div><div class="d-flex justify-content-between border-bottom border-secondary pb-1 mb-1"><span class="text-muted">Provincial</span> <span>($${Math.round(d.prov).toLocaleString()}) ${((d.prov/g)*100).toFixed(1)}%</span></div><div class="d-flex justify-content-between border-bottom border-secondary pb-1 mb-1"><span class="text-muted">CPP/EI</span> <span>($${Math.round(d.cpp_ei).toLocaleString()})</span></div><div class="d-flex justify-content-between mt-2"><span class="text-warning fw-bold">Total Tax</span> <span class="text-warning fw-bold">($${Math.round(d.totalTax).toLocaleString()})</span></div><div class="d-flex justify-content-between"><span class="text-muted">Marginal Rate</span> <span>${(d.margRate*100).toFixed(2)}%</span></div><div class="d-flex justify-content-between mt-2 pt-2 border-top border-secondary"><span class="text-success fw-bold">After-Tax</span> <span class="text-success fw-bold">$${Math.round(g-d.totalTax).toLocaleString()}</span></div>` : `<span class="text-muted text-center d-block small">No Income Entered</span>`;
+    }
+
+    calcBen(m, sA, p, rA) { let v=m*p, d=(sA-65)*12; v*=d<0?(1-(Math.abs(d)*0.006)):(1+(d*0.007)); if(rA<60) v*=Math.max(0, (39-Math.max(0, (65-rA)-8))/39); return v; }
+
+    calculateProgressiveTax(i, b, r) {
+        let t=0, m=r[0], p=0;
+        for(let j=0; j<b.length; j++){ if(i>b[j]){ t+=(b[j]-p)*r[j]; p=b[j]; } else { return {tax:t+(i-p)*r[j], marg:r[j]}; } }
+        return {tax:t+(i-p)*r[r.length-1], marg:r[r.length-1]};
+    }
+
+    calculateTaxDetailed(inc, prov, tDat=null) {
+        if(inc<=0) return { fed:0, prov:0, cpp_ei:0, totalTax:0, margRate:0 };
+        const D = tDat||this.CONSTANTS.TAX_DATA, fC = this.calculateProgressiveTax(inc, D.FED.brackets, D.FED.rates), pC = this.calculateProgressiveTax(inc, D[prov]?.brackets||[999999999], D[prov]?.rates||[0.10]);
+        let fed=fC.tax, provT=pC.tax, mF=fC.marg, mP=pC.marg;
+        if(prov==='ON'){ let s=0; if(D.ON.surtax){ if(provT>D.ON.surtax.t1) s+=(provT-D.ON.surtax.t1)*D.ON.surtax.r1; if(provT>D.ON.surtax.t2) s+=(provT-D.ON.surtax.t2)*D.ON.surtax.r2; } if(s>0) mP*=1.56; provT+=s+(inc>20000?Math.min(900,(inc-20000)*0.06):0); }
+        if(prov==='PE'&&D.PE.surtax&&provT>D.PE.surtax.t1) provT+=(provT-D.PE.surtax.t1)*D.PE.surtax.r1;
+        if(prov==='QC'&&D.QC.abatement) fed-=fed*D.QC.abatement;
+        let cpp=0; if(inc>3500) cpp+=(Math.min(inc,74600)-3500)*0.0595; if(inc>74600) cpp+=(Math.min(inc,85000)-74600)*0.04;
+        const ei=Math.min(inc,68900)*0.0164;
+        return { fed, prov:provT, cpp_ei:cpp+ei, totalTax:fed+provT+cpp+ei, margRate:mF+mP };
+    }
+
+    getRawExpenseTotals() { let c=0, r=0; Object.values(this.expensesByCategory).forEach(d=>d.items.forEach(i=>{c+=i.curr*i.freq; r+=i.ret*i.freq;})); return {current:c, retirement:r}; }
+    getTotalDebt() { let t=0; document.querySelectorAll('.debt-amount').forEach(el=>t+=Number(el.value.replace(/,/g,''))||0); return t; }
+
+    calcExpenses() {
+        const uR = document.getElementById('useRealDollars')?.checked, inf = this.getVal('inflation_rate')/100, cA = Math.abs(new Date(Date.now() - new Date(this.getRaw('p1_dob')+"-01").getTime()).getUTCFullYear() - 1970), p1R = this.getVal('p1_retireAge'), p2R = this.state.mode==='Couple'?this.getVal('p2_retireAge'):999, gLim=parseInt(this.getRaw('exp_gogo_age'))||75, sLim=parseInt(this.getRaw('exp_slow_age'))||85;
+        const gF = y => uR?1:Math.pow(1+inf, y), fT=gF(Math.max(0, Math.min(p1R,p2R)-cA)), fG=gF(Math.max(0, Math.max(p1R,this.state.mode==='Couple'?p2R:0)-cA)), fS=gF(Math.max(0, gLim-cA)), fN=gF(Math.max(0, sLim-cA));
+        let t={curr:0,ret:0,trans:0,gogo:0,slow:0,nogo:0}; Object.values(this.expensesByCategory).forEach(c=>c.items.forEach(i=>{ const f=i.freq; t.curr+=(i.curr||0)*f; t.ret+=(i.ret||0)*f; t.trans+=(i.trans||0)*f; t.gogo+=(i.gogo||0)*f; t.slow+=(i.slow||0)*f; t.nogo+=(i.nogo||0)*f; }));
+        const fmt = n => '$'+Math.round(n).toLocaleString(), cS="border:none;border-left:1px solid var(--border-color);padding-left:12px;", lS="border:none;text-align:right;padding-right:12px;color:var(--text-muted);font-weight:bold;font-size:0.75rem;text-transform:uppercase;";
+        document.getElementById('expenseFooter').innerHTML = this.state.expenseMode==='Simple' ? `<table class="table table-sm table-borderless mb-0 bg-transparent" style="table-layout:fixed;"><tr><td width="40%" style="${lS}">Total Annual</td><td width="30%" style="${cS}"><span class="text-danger fw-bold fs-6">${fmt(t.curr)}</span></td><td width="30%" style="${cS}"><span class="text-warning fw-bold fs-6">${fmt(t.ret*(uR?1:fG))}</span></td></tr></table>` : `<table class="table table-sm table-borderless mb-0 bg-transparent" style="table-layout:fixed;"><tr><td width="20%" style="${lS}">Total</td><td width="16%" style="${cS}"><div class="text-danger fw-bold">${fmt(t.curr)}</div><div class="small text-muted" style="font-size:0.7rem">Now</div></td><td width="16%" style="${cS}"><div class="text-warning fw-bold">${fmt(t.trans*fT)}</div><div class="small text-muted" style="font-size:0.7rem">Trans</div></td><td width="16%" style="${cS}"><div class="text-info fw-bold">${fmt(t.gogo*fG)}</div><div class="small text-muted" style="font-size:0.7rem">Go-Go (&lt;${gLim})</div></td><td width="16%" style="${cS}"><div class="text-primary fw-bold">${fmt(t.slow*fS)}</div><div class="small text-muted" style="font-size:0.7rem">Slow (&lt;${sLim})</div></td><td width="16%" style="${cS}"><div class="text-secondary fw-bold">${fmt(t.nogo*fN)}</div><div class="small text-muted" style="font-size:0.7rem">No-Go (${sLim}+)</div></td></tr></table>`;
+    }
+
+    populateAgeSelects() {
+        document.querySelectorAll('.cpp-age-select').forEach(s => { let h=''; for(let i=60;i<=70;i++) h+=`<option value="${i}" ${i===65?'selected':''}>${i}</option>`; s.innerHTML=h; });
+        document.querySelectorAll('.oas-age-select').forEach(s => { let h=''; for(let i=65;i<=70;i++) h+=`<option value="${i}" ${i===65?'selected':''}>${i}</option>`; s.innerHTML=h; });
+    }
+
+    /* --- PROJECTION & CHARTS --- */
+
+    updateComparisonChart() {
+        const ctx = document.getElementById('chartNW');
+        if (!ctx) return;
+
+        if (this.charts.nw) {
+            this.charts.nw.destroy();
+        }
+
+        const checks = document.querySelectorAll('#compareSelectionArea input[type="checkbox"]:checked');
+        const datasets = [];
+        let labels = [];
+
+        const colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444'];
+        let cIdx = 0;
+
+        checks.forEach(chk => {
+            const val = chk.value;
+            const lbl = chk.nextElementSibling.innerText;
+            let dataArr = [];
+
+            if (val === 'current') {
+                dataArr = this.state.projectionData.map(d => d.debugNW);
+                if(labels.length === 0) labels = this.state.projectionData.map(d => d.year);
+            } else {
+                const sc = JSON.parse(localStorage.getItem('rp_scenarios')||'[]')[parseInt(val)];
+                if(sc) {
+                    const snap = JSON.stringify(this.state); 
+                    this.state.inputs = sc.data.inputs;
+                    this.state.properties = sc.data.properties;
+                    this.expensesByCategory = sc.data.expensesData;
+                    this.state.mode = sc.data.inputs['modeCouple'] ? 'Couple' : 'Single';
+                    const simData = this.generateProjectionTable(true);
+                    dataArr = simData.map(d => d.nw);
+                    if(labels.length === 0) labels = simData.map(d => d.year);
+                    
+                    const oldState = JSON.parse(snap);
+                    this.state.inputs = oldState.inputs;
+                    this.state.properties = oldState.properties;
+                    this.expensesByCategory = oldState.expensesByCategory;
+                    this.state.mode = oldState.mode;
+                }
+            }
+
+            if(dataArr.length > 0) {
+                datasets.push({
+                    label: lbl,
+                    data: dataArr,
+                    borderColor: colors[cIdx % colors.length],
+                    tension: 0.3,
+                    borderWidth: 2,
+                    pointRadius: 0
+                });
+                cIdx++;
+            }
         });
 
-        if(rows.length === 0) return;
-
-        const dt = new google.visualization.DataTable(); dt.addColumn('string','From'); dt.addColumn('string','To'); dt.addColumn('number','Amount'); dt.addRows(rows);
-        const sankeyEl = document.getElementById('sankey_chart');
-        if(sankeyEl) {
-            this.charts.sankey = new google.visualization.Sankey(sankeyEl);
-            this.charts.sankey.draw(dt, { sankey: { node: { label: { color: document.documentElement.getAttribute('data-bs-theme')==='light'?'#000':'#fff', fontSize:13, bold:true }, nodePadding:30, width:12, colors: nodesCfg.map(x=>x.color) }, link: { colorMode: 'gradient', colors: ['#334155','#475569'] } }, backgroundColor: 'transparent', height: 600, width: '100%' });
-        }
-    }
-
-    getRrifFactor(age) {
-        if(age<71) return 1/(90-age); if(age>=95) return 0.20;
-        return {71:0.0528,72:0.0540,73:0.0553,74:0.0567,75:0.0582,76:0.0598,77:0.0617,78:0.0636,79:0.0658,80:0.0682,81:0.0708,82:0.0738,83:0.0771,84:0.0808,85:0.0851,86:0.0899,87:0.0955,88:0.1021,89:0.1099,90:0.1192,91:0.1306,92:0.1449,93:0.1634,94:0.1879}[age] || 0.0528;
+        this.charts.nw = new Chart(ctx, {
+            type: 'line',
+            data: { labels: labels, datasets: datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { labels: { color: document.documentElement.getAttribute('data-bs-theme')==='light'?'#334155':'#cbd5e1' } },
+                    tooltip: {
+                        callbacks: { label: function(context) { let label = context.dataset.label || ''; if (label) { label += ': '; } if (context.parsed.y !== null) { label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(context.parsed.y); } return label; } }
+                    }
+                },
+                scales: {
+                    x: { ticks: { color: document.documentElement.getAttribute('data-bs-theme')==='light'?'#64748b':'#94a3b8' }, grid: { color: document.documentElement.getAttribute('data-bs-theme')==='light'?'rgba(0,0,0,0.05)':'rgba(255,255,255,0.05)' } },
+                    y: { 
+                        ticks: { 
+                            color: document.documentElement.getAttribute('data-bs-theme')==='light'?'#64748b':'#94a3b8',
+                            callback: function(value) { return value >= 1000000 ? '$' + (value/1000000).toFixed(1) + 'M' : '$' + Math.round(value/1000) + 'k'; }
+                        },
+                        grid: { color: document.documentElement.getAttribute('data-bs-theme')==='light'?'rgba(0,0,0,0.05)':'rgba(255,255,255,0.05)' }
+                    }
+                }
+            }
+        });
     }
 
     generateProjectionTable(onlyCalcNW = false) {
@@ -626,7 +745,6 @@ class RetirementPlanner {
         const curY = new Date().getFullYear(), p1SA = curY - p1.dob.getFullYear(), p2SA = curY - p2.dob.getFullYear(), eA = Math.max(p1.lifeExp, mode==='Couple'?p2.lifeExp:0), yrR = eA - Math.min(p1SA, mode==='Couple'?p2SA:p1SA);
         
         let trg = new Set();
-        
         let cMax1 = this.getVal('p1_cpp_est_base');
         let oMax1 = this.CONSTANTS.MAX_OAS_2026 * (Math.max(0, Math.min(40, this.getVal('p1_oas_years'))) / 40);
         let cMax2 = this.getVal('p2_cpp_est_base');
@@ -667,7 +785,6 @@ class RetirementPlanner {
             if(mode==='Couple' && al2){ if(!p2R){ g2+=p2.inc; p2.inc*=(1+cR2.inc); } if(a2>=parseInt(this.getRaw('p2_db_start_age')||60)) db2=p2DB*bInf; pst2=calcPost(this.state.inputs['enable_post_ret_income_p2'], extVals.p2PI, extVals.p2PS, extVals.p2PE, extVals.p2PG); if(this.state.inputs['p2_cpp_enabled'] && a2>=parseInt(this.getRaw('p2_cpp_start'))) c2=this.calcBen(cMax2, parseInt(this.getRaw('p2_cpp_start')), 1, p2.retAge); if(this.state.inputs['p2_oas_enabled'] && a2>=parseInt(this.getRaw('p2_oas_start'))) o2=this.calcBen(oMax2, parseInt(this.getRaw('p2_oas_start')), 1, 65); }
             cMax1*=(1+infl); oMax1*=(1+infl); cMax2*=(1+infl); oMax2*=(1+infl);
 
-            // RRIF Logic
             let rrif1=0; if(al1 && p1.rrsp>0 && a1>=this.CONSTANTS.RRIF_START_AGE){ rrif1=p1.rrsp*this.getRrifFactor(a1); p1.rrsp-=rrif1; if(rrif1>0){ yWd['P1 RRIF']=(yWd['P1 RRIF']||0)+rrif1; wDBrk.p1.RRIF=rrif1; } }
             let rrif2=0; if(al2 && p2.rrsp>0 && a2>=this.CONSTANTS.RRIF_START_AGE){ rrif2=p2.rrsp*this.getRrifFactor(a2); p2.rrsp-=rrif2; if(rrif2>0){ yWd['P2 RRIF']=(yWd['P2 RRIF']||0)+rrif2; wDBrk.p2.RRIF=rrif2; } }
 
@@ -775,194 +892,6 @@ class RetirementPlanner {
         
         return comparisonReturnData.length ? comparisonReturnData : fNW;
     }
-
-    updateComparisonChart() {
-        const ctx = document.getElementById('chartNW');
-        if (!ctx) return;
-
-        if (this.charts.nw) {
-            this.charts.nw.destroy();
-        }
-
-        const checks = document.querySelectorAll('#compareSelectionArea input[type="checkbox"]:checked');
-        const datasets = [];
-        let labels = [];
-
-        const colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444'];
-        let cIdx = 0;
-
-        checks.forEach(chk => {
-            const val = chk.value;
-            const lbl = chk.nextElementSibling.innerText;
-            let dataArr = [];
-
-            if (val === 'current') {
-                dataArr = this.state.projectionData.map(d => d.debugNW);
-                if(labels.length === 0) labels = this.state.projectionData.map(d => d.year);
-            } else {
-                const sc = JSON.parse(localStorage.getItem('rp_scenarios')||'[]')[parseInt(val)];
-                if(sc) {
-                    const snap = JSON.stringify(this.state); 
-                    this.state.inputs = sc.data.inputs;
-                    this.state.properties = sc.data.properties;
-                    this.expensesByCategory = sc.data.expensesData;
-                    this.state.mode = sc.data.inputs['modeCouple'] ? 'Couple' : 'Single';
-                    const simData = this.generateProjectionTable(true);
-                    dataArr = simData.map(d => d.nw);
-                    if(labels.length === 0) labels = simData.map(d => d.year);
-                    
-                    const oldState = JSON.parse(snap);
-                    this.state.inputs = oldState.inputs;
-                    this.state.properties = oldState.properties;
-                    this.expensesByCategory = oldState.expensesByCategory;
-                    this.state.mode = oldState.mode;
-                }
-            }
-
-            if(dataArr.length > 0) {
-                datasets.push({
-                    label: lbl,
-                    data: dataArr,
-                    borderColor: colors[cIdx % colors.length],
-                    tension: 0.3,
-                    borderWidth: 2,
-                    pointRadius: 0
-                });
-                cIdx++;
-            }
-        });
-
-        this.charts.nw = new Chart(ctx, {
-            type: 'line',
-            data: { labels: labels, datasets: datasets },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: { mode: 'index', intersect: false },
-                plugins: {
-                    legend: { labels: { color: document.documentElement.getAttribute('data-bs-theme')==='light'?'#334155':'#cbd5e1' } },
-                    tooltip: {
-                        callbacks: { label: function(context) { let label = context.dataset.label || ''; if (label) { label += ': '; } if (context.parsed.y !== null) { label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(context.parsed.y); } return label; } }
-                    }
-                },
-                scales: {
-                    x: { ticks: { color: document.documentElement.getAttribute('data-bs-theme')==='light'?'#64748b':'#94a3b8' }, grid: { color: document.documentElement.getAttribute('data-bs-theme')==='light'?'rgba(0,0,0,0.05)':'rgba(255,255,255,0.05)' } },
-                    y: { 
-                        ticks: { 
-                            color: document.documentElement.getAttribute('data-bs-theme')==='light'?'#64748b':'#94a3b8',
-                            callback: function(value) { return value >= 1000000 ? '$' + (value/1000000).toFixed(1) + 'M' : '$' + Math.round(value/1000) + 'k'; }
-                        },
-                        grid: { color: document.documentElement.getAttribute('data-bs-theme')==='light'?'rgba(0,0,0,0.05)':'rgba(255,255,255,0.05)' }
-                    }
-                }
-            }
-        });
-    }
-
-    getIconHTML(k, th) {
-        const d = this.iconDefs[k]; if(!d) return ''; let c = d.color;
-        if(th==='light'){ if(c.includes('text-white')||c.includes('text-warning')) c='text-dark'; if(c.includes('text-info')) c='text-primary'; }
-        return `<i class="bi ${d.icon} ${c}" title="${d.title}"></i>`;
-    }
-
-    calcBen(m, sA, p, rA) { let v=m*p, d=(sA-65)*12; v*=d<0?(1-(Math.abs(d)*0.006)):(1+(d*0.007)); if(rA<60) v*=Math.max(0, (39-Math.max(0, (65-rA)-8))/39); return v; }
-
-    calculateProgressiveTax(i, b, r) {
-        let t=0, m=r[0], p=0;
-        for(let j=0; j<b.length; j++){ if(i>b[j]){ t+=(b[j]-p)*r[j]; p=b[j]; } else { return {tax:t+(i-p)*r[j], marg:r[j]}; } }
-        return {tax:t+(i-p)*r[r.length-1], marg:r[r.length-1]};
-    }
-
-    calculateTaxDetailed(inc, prov, tDat=null) {
-        if(inc<=0) return { fed:0, prov:0, cpp_ei:0, totalTax:0, margRate:0 };
-        const D = tDat||this.CONSTANTS.TAX_DATA, fC = this.calculateProgressiveTax(inc, D.FED.brackets, D.FED.rates), pC = this.calculateProgressiveTax(inc, D[prov]?.brackets||[999999999], D[prov]?.rates||[0.10]);
-        let fed=fC.tax, provT=pC.tax, mF=fC.marg, mP=pC.marg;
-        if(prov==='ON'){ let s=0; if(D.ON.surtax){ if(provT>D.ON.surtax.t1) s+=(provT-D.ON.surtax.t1)*D.ON.surtax.r1; if(provT>D.ON.surtax.t2) s+=(provT-D.ON.surtax.t2)*D.ON.surtax.r2; } if(s>0) mP*=1.56; provT+=s+(inc>20000?Math.min(900,(inc-20000)*0.06):0); }
-        if(prov==='PE'&&D.PE.surtax&&provT>D.PE.surtax.t1) provT+=(provT-D.PE.surtax.t1)*D.PE.surtax.r1;
-        if(prov==='QC'&&D.QC.abatement) fed-=fed*D.QC.abatement;
-        let cpp=0; if(inc>3500) cpp+=(Math.min(inc,74600)-3500)*0.0595; if(inc>74600) cpp+=(Math.min(inc,85000)-74600)*0.04;
-        const ei=Math.min(inc,68900)*0.0164;
-        return { fed, prov:provT, cpp_ei:cpp+ei, totalTax:fed+provT+cpp+ei, margRate:mF+mP };
-    }
-
-    updateAgeDisplay(pfx) {
-        const dI = this.getRaw(`${pfx}_dob`), el = document.getElementById(`${pfx}_age`);
-        if(!dI){ if(el) el.innerHTML="--"; return; }
-        if(el) el.innerHTML = Math.abs(new Date(Date.now() - new Date(dI+"-01").getTime()).getUTCFullYear() - 1970) + " years old";
-    }
-
-    toggleSidebar() {
-        const ex = document.getElementById('sidebarExpanded'), co = document.getElementById('sidebarCollapsed'), col = document.getElementById('sidebarCol');
-        if(!ex || !co || !col) return;
-        if(ex.style.display==='none'){ ex.style.display='block'; co.style.display='none'; col.style.width='320px'; } else { ex.style.display='none'; co.style.display='block'; col.style.width='50px'; }
-        setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
-    }
-
-    renderExpenseRows() {
-        const tb = document.getElementById('expenseTableBody'), th = document.getElementById('expenseTableHeader'), t = document.documentElement.getAttribute('data-bs-theme')||'dark', rB=t==='light'?'bg-white':'bg-body-tertiary', rT=t==='light'?'text-dark':'text-white', rBd=t==='light'?'border-dark-subtle':'border-secondary', ab=t==='light'?'text-secondary':'text-white', ic=t==='light'?'bg-white text-dark':'bg-transparent text-white', hc=t==='light'?'bg-white text-dark border-bottom border-dark-subtle':'bg-transparent text-muted border-secondary';
-        const gLim=parseInt(this.getRaw('exp_gogo_age'))||75, sLim=parseInt(this.getRaw('exp_slow_age'))||85;
-        if(!th || !tb) return;
-        th.innerHTML = this.state.expenseMode==='Simple' ? `<th class="text-uppercase small ps-3 ${hc}" style="width: 40%;">Category / Item</th><th class="text-uppercase small ${hc}" style="width: 30%;">Current</th><th class="text-uppercase small ${hc}" style="width: 30%;">Retirement</th>` : `<th class="text-uppercase small ps-3 ${hc}" style="width: 20%;">Item</th><th class="text-uppercase small ${hc}" style="width: 16%;">Current</th><th class="text-uppercase small ${hc}" style="width: 16%;">Trans</th><th class="text-uppercase small ${hc}" style="width: 16%;">Go-Go <span style="font-size:0.6rem">(&lt;${gLim})</span></th><th class="text-uppercase small ${hc}" style="width: 16%;">Slow-Go <span style="font-size:0.6rem">(&lt;${sLim})</span></th><th class="text-uppercase small ${hc}" style="width: 16%;">No-Go <span style="font-size:0.6rem">(${sLim}+)</span></th>`;
-        let h='', m={"Housing":{i:"bi-house-door-fill",c:"text-primary"},"Living":{i:"bi-basket2-fill",c:"text-success"},"Kids":{i:"bi-balloon-heart-fill",c:"text-warning"},"Lifestyle":{i:"bi-airplane-engines-fill",c:"text-info"}};
-        const rI = (i,f,x,c,cls) => `<div class="input-group input-group-sm mb-1" style="flex-wrap:nowrap;"><span class="input-group-text border-secondary text-muted">$</span><input type="text" class="form-control border-secondary formatted-num expense-update ${cls}" style="min-width:60px;" value="${(i[f]||0).toLocaleString()}" data-cat="${c}" data-idx="${x}" data-field="${f}"></div>`;
-        Object.entries(this.expensesByCategory).forEach(([c, d]) => {
-            const mt=m[c]||{i:"bi-tag-fill",c:"text-white"}, cs=this.state.expenseMode==='Simple'?3:6;
-            h+=`<tr class="expense-category-row"><td colspan="${cs}" class="py-3 ps-3 border-bottom ${rBd} ${rB} ${rT}"><div class="d-flex align-items-center justify-content-between"><div class="d-flex align-items-center"><i class="bi ${mt.i} ${mt.c} me-2 fs-6"></i><span class="text-uppercase fw-bold ${mt.c} small" style="letter-spacing:1px;">${c}</span></div><button type="button" class="btn btn-sm btn-link ${ab} p-0 me-3" onclick="app.addExpense('${c}')"><i class="bi bi-plus-circle-fill text-success fs-5"></i></button></div></td></tr>`;
-            d.items.forEach((i, x) => {
-                h+=`<tr class="expense-row"><td class="ps-3 align-middle border-bottom border-secondary ${rB} ${rT}"><input type="text" class="form-control form-control-sm border-0 expense-update ${ic}" value="${i.name}" data-cat="${c}" data-idx="${x}" data-field="name"></td>`;
-                if(this.state.expenseMode==='Simple'){
-                    h+=`<td class="align-middle border-bottom border-secondary ${rB} ${rT}"><div class="input-group input-group-sm"><span class="input-group-text border-secondary text-muted">$</span><input type="text" class="form-control border-secondary formatted-num expense-update ${ic}" style="width:100px;flex-grow:1;" value="${i.curr.toLocaleString()}" data-cat="${c}" data-idx="${x}" data-field="curr"><select class="form-select border-secondary expense-update ${ic}" style="width:auto;flex-grow:0;min-width:85px;" data-cat="${c}" data-idx="${x}" data-field="freq"><option value="12" ${i.freq===12?'selected':''}>/mo</option><option value="1" ${i.freq===1?'selected':''}>/yr</option></select></div></td><td class="align-middle border-bottom border-secondary ${rB} ${rT}"><div class="d-flex align-items-center"><div class="input-group input-group-sm flex-grow-1"><span class="input-group-text border-secondary text-muted">$</span><input type="text" class="form-control border-secondary formatted-num expense-update ${ic}" style="width:100px;flex-grow:1;" value="${i.ret.toLocaleString()}" data-cat="${c}" data-idx="${x}" data-field="ret"><select class="form-select border-secondary expense-update ${ic}" style="width:auto;flex-grow:0;min-width:85px;" data-cat="${c}" data-idx="${x}" data-field="freq"><option value="12" ${i.freq===12?'selected':''}>/mo</option><option value="1" ${i.freq===1?'selected':''}>/yr</option></select></div><button type="button" class="btn btn-sm btn-link text-danger p-0 ms-3 me-2" onclick="app.removeExpense('${c}', ${x})"><i class="bi bi-trash"></i></button></div></td>`;
-                } else {
-                    h+=`<td class="align-middle border-bottom border-secondary ${rB} ${rT}"><div class="input-group input-group-sm mb-1" style="flex-wrap:nowrap;"><span class="input-group-text border-secondary text-muted">$</span><input type="text" class="form-control border-secondary formatted-num expense-update ${ic}" style="min-width:60px;" value="${(i.curr||0).toLocaleString()}" data-cat="${c}" data-idx="${x}" data-field="curr"><select class="form-select border-secondary expense-update ${ic}" style="width:auto;flex-grow:0;min-width:85px;" data-cat="${c}" data-idx="${x}" data-field="freq"><option value="12" ${i.freq===12?'selected':''}>/mo</option><option value="1" ${i.freq===1?'selected':''}>/yr</option></select></div></td><td class="align-middle border-bottom border-secondary ${rB} ${rT}">${rI(i,'trans',x,c,ic)}</td><td class="align-middle border-bottom border-secondary ${rB} ${rT}">${rI(i,'gogo',x,c,ic)}</td><td class="align-middle border-bottom border-secondary ${rB} ${rT}">${rI(i,'slow',x,c,ic)}</td><td class="align-middle border-bottom border-secondary ${rB} ${rT}"><div class="d-flex align-items-center justify-content-between">${rI(i,'nogo',x,c,ic)}<button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2" onclick="app.removeExpense('${c}', ${x})"><i class="bi bi-trash"></i></button></div></td>`;
-                } h+=`</tr>`;
-            });
-        }); tb.innerHTML = h;
-        document.querySelectorAll('.expense-update.formatted-num').forEach(el => el.addEventListener('input', e => this.formatInput(e.target)));
-    }
-
-    addExpense(c) { this.expensesByCategory[c].items.push({ name: "New Expense", curr: 0, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 }); this.renderExpenseRows(); this.calcExpenses(); this.run(); }
-    removeExpense(c, i) { this.showConfirm('Delete expense?', () => { this.expensesByCategory[c].items.splice(i, 1); this.renderExpenseRows(); this.calcExpenses(); this.run(); }); }
-
-    addDebtRow() {
-        const c = document.getElementById('debt-container');
-        if(!c) return;
-        const div = document.createElement('div'); div.className = 'row g-3 mb-2 align-items-center debt-row';
-        div.innerHTML = `<div class="col-12 col-md-5"><input type="text" class="form-control form-control-sm" placeholder="Debt Name"></div><div class="col-8 col-md-4"><div class="input-group input-group-sm"><span class="input-group-text">$</span><input type="text" class="form-control formatted-num live-calc debt-amount" value="0"></div></div><div class="col-4 col-md-3"><button type="button" class="btn btn-outline-danger btn-sm w-100"><i class="bi bi-trash"></i></button></div>`;
-        c.appendChild(div); div.querySelector('.debt-amount').addEventListener('input', e => { this.formatInput(e.target); this.debouncedRun(); });
-        div.querySelector('.btn-outline-danger').addEventListener('click', () => { div.remove(); this.debouncedRun(); });
-    }
-
-    renderStrategy() {
-        const c1 = document.getElementById('strat-accum-container');
-        const c2 = document.getElementById('strat-decumulation');
-        if(c1) this.renderList('strat-accum-list', this.state.strategies.accum, 'accum', c1);
-        if(c2) this.renderList('strat-decum-list', this.state.strategies.decum, 'decum', c2);
-    }
-
-    renderList(id, arr, type, cont) {
-        if(!cont) return;
-        let ul = document.getElementById(id); if(!ul) { ul = document.createElement('ul'); ul.id=id; ul.className='strategy-list p-0 m-0'; ul.style.listStyle='none'; cont.appendChild(ul); } else ul.innerHTML='';
-        arr.forEach((k, i) => {
-            const li = document.createElement('li'); li.className='strat-item shadow-sm'; li.draggable=true; li.setAttribute('data-key', k);
-            li.innerHTML = `<span class="fw-bold small"><span class="badge bg-secondary me-2 rounded-circle">${i+1}</span> ${this.strategyLabels[k] || k.toUpperCase()}</span> <i class="bi bi-grip-vertical grip-icon fs-5"></i>`;
-            li.addEventListener('dragstart', () => { li.classList.add('dragging'); li.style.opacity='0.5'; });
-            li.addEventListener('dragend', () => { li.classList.remove('dragging'); li.style.opacity='1'; this.updateArrayOrder(id, type); this.run(); }); ul.appendChild(li);
-        });
-        ul.addEventListener('dragover', e => {
-            e.preventDefault(); const aE = [...ul.querySelectorAll('.strat-item:not(.dragging)')].reduce((c, ch) => { const b=ch.getBoundingClientRect(), o=e.clientY-b.top-b.height/2; return o<0&&o>c.offset ? {offset:o, e:ch} : c; }, {offset:Number.NEGATIVE_INFINITY}).e, drg=document.querySelector('.dragging');
-            aE==null ? ul.appendChild(drg) : ul.insertBefore(drg, aE);
-        });
-    }
-
-    updateArrayOrder(id, type) {
-        const o = []; document.getElementById(id).querySelectorAll('.strat-item').forEach(i => o.push(i.getAttribute('data-key')));
-        type==='accum' ? this.state.strategies.accum=o : this.state.strategies.decum=o; this.renderStrategy();
-    }
-
-    getDiscountFactor(y) { return !document.getElementById('useRealDollars').checked ? 1 : Math.pow(1 + this.getVal('inflation_rate')/100, y); }
-    formatInput(el) { const v = el.value.replace(/,/g, ''); if(!isNaN(v) && v!=='') el.value = Number(v).toLocaleString('en-US'); }
-    toggleGroup(t) { const b = document.querySelector(`span[data-type="${t}"]`); document.body.classList.toggle(`show-${t}`); b.innerText = document.body.classList.contains(`show-${t}`) ? '[-]' : '[+]'; }
-    restoreDetailsState() { ['inv','inc','exp'].forEach(t => { const b=document.querySelector(`span[data-type="${t}"]`); if(b) b.innerText = document.body.classList.contains(`show-${t}`) ? '[-]' : '[+]'; }); }
 }
 
 // Initialize Application
