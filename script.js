@@ -1,9 +1,9 @@
 /**
- * Retirement Planner Pro - Logic v10.22 (Final: UI Polish, Popovers, Collapsible Assets & New Account Types)
+ * Retirement Planner Pro - Logic v10.23 (Final: Complete & Unabridged)
  */
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.22";
+        this.APP_VERSION = "10.23";
         this.state = {
             inputs: {}, debt: [],
             properties: [{ name: "Primary Home", value: 1000000, mortgage: 430000, growth: 3.0, rate: 3.29, payment: 0, manual: false, includeInNW: false }],
@@ -79,11 +79,18 @@ class RetirementPlanner {
                 catch(e) { console.error("Failed load, falling back to defaults", e); this.renderDefaults(); }
             } else this.renderDefaults();
 
-            this.initTheme(); this.loadScenariosList(); this.syncStateFromDOM(); this.toggleModeDisplay(); 
-            this.updatePostRetIncomeVisibility(); this.updateAgeDisplay('p1'); this.updateAgeDisplay('p2');
-            this.updateAllMortgages(); this.findOptimal(); this.bindEvents(); this.initSidebar();
-            
-            this.initPopovers(); // Initialize Bootstrap popovers
+            this.initTheme(); 
+            this.loadScenariosList(); 
+            this.syncStateFromDOM(); 
+            this.toggleModeDisplay(); 
+            this.updatePostRetIncomeVisibility(); 
+            this.updateAgeDisplay('p1'); 
+            this.updateAgeDisplay('p2');
+            this.updateAllMortgages(); 
+            this.findOptimal(); 
+            this.bindEvents(); 
+            this.initSidebar();
+            this.initPopovers(); 
 
             setTimeout(() => { this.syncStateFromDOM(); this.run(); }, 500); 
         };
@@ -102,14 +109,18 @@ class RetirementPlanner {
     initTheme() {
         const savedTheme = localStorage.getItem(this.THEME_KEY) || 'dark';
         document.documentElement.setAttribute('data-bs-theme', savedTheme);
-        this.updateThemeIcon(savedTheme); this.updateImportButton(savedTheme); 
+        this.updateThemeIcon(savedTheme); 
+        this.updateImportButton(savedTheme); 
     }
 
     toggleTheme() {
         const next = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
         document.documentElement.setAttribute('data-bs-theme', next);
         localStorage.setItem(this.THEME_KEY, next);
-        this.updateThemeIcon(next); this.updateImportButton(next); this.renderExpenseRows(); this.run(); 
+        this.updateThemeIcon(next); 
+        this.updateImportButton(next); 
+        this.renderExpenseRows(); 
+        this.run(); 
     }
 
     updateThemeIcon(theme) {
@@ -120,12 +131,16 @@ class RetirementPlanner {
 
     updateImportButton(theme) {
         const lbl = document.querySelector('label[for="fileUpload"]');
-        if(lbl) lbl.className = theme === 'light' ? 'btn btn-outline-dark text-dark flex-grow-1 btn-sm' : 'btn btn-outline-secondary text-white flex-grow-1 btn-sm';
+        if(lbl) lbl.className = theme === 'light' ? 'btn btn-outline-dark text-dark flex-grow-1 btn-sm fw-bold' : 'btn btn-outline-primary fw-bold';
     }
 
     renderDefaults() {
-        this.renderExpenseRows(); this.renderProperties(); this.addDebtRow(); 
-        this.renderWindfalls(); this.renderAdditionalIncome(); this.renderStrategy();
+        this.renderExpenseRows(); 
+        this.renderProperties(); 
+        this.addDebtRow(); 
+        this.renderWindfalls(); 
+        this.renderAdditionalIncome(); 
+        this.renderStrategy();
     }
 
     showConfirm(message, onConfirm) {
@@ -169,7 +184,12 @@ class RetirementPlanner {
     getRaw(id) { return this.state.inputs[id] !== undefined ? this.state.inputs[id] : document.getElementById(id)?.value; }
 
     updateSidebarSync(id, val) {
-        const syncMap = { 'p1_retireAge': ['qa_p1_retireAge_range', 'qa_p1_retireAge_val', ''], 'p2_retireAge': ['qa_p2_retireAge_range', 'qa_p2_retireAge_val', ''], 'inflation_rate': ['qa_inflation_range', 'qa_inflation_val', '%'], 'p1_tfsa_ret': ['qa_return_range', 'qa_return_val', '%'] };
+        const syncMap = { 
+            'p1_retireAge': ['qa_p1_retireAge_range', 'qa_p1_retireAge_val', ''], 
+            'p2_retireAge': ['qa_p2_retireAge_range', 'qa_p2_retireAge_val', ''], 
+            'inflation_rate': ['qa_inflation_range', 'qa_inflation_val', '%'], 
+            'p1_tfsa_ret': ['qa_return_range', 'qa_return_val', '%'] 
+        };
         if (syncMap[id]) {
             const [sliderId, labelId, suffix] = syncMap[id];
             if(document.getElementById(sliderId)) document.getElementById(sliderId).value = val;
@@ -306,17 +326,6 @@ class RetirementPlanner {
         if($('btnModalSaveScenario')) {
             $('btnModalSaveScenario').addEventListener('click', () => this.saveScenarioFromModal());
         }
-        
-        if($('btnSaveScenario')) {
-            $('btnSaveScenario').addEventListener('click', () => {
-                const nm = document.getElementById('scenarioName').value;
-                if(nm) {
-                    this.saveScenarioData(nm);
-                    document.getElementById('scenarioName').value = '';
-                }
-                else alert("Enter a name!");
-            });
-        }
 
         document.body.addEventListener('click', e => {
             if(e.target.classList.contains('toggle-btn')) this.toggleGroup(e.target.dataset.type);
@@ -371,7 +380,8 @@ class RetirementPlanner {
     }
 
     resetAllData() {
-        const defs = { p1_dob: '1990-01', p2_dob: '1990-01', p1_retireAge: '65', p2_retireAge: '65', p1_lifeExp: '90', p2_lifeExp: '90', inflation_rate: '2.0', tax_province: 'ON', 
+        const defs = { 
+            p1_dob: '1990-01', p2_dob: '1990-01', p1_retireAge: '65', p2_retireAge: '65', p1_lifeExp: '90', p2_lifeExp: '90', inflation_rate: '2.0', tax_province: 'ON', 
             p1_cash_ret: '2.0', p1_cash_ret_retire: '2.0', p2_cash_ret: '2.0', p2_cash_ret_retire: '2.0', 
             p1_tfsa_ret: '6.0', p1_tfsa_ret_retire: '6.0', p2_tfsa_ret: '6.0', p2_tfsa_ret_retire: '6.0', 
             p1_rrsp_ret: '6.0', p1_rrsp_ret_retire: '6.0', p2_rrsp_ret: '6.0', p2_rrsp_ret_retire: '6.0', 
@@ -380,7 +390,12 @@ class RetirementPlanner {
             p1_lirf_ret: '6.0', p1_lirf_ret_retire: '6.0', p2_lirf_ret: '6.0', p2_lirf_ret_retire: '6.0',
             p1_lif_ret: '5.0', p1_lif_ret_retire: '5.0', p2_lif_ret: '5.0', p2_lif_ret_retire: '5.0',
             p1_rrif_acct_ret: '5.0', p1_rrif_acct_ret_retire: '5.0', p2_rrif_acct_ret: '5.0', p2_rrif_acct_ret_retire: '5.0',
-            p1_income_growth: '2.0', p2_income_growth: '2.0', p1_db_pension: '0', p2_db_pension: '0', p1_db_start_age: '60', p2_db_start_age: '60', p1_cpp_enabled: true, p1_oas_enabled: true, p2_cpp_enabled: true, p2_oas_enabled: true, exp_gogo_age: '75', exp_slow_age: '85', enable_post_ret_income_p1: false, enable_post_ret_income_p2: false, p1_post_inc: '0', p1_post_growth: '2.0', p2_post_inc: '0', p2_post_growth: '2.0' };
+            
+            p1_cpp_est_base: '10,000', p2_cpp_est_base: '10,000',
+            p1_oas_years: '40', p2_oas_years: '40',
+            
+            p1_income_growth: '2.0', p2_income_growth: '2.0', p1_db_pension: '0', p2_db_pension: '0', p1_db_start_age: '60', p2_db_start_age: '60', p1_cpp_enabled: true, p1_oas_enabled: true, p2_cpp_enabled: true, p2_oas_enabled: true, exp_gogo_age: '75', exp_slow_age: '85', enable_post_ret_income_p1: false, enable_post_ret_income_p2: false, p1_post_inc: '0', p1_post_growth: '2.0', p2_post_inc: '0', p2_post_growth: '2.0' 
+        };
         
         document.querySelectorAll('input, select').forEach(el => {
             if(el.id && !el.id.startsWith('comp_') && !el.className.includes('-update') && !el.classList.contains('debt-amount')) {
@@ -396,6 +411,10 @@ class RetirementPlanner {
         document.getElementById('debt-container').innerHTML = ''; this.state.debt = [];
         this.updateSidebarSync('p1_retireAge', 65); this.updateSidebarSync('p2_retireAge', 65); this.updateSidebarSync('inflation_rate', 2.0); this.updateSidebarSync('p1_tfsa_ret', 6.0);
         document.getElementById('exp_gogo_val').innerText = '75'; document.getElementById('exp_slow_val').innerText = '85'; document.getElementById('p1_db_start_val').innerText = '60'; document.getElementById('p2_db_start_val').innerText = '60';
+        
+        if(document.getElementById('p1_oas_years_val')) document.getElementById('p1_oas_years_val').innerText = '40';
+        if(document.getElementById('p2_oas_years_val')) document.getElementById('p2_oas_years_val').innerText = '40';
+        
         this.updatePostRetIncomeVisibility(); this.updateAgeDisplay('p1'); this.updateAgeDisplay('p2'); 
         this.updateScenarioBadge(null);
         this.run();
@@ -430,7 +449,7 @@ class RetirementPlanner {
         this.state.additionalIncome.forEach((w, idx) => {
             const tgt = w.owner === 'p2' ? cP2 : cP1; if(!tgt) return;
             const div = document.createElement('div'); div.className = 'income-stream-row p-3 border border-secondary rounded-3 bg-black bg-opacity-25 mt-3 mb-3';
-            div.innerHTML = `<div class="d-flex justify-content-between mb-3"><input type="text" class="form-control form-control-sm bg-transparent border-0 fw-bold text-info fs-6 income-stream-update px-0" placeholder="Stream Name" value="${w.name}" data-idx="${idx}" data-field="name"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-2 rounded-circle" onclick="app.removeAdditionalIncome(${idx})"><i class="bi bi-x-lg"></i></button></div><div class="row g-3 align-items-center mb-2"><div class="col-6"><label class="form-label small text-muted mb-1">Amount</label><div class="input-group input-group-sm"><span class="input-group-text border-secondary text-muted">$</span><input type="text" class="form-control border-secondary formatted-num income-stream-update" value="${w.amount.toLocaleString()}" data-idx="${idx}" data-field="amount"></div></div><div class="col-6"><label class="form-label small text-muted mb-1">Frequency</label><select class="form-select form-select-sm border-secondary income-stream-update" data-idx="${idx}" data-field="freq"><option value="month" ${w.freq==='month'?'selected':''}>/ Month</option><option value="year" ${w.freq==='year'?'selected':''}>/ Year</option></select></div></div><div class="row g-3 align-items-end"><div class="col-4"><label class="form-label small text-muted mb-1">Growth %</label><div class="input-group input-group-sm"><input type="number" step="0.1" class="form-control border-secondary income-stream-update" value="${w.growth}" data-idx="${idx}" data-field="growth"><span class="input-group-text border-secondary text-muted">%</span></div></div><div class="col-4"><label class="form-label small text-muted mb-1">Start</label><input type="month" class="form-control form-control-sm border-secondary income-stream-update" value="${w.start || new Date().toISOString().slice(0, 7)}" data-idx="${idx}" data-field="start"></div><div class="col-4"><label class="form-label small text-muted mb-1">End</label><input type="month" class="form-control form-control-sm border-secondary income-stream-update" value="${w.end}" data-idx="${idx}" data-field="end"></div></div><div class="row mt-3 pt-2 border-top border-secondary"><div class="col-12 d-flex justify-content-end"><div class="form-check"><input class="form-check-input income-stream-update" type="checkbox" id="inc_tax_${idx}" ${w.taxable?'checked':''} data-idx="${idx}" data-field="taxable"><label class="form-check-label text-muted small" for="inc_tax_${idx}">Is Taxable?</label></div></div></div>`;
+            div.innerHTML = `<div class="d-flex justify-content-between mb-3"><input type="text" class="form-control form-control-sm bg-transparent border-0 fw-bold text-info fs-6 income-stream-update px-0" placeholder="Stream Name" value="${w.name}" data-idx="${idx}" data-field="name"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-2 rounded-circle" onclick="app.removeAdditionalIncome(${idx})"><i class="bi bi-x-lg"></i></button></div><div class="row g-3 align-items-center mb-2"><div class="col-6"><label class="form-label small text-muted mb-1">Amount</label><div class="input-group input-group-sm"><span class="input-group-text border-secondary text-muted">$</span><input type="text" class="form-control border-secondary formatted-num income-stream-update" value="${w.amount.toLocaleString()}" data-idx="${idx}" data-field="amount"></div></div><div class="col-6"><label class="form-label small text-muted mb-1">Frequency</label><select class="form-select form-select-sm border-secondary income-stream-update" data-idx="${idx}" data-field="freq"><option value="month" ${w.freq==='month'?'selected':''}>/ Month</option><option value="year" ${w.freq==='year'?'selected':''}>/ Year</option></select></div></div><div class="row g-3 align-items-end"><div class="col-4"><label class="form-label small text-muted mb-1">Growth %</label><div class="input-group input-group-sm"><input type="number" step="0.1" class="form-control border-secondary income-stream-update" value="${w.growth}" data-idx="${idx}" data-field="growth"><span class="input-group-text border-secondary text-muted">%</span></div></div><div class="col-4"><label class="form-label small text-muted mb-1">Start Date</label><input type="month" class="form-control form-control-sm border-secondary income-stream-update" value="${w.start || new Date().toISOString().slice(0, 7)}" data-idx="${idx}" data-field="start"></div><div class="col-4"><label class="form-label small text-muted mb-1">End Date</label><input type="month" class="form-control form-control-sm border-secondary income-stream-update" value="${w.end}" data-idx="${idx}" data-field="end"></div></div><div class="row mt-3 pt-2 border-top border-secondary"><div class="col-12 d-flex justify-content-end"><div class="form-check"><input class="form-check-input income-stream-update" type="checkbox" id="inc_tax_${idx}" ${w.taxable?'checked':''} data-idx="${idx}" data-field="taxable"><label class="form-check-label text-muted small" for="inc_tax_${idx}">Is Taxable?</label></div></div></div>`;
             tgt.appendChild(div); div.querySelectorAll('.formatted-num').forEach(el => el.addEventListener('input', e => this.formatInput(e.target)));
         });
     }
@@ -547,7 +566,14 @@ class RetirementPlanner {
         
         let simP = JSON.parse(JSON.stringify(this.state.properties)), othD = this.getTotalDebt(), eC = expTotals.curr, eR = expTotals.ret, eT = expTotals.trans, eG = expTotals.gogo, eS = expTotals.slow, eN = expTotals.nogo;
         const curY = new Date().getFullYear(), p1SA = curY - p1.dob.getFullYear(), p2SA = curY - p2.dob.getFullYear(), eA = Math.max(p1.lifeExp, mode==='Couple'?p2.lifeExp:0), yrR = eA - Math.min(p1SA, mode==='Couple'?p2SA:p1SA);
-        let trg = new Set(), cMax1 = this.CONSTANTS.MAX_CPP_2026, oMax1 = this.CONSTANTS.MAX_OAS_2026, cMax2 = cMax1, oMax2 = oMax1, fNW = 0;
+        
+        let trg = new Set();
+        
+        let cMax1 = this.getVal('p1_cpp_est_base');
+        let oMax1 = this.CONSTANTS.MAX_OAS_2026 * (Math.max(0, Math.min(40, this.getVal('p1_oas_years'))) / 40);
+        let cMax2 = this.getVal('p2_cpp_est_base');
+        let oMax2 = this.CONSTANTS.MAX_OAS_2026 * (Math.max(0, Math.min(40, this.getVal('p2_oas_years'))) / 40);
+        let fNW = 0;
 
         for (let i=0; i<=yrR; i++) {
             const yr = curY+i, a1 = p1SA+i, a2 = p2SA+i, al1 = a1<=p1.lifeExp, al2 = mode==='Couple'?a2<=p2.lifeExp:false;
@@ -581,7 +607,7 @@ class RetirementPlanner {
             if(mode==='Couple' && al2){ if(!p2R){ g2+=p2.inc; p2.inc*=(1+cR2.inc); } if(a2>=parseInt(this.getRaw('p2_db_start_age')||60)) db2=p2DB*bInf; pst2=calcPost(this.state.inputs['enable_post_ret_income_p2'], extVals.p2PI, extVals.p2PS, extVals.p2PE, extVals.p2PG); if(this.state.inputs['p2_cpp_enabled'] && a2>=parseInt(this.getRaw('p2_cpp_start'))) c2=this.calcBen(cMax2, parseInt(this.getRaw('p2_cpp_start')), 1, p2.retAge); if(this.state.inputs['p2_oas_enabled'] && a2>=parseInt(this.getRaw('p2_oas_start'))) o2=this.calcBen(oMax2, parseInt(this.getRaw('p2_oas_start')), 1, 65); }
             cMax1*=(1+infl); oMax1*=(1+infl); cMax2*=(1+infl); oMax2*=(1+infl);
 
-            // RRIF Logic (Simulated conversion at 71 for RRSP)
+            // RRIF Logic
             let rrif1=0; if(al1 && p1.rrsp>0 && a1>=this.CONSTANTS.RRIF_START_AGE){ rrif1=p1.rrsp*this.getRrifFactor(a1); p1.rrsp-=rrif1; if(rrif1>0){ yWd['P1 RRIF']=(yWd['P1 RRIF']||0)+rrif1; wDBrk.p1.RRIF=rrif1; } }
             let rrif2=0; if(al2 && p2.rrsp>0 && a2>=this.CONSTANTS.RRIF_START_AGE){ rrif2=p2.rrsp*this.getRrifFactor(a2); p2.rrsp-=rrif2; if(rrif2>0){ yWd['P2 RRIF']=(yWd['P2 RRIF']||0)+rrif2; wDBrk.p2.RRIF=rrif2; } }
 
@@ -802,15 +828,43 @@ class RetirementPlanner {
         findFor('p1'); if(this.state.mode==='Couple') findFor('p2');
     }
 
-    applyOpt(t) { document.getElementById(`${t}_start`).value = this.optimalAges[t]; this.state.inputs[`${t}_start`] = this.optimalAges[t]; this.run(); }
+    applyOpt(t) { 
+        document.getElementById(`${t}_start`).value = this.optimalAges[t]; 
+        document.getElementById(`${t}_start_val`).innerText = this.optimalAges[t]; 
+        this.state.inputs[`${t}_start`] = this.optimalAges[t]; 
+        this.run(); 
+    }
 
     estimateCPPOAS() {
         ['p1','p2'].forEach(p => {
-            const rA=this.getVal(`${p}_retireAge`), cS=parseInt(this.getRaw(`${p}_cpp_start`)), oS=parseInt(this.getRaw(`${p}_oas_start`)), cE=this.state.inputs[`${p}_cpp_enabled`], oE=this.state.inputs[`${p}_oas_enabled`];
-            let cV=this.CONSTANTS.MAX_CPP_2026, md=(cS-65)*12; cV*=md<0?(1-(Math.abs(md)*0.006)):(1+(md*0.007)); if(rA<60) cV*=Math.max(0, (39-Math.max(0, (65-rA)-8))/39);
-            const eC=document.getElementById(`${p}_cpp_est`); if(eC){ eC.innerText=cE?`Est: $${Math.round(cV).toLocaleString()}/yr`:"Disabled"; cE?eC.classList.remove('text-danger'):eC.classList.add('text-danger'); }
-            let oV=this.CONSTANTS.MAX_OAS_2026, od=(oS-65)*12; if(od>0) oV*=(1+(od*0.006));
-            const eO=document.getElementById(`${p}_oas_est`); if(eO){ eO.innerText=oE?`Est: $${Math.round(oV).toLocaleString()}/yr`:"Disabled"; oE?eO.classList.remove('text-danger'):eO.classList.add('text-danger'); }
+            const rA=this.getVal(`${p}_retireAge`);
+            const cS=parseInt(this.getRaw(`${p}_cpp_start`));
+            const oS=parseInt(this.getRaw(`${p}_oas_start`));
+            const cE=this.state.inputs[`${p}_cpp_enabled`];
+            const oE=this.state.inputs[`${p}_oas_enabled`];
+            
+            let cppBase = this.getVal(`${p}_cpp_est_base`);
+            let md = (cS - 65) * 12; 
+            let cV = cppBase;
+            cV *= md < 0 ? (1 - (Math.abs(md) * 0.006)) : (1 + (md * 0.007)); 
+            if(rA < 60) cV *= Math.max(0, (39 - Math.max(0, (65 - rA) - 8)) / 39); 
+            
+            const eC = document.getElementById(`${p}_cpp_est`); 
+            if(eC){ 
+                eC.innerText = cE ? `$${Math.round(cV).toLocaleString()}/yr` : "Disabled"; 
+                cE ? eC.classList.remove('text-danger') : eC.classList.add('text-danger'); 
+            }
+            
+            let oasYears = Math.max(0, Math.min(40, this.getVal(`${p}_oas_years`)));
+            let oV = this.CONSTANTS.MAX_OAS_2026 * (oasYears / 40);
+            let od = (oS - 65) * 12; 
+            if(od > 0) oV *= (1 + (od * 0.006)); 
+            
+            const eO = document.getElementById(`${p}_oas_est`); 
+            if(eO){ 
+                eO.innerText = oE ? `$${Math.round(oV).toLocaleString()}/yr` : "Disabled"; 
+                oE ? eO.classList.remove('text-danger') : eO.classList.add('text-danger'); 
+            }
         });
     }
 
@@ -874,8 +928,6 @@ class RetirementPlanner {
         document.querySelectorAll('.oas-age-select').forEach(s => { let h=''; for(let i=65;i<=70;i++) h+=`<option value="${i}" ${i===65?'selected':''}>${i}</option>`; s.innerHTML=h; });
     }
 
-    // --- SCENARIO SAVE / LOAD UPDATES --- //
-
     saveScenarioFromModal() {
         const nm = document.getElementById('modalScenarioName').value;
         if(!nm) {
@@ -914,11 +966,9 @@ class RetirementPlanner {
             if(lst) lst.innerHTML = `<li class="list-group-item bg-transparent text-muted small border-0">No saved scenarios yet.</li>`;
         } else {
             sc.forEach((s, idx) => {
-                // Populate Tab List
                 if(lst) {
                     lst.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center surface-card border-secondary mb-2 rounded-3">${s.name}<div><button class="btn btn-sm btn-outline-success me-2" onclick="app.loadScenario(${idx})" title="Load"><i class="bi bi-arrow-clockwise"></i></button><button class="btn btn-sm btn-outline-info me-2" onclick="app.exportScenario(${idx})" title="Export"><i class="bi bi-download"></i></button><button class="btn btn-sm btn-outline-danger" onclick="app.deleteScenario(${idx})"><i class="bi bi-trash"></i></button></div></li>`;
                 }
-                // Populate Header Dropdown
                 if(headerLst) {
                     headerLst.innerHTML += `<li><a class="dropdown-item" href="javascript:void(0)" onclick="app.loadScenario(${idx})"><i class="bi bi-file-earmark-check me-2 text-success"></i>${s.name}</a></li>`;
                 }
@@ -986,6 +1036,14 @@ class RetirementPlanner {
         const advM = document.getElementById('expense_mode_advanced')?.checked; if(document.getElementById('expense-phase-controls')) document.getElementById('expense-phase-controls').style.display = advM?'flex':'none';
         if(document.getElementById('p1_db_start_val')) document.getElementById('p1_db_start_val').innerText = this.getRaw('p1_db_start_age')||'60';
         if(document.getElementById('p2_db_start_val')) document.getElementById('p2_db_start_val').innerText = this.getRaw('p2_db_start_age')||'60';
+        
+        if(document.getElementById('p1_oas_years_val')) document.getElementById('p1_oas_years_val').innerText = this.getRaw('p1_oas_years')||'40';
+        if(document.getElementById('p2_oas_years_val')) document.getElementById('p2_oas_years_val').innerText = this.getRaw('p2_oas_years')||'40';
+        if(document.getElementById('p1_cpp_start_val')) document.getElementById('p1_cpp_start_val').innerText = this.getRaw('p1_cpp_start')||'65';
+        if(document.getElementById('p1_oas_start_val')) document.getElementById('p1_oas_start_val').innerText = this.getRaw('p1_oas_start')||'65';
+        if(document.getElementById('p2_cpp_start_val')) document.getElementById('p2_cpp_start_val').innerText = this.getRaw('p2_cpp_start')||'65';
+        if(document.getElementById('p2_oas_start_val')) document.getElementById('p2_oas_start_val').innerText = this.getRaw('p2_oas_start')||'65';
+        
         this.updatePostRetIncomeVisibility();
     }
     
