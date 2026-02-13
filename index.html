@@ -16,13 +16,33 @@
 </head>
 <body>
   <div class="container-fluid py-4" style="max-width: 1700px;">
-    <div class="main-header d-flex justify-content-between align-items-center shadow-sm">
-      <div class="d-flex align-items-center"><h4 class="mb-0"><i class="bi bi-graph-up-arrow text-primary me-2"></i>Retirement Planner</h4></div>
-      <div class="d-flex align-items-center gap-3">
+    
+    <div class="main-header d-flex flex-wrap justify-content-between align-items-center shadow-sm gap-3">
+      <div class="d-flex align-items-center flex-wrap gap-3">
+        <h4 class="mb-0 text-nowrap"><i class="bi bi-graph-up-arrow text-primary me-2"></i>Retirement Planner</h4>
+        <span class="badge bg-secondary d-none fs-6 fw-normal" id="currentScenarioBadge">Plan: <span id="currentScenarioName" class="fw-bold text-white"></span></span>
+      </div>
+      
+      <div class="d-flex align-items-center flex-wrap gap-2 gap-md-3">
+        <div class="btn-group btn-group-sm me-2 shadow-sm">
+            <button class="btn btn-outline-success border-secondary" data-bs-toggle="modal" data-bs-target="#saveScenarioModal" title="Save Plan">
+                <i class="bi bi-floppy"></i> Save
+            </button>
+            <div class="btn-group btn-group-sm" role="group">
+                <button type="button" class="btn btn-outline-info border-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="Load Plan">
+                    <i class="bi bi-folder2-open"></i> Load
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow" id="headerScenarioList">
+                    <li><span class="dropdown-item-text text-muted small">No saved plans</span></li>
+                </ul>
+            </div>
+        </div>
+
         <button class="btn btn-outline-secondary btn-sm" id="btnThemeToggle" title="Toggle Light/Dark Mode"><i class="bi bi-sun-fill"></i></button>
-        <div class="d-none d-md-block text-end">
+        
+        <div class="d-none d-xl-block text-end">
           <div class="d-flex align-items-center gap-3">
-            <div class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" id="useRealDollars"><label class="form-check-label small" for="useRealDollars">Show in Today's $</label></div>
+            <div class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" id="useRealDollars"><label class="form-check-label small text-nowrap" for="useRealDollars">Show in Today's $</label></div>
             <div class="d-flex align-items-center text-success" title="Auto-save is active. Your changes are saved locally." style="cursor: help;"><i class="bi bi-check-circle-fill fs-5"></i></div>
           </div>
         </div>
@@ -80,7 +100,7 @@
           <li class="nav-item" role="presentation"><button class="nav-link" id="summary-tab" data-bs-toggle="tab" data-bs-target="#summary-pane" type="button" role="tab"><i class="bi bi-table me-2"></i>Projection Table</button></li>
           <li class="nav-item" role="presentation"><button class="nav-link" id="strategy-tab" data-bs-toggle="tab" data-bs-target="#strategy-pane" type="button" role="tab"><i class="bi bi-sliders me-2"></i>Strategy</button></li>
           <li class="nav-item" role="presentation"><button class="nav-link" id="cashflow-tab" data-bs-toggle="tab" data-bs-target="#cashflow-pane" type="button" role="tab"><i class="bi bi-diagram-3 me-2"></i>Cash Flow</button></li>
-          <li class="nav-item" role="presentation"><button class="nav-link" id="scenarios-tab" data-bs-toggle="tab" data-bs-target="#scenarios-pane" type="button" role="tab"><i class="bi bi-save me-2"></i>Scenarios</button></li>
+          <li class="nav-item" role="presentation"><button class="nav-link" id="scenarios-tab" data-bs-toggle="tab" data-bs-target="#scenarios-pane" type="button" role="tab"><i class="bi bi-save me-2"></i>Scenarios & Files</button></li>
           <li class="nav-item" role="presentation"><button class="nav-link" id="compare-tab" data-bs-toggle="tab" data-bs-target="#compare-pane" type="button" role="tab"><i class="bi bi-bar-chart-line me-2"></i>Compare</button></li>
         </ul>
 
@@ -477,17 +497,28 @@
 
               <div class="tab-pane fade p-3 p-md-5" id="scenarios-pane" role="tabpanel">
                 <div class="row g-5">
-                  <div class="col-md-5">
-                    <h5 class="text-info mb-3">Save Current State</h5>
-                    <div class="card p-3 mb-4"><label class="form-label">Scenario Name</label><div class="input-group mb-3"><input type="text" id="scenarioName" class="form-control" placeholder="e.g. Early Retirement"><button class="btn btn-primary" id="btnSaveScenario"><i class="bi bi-save"></i> Save</button></div><p class="small text-muted">Saves all inputs, expenses, and debt configurations.</p></div>
-                    <h5 class="text-muted small text-uppercase fw-bold mb-3 mt-4 pt-4 border-top border-secondary">Advanced File Options</h5>
-                    <div class="d-grid gap-2">
-                      <div class="d-flex gap-2"><button class="btn btn-outline-secondary flex-grow-1 btn-sm" onclick="document.getElementById('fileUpload').click()"><i class="bi bi-upload me-2"></i>Import from File</button><input type="file" id="fileUpload" style="display: none;" accept=".json"></div>
-                      <button class="btn btn-outline-danger btn-sm" id="btnClearStorage"><i class="bi bi-trash3 me-2"></i>Reset All Data</button>
+                  <div class="col-md-6">
+                    <h5 class="text-muted small text-uppercase fw-bold mb-3">Advanced File Options</h5>
+                    <div class="d-grid gap-3">
+                      <div class="card p-3 bg-black bg-opacity-25 border-secondary">
+                        <h6 class="text-info mb-2"><i class="bi bi-upload me-2"></i>Import Plan File</h6>
+                        <p class="small text-muted mb-3">Load a previously exported .json plan file from your computer.</p>
+                        <button class="btn btn-outline-secondary w-100" onclick="document.getElementById('fileUpload').click()">Choose File...</button>
+                        <input type="file" id="fileUpload" style="display: none;" accept=".json">
+                      </div>
+                      <div class="card p-3 bg-black bg-opacity-25 border-danger border-opacity-50">
+                        <h6 class="text-danger mb-2"><i class="bi bi-trash3 me-2"></i>Reset Application</h6>
+                        <p class="small text-muted mb-3">Wipe all current data, auto-saves, and reset to defaults.</p>
+                        <button class="btn btn-outline-danger w-100" id="btnClearStorage">Reset All Data</button>
+                      </div>
                     </div>
                   </div>
-                  <div class="col-md-7">
-                    <h5 class="text-info mb-3">Load Saved Scenarios</h5><ul class="list-group" id="scenarioList"></ul>
+                  <div class="col-md-6">
+                    <h5 class="text-muted small text-uppercase fw-bold mb-3">Manage Saved Plans</h5>
+                    <div class="card p-0 border-secondary">
+                      <ul class="list-group list-group-flush rounded" id="scenarioList">
+                        </ul>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -498,6 +529,25 @@
               </div>
 
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="saveScenarioModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header border-secondary">
+            <h5 class="modal-title fs-6"><i class="bi bi-floppy text-success me-2"></i>Save Plan</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <label class="form-label">Plan Name</label>
+            <input type="text" id="modalScenarioName" class="form-control" placeholder="e.g., Base Plan, Early Retirement...">
+          </div>
+          <div class="modal-footer border-secondary p-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-sm btn-success" id="btnModalSaveScenario">Save Plan</button>
           </div>
         </div>
       </div>
