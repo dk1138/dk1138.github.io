@@ -648,13 +648,33 @@
                                  <div class="form-check form-switch min-h-0 mb-0"><input class="form-check-input live-calc mt-0 fs-5" type="checkbox" role="switch" id="p1_db_enabled"></div>
                               </div>
                               <div id="p1_db_inputs" style="display:none;">
-                                <div class="input-group mb-3">
-                                   <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">$</span>
-                                   <input type="text" class="form-control live-calc formatted-num border-secondary" id="p1_db_pension" value="0">
-                                   <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">/mo</span>
+                                
+                                <div class="mb-3 border-bottom border-secondary pb-3">
+                                    <label class="form-label small fw-bold text-info mb-2">Lifetime Pension</label>
+                                    <div class="input-group input-group-sm mb-2">
+                                       <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">$</span>
+                                       <input type="text" class="form-control live-calc formatted-num border-secondary" id="p1_db_lifetime" value="0">
+                                       <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">/mo</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <label class="form-label small text-muted mb-0">Starts at Age: <span id="p1_db_lifetime_start_val" class="text-info fw-bold">60</span></label>
+                                        <input type="range" class="form-range live-calc w-50" id="p1_db_lifetime_start" min="50" max="75" value="60" oninput="document.getElementById('p1_db_lifetime_start_val').innerText = this.value">
+                                    </div>
                                 </div>
-                                <label class="form-label small text-muted mt-2">Starts at Age: <span id="p1_db_start_val" class="text-info fw-bold fs-6 ms-1">60</span></label>
-                                <input type="range" class="form-range live-calc mt-1" id="p1_db_start_age" min="55" max="75" value="60" oninput="document.getElementById('p1_db_start_val').innerText = this.value">
+
+                                <div>
+                                    <label class="form-label small fw-bold text-info mb-2">Bridge Benefit <span class="text-muted fw-normal">(Ends at age 65)</span></label>
+                                    <div class="input-group input-group-sm mb-2">
+                                       <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">$</span>
+                                       <input type="text" class="form-control live-calc formatted-num border-secondary" id="p1_db_bridge" value="0">
+                                       <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">/mo</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <label class="form-label small text-muted mb-0">Starts at Age: <span id="p1_db_bridge_start_val" class="text-info fw-bold">60</span></label>
+                                        <input type="range" class="form-range live-calc w-50" id="p1_db_bridge_start" min="50" max="65" value="60" oninput="document.getElementById('p1_db_bridge_start_val').innerText = this.value">
+                                    </div>
+                                </div>
+
                               </div>
                             </div>
                           </div>
@@ -723,13 +743,33 @@
                                  <div class="form-check form-switch min-h-0 mb-0"><input class="form-check-input live-calc mt-0 fs-5" type="checkbox" role="switch" id="p2_db_enabled"></div>
                               </div>
                               <div id="p2_db_inputs" style="display:none;">
-                                <div class="input-group mb-3">
-                                   <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">$</span>
-                                   <input type="text" class="form-control live-calc formatted-num border-secondary" id="p2_db_pension" value="0">
-                                   <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">/mo</span>
+                                
+                                <div class="mb-3 border-bottom border-secondary pb-3">
+                                    <label class="form-label small fw-bold text-purple mb-2" style="color: var(--purple) !important;">Lifetime Pension</label>
+                                    <div class="input-group input-group-sm mb-2">
+                                       <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">$</span>
+                                       <input type="text" class="form-control live-calc formatted-num border-secondary" id="p2_db_lifetime" value="0">
+                                       <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">/mo</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <label class="form-label small text-muted mb-0">Starts at Age: <span id="p2_db_lifetime_start_val" class="text-purple fw-bold" style="color: var(--purple) !important;">60</span></label>
+                                        <input type="range" class="form-range live-calc w-50" id="p2_db_lifetime_start" min="50" max="75" value="60" oninput="document.getElementById('p2_db_lifetime_start_val').innerText = this.value">
+                                    </div>
                                 </div>
-                                <label class="form-label small text-muted mt-2">Starts at Age: <span id="p2_db_start_val" class="text-purple fw-bold fs-6 ms-1" style="color: var(--purple);">60</span></label>
-                                <input type="range" class="form-range live-calc mt-1" id="p2_db_start_age" min="55" max="75" value="60" oninput="document.getElementById('p2_db_start_val').innerText = this.value">
+
+                                <div>
+                                    <label class="form-label small fw-bold text-purple mb-2" style="color: var(--purple) !important;">Bridge Benefit <span class="text-muted fw-normal">(Ends at age 65)</span></label>
+                                    <div class="input-group input-group-sm mb-2">
+                                       <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">$</span>
+                                       <input type="text" class="form-control live-calc formatted-num border-secondary" id="p2_db_bridge" value="0">
+                                       <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">/mo</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <label class="form-label small text-muted mb-0">Starts at Age: <span id="p2_db_bridge_start_val" class="text-purple fw-bold" style="color: var(--purple) !important;">60</span></label>
+                                        <input type="range" class="form-range live-calc w-50" id="p2_db_bridge_start" min="50" max="65" value="60" oninput="document.getElementById('p2_db_bridge_start_val').innerText = this.value">
+                                    </div>
+                                </div>
+
                               </div>
                             </div>
                           </div>
