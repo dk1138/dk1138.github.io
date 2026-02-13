@@ -1,3 +1,7 @@
+Added LIRA, LIF and RRIF
+Clean up UI
+
+
 1. The account types should include LIRA, LIF and RRIF.
 2. The CPP and OAS section assumes maximum for both which is not always the case. There needs to be a user input for CPP based on the past contributions. Likewise, OAS is based on years in Canada and should be reflected in the OAS estimate.
 3. What exactly is post retirement income? Is that distribution income from the non registered account or something else outside of investments?
