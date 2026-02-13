@@ -1,13 +1,13 @@
 /**
- * Retirement Planner Pro - Logic v10.26 (Final: Complete & Unabridged)
+ * Retirement Planner Pro - Logic v10.27 (Final: Complete & Unabridged)
  * Includes:
- * 1. Dynamic DB/CPP/OAS Toggles
- * 2. Non-Reg Tax Drag (Yield vs Capital Gains)
- * 3. Adjusted Cost Base (ACB) Tracking
+ * 1. DB Pension Split (Lifetime + Bridge to 65)
+ * 2. Non-Reg Yield vs Growth Split (Tax Drag + ACB)
+ * 3. Comparison Charting & Full State Management
  */
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.26";
+        this.APP_VERSION = "10.27";
         this.state = {
             inputs: {}, debt: [],
             properties: [{ name: "Primary Home", value: 1000000, mortgage: 430000, growth: 3.0, rate: 3.29, payment: 0, manual: false, includeInNW: false }],
@@ -428,7 +428,11 @@ class RetirementPlanner {
             p1_cpp_est_base: '10,000', p2_cpp_est_base: '10,000',
             p1_oas_years: '40', p2_oas_years: '40',
             
-            p1_income_growth: '2.0', p2_income_growth: '2.0', p1_db_pension: '0', p2_db_pension: '0', p1_db_start_age: '60', p2_db_start_age: '60', 
+            p1_income_growth: '2.0', p2_income_growth: '2.0', 
+            p1_db_lifetime: '0', p2_db_lifetime: '0', 
+            p1_db_lifetime_start: '60', p2_db_lifetime_start: '60', 
+            p1_db_bridge: '0', p2_db_bridge: '0', 
+            p1_db_bridge_start: '60', p2_db_bridge_start: '60', 
             p1_cpp_enabled: true, p1_oas_enabled: true, p1_db_enabled: false,
             p2_cpp_enabled: true, p2_oas_enabled: true, p2_db_enabled: false,
             exp_gogo_age: '75', exp_slow_age: '85', enable_post_ret_income_p1: false, enable_post_ret_income_p2: false, p1_post_inc: '0', p1_post_growth: '2.0', p2_post_inc: '0', p2_post_growth: '2.0' 
@@ -447,7 +451,12 @@ class RetirementPlanner {
         this.renderProperties(); this.renderWindfalls(); this.renderAdditionalIncome(); this.renderExpenseRows(); this.calcExpenses();
         document.getElementById('debt-container').innerHTML = ''; this.state.debt = [];
         this.updateSidebarSync('p1_retireAge', 65); this.updateSidebarSync('p2_retireAge', 65); this.updateSidebarSync('inflation_rate', 2.0); this.updateSidebarSync('p1_tfsa_ret', 6.0);
-        document.getElementById('exp_gogo_val').innerText = '75'; document.getElementById('exp_slow_val').innerText = '85'; document.getElementById('p1_db_start_val').innerText = '60'; document.getElementById('p2_db_start_val').innerText = '60';
+        document.getElementById('exp_gogo_val').innerText = '75'; document.getElementById('exp_slow_val').innerText = '85'; 
+        
+        if(document.getElementById('p1_db_lifetime_start_val')) document.getElementById('p1_db_lifetime_start_val').innerText = '60';
+        if(document.getElementById('p1_db_bridge_start_val')) document.getElementById('p1_db_bridge_start_val').innerText = '60';
+        if(document.getElementById('p2_db_lifetime_start_val')) document.getElementById('p2_db_lifetime_start_val').innerText = '60';
+        if(document.getElementById('p2_db_bridge_start_val')) document.getElementById('p2_db_bridge_start_val').innerText = '60';
         
         if(document.getElementById('p1_oas_years_val')) document.getElementById('p1_oas_years_val').innerText = '40';
         if(document.getElementById('p2_oas_years_val')) document.getElementById('p2_oas_years_val').innerText = '40';
@@ -613,7 +622,6 @@ class RetirementPlanner {
         const bR1_ret = { tfsa:gR('p1_tfsa_ret_retire'), rrsp:gR('p1_rrsp_ret_retire'), cash:gR('p1_cash_ret_retire'), nreg:gR('p1_nonreg_ret_retire'), cryp:gR('p1_crypto_ret_retire'), lirf:gR('p1_lirf_ret_retire'), lif:gR('p1_lif_ret_retire'), rrif_acct:gR('p1_rrif_acct_ret_retire'), inc:gR('p1_income_growth') };
         const bR2_ret = { tfsa:gR('p2_tfsa_ret_retire'), rrsp:gR('p2_rrsp_ret_retire'), cash:gR('p2_cash_ret_retire'), nreg:gR('p2_nonreg_ret_retire'), cryp:gR('p2_crypto_ret_retire'), lirf:gR('p2_lirf_ret_retire'), lif:gR('p2_lif_ret_retire'), rrif_acct:gR('p2_rrif_acct_ret_retire'), inc:gR('p2_income_growth') };
         
-        let p1DB = this.getVal('p1_db_pension')*12, p2DB = this.getVal('p2_db_pension')*12;
         let extVals = {
             p1PI: this.getVal('p1_post_inc'), p1PG: gR('p1_post_growth'), p1PS: new Date((this.getRaw('p1_post_start')||'2100-01')+"-01"), p1PE: new Date((this.getRaw('p1_post_end')||'2100-01')+"-01"),
             p2PI: this.getVal('p2_post_inc'), p2PG: gR('p2_post_growth'), p2PS: new Date((this.getRaw('p2_post_start')||'2100-01')+"-01"), p2PE: new Date((this.getRaw('p2_post_end')||'2100-01')+"-01")
@@ -663,14 +671,34 @@ class RetirementPlanner {
 
             if(al1){ 
                 if(!p1R){ g1+=p1.inc; p1.inc*=(1+cR1.inc); } 
-                if(this.state.inputs['p1_db_enabled'] && a1>=parseInt(this.getRaw('p1_db_start_age')||60)) db1=p1DB*bInf; 
+                // NEW: DB Split Logic
+                if(this.state.inputs['p1_db_enabled']) {
+                    let lStart = parseInt(this.getRaw('p1_db_lifetime_start')||60);
+                    let bStart = parseInt(this.getRaw('p1_db_bridge_start')||60);
+                    let lAmt = this.getVal('p1_db_lifetime') * 12 * bInf; // Annual + Inflation
+                    let bAmt = this.getVal('p1_db_bridge') * 12 * bInf; // Annual + Inflation
+                    
+                    if(a1 >= lStart) db1 += lAmt;
+                    if(a1 >= bStart && a1 < 65) db1 += bAmt; // Bridge stops at 65
+                }
+                
                 pst1=calcPost(this.state.inputs['enable_post_ret_income_p1'], extVals.p1PI, extVals.p1PS, extVals.p1PE, extVals.p1PG); 
                 if(this.state.inputs['p1_cpp_enabled'] && a1>=parseInt(this.getRaw('p1_cpp_start'))) c1=this.calcBen(cMax1, parseInt(this.getRaw('p1_cpp_start')), 1, p1.retAge, 'cpp'); 
                 if(this.state.inputs['p1_oas_enabled'] && a1>=parseInt(this.getRaw('p1_oas_start'))) o1=this.calcBen(oMax1, parseInt(this.getRaw('p1_oas_start')), 1, 65, 'oas'); 
             }
             if(mode==='Couple' && al2){ 
                 if(!p2R){ g2+=p2.inc; p2.inc*=(1+cR2.inc); } 
-                if(this.state.inputs['p2_db_enabled'] && a2>=parseInt(this.getRaw('p2_db_start_age')||60)) db2=p2DB*bInf; 
+                // NEW: DB Split Logic P2
+                if(this.state.inputs['p2_db_enabled']) {
+                    let lStart = parseInt(this.getRaw('p2_db_lifetime_start')||60);
+                    let bStart = parseInt(this.getRaw('p2_db_bridge_start')||60);
+                    let lAmt = this.getVal('p2_db_lifetime') * 12 * bInf; 
+                    let bAmt = this.getVal('p2_db_bridge') * 12 * bInf; 
+                    
+                    if(a2 >= lStart) db2 += lAmt;
+                    if(a2 >= bStart && a2 < 65) db2 += bAmt; 
+                }
+
                 pst2=calcPost(this.state.inputs['enable_post_ret_income_p2'], extVals.p2PI, extVals.p2PS, extVals.p2PE, extVals.p2PG); 
                 if(this.state.inputs['p2_cpp_enabled'] && a2>=parseInt(this.getRaw('p2_cpp_start'))) c2=this.calcBen(cMax2, parseInt(this.getRaw('p2_cpp_start')), 1, p2.retAge, 'cpp'); 
                 if(this.state.inputs['p2_oas_enabled'] && a2>=parseInt(this.getRaw('p2_oas_start'))) o2=this.calcBen(oMax2, parseInt(this.getRaw('p2_oas_start')), 1, 65, 'oas'); 
@@ -725,8 +753,13 @@ class RetirementPlanner {
 
             const nI1 = tTx1-t1.totalTax+wfN1, nI2 = al2 ? tTx2-t2.totalTax+wfN2 : 0;
             
+            // NEW: Non-Reg grows by (Total Return - Yield). Yield is handled as income/reinvestment above.
+            // This prevents double counting the yield.
+            let cR1_nreg_growth = cR1.nreg - p1.nreg_yield;
+            let cR2_nreg_growth = cR2.nreg - p2.nreg_yield;
+
             let gr1 = {
-                tfsa:p1.tfsa*cR1.tfsa, rrsp:p1.rrsp*cR1.rrsp, nreg:p1.nreg*cR1.nreg, cash:p1.cash*cR1.cash, cryp:p1.crypto*cR1.cryp,
+                tfsa:p1.tfsa*cR1.tfsa, rrsp:p1.rrsp*cR1.rrsp, nreg:p1.nreg*cR1_nreg_growth, cash:p1.cash*cR1.cash, cryp:p1.crypto*cR1.cryp,
                 lirf:p1.lirf*cR1.lirf, lif:p1.lif*cR1.lif, rrif_acct:p1.rrif_acct*cR1.rrif_acct
             }; 
             p1.tfsa+=gr1.tfsa; p1.rrsp+=gr1.rrsp; p1.nreg+=gr1.nreg; p1.cash+=gr1.cash; p1.crypto+=gr1.cryp; p1.lirf+=gr1.lirf; p1.lif+=gr1.lif; p1.rrif_acct+=gr1.rrif_acct;
@@ -734,7 +767,7 @@ class RetirementPlanner {
             let gr2 = {tfsa:0,rrsp:0,nreg:0,cash:0,cryp:0,lirf:0,lif:0,rrif_acct:0}; 
             if(al2){ 
                 gr2 = {
-                    tfsa:p2.tfsa*cR2.tfsa, rrsp:p2.rrsp*cR2.rrsp, nreg:p2.nreg*cR2.nreg, cash:p2.cash*cR2.cash, cryp:p2.crypto*cR2.cryp,
+                    tfsa:p2.tfsa*cR2.tfsa, rrsp:p2.rrsp*cR2.rrsp, nreg:p2.nreg*cR2_nreg_growth, cash:p2.cash*cR2.cash, cryp:p2.crypto*cR2.cryp,
                     lirf:p2.lirf*cR2.lirf, lif:p2.lif*cR2.lif, rrif_acct:p2.rrif_acct*cR2.rrif_acct
                 }; 
                 p2.tfsa+=gr2.tfsa; p2.rrsp+=gr2.rrsp; p2.nreg+=gr2.nreg; p2.cash+=gr2.cash; p2.crypto+=gr2.cryp; p2.lirf+=gr2.lirf; p2.lif+=gr2.lif; p2.rrif_acct+=gr2.rrif_acct; 
@@ -755,18 +788,14 @@ class RetirementPlanner {
                                 // NEW: Reduce ACB on withdrawal
                                 let wdAmt = Math.min(p1.nreg, df);
                                 if(wdAmt > 0) {
-                                    let frac = wdAmt / (p1.nreg + wdAmt); // Balance already reduced by wd inside function? No, function hasn't run.
-                                    // Actually calling wd function inside here logic is tricky. 
-                                    // Let's call the standard wd, then adjust acb.
                                     let actualWd = wd(p1, t, df);
                                     let withdrawn = df - actualWd; 
                                     if(withdrawn > 0) {
                                         let ratio = withdrawn / (p1.nreg + withdrawn);
                                         let gain = withdrawn * (( (p1.nreg+withdrawn) - p1_acb ) / (p1.nreg+withdrawn));
                                         if(gain > 0) {
-                                            // Capital Gain Tax Impact (Simplified: Just reducing surplus/increasing deficit visually in future?)
-                                            // Note: We can't easily re-run tax calc here. The Yield Tax was already applied.
-                                            // We accept that Cap Gains tax is a "next year" problem or effectively reduces net withdrawal.
+                                            // Future update: Add cap gains tax to expenses in next year?
+                                            // For now, implicit net effect
                                         }
                                         p1_acb -= (p1_acb * ratio);
                                     }
@@ -1259,8 +1288,12 @@ class RetirementPlanner {
         if(document.getElementById('exp_gogo_val')) document.getElementById('exp_gogo_val').innerText = this.getRaw('exp_gogo_age')||75;
         if(document.getElementById('exp_slow_val')) document.getElementById('exp_slow_val').innerText = this.getRaw('exp_slow_age')||85;
         const advM = document.getElementById('expense_mode_advanced')?.checked; if(document.getElementById('expense-phase-controls')) document.getElementById('expense-phase-controls').style.display = advM?'flex':'none';
-        if(document.getElementById('p1_db_start_val')) document.getElementById('p1_db_start_val').innerText = this.getRaw('p1_db_start_age')||'60';
-        if(document.getElementById('p2_db_start_val')) document.getElementById('p2_db_start_val').innerText = this.getRaw('p2_db_start_age')||'60';
+        
+        // Load NEW DB Inputs
+        if(document.getElementById('p1_db_lifetime_start_val')) document.getElementById('p1_db_lifetime_start_val').innerText = this.getRaw('p1_db_lifetime_start')||'60';
+        if(document.getElementById('p1_db_bridge_start_val')) document.getElementById('p1_db_bridge_start_val').innerText = this.getRaw('p1_db_bridge_start')||'60';
+        if(document.getElementById('p2_db_lifetime_start_val')) document.getElementById('p2_db_lifetime_start_val').innerText = this.getRaw('p2_db_lifetime_start')||'60';
+        if(document.getElementById('p2_db_bridge_start_val')) document.getElementById('p2_db_bridge_start_val').innerText = this.getRaw('p2_db_bridge_start')||'60';
         
         if(document.getElementById('p1_oas_years_val')) document.getElementById('p1_oas_years_val').innerText = this.getRaw('p1_oas_years')||'40';
         if(document.getElementById('p2_oas_years_val')) document.getElementById('p2_oas_years_val').innerText = this.getRaw('p2_oas_years')||'40';
