@@ -1,3 +1,11 @@
+1. The account types should include LIRA, LIF and RRIF.
+2. The CPP and OAS section assumes maximum for both which is not always the case. There needs to be a user input for CPP based on the past contributions. Likewise, OAS is based on years in Canada and should be reflected in the OAS estimate.
+3. What exactly is post retirement income? Is that distribution income from the non registered account or something else outside of investments?
+4. Depending on the answer to item 2, the returns for the non registered account should be broken down into distributions and capital appreciation. This is needed to determine current year taxation.
+5. The defined benefits pension item needs breaking down into a pension component that is lifetime and a bridge that ends at age 65.
+6. I am having trouble making sense of the projection table numbers. I inputted my own data and I am getting some weird outcomes. I don't understand the net income number. The income source shows RRSP withdrawals recommended but the withdrawals do not add up to the total net at the bottom of the income table. I think the total net label should be total gross because the RRSP withdrawals are pretax numbers. The outflows and taxes do seem to be consistent with the income source data despite the total net number being wrong. I am seeing a negative surplus, yet if I am manually add up the income source items and the taxes, the surplus should be zero.
+7. The taxation calculation does not appear to account for income splitting post age 65. This needs to be added.
+
 NEW FEATURES
 1. Light and Dark mode toggle
 2. Added DB Pension age slider
