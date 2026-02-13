@@ -479,7 +479,7 @@
                     <div class="card-header d-flex align-items-center surface-card border-bottom border-secondary p-3">
                         <i class="bi bi-bank text-primary fs-4 me-3"></i>
                         <h5 class="mb-0 me-2 fw-bold text-uppercase ls-1">8. Government Benefits</h5>
-                        <button type="button" class="btn btn-link p-0 text-muted info-btn" data-bs-toggle="popover" data-bs-title="CPP / OAS / Pension" data-bs-content="Adjust the age you plan to take CPP (Canada Pension Plan) and OAS (Old Age Security). Taking it later usually increases the monthly payout.<br><br>If you have a workplace <b>Defined Benefit (DB)</b> pension, enter the monthly amount here.">
+                        <button type="button" class="btn btn-link p-0 text-muted info-btn" data-bs-toggle="popover" data-bs-title="CPP / OAS / Pension" data-bs-content="<b>CPP:</b> Enter the estimate from your Service Canada account. The app will automatically adjust it if you take it early (age 60) or late (age 70).<br><br><b>OAS:</b> Max OAS requires 40 years of residency in Canada between ages 18 and 65. If you have less, it is prorated.">
                           <i class="bi bi-info-circle"></i>
                         </button>
                     </div>
@@ -487,17 +487,39 @@
                       <div class="row g-4">
                         <div class="col-12 col-md-6">
                           <div class="p-4 border border-secondary rounded-3 surface-card h-100">
-                            <h6 class="text-info mb-4 fw-bold text-uppercase ls-1 pb-2 border-bottom border-secondary">Player 1 Optimization</h6>
-                            <div class="row g-4 mb-2">
+                            <h6 class="text-info mb-4 fw-bold text-uppercase ls-1 pb-2 border-bottom border-secondary">Player 1 Benefits</h6>
+                            
+                            <div class="mb-4">
+                              <label class="form-label fw-bold d-flex justify-content-between mb-2">
+                                Est. CPP at Age 65 
+                                <a href="https://www.canada.ca/en/employment-social-development/services/my-account.html" target="_blank" class="text-info small text-decoration-none" tabindex="-1"><i class="bi bi-box-arrow-up-right"></i> Service Canada</a>
+                              </label>
+                              <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">$</span>
+                                <input type="text" class="form-control live-calc formatted-num border-secondary" id="p1_cpp_est_base" value="10,000">
+                                <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">/yr</span>
+                              </div>
+                            </div>
+
+                            <div class="mb-4">
+                              <label class="form-label fw-bold d-flex justify-content-between mb-0">
+                                Years in Canada (by age 65)
+                                <span class="text-muted small fw-normal">Max: 40</span>
+                              </label>
+                              <input type="range" class="form-range live-calc mt-2" id="p1_oas_years" min="0" max="40" value="40" oninput="document.getElementById('p1_oas_years_val').innerText = this.value">
+                              <div class="text-end text-info fw-bold small mt-1"><span id="p1_oas_years_val">40</span> Years</div>
+                            </div>
+
+                            <div class="row g-3 mb-2">
                               <div class="col-6">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                   <label class="form-label mb-0 fw-bold">CPP Start</label>
                                   <div class="form-check form-switch min-h-0 mb-0"><input class="form-check-input live-calc" type="checkbox" role="switch" id="p1_cpp_enabled" checked></div>
                                 </div>
-                                <select class="form-select live-calc cpp-age-select" id="p1_cpp_start"></select>
-                                <div class="d-flex flex-column mt-3 p-2 bg-black bg-opacity-25 rounded border border-secondary">
-                                  <span class="est-benefit small text-muted fw-medium" id="p1_cpp_est"></span>
-                                  <span class="opt-benefit small mt-1" id="p1_cpp_opt"></span>
+                                <select class="form-select live-calc cpp-age-select border-secondary" id="p1_cpp_start"></select>
+                                <div class="d-flex flex-column mt-2 p-2 bg-black bg-opacity-25 rounded border border-secondary text-center">
+                                  <span class="est-benefit small text-info fw-bold" id="p1_cpp_est"></span>
+                                  <span class="opt-benefit small mt-1 text-muted" id="p1_cpp_opt"></span>
                                 </div>
                               </div>
                               <div class="col-6">
@@ -505,34 +527,58 @@
                                   <label class="form-label mb-0 fw-bold">OAS Start</label>
                                   <div class="form-check form-switch min-h-0 mb-0"><input class="form-check-input live-calc" type="checkbox" role="switch" id="p1_oas_enabled" checked></div>
                                 </div>
-                                <select class="form-select live-calc oas-age-select" id="p1_oas_start"></select>
-                                <div class="d-flex flex-column mt-3 p-2 bg-black bg-opacity-25 rounded border border-secondary">
-                                  <span class="est-benefit small text-muted fw-medium" id="p1_oas_est"></span>
-                                  <span class="opt-benefit small mt-1" id="p1_oas_opt"></span>
+                                <select class="form-select live-calc oas-age-select border-secondary" id="p1_oas_start"></select>
+                                <div class="d-flex flex-column mt-2 p-2 bg-black bg-opacity-25 rounded border border-secondary text-center">
+                                  <span class="est-benefit small text-info fw-bold" id="p1_oas_est"></span>
+                                  <span class="opt-benefit small mt-1 text-muted" id="p1_oas_opt"></span>
                                 </div>
                               </div>
                             </div>
+                            
                             <div class="mt-4 pt-4 border-top border-secondary">
                               <label class="form-label fw-bold mb-3">Defined Benefit (DB) Pension</label>
-                              <div class="input-group mb-3"><span class="input-group-text">$</span><input type="text" class="form-control live-calc formatted-num" id="p1_db_pension" value="0"><span class="input-group-text">/mo</span></div>
+                              <div class="input-group mb-3"><span class="input-group-text bg-black bg-opacity-25 border-secondary">$</span><input type="text" class="form-control live-calc formatted-num border-secondary" id="p1_db_pension" value="0"><span class="input-group-text bg-black bg-opacity-25 border-secondary">/mo</span></div>
                               <label class="form-label small text-muted mt-2">Starts at Age: <span id="p1_db_start_val" class="text-info fw-bold fs-6 ms-1">60</span></label>
                               <input type="range" class="form-range live-calc mt-1" id="p1_db_start_age" min="55" max="75" value="60" oninput="document.getElementById('p1_db_start_val').innerText = this.value">
                             </div>
                           </div>
                         </div>
+                        
                         <div class="col-12 col-md-6 p2-column">
                           <div class="p-4 border border-secondary rounded-3 surface-card h-100">
-                            <h6 class="text-purple mb-4 fw-bold text-uppercase ls-1 pb-2 border-bottom border-secondary" style="color: var(--purple);">Player 2 Optimization</h6>
-                            <div class="row g-4 mb-2">
+                            <h6 class="text-purple mb-4 fw-bold text-uppercase ls-1 pb-2 border-bottom border-secondary" style="color: var(--purple);">Player 2 Benefits</h6>
+                            
+                            <div class="mb-4">
+                              <label class="form-label fw-bold d-flex justify-content-between mb-2">
+                                Est. CPP at Age 65 
+                                <a href="https://www.canada.ca/en/employment-social-development/services/my-account.html" target="_blank" class="text-info small text-decoration-none" tabindex="-1"><i class="bi bi-box-arrow-up-right"></i> Service Canada</a>
+                              </label>
+                              <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">$</span>
+                                <input type="text" class="form-control live-calc formatted-num border-secondary" id="p2_cpp_est_base" value="10,000">
+                                <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">/yr</span>
+                              </div>
+                            </div>
+
+                            <div class="mb-4">
+                              <label class="form-label fw-bold d-flex justify-content-between mb-0">
+                                Years in Canada (by age 65)
+                                <span class="text-muted small fw-normal">Max: 40</span>
+                              </label>
+                              <input type="range" class="form-range live-calc mt-2" id="p2_oas_years" min="0" max="40" value="40" oninput="document.getElementById('p2_oas_years_val').innerText = this.value">
+                              <div class="text-end text-purple fw-bold small mt-1" style="color: var(--purple);"><span id="p2_oas_years_val">40</span> Years</div>
+                            </div>
+
+                            <div class="row g-3 mb-2">
                               <div class="col-6">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                   <label class="form-label mb-0 fw-bold">CPP Start</label>
                                   <div class="form-check form-switch min-h-0 mb-0"><input class="form-check-input live-calc" type="checkbox" role="switch" id="p2_cpp_enabled" checked></div>
                                 </div>
-                                <select class="form-select live-calc cpp-age-select" id="p2_cpp_start"></select>
-                                <div class="d-flex flex-column mt-3 p-2 bg-black bg-opacity-25 rounded border border-secondary">
-                                  <span class="est-benefit small text-muted fw-medium" id="p2_cpp_est"></span>
-                                  <span class="opt-benefit small mt-1" id="p2_cpp_opt"></span>
+                                <select class="form-select live-calc cpp-age-select border-secondary" id="p2_cpp_start"></select>
+                                <div class="d-flex flex-column mt-2 p-2 bg-black bg-opacity-25 rounded border border-secondary text-center">
+                                  <span class="est-benefit small text-purple fw-bold" style="color: var(--purple);" id="p2_cpp_est"></span>
+                                  <span class="opt-benefit small mt-1 text-muted" id="p2_cpp_opt"></span>
                                 </div>
                               </div>
                               <div class="col-6">
@@ -540,17 +586,18 @@
                                   <label class="form-label mb-0 fw-bold">OAS Start</label>
                                   <div class="form-check form-switch min-h-0 mb-0"><input class="form-check-input live-calc" type="checkbox" role="switch" id="p2_oas_enabled" checked></div>
                                 </div>
-                                <select class="form-select live-calc oas-age-select" id="p2_oas_start"></select>
-                                <div class="d-flex flex-column mt-3 p-2 bg-black bg-opacity-25 rounded border border-secondary">
-                                  <span class="est-benefit small text-muted fw-medium" id="p2_oas_est"></span>
-                                  <span class="opt-benefit small mt-1" id="p2_oas_opt"></span>
+                                <select class="form-select live-calc oas-age-select border-secondary" id="p2_oas_start"></select>
+                                <div class="d-flex flex-column mt-2 p-2 bg-black bg-opacity-25 rounded border border-secondary text-center">
+                                  <span class="est-benefit small text-purple fw-bold" style="color: var(--purple);" id="p2_oas_est"></span>
+                                  <span class="opt-benefit small mt-1 text-muted" id="p2_oas_opt"></span>
                                 </div>
                               </div>
                             </div>
+                            
                             <div class="mt-4 pt-4 border-top border-secondary">
                               <label class="form-label fw-bold mb-3">Defined Benefit (DB) Pension</label>
-                              <div class="input-group mb-3"><span class="input-group-text">$</span><input type="text" class="form-control live-calc formatted-num" id="p2_db_pension" value="0"><span class="input-group-text">/mo</span></div>
-                              <label class="form-label small text-muted mt-2">Starts at Age: <span id="p2_db_start_val" class="text-purple fw-bold fs-6 ms-1">60</span></label>
+                              <div class="input-group mb-3"><span class="input-group-text bg-black bg-opacity-25 border-secondary">$</span><input type="text" class="form-control live-calc formatted-num border-secondary" id="p2_db_pension" value="0"><span class="input-group-text bg-black bg-opacity-25 border-secondary">/mo</span></div>
+                              <label class="form-label small text-muted mt-2">Starts at Age: <span id="p2_db_start_val" class="text-purple fw-bold fs-6 ms-1" style="color: var(--purple);">60</span></label>
                               <input type="range" class="form-range live-calc mt-1" id="p2_db_start_age" min="55" max="75" value="60" oninput="document.getElementById('p2_db_start_val').innerText = this.value">
                             </div>
                           </div>
