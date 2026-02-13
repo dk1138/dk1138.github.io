@@ -494,23 +494,25 @@
                                 <label class="form-label mb-0 fw-bold fs-6 text-white">Canada Pension Plan (CPP)</label>
                                 <div class="form-check form-switch min-h-0 mb-0"><input class="form-check-input live-calc mt-0 fs-5" type="checkbox" role="switch" id="p1_cpp_enabled" checked></div>
                               </div>
-                              <div class="d-flex justify-content-between mb-2">
-                                <label class="form-label small text-muted mb-0">Est. Payout at Age 65</label>
-                                <a href="https://www.canada.ca/en/employment-social-development/services/my-account.html" target="_blank" class="text-info small text-decoration-none" tabindex="-1"><i class="bi bi-box-arrow-up-right"></i> Service Canada</a>
-                              </div>
-                              <div class="input-group input-group-sm mb-3">
-                                <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">$</span>
-                                <input type="text" class="form-control live-calc formatted-num border-secondary" id="p1_cpp_est_base" value="10,000">
-                                <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">/yr</span>
-                              </div>
-                              <label class="form-label small text-muted mt-2 d-flex justify-content-between">
-                                <span>Starts at Age: <span id="p1_cpp_start_val" class="text-info fw-bold fs-6 ms-1">65</span></span>
-                                <span class="opt-benefit text-success" id="p1_cpp_opt" style="cursor:pointer;"></span>
-                              </label>
-                              <input type="range" class="form-range live-calc mt-1" id="p1_cpp_start" min="60" max="70" value="65" oninput="document.getElementById('p1_cpp_start_val').innerText = this.value">
-                              <div class="d-flex justify-content-between align-items-center mt-2 p-2 bg-black bg-opacity-25 rounded border border-secondary">
-                                 <span class="small text-muted fw-bold">Actual Estimated Payout:</span>
-                                 <span class="est-benefit small text-info fw-bold fs-6" id="p1_cpp_est">$10,000/yr</span>
+                              <div id="p1_cpp_inputs">
+                                <div class="d-flex justify-content-between mb-2">
+                                  <label class="form-label small text-muted mb-0">Est. Payout at Age 65</label>
+                                  <a href="https://www.canada.ca/en/employment-social-development/services/my-account.html" target="_blank" class="text-info small text-decoration-none" tabindex="-1"><i class="bi bi-box-arrow-up-right"></i> Service Canada</a>
+                                </div>
+                                <div class="input-group input-group-sm mb-3">
+                                  <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">$</span>
+                                  <input type="text" class="form-control live-calc formatted-num border-secondary" id="p1_cpp_est_base" value="10,000">
+                                  <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">/yr</span>
+                                </div>
+                                <label class="form-label small text-muted mt-2 d-flex justify-content-between">
+                                  <span>Starts at Age: <span id="p1_cpp_start_val" class="text-info fw-bold fs-6 ms-1">65</span></span>
+                                  <span class="opt-benefit text-success" id="p1_cpp_opt" style="cursor:pointer;"></span>
+                                </label>
+                                <input type="range" class="form-range live-calc mt-1" id="p1_cpp_start" min="60" max="70" value="65" oninput="document.getElementById('p1_cpp_start_val').innerText = this.value">
+                                <div class="d-flex justify-content-between align-items-center mt-2 p-2 bg-black bg-opacity-25 rounded border border-secondary">
+                                   <span class="small text-muted fw-bold">Actual Estimated Payout:</span>
+                                   <span class="est-benefit small text-info fw-bold fs-6" id="p1_cpp_est">$10,000/yr</span>
+                                </div>
                               </div>
                             </div>
 
@@ -519,36 +521,41 @@
                                 <label class="form-label mb-0 fw-bold fs-6 text-white">Old Age Security (OAS)</label>
                                 <div class="form-check form-switch min-h-0 mb-0"><input class="form-check-input live-calc mt-0 fs-5" type="checkbox" role="switch" id="p1_oas_enabled" checked></div>
                               </div>
-                              <div class="d-flex justify-content-between mb-0">
-                                <label class="form-label small text-muted mb-0">Years in Canada (by age 65)</label>
-                                <a href="https://estimateursv-oasestimator.service.canada.ca/en" target="_blank" class="text-info small text-decoration-none" tabindex="-1"><i class="bi bi-box-arrow-up-right"></i> Estimator</a>
-                              </div>
-                              <div class="d-flex align-items-center gap-3 mt-2 mb-3">
-                                  <input type="range" class="form-range live-calc flex-grow-1" id="p1_oas_years" min="0" max="40" value="40" oninput="document.getElementById('p1_oas_years_val').innerText = this.value">
-                                  <span class="text-info fw-bold small text-nowrap"><span id="p1_oas_years_val">40</span> / 40</span>
-                              </div>
-                              <label class="form-label small text-muted mt-2 d-flex justify-content-between">
-                                <span>Starts at Age: <span id="p1_oas_start_val" class="text-info fw-bold fs-6 ms-1">65</span></span>
-                                <span class="opt-benefit text-success" id="p1_oas_opt" style="cursor:pointer;"></span>
-                              </label>
-                              <input type="range" class="form-range live-calc mt-1" id="p1_oas_start" min="65" max="70" value="65" oninput="document.getElementById('p1_oas_start_val').innerText = this.value">
-                              <div class="d-flex justify-content-between align-items-center mt-2 p-2 bg-black bg-opacity-25 rounded border border-secondary">
-                                 <span class="small text-muted fw-bold">Actual Estimated Payout:</span>
-                                 <span class="est-benefit small text-info fw-bold fs-6" id="p1_oas_est">$8,908/yr</span>
+                              <div id="p1_oas_inputs">
+                                <div class="d-flex justify-content-between mb-0">
+                                  <label class="form-label small text-muted mb-0">Years in Canada (by age 65)</label>
+                                  <a href="https://estimateursv-oasestimator.service.canada.ca/en" target="_blank" class="text-info small text-decoration-none" tabindex="-1"><i class="bi bi-box-arrow-up-right"></i> Estimator</a>
+                                </div>
+                                <div class="d-flex align-items-center gap-3 mt-2 mb-3">
+                                    <input type="range" class="form-range live-calc flex-grow-1" id="p1_oas_years" min="0" max="40" value="40" oninput="document.getElementById('p1_oas_years_val').innerText = this.value">
+                                    <span class="text-info fw-bold small text-nowrap"><span id="p1_oas_years_val">40</span> / 40</span>
+                                </div>
+                                <label class="form-label small text-muted mt-2 d-flex justify-content-between">
+                                  <span>Starts at Age: <span id="p1_oas_start_val" class="text-info fw-bold fs-6 ms-1">65</span></span>
+                                  <span class="opt-benefit text-success" id="p1_oas_opt" style="cursor:pointer;"></span>
+                                </label>
+                                <input type="range" class="form-range live-calc mt-1" id="p1_oas_start" min="65" max="70" value="65" oninput="document.getElementById('p1_oas_start_val').innerText = this.value">
+                                <div class="d-flex justify-content-between align-items-center mt-2 p-2 bg-black bg-opacity-25 rounded border border-secondary">
+                                   <span class="small text-muted fw-bold">Actual Estimated Payout:</span>
+                                   <span class="est-benefit small text-info fw-bold fs-6" id="p1_oas_est">$8,908/yr</span>
+                                </div>
                               </div>
                             </div>
 
                             <div class="mt-4 pt-4 border-top border-secondary">
                               <div class="d-flex justify-content-between align-items-center mb-3">
                                  <label class="form-label mb-0 fw-bold fs-6 text-white">Defined Benefit (DB) Pension</label>
+                                 <div class="form-check form-switch min-h-0 mb-0"><input class="form-check-input live-calc mt-0 fs-5" type="checkbox" role="switch" id="p1_db_enabled"></div>
                               </div>
-                              <div class="input-group mb-3">
-                                 <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">$</span>
-                                 <input type="text" class="form-control live-calc formatted-num border-secondary" id="p1_db_pension" value="0">
-                                 <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">/mo</span>
+                              <div id="p1_db_inputs" style="display:none;">
+                                <div class="input-group mb-3">
+                                   <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">$</span>
+                                   <input type="text" class="form-control live-calc formatted-num border-secondary" id="p1_db_pension" value="0">
+                                   <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">/mo</span>
+                                </div>
+                                <label class="form-label small text-muted mt-2">Starts at Age: <span id="p1_db_start_val" class="text-info fw-bold fs-6 ms-1">60</span></label>
+                                <input type="range" class="form-range live-calc mt-1" id="p1_db_start_age" min="55" max="75" value="60" oninput="document.getElementById('p1_db_start_val').innerText = this.value">
                               </div>
-                              <label class="form-label small text-muted mt-2">Starts at Age: <span id="p1_db_start_val" class="text-info fw-bold fs-6 ms-1">60</span></label>
-                              <input type="range" class="form-range live-calc mt-1" id="p1_db_start_age" min="55" max="75" value="60" oninput="document.getElementById('p1_db_start_val').innerText = this.value">
                             </div>
                           </div>
                         </div>
@@ -562,23 +569,25 @@
                                 <label class="form-label mb-0 fw-bold fs-6 text-white">Canada Pension Plan (CPP)</label>
                                 <div class="form-check form-switch min-h-0 mb-0"><input class="form-check-input live-calc mt-0 fs-5" type="checkbox" role="switch" id="p2_cpp_enabled" checked></div>
                               </div>
-                              <div class="d-flex justify-content-between mb-2">
-                                <label class="form-label small text-muted mb-0">Est. Payout at Age 65</label>
-                                <a href="https://www.canada.ca/en/employment-social-development/services/my-account.html" target="_blank" class="text-info small text-decoration-none" tabindex="-1" style="color: var(--purple) !important;"><i class="bi bi-box-arrow-up-right"></i> Service Canada</a>
-                              </div>
-                              <div class="input-group input-group-sm mb-3">
-                                <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">$</span>
-                                <input type="text" class="form-control live-calc formatted-num border-secondary" id="p2_cpp_est_base" value="10,000">
-                                <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">/yr</span>
-                              </div>
-                              <label class="form-label small text-muted mt-2 d-flex justify-content-between">
-                                <span>Starts at Age: <span id="p2_cpp_start_val" class="text-purple fw-bold fs-6 ms-1" style="color: var(--purple);">65</span></span>
-                                <span class="opt-benefit text-success" id="p2_cpp_opt" style="cursor:pointer;"></span>
-                              </label>
-                              <input type="range" class="form-range live-calc mt-1" id="p2_cpp_start" min="60" max="70" value="65" oninput="document.getElementById('p2_cpp_start_val').innerText = this.value">
-                              <div class="d-flex justify-content-between align-items-center mt-2 p-2 bg-black bg-opacity-25 rounded border border-secondary">
-                                 <span class="small text-muted fw-bold">Actual Estimated Payout:</span>
-                                 <span class="est-benefit small text-purple fw-bold fs-6" id="p2_cpp_est" style="color: var(--purple) !important;">$10,000/yr</span>
+                              <div id="p2_cpp_inputs">
+                                <div class="d-flex justify-content-between mb-2">
+                                  <label class="form-label small text-muted mb-0">Est. Payout at Age 65</label>
+                                  <a href="https://www.canada.ca/en/employment-social-development/services/my-account.html" target="_blank" class="text-info small text-decoration-none" tabindex="-1" style="color: var(--purple) !important;"><i class="bi bi-box-arrow-up-right"></i> Service Canada</a>
+                                </div>
+                                <div class="input-group input-group-sm mb-3">
+                                  <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">$</span>
+                                  <input type="text" class="form-control live-calc formatted-num border-secondary" id="p2_cpp_est_base" value="10,000">
+                                  <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">/yr</span>
+                                </div>
+                                <label class="form-label small text-muted mt-2 d-flex justify-content-between">
+                                  <span>Starts at Age: <span id="p2_cpp_start_val" class="text-purple fw-bold fs-6 ms-1" style="color: var(--purple);">65</span></span>
+                                  <span class="opt-benefit text-success" id="p2_cpp_opt" style="cursor:pointer;"></span>
+                                </label>
+                                <input type="range" class="form-range live-calc mt-1" id="p2_cpp_start" min="60" max="70" value="65" oninput="document.getElementById('p2_cpp_start_val').innerText = this.value">
+                                <div class="d-flex justify-content-between align-items-center mt-2 p-2 bg-black bg-opacity-25 rounded border border-secondary">
+                                   <span class="small text-muted fw-bold">Actual Estimated Payout:</span>
+                                   <span class="est-benefit small text-purple fw-bold fs-6" id="p2_cpp_est" style="color: var(--purple) !important;">$10,000/yr</span>
+                                </div>
                               </div>
                             </div>
 
@@ -587,36 +596,41 @@
                                 <label class="form-label mb-0 fw-bold fs-6 text-white">Old Age Security (OAS)</label>
                                 <div class="form-check form-switch min-h-0 mb-0"><input class="form-check-input live-calc mt-0 fs-5" type="checkbox" role="switch" id="p2_oas_enabled" checked></div>
                               </div>
-                              <div class="d-flex justify-content-between mb-0">
-                                <label class="form-label small text-muted mb-0">Years in Canada (by age 65)</label>
-                                <a href="https://estimateursv-oasestimator.service.canada.ca/en" target="_blank" class="text-info small text-decoration-none" tabindex="-1" style="color: var(--purple) !important;"><i class="bi bi-box-arrow-up-right"></i> Estimator</a>
-                              </div>
-                              <div class="d-flex align-items-center gap-3 mt-2 mb-3">
-                                  <input type="range" class="form-range live-calc flex-grow-1" id="p2_oas_years" min="0" max="40" value="40" oninput="document.getElementById('p2_oas_years_val').innerText = this.value">
-                                  <span class="text-purple fw-bold small text-nowrap" style="color: var(--purple);"><span id="p2_oas_years_val">40</span> / 40</span>
-                              </div>
-                              <label class="form-label small text-muted mt-2 d-flex justify-content-between">
-                                <span>Starts at Age: <span id="p2_oas_start_val" class="text-purple fw-bold fs-6 ms-1" style="color: var(--purple);">65</span></span>
-                                <span class="opt-benefit text-success" id="p2_oas_opt" style="cursor:pointer;"></span>
-                              </label>
-                              <input type="range" class="form-range live-calc mt-1" id="p2_oas_start" min="65" max="70" value="65" oninput="document.getElementById('p2_oas_start_val').innerText = this.value">
-                              <div class="d-flex justify-content-between align-items-center mt-2 p-2 bg-black bg-opacity-25 rounded border border-secondary">
-                                 <span class="small text-muted fw-bold">Actual Estimated Payout:</span>
-                                 <span class="est-benefit small text-purple fw-bold fs-6" id="p2_oas_est" style="color: var(--purple) !important;">$8,908/yr</span>
+                              <div id="p2_oas_inputs">
+                                <div class="d-flex justify-content-between mb-0">
+                                  <label class="form-label small text-muted mb-0">Years in Canada (by age 65)</label>
+                                  <a href="https://estimateursv-oasestimator.service.canada.ca/en" target="_blank" class="text-info small text-decoration-none" tabindex="-1" style="color: var(--purple) !important;"><i class="bi bi-box-arrow-up-right"></i> Estimator</a>
+                                </div>
+                                <div class="d-flex align-items-center gap-3 mt-2 mb-3">
+                                    <input type="range" class="form-range live-calc flex-grow-1" id="p2_oas_years" min="0" max="40" value="40" oninput="document.getElementById('p2_oas_years_val').innerText = this.value">
+                                    <span class="text-purple fw-bold small text-nowrap" style="color: var(--purple);"><span id="p2_oas_years_val">40</span> / 40</span>
+                                </div>
+                                <label class="form-label small text-muted mt-2 d-flex justify-content-between">
+                                  <span>Starts at Age: <span id="p2_oas_start_val" class="text-purple fw-bold fs-6 ms-1" style="color: var(--purple);">65</span></span>
+                                  <span class="opt-benefit text-success" id="p2_oas_opt" style="cursor:pointer;"></span>
+                                </label>
+                                <input type="range" class="form-range live-calc mt-1" id="p2_oas_start" min="65" max="70" value="65" oninput="document.getElementById('p2_oas_start_val').innerText = this.value">
+                                <div class="d-flex justify-content-between align-items-center mt-2 p-2 bg-black bg-opacity-25 rounded border border-secondary">
+                                   <span class="small text-muted fw-bold">Actual Estimated Payout:</span>
+                                   <span class="est-benefit small text-purple fw-bold fs-6" id="p2_oas_est" style="color: var(--purple) !important;">$8,908/yr</span>
+                                </div>
                               </div>
                             </div>
 
                             <div class="mt-4 pt-4 border-top border-secondary">
                               <div class="d-flex justify-content-between align-items-center mb-3">
                                  <label class="form-label mb-0 fw-bold fs-6 text-white">Defined Benefit (DB) Pension</label>
+                                 <div class="form-check form-switch min-h-0 mb-0"><input class="form-check-input live-calc mt-0 fs-5" type="checkbox" role="switch" id="p2_db_enabled"></div>
                               </div>
-                              <div class="input-group mb-3">
-                                 <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">$</span>
-                                 <input type="text" class="form-control live-calc formatted-num border-secondary" id="p2_db_pension" value="0">
-                                 <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">/mo</span>
+                              <div id="p2_db_inputs" style="display:none;">
+                                <div class="input-group mb-3">
+                                   <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">$</span>
+                                   <input type="text" class="form-control live-calc formatted-num border-secondary" id="p2_db_pension" value="0">
+                                   <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">/mo</span>
+                                </div>
+                                <label class="form-label small text-muted mt-2">Starts at Age: <span id="p2_db_start_val" class="text-purple fw-bold fs-6 ms-1" style="color: var(--purple);">60</span></label>
+                                <input type="range" class="form-range live-calc mt-1" id="p2_db_start_age" min="55" max="75" value="60" oninput="document.getElementById('p2_db_start_val').innerText = this.value">
                               </div>
-                              <label class="form-label small text-muted mt-2">Starts at Age: <span id="p2_db_start_val" class="text-purple fw-bold fs-6 ms-1" style="color: var(--purple);">60</span></label>
-                              <input type="range" class="form-range live-calc mt-1" id="p2_db_start_age" min="55" max="75" value="60" oninput="document.getElementById('p2_db_start_val').innerText = this.value">
                             </div>
                           </div>
                         </div>
