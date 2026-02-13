@@ -1,9 +1,10 @@
 /**
- * Retirement Planner Pro - Logic v10.23 (Final: Complete & Unabridged)
+ * Retirement Planner Pro - Logic v10.24 (Final: Complete & Unabridged)
+ * Includes CPP/OAS Math fixes, Optimal Age Button fix, and Compare Chart Integration.
  */
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.23";
+        this.APP_VERSION = "10.24";
         this.state = {
             inputs: {}, debt: [],
             properties: [{ name: "Primary Home", value: 1000000, mortgage: 430000, growth: 3.0, rate: 3.29, payment: 0, manual: false, includeInNW: false }],
@@ -320,7 +321,19 @@ class RetirementPlanner {
             }
         });
 
-        if(document.querySelector('button[data-bs-target="#cashflow-pane"]')) document.querySelector('button[data-bs-target="#cashflow-pane"]').addEventListener('shown.bs.tab', () => this.drawSankey(parseInt($('yearSlider').value)));
+        if(document.querySelector('button[data-bs-target="#cashflow-pane"]')) {
+            document.querySelector('button[data-bs-target="#cashflow-pane"]').addEventListener('shown.bs.tab', () => this.drawSankey(parseInt($('yearSlider').value)));
+        }
+        
+        const compareTabBtn = document.querySelector('button[data-bs-target="#compare-pane"]');
+        if (compareTabBtn) {
+            compareTabBtn.addEventListener('shown.bs.tab', () => { if(this.charts.nw) this.charts.nw.resize(); this.renderComparisonChart(); });
+        }
+
+        if($('compareSelectionArea')) {
+            $('compareSelectionArea').addEventListener('change', () => this.renderComparisonChart());
+        }
+
         $('btnAddDebt').addEventListener('click', () => this.addDebtRow());
         
         if($('btnModalSaveScenario')) {
@@ -329,7 +342,8 @@ class RetirementPlanner {
 
         document.body.addEventListener('click', e => {
             if(e.target.classList.contains('toggle-btn')) this.toggleGroup(e.target.dataset.type);
-            if(e.target.classList.contains('opt-apply')) this.applyOpt(e.target.target);
+            // FIXED: Use dataset.target instead of target attribute for the apply button
+            if(e.target.classList.contains('opt-apply')) this.applyOpt(e.target.dataset.target);
         });
     }
 
@@ -506,6 +520,7 @@ class RetirementPlanner {
                 document.getElementById('cfAgeDisplay').innerText = this.state.mode === 'Couple' ? `(P1: ${d.p1Age} / P2: ${d.p2Age})` : `(Age: ${d.p1Age})`;
                 clearTimeout(this.sliderTimeout); this.sliderTimeout = setTimeout(() => this.drawSankey(cur), 50);
             }
+            this.renderComparisonChart();
             this.saveToLocalStorage();
         } catch (e) { console.error("Error:", e); }
     }
@@ -538,6 +553,18 @@ class RetirementPlanner {
     getRrifFactor(age) {
         if(age<71) return 1/(90-age); if(age>=95) return 0.20;
         return {71:0.0528,72:0.0540,73:0.0553,74:0.0567,75:0.0582,76:0.0598,77:0.0617,78:0.0636,79:0.0658,80:0.0682,81:0.0708,82:0.0738,83:0.0771,84:0.0808,85:0.0851,86:0.0899,87:0.0955,88:0.1021,89:0.1099,90:0.1192,91:0.1306,92:0.1449,93:0.1634,94:0.1879}[age] || 0.0528;
+    }
+
+    /** FIXED: Accurate separation of CPP and OAS growth math */
+    calcBen(m, sA, p, rA, type) { 
+        let v = m * p, d = (sA - 65) * 12; 
+        if (type === 'cpp') {
+            v *= d < 0 ? (1 - (Math.abs(d) * 0.006)) : (1 + (d * 0.007)); 
+            if (rA < 60) v *= Math.max(0, (39 - Math.max(0, (65 - rA) - 8)) / 39); 
+        } else if (type === 'oas') {
+            if (d > 0) v *= (1 + (d * 0.006));
+        }
+        return v; 
     }
 
     generateProjectionTable(onlyCalcNW = false) {
@@ -603,8 +630,9 @@ class RetirementPlanner {
                 if(yr>=sY && yr<=eY) { let f=1; if(yr===sY) f=(12-start.getMonth())/12; if(yr===eY) f=Math.min(f, (end.getMonth()+1)/12); return base*Math.pow(1+grw, i)*f; } return 0;
             };
 
-            if(al1){ if(!p1R){ g1+=p1.inc; p1.inc*=(1+cR1.inc); } if(a1>=parseInt(this.getRaw('p1_db_start_age')||60)) db1=p1DB*bInf; pst1=calcPost(this.state.inputs['enable_post_ret_income_p1'], extVals.p1PI, extVals.p1PS, extVals.p1PE, extVals.p1PG); if(this.state.inputs['p1_cpp_enabled'] && a1>=parseInt(this.getRaw('p1_cpp_start'))) c1=this.calcBen(cMax1, parseInt(this.getRaw('p1_cpp_start')), 1, p1.retAge); if(this.state.inputs['p1_oas_enabled'] && a1>=parseInt(this.getRaw('p1_oas_start'))) o1=this.calcBen(oMax1, parseInt(this.getRaw('p1_oas_start')), 1, 65); }
-            if(mode==='Couple' && al2){ if(!p2R){ g2+=p2.inc; p2.inc*=(1+cR2.inc); } if(a2>=parseInt(this.getRaw('p2_db_start_age')||60)) db2=p2DB*bInf; pst2=calcPost(this.state.inputs['enable_post_ret_income_p2'], extVals.p2PI, extVals.p2PS, extVals.p2PE, extVals.p2PG); if(this.state.inputs['p2_cpp_enabled'] && a2>=parseInt(this.getRaw('p2_cpp_start'))) c2=this.calcBen(cMax2, parseInt(this.getRaw('p2_cpp_start')), 1, p2.retAge); if(this.state.inputs['p2_oas_enabled'] && a2>=parseInt(this.getRaw('p2_oas_start'))) o2=this.calcBen(oMax2, parseInt(this.getRaw('p2_oas_start')), 1, 65); }
+            // FIXED: Passing 'cpp' or 'oas' explicitly to correctly apply specific math rules.
+            if(al1){ if(!p1R){ g1+=p1.inc; p1.inc*=(1+cR1.inc); } if(a1>=parseInt(this.getRaw('p1_db_start_age')||60)) db1=p1DB*bInf; pst1=calcPost(this.state.inputs['enable_post_ret_income_p1'], extVals.p1PI, extVals.p1PS, extVals.p1PE, extVals.p1PG); if(this.state.inputs['p1_cpp_enabled'] && a1>=parseInt(this.getRaw('p1_cpp_start'))) c1=this.calcBen(cMax1, parseInt(this.getRaw('p1_cpp_start')), 1, p1.retAge, 'cpp'); if(this.state.inputs['p1_oas_enabled'] && a1>=parseInt(this.getRaw('p1_oas_start'))) o1=this.calcBen(oMax1, parseInt(this.getRaw('p1_oas_start')), 1, 65, 'oas'); }
+            if(mode==='Couple' && al2){ if(!p2R){ g2+=p2.inc; p2.inc*=(1+cR2.inc); } if(a2>=parseInt(this.getRaw('p2_db_start_age')||60)) db2=p2DB*bInf; pst2=calcPost(this.state.inputs['enable_post_ret_income_p2'], extVals.p2PI, extVals.p2PS, extVals.p2PE, extVals.p2PG); if(this.state.inputs['p2_cpp_enabled'] && a2>=parseInt(this.getRaw('p2_cpp_start'))) c2=this.calcBen(cMax2, parseInt(this.getRaw('p2_cpp_start')), 1, p2.retAge, 'cpp'); if(this.state.inputs['p2_oas_enabled'] && a2>=parseInt(this.getRaw('p2_oas_start'))) o2=this.calcBen(oMax2, parseInt(this.getRaw('p2_oas_start')), 1, 65, 'oas'); }
             cMax1*=(1+infl); oMax1*=(1+infl); cMax2*=(1+infl); oMax2*=(1+infl);
 
             // RRIF Logic
@@ -719,8 +747,6 @@ class RetirementPlanner {
         return `<i class="bi ${d.icon} ${c}" title="${d.title}"></i>`;
     }
 
-    calcBen(m, sA, p, rA) { let v=m*p, d=(sA-65)*12; v*=d<0?(1-(Math.abs(d)*0.006)):(1+(d*0.007)); if(rA<60) v*=Math.max(0, (39-Math.max(0, (65-rA)-8))/39); return v; }
-
     calculateProgressiveTax(i, b, r) {
         let t=0, m=r[0], p=0;
         for(let j=0; j<b.length; j++){ if(i>b[j]){ t+=(b[j]-p)*r[j]; p=b[j]; } else { return {tax:t+(i-p)*r[j], marg:r[j]}; } }
@@ -812,15 +838,26 @@ class RetirementPlanner {
     toggleGroup(t) { const b = document.querySelector(`span[data-type="${t}"]`); document.body.classList.toggle(`show-${t}`); b.innerText = document.body.classList.contains(`show-${t}`) ? '[-]' : '[+]'; }
     restoreDetailsState() { ['inv','inc','exp'].forEach(t => { const b=document.querySelector(`span[data-type="${t}"]`); if(b) b.innerText = document.body.classList.contains(`show-${t}`) ? '[-]' : '[+]'; }); }
 
+    /** FIXED: Correct loop stepping and applying data back to the UI */
     findOptimal() {
         const findFor = (pfx) => {
             const cppOn=this.state.inputs[`${pfx}_cpp_enabled`], oasOn=this.state.inputs[`${pfx}_oas_enabled`];
             if(cppOn||oasOn) {
                 const oC=document.getElementById(`${pfx}_cpp_start`).value, oO=document.getElementById(`${pfx}_oas_start`).value;
                 let mx=-Infinity, bC=65, bO=65;
-                for(let c=60; c<=70; c+=5){ for(let o=65; o<=70; o+=5){ if(cppOn) this.state.inputs[`${pfx}_cpp_start`]=c; if(oasOn) this.state.inputs[`${pfx}_oas_start`]=o; const nw=this.generateProjectionTable(true); if(nw>mx){mx=nw;bC=c;bO=o;} } }
-                if(cppOn) this.optimalAges[`${pfx}_cpp`]=bC; if(oasOn) this.optimalAges[`${pfx}_oas`]=bO;
-                this.state.inputs[`${pfx}_cpp_start`]=oC; this.state.inputs[`${pfx}_oas_start`]=oO;
+                // Checks every single year to find the true peak
+                for(let c=60; c<=70; c++){ 
+                    for(let o=65; o<=70; o++){ 
+                        if(cppOn) this.state.inputs[`${pfx}_cpp_start`]=c; 
+                        if(oasOn) this.state.inputs[`${pfx}_oas_start`]=o; 
+                        const nw=this.generateProjectionTable(true); 
+                        if(nw>mx){ mx=nw; bC=c; bO=o; } 
+                    } 
+                }
+                if(cppOn) this.optimalAges[`${pfx}_cpp`]=bC; 
+                if(oasOn) this.optimalAges[`${pfx}_oas`]=bO;
+                this.state.inputs[`${pfx}_cpp_start`]=oC; 
+                this.state.inputs[`${pfx}_oas_start`]=oO;
             }
             document.getElementById(`${pfx}_cpp_opt`).innerHTML = cppOn ? `Optimal: Age ${this.optimalAges[`${pfx}_cpp`]} (<a href="javascript:void(0)" class="text-success text-decoration-none fw-bold opt-apply" data-target="${pfx}_cpp">Apply</a>)` : `Optimization Disabled`;
             document.getElementById(`${pfx}_oas_opt`).innerHTML = oasOn ? `Optimal: Age ${this.optimalAges[`${pfx}_oas`]} (<a href="javascript:void(0)" class="text-success text-decoration-none fw-bold opt-apply" data-target="${pfx}_oas">Apply</a>)` : `Optimization Disabled`;
@@ -829,8 +866,8 @@ class RetirementPlanner {
     }
 
     applyOpt(t) { 
-        document.getElementById(`${t}_start`).value = this.optimalAges[t]; 
-        document.getElementById(`${t}_start_val`).innerText = this.optimalAges[t]; 
+        if(document.getElementById(`${t}_start`)) document.getElementById(`${t}_start`).value = this.optimalAges[t]; 
+        if(document.getElementById(`${t}_start_val`)) document.getElementById(`${t}_start_val`).innerText = this.optimalAges[t]; 
         this.state.inputs[`${t}_start`] = this.optimalAges[t]; 
         this.run(); 
     }
@@ -978,6 +1015,7 @@ class RetirementPlanner {
         }
         
         if(cmp) cmp.innerHTML = cH;
+        this.renderComparisonChart();
     }
 
     loadScenario(idx) { 
@@ -1007,6 +1045,95 @@ class RetirementPlanner {
             localStorage.setItem('rp_scenarios', JSON.stringify(sc)); 
             this.loadScenariosList(); 
         }); 
+    }
+
+    /** FIXED: Renders the chart using saved Net Worth Trajectories */
+    renderComparisonChart() {
+        if (!document.getElementById('chartNW') || typeof Chart === 'undefined') return;
+
+        const checkboxes = document.querySelectorAll('#compareSelectionArea input[type="checkbox"]:checked');
+        const scenarios = JSON.parse(localStorage.getItem('rp_scenarios') || '[]');
+
+        const datasets = [];
+        let labels = [];
+        const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
+
+        checkboxes.forEach((cb, i) => {
+            const color = colors[i % colors.length];
+            if (cb.value === 'current') {
+                if (this.state.projectionData.length > 0) {
+                    if (labels.length === 0) labels = this.state.projectionData.map(d => d.year);
+                    datasets.push({
+                        label: 'Current Plan',
+                        data: this.state.projectionData.map(d => Math.round(d.debugNW)),
+                        borderColor: color,
+                        backgroundColor: color + '33',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.3
+                    });
+                }
+            } else {
+                const s = scenarios[parseInt(cb.value)];
+                if (s && s.data && s.data.nwTrajectory) {
+                    if (labels.length === 0) labels = s.data.years || s.data.nwTrajectory.map((_, idx) => new Date().getFullYear() + idx);
+                    datasets.push({
+                        label: s.name,
+                        data: s.data.nwTrajectory,
+                        borderColor: color,
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        fill: false,
+                        tension: 0.3
+                    });
+                }
+            }
+        });
+
+        if (this.charts.nw) this.charts.nw.destroy();
+
+        const ctx = document.getElementById('chartNW').getContext('2d');
+        const isDark = document.documentElement.getAttribute('data-bs-theme') !== 'light';
+        const textColor = isDark ? '#cbd5e1' : '#475569';
+        const gridColor = isDark ? '#334155' : '#e2e8f0';
+
+        this.charts.nw = new Chart(ctx, {
+            type: 'line',
+            data: { labels, datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { labels: { color: textColor, font: { family: 'Inter', size: 13 } } },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) label += ': ';
+                                if (context.parsed.y !== null) {
+                                    label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(context.parsed.y);
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { ticks: { color: textColor }, grid: { color: gridColor } },
+                    y: {
+                        ticks: {
+                            color: textColor,
+                            callback: function(value) {
+                                if (value >= 1000000) return '$' + (value / 1000000).toFixed(1) + 'M';
+                                if (value >= 1000) return '$' + (value / 1000).toFixed(0) + 'k';
+                                return '$' + value;
+                            }
+                        },
+                        grid: { color: gridColor }
+                    }
+                }
+            }
+        });
     }
 
     loadStateToDOM(d) {
@@ -1047,8 +1174,17 @@ class RetirementPlanner {
         this.updatePostRetIncomeVisibility();
     }
     
+    /** FIXED: Adds projected Net Worth and Years arrays so the chart can draw saved states */
     getCurrentSnapshot() { 
-        const s = { version: this.APP_VERSION, inputs: {...this.state.inputs}, strategies: {...this.state.strategies}, debt: [], properties: JSON.parse(JSON.stringify(this.state.properties)), expensesData: JSON.parse(JSON.stringify(this.expensesByCategory)), windfalls: JSON.parse(JSON.stringify(this.state.windfalls)), additionalIncome: JSON.parse(JSON.stringify(this.state.additionalIncome)) }; 
+        const s = { 
+            version: this.APP_VERSION, inputs: {...this.state.inputs}, strategies: {...this.state.strategies}, 
+            debt: [], properties: JSON.parse(JSON.stringify(this.state.properties)), 
+            expensesData: JSON.parse(JSON.stringify(this.expensesByCategory)), 
+            windfalls: JSON.parse(JSON.stringify(this.state.windfalls)), 
+            additionalIncome: JSON.parse(JSON.stringify(this.state.additionalIncome)),
+            nwTrajectory: this.state.projectionData.map(d => Math.round(d.debugNW)),
+            years: this.state.projectionData.map(d => d.year)
+        }; 
         document.querySelectorAll('.debt-amount').forEach(el=>s.debt.push(el.value)); 
         return s; 
     }
