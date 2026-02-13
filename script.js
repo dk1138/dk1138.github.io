@@ -1,10 +1,10 @@
 /**
- * Retirement Planner Pro - Logic v10.24 (Final: Complete & Unabridged)
- * Includes CPP/OAS Math fixes, Optimal Age Button fix, and Compare Chart Integration.
+ * Retirement Planner Pro - Logic v10.25 (Final: Complete & Unabridged)
+ * Includes dynamic hiding/showing of Gov Benefits + DB Pension
  */
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.24";
+        this.APP_VERSION = "10.25";
         this.state = {
             inputs: {}, debt: [],
             properties: [{ name: "Primary Home", value: 1000000, mortgage: 430000, growth: 3.0, rate: 3.29, payment: 0, manual: false, includeInNW: false }],
@@ -85,6 +85,7 @@ class RetirementPlanner {
             this.syncStateFromDOM(); 
             this.toggleModeDisplay(); 
             this.updatePostRetIncomeVisibility(); 
+            this.updateBenefitVisibility();
             this.updateAgeDisplay('p1'); 
             this.updateAgeDisplay('p2');
             this.updateAllMortgages(); 
@@ -220,6 +221,7 @@ class RetirementPlanner {
             if (e.target.id === 'enable_post_ret_income_p1' || e.target.id === 'enable_post_ret_income_p2') this.updatePostRetIncomeVisibility();
             if (e.target.classList.contains('live-calc') && (e.target.tagName === 'SELECT' || e.target.type === 'checkbox' || e.target.type === 'radio')) {
                 if(e.target.id && !e.target.id.startsWith('comp_')) this.state.inputs[e.target.id] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+                if(e.target.id && e.target.id.includes('_enabled')) this.updateBenefitVisibility();
                 this.findOptimal(); this.run(); this.calcExpenses(); 
             }
         });
@@ -342,7 +344,6 @@ class RetirementPlanner {
 
         document.body.addEventListener('click', e => {
             if(e.target.classList.contains('toggle-btn')) this.toggleGroup(e.target.dataset.type);
-            // FIXED: Use dataset.target instead of target attribute for the apply button
             if(e.target.classList.contains('opt-apply')) this.applyOpt(e.target.dataset.target);
         });
     }
@@ -365,6 +366,22 @@ class RetirementPlanner {
         const $ = id => document.getElementById(id);
         if($('p1-post-ret-card')) $('p1-post-ret-card').style.display = ($('enable_post_ret_income_p1')?.checked) ? 'block' : 'none';
         if($('p2-post-ret-card')) $('p2-post-ret-card').style.display = ($('enable_post_ret_income_p2')?.checked) ? 'block' : 'none';
+    }
+
+    /** NEW: Slides the input wrappers open and closed based on toggles */
+    updateBenefitVisibility() {
+        const toggles = ['p1_cpp', 'p1_oas', 'p1_db', 'p2_cpp', 'p2_oas', 'p2_db'];
+        toggles.forEach(prefix => {
+            const chk = document.getElementById(`${prefix}_enabled`);
+            const container = document.getElementById(`${prefix}_inputs`);
+            if(chk && container) {
+                if (chk.checked) {
+                    container.style.display = 'block';
+                } else {
+                    container.style.display = 'none';
+                }
+            }
+        });
     }
 
     saveToLocalStorage() { localStorage.setItem(this.AUTO_SAVE_KEY, JSON.stringify(this.getCurrentSnapshot())); }
@@ -408,7 +425,10 @@ class RetirementPlanner {
             p1_cpp_est_base: '10,000', p2_cpp_est_base: '10,000',
             p1_oas_years: '40', p2_oas_years: '40',
             
-            p1_income_growth: '2.0', p2_income_growth: '2.0', p1_db_pension: '0', p2_db_pension: '0', p1_db_start_age: '60', p2_db_start_age: '60', p1_cpp_enabled: true, p1_oas_enabled: true, p2_cpp_enabled: true, p2_oas_enabled: true, exp_gogo_age: '75', exp_slow_age: '85', enable_post_ret_income_p1: false, enable_post_ret_income_p2: false, p1_post_inc: '0', p1_post_growth: '2.0', p2_post_inc: '0', p2_post_growth: '2.0' 
+            p1_income_growth: '2.0', p2_income_growth: '2.0', p1_db_pension: '0', p2_db_pension: '0', p1_db_start_age: '60', p2_db_start_age: '60', 
+            p1_cpp_enabled: true, p1_oas_enabled: true, p1_db_enabled: false,
+            p2_cpp_enabled: true, p2_oas_enabled: true, p2_db_enabled: false,
+            exp_gogo_age: '75', exp_slow_age: '85', enable_post_ret_income_p1: false, enable_post_ret_income_p2: false, p1_post_inc: '0', p1_post_growth: '2.0', p2_post_inc: '0', p2_post_growth: '2.0' 
         };
         
         document.querySelectorAll('input, select').forEach(el => {
@@ -429,7 +449,9 @@ class RetirementPlanner {
         if(document.getElementById('p1_oas_years_val')) document.getElementById('p1_oas_years_val').innerText = '40';
         if(document.getElementById('p2_oas_years_val')) document.getElementById('p2_oas_years_val').innerText = '40';
         
-        this.updatePostRetIncomeVisibility(); this.updateAgeDisplay('p1'); this.updateAgeDisplay('p2'); 
+        this.updatePostRetIncomeVisibility(); 
+        this.updateBenefitVisibility();
+        this.updateAgeDisplay('p1'); this.updateAgeDisplay('p2'); 
         this.updateScenarioBadge(null);
         this.run();
     }
@@ -555,7 +577,6 @@ class RetirementPlanner {
         return {71:0.0528,72:0.0540,73:0.0553,74:0.0567,75:0.0582,76:0.0598,77:0.0617,78:0.0636,79:0.0658,80:0.0682,81:0.0708,82:0.0738,83:0.0771,84:0.0808,85:0.0851,86:0.0899,87:0.0955,88:0.1021,89:0.1099,90:0.1192,91:0.1306,92:0.1449,93:0.1634,94:0.1879}[age] || 0.0528;
     }
 
-    /** FIXED: Accurate separation of CPP and OAS growth math */
     calcBen(m, sA, p, rA, type) { 
         let v = m * p, d = (sA - 65) * 12; 
         if (type === 'cpp') {
@@ -630,9 +651,21 @@ class RetirementPlanner {
                 if(yr>=sY && yr<=eY) { let f=1; if(yr===sY) f=(12-start.getMonth())/12; if(yr===eY) f=Math.min(f, (end.getMonth()+1)/12); return base*Math.pow(1+grw, i)*f; } return 0;
             };
 
-            // FIXED: Passing 'cpp' or 'oas' explicitly to correctly apply specific math rules.
-            if(al1){ if(!p1R){ g1+=p1.inc; p1.inc*=(1+cR1.inc); } if(a1>=parseInt(this.getRaw('p1_db_start_age')||60)) db1=p1DB*bInf; pst1=calcPost(this.state.inputs['enable_post_ret_income_p1'], extVals.p1PI, extVals.p1PS, extVals.p1PE, extVals.p1PG); if(this.state.inputs['p1_cpp_enabled'] && a1>=parseInt(this.getRaw('p1_cpp_start'))) c1=this.calcBen(cMax1, parseInt(this.getRaw('p1_cpp_start')), 1, p1.retAge, 'cpp'); if(this.state.inputs['p1_oas_enabled'] && a1>=parseInt(this.getRaw('p1_oas_start'))) o1=this.calcBen(oMax1, parseInt(this.getRaw('p1_oas_start')), 1, 65, 'oas'); }
-            if(mode==='Couple' && al2){ if(!p2R){ g2+=p2.inc; p2.inc*=(1+cR2.inc); } if(a2>=parseInt(this.getRaw('p2_db_start_age')||60)) db2=p2DB*bInf; pst2=calcPost(this.state.inputs['enable_post_ret_income_p2'], extVals.p2PI, extVals.p2PS, extVals.p2PE, extVals.p2PG); if(this.state.inputs['p2_cpp_enabled'] && a2>=parseInt(this.getRaw('p2_cpp_start'))) c2=this.calcBen(cMax2, parseInt(this.getRaw('p2_cpp_start')), 1, p2.retAge, 'cpp'); if(this.state.inputs['p2_oas_enabled'] && a2>=parseInt(this.getRaw('p2_oas_start'))) o2=this.calcBen(oMax2, parseInt(this.getRaw('p2_oas_start')), 1, 65, 'oas'); }
+            // NEW: Added DB toggle check logic
+            if(al1){ 
+                if(!p1R){ g1+=p1.inc; p1.inc*=(1+cR1.inc); } 
+                if(this.state.inputs['p1_db_enabled'] && a1>=parseInt(this.getRaw('p1_db_start_age')||60)) db1=p1DB*bInf; 
+                pst1=calcPost(this.state.inputs['enable_post_ret_income_p1'], extVals.p1PI, extVals.p1PS, extVals.p1PE, extVals.p1PG); 
+                if(this.state.inputs['p1_cpp_enabled'] && a1>=parseInt(this.getRaw('p1_cpp_start'))) c1=this.calcBen(cMax1, parseInt(this.getRaw('p1_cpp_start')), 1, p1.retAge, 'cpp'); 
+                if(this.state.inputs['p1_oas_enabled'] && a1>=parseInt(this.getRaw('p1_oas_start'))) o1=this.calcBen(oMax1, parseInt(this.getRaw('p1_oas_start')), 1, 65, 'oas'); 
+            }
+            if(mode==='Couple' && al2){ 
+                if(!p2R){ g2+=p2.inc; p2.inc*=(1+cR2.inc); } 
+                if(this.state.inputs['p2_db_enabled'] && a2>=parseInt(this.getRaw('p2_db_start_age')||60)) db2=p2DB*bInf; 
+                pst2=calcPost(this.state.inputs['enable_post_ret_income_p2'], extVals.p2PI, extVals.p2PS, extVals.p2PE, extVals.p2PG); 
+                if(this.state.inputs['p2_cpp_enabled'] && a2>=parseInt(this.getRaw('p2_cpp_start'))) c2=this.calcBen(cMax2, parseInt(this.getRaw('p2_cpp_start')), 1, p2.retAge, 'cpp'); 
+                if(this.state.inputs['p2_oas_enabled'] && a2>=parseInt(this.getRaw('p2_oas_start'))) o2=this.calcBen(oMax2, parseInt(this.getRaw('p2_oas_start')), 1, 65, 'oas'); 
+            }
             cMax1*=(1+infl); oMax1*=(1+infl); cMax2*=(1+infl); oMax2*=(1+infl);
 
             // RRIF Logic
@@ -838,14 +871,12 @@ class RetirementPlanner {
     toggleGroup(t) { const b = document.querySelector(`span[data-type="${t}"]`); document.body.classList.toggle(`show-${t}`); b.innerText = document.body.classList.contains(`show-${t}`) ? '[-]' : '[+]'; }
     restoreDetailsState() { ['inv','inc','exp'].forEach(t => { const b=document.querySelector(`span[data-type="${t}"]`); if(b) b.innerText = document.body.classList.contains(`show-${t}`) ? '[-]' : '[+]'; }); }
 
-    /** FIXED: Correct loop stepping and applying data back to the UI */
     findOptimal() {
         const findFor = (pfx) => {
             const cppOn=this.state.inputs[`${pfx}_cpp_enabled`], oasOn=this.state.inputs[`${pfx}_oas_enabled`];
             if(cppOn||oasOn) {
                 const oC=document.getElementById(`${pfx}_cpp_start`).value, oO=document.getElementById(`${pfx}_oas_start`).value;
                 let mx=-Infinity, bC=65, bO=65;
-                // Checks every single year to find the true peak
                 for(let c=60; c<=70; c++){ 
                     for(let o=65; o<=70; o++){ 
                         if(cppOn) this.state.inputs[`${pfx}_cpp_start`]=c; 
@@ -1047,7 +1078,6 @@ class RetirementPlanner {
         }); 
     }
 
-    /** FIXED: Renders the chart using saved Net Worth Trajectories */
     renderComparisonChart() {
         if (!document.getElementById('chartNW') || typeof Chart === 'undefined') return;
 
@@ -1172,9 +1202,9 @@ class RetirementPlanner {
         if(document.getElementById('p2_oas_start_val')) document.getElementById('p2_oas_start_val').innerText = this.getRaw('p2_oas_start')||'65';
         
         this.updatePostRetIncomeVisibility();
+        this.updateBenefitVisibility();
     }
     
-    /** FIXED: Adds projected Net Worth and Years arrays so the chart can draw saved states */
     getCurrentSnapshot() { 
         const s = { 
             version: this.APP_VERSION, inputs: {...this.state.inputs}, strategies: {...this.state.strategies}, 
