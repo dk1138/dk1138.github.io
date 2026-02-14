@@ -1,15 +1,12 @@
 /**
- * Retirement Planner Pro - Logic v10.34 (The "Iterative Solver" Update)
- * * CHANGE LOG:
- * 1. Visual Coordination: Enforced Cyan (P1) and Purple (P2) across Charts & HTML.
- * 2. Iterative Tax Solver: Solves the "Surplus Paradox" by looping calculation 
- * until Net Deficit is cleared (max 5 iterations).
- * 3. Smart Decumulation: Prioritizes withdrawing from the Lower Income Spouse's 
- * RRSP/RRIF/Non-Reg to equalize tax brackets.
+ * Retirement Planner Pro - Logic v10.35 (Hotfix: Crypto Solver Crash)
+ * * CRITICAL FIX:
+ * 1. Fixed 'NaN' crash caused by missing 'crypto' key in iterative solver.
+ * 2. Added safety checks to prevent infinite loops if tax calc fails.
  */
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.34";
+        this.APP_VERSION = "10.35";
         this.state = {
             inputs: {}, debt: [],
             properties: [{ name: "Primary Home", value: 1000000, mortgage: 430000, growth: 3.0, rate: 3.29, payment: 0, manual: false, includeInNW: false }],
@@ -697,7 +694,8 @@ class RetirementPlanner {
             let loopIter = 0;
             const maxIter = 5;
             let finalSurp = 0, finalNI1 = 0, finalNI2 = 0, finalTax1 = 0, finalTax2 = 0;
-            let loopWd = { p1: {rrsp:0, nreg:0, tfsa:0, cash:0}, p2: {rrsp:0, nreg:0, tfsa:0, cash:0} }; // Track withdrawals added in loop
+            // FIXED: Added crypto:0 to avoid NaN crash when withdrawing crypto
+            let loopWd = { p1: {rrsp:0, nreg:0, tfsa:0, cash:0, crypto:0}, p2: {rrsp:0, nreg:0, tfsa:0, cash:0, crypto:0} }; 
 
             while (loopIter < maxIter) {
                 // Reset temporary calcs for this iteration
@@ -763,14 +761,8 @@ class RetirementPlanner {
 
                 let nrY1 = p1.nreg * p1.nreg_yield;
                 let nrY2 = al2 ? p2.nreg * p2.nreg_yield : 0;
-                // Note: ACB update happens later or assume minimal impact for tax calc loop
                 
                 // Add Withdrawals (accumulated from previous loop iterations)
-                let wdTax1 = loopWd.p1.rrsp + loopWd.p1.nreg; // Simplified: nreg withdrawal isn't fully taxable, but let's assume worst case for now or refine. 
-                // Actually, nreg tax is capital gains. We need to know ACB.
-                // For simplicity in this solver, we add RRSP fully. NReg logic is complex.
-                // Let's rely on base logic for NReg and just add RRSP to taxable.
-                
                 let tTx1=g1+c1+o1+rrif1+db1+wfT1+pst1+nrY1 + loopWd.p1.rrsp;
                 let tTx2=g2+c2+o2+rrif2+db2+wfT2+pst2+nrY2 + loopWd.p2.rrsp;
 
@@ -792,12 +784,14 @@ class RetirementPlanner {
                 }
 
                 // --- RRSP TOP UP (Accumulation Phase) ---
-                // Only run on first iteration to avoid circular logic
                 if(rrspM && loopIter === 0) {
                     const brk = tDat.FED.brackets[0];
                     if(al1 && p1.rrsp>0 && tTx1<brk) { let d=Math.min(brk-tTx1, p1.rrsp); if(d>0){ p1.rrsp-=d; tTx1+=d; yWd['RRSP Top-Up']=(yWd['RRSP Top-Up']||0)+d; wDBrk.p1[a1>=72?'RRIF':'RRSP']=(wDBrk.p1[a1>=72?'RRIF':'RRSP']||0)+d; } }
                     if(al2 && p2.rrsp>0 && tTx2<brk) { let d=Math.min(brk-tTx2, p2.rrsp); if(d>0){ p2.rrsp-=d; tTx2+=d; yWd['RRSP Top-Up']=(yWd['RRSP Top-Up']||0)+d; wDBrk.p2[a2>=72?'RRIF':'RRSP']=(wDBrk.p2[a2>=72?'RRIF':'RRSP']||0)+d; } }
                 }
+
+                // SAFEGUARD: Check for NaN before tax calc
+                if(isNaN(tTx1) || isNaN(tTx2)) { console.error("NaN detected in tax calc input", {tTx1, tTx2, loopWd}); break; }
 
                 let t1 = al1 ? this.calculateTaxDetailed(tTx1, prov, tDat) : {totalTax:0};
                 let t2 = al2 ? this.calculateTaxDetailed(tTx2, prov, tDat) : {totalTax:0};
@@ -805,18 +799,17 @@ class RetirementPlanner {
                 let dRep = othD>0 ? Math.min(othD, 6000) : 0; 
                 let mOut = 0; 
                 simP.forEach(p => { 
-                    if(loopIter===0) { // Only calculate mortgage once per year logic, don't reduce principal multiple times
+                    if(loopIter===0) { 
                          if(p.mortgage>0 && p.payment>0) { let pA=p.payment*12, int=p.mortgage*(p.rate/100), prn=pA-int; if(prn>p.mortgage) { prn=p.mortgage; pA=prn+int; } p.mortgage=Math.max(0, p.mortgage-prn); mOut+=pA; } 
                          p.value*=(1+(p.growth/100)); 
                     } else {
-                         // Just add payment to outflows
                          if(p.payment>0) mOut += (p.payment*12);
                     }
                 });
-                if(loopIter===0) othD-=dRep; // Reduce debt once
+                if(loopIter===0) othD-=dRep; 
 
-                const nI1 = tTx1 - t1.totalTax + wfN1 + loopWd.p1.tfsa + loopWd.p1.cash; // Add non-taxable withdrawals to cash flow
-                const nI2 = al2 ? (tTx2 - t2.totalTax + wfN2 + loopWd.p2.tfsa + loopWd.p2.cash) : 0;
+                const nI1 = tTx1 - t1.totalTax + wfN1 + loopWd.p1.tfsa + loopWd.p1.cash + loopWd.p1.crypto; // Added crypto to net income
+                const nI2 = al2 ? (tTx2 - t2.totalTax + wfN2 + loopWd.p2.tfsa + loopWd.p2.cash + loopWd.p2.crypto) : 0;
                 
                 let surp = (nI1+nI2) - (aExp+mOut+dRep);
 
@@ -854,14 +847,13 @@ class RetirementPlanner {
                              else if(t==='cash'){ if(al1){ p1.cash+=r; yCont.p1.cash+=r; r=0; } } 
                              else if(t==='crypto'){ if(al1){ p1.crypto+=r; yCont.p1.crypto+=r; r=0; } }
                          });
-                         finalSurp = r; // Update final surplus after contributions
+                         finalSurp = r; 
                     }
-                    break; // Exit Loop
+                    break; 
                 } else {
                     // DEFICIT - Decumulation Needed
                     let df = Math.abs(surp);
                     
-                    // Decumulation Helper
                     const wd = (p, t, a, pKey) => { 
                         if(a<=0)return 0; 
                         let tk=Math.min(p[t],a); 
@@ -869,16 +861,15 @@ class RetirementPlanner {
                         let k=(p===p1?"P1 ":"P2 ")+this.strategyLabels[t]; 
                         yWd[k]=(yWd[k]||0)+tk; 
                         wDBrk[p===p1?'p1':'p2'][this.strategyLabels[t]]=(wDBrk[p===p1?'p1':'p2'][this.strategyLabels[t]]||0)+tk; 
-                        // Track for loop iteration taxes
-                        loopWd[pKey][t] += tk;
+                        // SAFEGUARD: Ensure the key exists in loopWd before adding
+                        if(loopWd[pKey][t] !== undefined) loopWd[pKey][t] += tk;
                         return a-tk; 
                     };
 
                     this.state.strategies.decum.forEach(t => { 
                         if(df>0.1) { 
                             if(t === 'rrsp' || t === 'nreg') {
-                                // SMART WITHDRAWAL: Compare Taxable Incomes (tTx1 vs tTx2)
-                                // Prioritize lower income spouse
+                                // Smart Withdrawal
                                 let p1First = tTx1 < tTx2;
                                 if(al1 && al2) {
                                     if(p1First) {
@@ -894,23 +885,20 @@ class RetirementPlanner {
                                     df = wd(p2, t, df, 'p2');
                                 }
                             } else {
-                                // Standard Logic for TFSA/Cash (Order matters less for tax)
+                                // Standard Logic
                                 if(al1) df=wd(p1,t,df,'p1'); 
                                 if(al2&&df>0) df=wd(p2,t,df,'p2'); 
                             }
                         } 
                     });
                     
-                    // Update final state for this iteration
-                    finalSurp = -df; // Remaining deficit
+                    finalSurp = -df; 
                     finalNI1 = nI1; finalNI2 = nI2; finalTax1 = t1.totalTax; finalTax2 = t2.totalTax;
-                    
-                    // Loop will re-run to see if new taxes created new deficit
                     loopIter++;
                 }
             } // End While Loop
 
-            // --- Post-Loop Calculation (Asset Growth) ---
+            // --- Post-Loop Calculation ---
             let cR1_nreg_growth = cR1.nreg - p1.nreg_yield;
             let cR2_nreg_growth = cR2.nreg - p2.nreg_yield;
 
@@ -929,7 +917,7 @@ class RetirementPlanner {
                 p2.tfsa+=gr2.tfsa; p2.rrsp+=gr2.rrsp; p2.nreg+=gr2.nreg; p2.cash+=gr2.cash; p2.crypto+=gr2.cryp; p2.lirf+=gr2.lirf; p2.lif+=gr2.lif; p2.rrif_acct+=gr2.rrif_acct; 
             }
 
-            if(loopIter > 0) p1_acb += p1.inc; // If withdrawals happened, simplify ACB logic (needs work in v11)
+            if(loopIter > 0) p1_acb += p1.inc; 
 
             const getWd = pfix => ['TFSA','Cash','Non-Reg','Crypto','RRSP'].reduce((s,k)=>s+(yWd[`${pfix} ${k}`]||0), 0);
             let fN1 = al1 ? finalNI1+getWd('P1') : 0, fN2 = al2 ? finalNI2+getWd('P2') : 0;
@@ -942,12 +930,9 @@ class RetirementPlanner {
             if(!onlyCalcNW) {
                 let tWd = Object.values(yWd).reduce((a,b)=>a+b,0), tGr = Object.values(gr1).reduce((a,b)=>a+b,0)+Object.values(gr2).reduce((a,b)=>a+b,0);
                 
-                // Effective surplus is cash remaining AFTER expenses and withdrawals.
-                // If the loop solved it, finalSurp should be near 0 or positive.
-                
                 this.state.projectionData.push({
                     year:yr, p1Age:a1, p2Age:al2?a2:null, p1Alive:al1, p2Alive:al2, 
-                    incomeP1:p1.inc, incomeP2:p2.inc, // Base incomes
+                    incomeP1:p1.inc, incomeP2:p2.inc, 
                     benefitsP1:c1+o1, benefitsP2:c2+o2, cppP1:c1, cppP2:c2, oasP1:o1, oasP2:o2, dbP1:db1, dbP2:db2, 
                     taxP1:finalTax1, taxP2:finalTax2, p1Net:fN1, p2Net:fN2, expenses:aExp, mortgagePay:mOut, debtPay:dRep, 
                     surplus: finalSurp, 
@@ -957,7 +942,7 @@ class RetirementPlanner {
                     assetsP1:{...p1}, assetsP2:{...p2}, wdBreakdown:wDBrk, 
                     inv_tfsa:p1.tfsa+p2.tfsa, inv_rrsp:p1.rrsp+p2.rrsp, inv_cash:p1.cash+p2.cash, inv_nreg:p1.nreg+p2.nreg, inv_crypto:p1.crypto+p2.crypto, 
                     flows:{contributions:yCont, withdrawals:yWd}, totalGrowth:tGr, growthPct:iTot>0?(tGr/(iTot-tGr-finalSurp))*100:0, events:evt, 
-                    householdNet: (finalTax1>0?fN1:0) + (finalTax2>0?fN2:0) + tWd, // Approximate cash available
+                    householdNet: (finalTax1>0?fN1:0) + (finalTax2>0?fN2:0) + tWd, 
                     visualExpenses:aExp+mOut+dRep+finalTax1+finalTax2, mortgage:tRM, homeValue:tRE, investTot:iTot, liquidNW:lNW, isCrashYear:cYr, windfall:wfT1+wfT2+wfN1+wfN2, postRetP1:pst1, postRetP2:pst2, 
                     invIncP1: nrY1, invIncP2: nrY2
                 });
