@@ -1,16 +1,15 @@
 /**
- * Retirement Planner Pro - Logic v10.31 (Final: Complete & Unabridged)
+ * Retirement Planner Pro - Logic v10.32 (Final: Complete & Unabridged)
  * Includes:
  * 1. DB Pension Split (Lifetime + Bridge)
  * 2. Non-Reg Yield vs Growth (Tax Drag + ACB)
- * 3. Reporting Fixes: Cash Inflow is GROSS.
- * 4. Pension Income Splitting (T1032 Optimization)
- * 5. BUG FIX: Separated Investment Yield from Employment Income.
- * 6. FEATURE: Added (+Contribution) indicators to Asset list.
+ * 3. Reporting Fixes (Cash Inflow, Effective Surplus)
+ * 4. Pension Income Splitting (T1032)
+ * 5. Contribution Limits (Waterfall Logic for TFSA/RRSP caps)
  */
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.31";
+        this.APP_VERSION = "10.32";
         this.state = {
             inputs: {}, debt: [],
             properties: [{ name: "Primary Home", value: 1000000, mortgage: 430000, growth: 3.0, rate: 3.29, payment: 0, manual: false, includeInNW: false }],
@@ -439,6 +438,8 @@ class RetirementPlanner {
             p1_cpp_enabled: true, p1_oas_enabled: true, p1_db_enabled: false,
             p2_cpp_enabled: true, p2_oas_enabled: true, p2_db_enabled: false,
             pension_split_enabled: false,
+            // NEW: Contribution Limit Defaults
+            cfg_tfsa_limit: '7,000', cfg_rrsp_limit: '32,960',
             exp_gogo_age: '75', exp_slow_age: '85', enable_post_ret_income_p1: false, enable_post_ret_income_p2: false, p1_post_inc: '0', p1_post_growth: '2.0', p2_post_inc: '0', p2_post_growth: '2.0' 
         };
         
@@ -661,7 +662,6 @@ class RetirementPlanner {
                 cR1.cryp=-0.40; cR2.cryp=-0.40; 
             }
             
-            // FEATURE: Track contributions by person for reporting
             let yCont = { p1:{tfsa:0, rrsp:0, nreg:0, cash:0, crypto:0}, p2:{tfsa:0, rrsp:0, nreg:0, cash:0, crypto:0} };
             let yWd = {}, wDBrk = {p1:{},p2:{}}, evt = [];
             if(al1){ if(p1R && !trg.has('P1 Retires')){ evt.push('P1 Retires'); trg.add('P1 Retires'); } if(a1===parseInt(this.getRaw('p1_cpp_start')) && this.state.inputs['p1_cpp_enabled']) evt.push('P1 CPP'); if(a1===parseInt(this.getRaw('p1_oas_start')) && this.state.inputs['p1_oas_enabled']) evt.push('P1 OAS'); } else if(!trg.has('P1 Dies')){ evt.push('P1 Dies'); trg.add('P1 Dies'); }
@@ -716,11 +716,18 @@ class RetirementPlanner {
                 if(act && amt>0){ if(w.freq==='one') evt.push('Windfall'); if(w.taxable) { if(w.owner==='p2' && mode==='Couple') wfT2+=amt; else wfT1+=amt; } else { if(w.owner==='p2' && mode==='Couple') wfN2+=amt; else wfN1+=amt; } }
             });
 
+            // Calculate Earned Income for RRSP Room (Employment + Business Income)
+            let p1_earned_inc = (p1R ? 0 : p1.inc); // Base employment, 0 if retired
+            let p2_earned_inc = (p2R ? 0 : p2.inc);
+            
             this.state.additionalIncome.forEach(s => {
                 let sY=new Date(s.start+"-01").getFullYear(), eY=(s.end?new Date(s.end+"-01"):new Date("2100-01-01")).getFullYear();
                 if(yr>=sY && yr<=eY) {
                     let amt = s.amount * Math.pow(1+(s.growth/100), yr-sY) * (s.freq==='month'?12:1) * (yr===sY?(12-new Date(s.start+"-01").getMonth())/12:(yr===eY?Math.min(1, (new Date(s.end+"-01").getMonth()+1)/12):1));
-                    if(amt>0) { if(s.taxable){ if(s.owner==='p1') g1+=amt; else g2+=amt; } else { if(s.owner==='p1') wfN1+=amt; else wfN2+=amt; } }
+                    if(amt>0) { 
+                        if(s.taxable){ if(s.owner==='p1') { g1+=amt; p1_earned_inc+=amt; } else { g2+=amt; p2_earned_inc+=amt; } } 
+                        else { if(s.owner==='p1') wfN1+=amt; else wfN2+=amt; } 
+                    }
                 }
             });
 
@@ -788,10 +795,46 @@ class RetirementPlanner {
             }
 
             let surp = (nI1+nI2) - (aExp+mOut+dRep);
+            
+            // Calculate Annual Limits (Waterfall)
+            const tfsaLim = (this.getVal('cfg_tfsa_limit') || 7000) * bInf;
+            const rrspMax = (this.getVal('cfg_rrsp_limit') || 32960) * bInf;
+            const p1_rrsp_room = Math.min(p1_earned_inc * 0.18, rrspMax);
+            const p2_rrsp_room = Math.min(p2_earned_inc * 0.18, rrspMax);
+            
             if(surp>0) {
-                let r=surp; this.state.strategies.accum.forEach(t => { if(r<=0)return;
-                    if(t==='tfsa'){ if(al1&&(!this.state.inputs['skip_first_tfsa_p1']||i>0)){p1.tfsa+=r;yCont.p1.tfsa+=r;r=0;} if(al2&&r>0&&(!this.state.inputs['skip_first_tfsa_p2']||i>0)){p2.tfsa+=r;yCont.p2.tfsa+=r;r=0;} }
-                    else if(t==='rrsp'&&al1&&(!this.state.inputs['skip_first_rrsp_p1']||i>0)){p1.rrsp+=r;yCont.p1.rrsp+=r;r=0;} else if(t==='nreg'&&al1){p1.nreg+=r;yCont.p1.nreg+=r;p1_acb+=r;r=0;} else if(t==='cash'&&al1){p1.cash+=r;yCont.p1.cash+=r;r=0;} else if(t==='crypto'&&al1){p1.crypto+=r;yCont.p1.crypto+=r;r=0;}
+                let r=surp; 
+                this.state.strategies.accum.forEach(t => { 
+                    if(r<=0) return;
+                    if(t==='tfsa'){ 
+                        if(al1 && (!this.state.inputs['skip_first_tfsa_p1']||i>0)){
+                            let take = Math.min(r, tfsaLim); // Simple annual cap check
+                            p1.tfsa+=take; yCont.p1.tfsa+=take; r-=take;
+                        } 
+                        if(al2 && r>0 && (!this.state.inputs['skip_first_tfsa_p2']||i>0)){
+                            let take = Math.min(r, tfsaLim);
+                            p2.tfsa+=take; yCont.p2.tfsa+=take; r-=take;
+                        } 
+                    }
+                    else if(t==='rrsp'){
+                        if(al1 && (!this.state.inputs['skip_first_rrsp_p1']||i>0)){
+                            let take = Math.min(r, p1_rrsp_room);
+                            p1.rrsp+=take; yCont.p1.rrsp+=take; r-=take;
+                        } 
+                        if(al2 && r>0 && (!this.state.inputs['skip_first_rrsp_p2']||i>0)){
+                            let take = Math.min(r, p2_rrsp_room);
+                            p2.rrsp+=take; yCont.p2.rrsp+=take; r-=take;
+                        }
+                    }
+                    else if(t==='nreg'){
+                        if(al1){ p1.nreg+=r; yCont.p1.nreg+=r; p1_acb+=r; r=0; }
+                    } 
+                    else if(t==='cash'){
+                        if(al1){ p1.cash+=r; yCont.p1.cash+=r; r=0; }
+                    } 
+                    else if(t==='crypto'){
+                        if(al1){ p1.crypto+=r; yCont.p1.crypto+=r; r=0; }
+                    }
                 });
             } else {
                 let df = Math.abs(surp); const wd = (p, t, a) => { if(a<=0)return 0; let tk=Math.min(p[t],a); p[t]-=tk; let k=(p===p1?"P1 ":"P2 ")+this.strategyLabels[t]; yWd[k]=(yWd[k]||0)+tk; wDBrk[p===p1?'p1':'p2'][this.strategyLabels[t]]=(wDBrk[p===p1?'p1':'p2'][this.strategyLabels[t]]||0)+tk; return a-tk; };
@@ -851,7 +894,6 @@ class RetirementPlanner {
                     surplus: effectiveSurplus, 
                     rawSurplus: surp, 
                     drawdown:surp<0?Math.abs(surp):0, debugNW:fNW, debugTotalInflow:g1+g2+c1+o1+c2+o2+db1+db2+tWd+wfT1+wfT2+wfN1+wfN2+pst1+pst2+nrY1+nrY2, assetsP1:{...p1}, assetsP2:{...p2}, wdBreakdown:wDBrk, inv_tfsa:p1.tfsa+p2.tfsa, inv_rrsp:p1.rrsp+p2.rrsp, inv_cash:p1.cash+p2.cash, inv_nreg:p1.nreg+p2.nreg, inv_crypto:p1.crypto+p2.crypto, flows:{contributions:yCont, withdrawals:yWd}, totalGrowth:tGr, growthPct:iTot>0?(tGr/(iTot-tGr-surp))*100:0, events:evt, 
-                    // Reporting Fix: householdNet is now effectively GROSS inflow to match Expenses column + Yields
                     householdNet: (tTx1 + wfN1 + getWd('P1')) + (al2 ? (tTx2 + wfN2 + getWd('P2')) : 0), 
                     visualExpenses:aExp+mOut+dRep+t1.totalTax+t2.totalTax, mortgage:tRM, homeValue:tRE, investTot:iTot, liquidNW:lNW, isCrashYear:cYr, windfall:wfT1+wfT2+wfN1+wfN2, postRetP1:pst1, postRetP2:pst2, 
                     invIncP1: nrY1, invIncP2: nrY2
@@ -872,14 +914,12 @@ class RetirementPlanner {
                 else if(p1R) stat = d.p1Age<gLim?`<span class="status-pill status-gogo">Go-go Phase</span>`:d.p1Age<sLim?`<span class="status-pill status-slow">Slow-go Phase</span>`:`<span class="status-pill status-nogo">No-go Phase</span>`;
                 
                 const ln = (l,v,c='') => (!v||Math.round(v)===0)?'':`<div class="detail-item"><span>${l}</span> <span class="${c}">${fmtK(v)}</span></div>`, sL = (l,v) => (!v||Math.round(v)===0)?'':`<div class="detail-item sub"><span>${l}</span> <span>${fmtK(v)}</span></div>`;
-                // FIX: Separated Investment Yield from Employment
                 let iL = ln("Employment P1",d.incomeP1) + (mode==='Couple'?ln("Employment P2",d.incomeP2):'') + sL("Post-Ret Work P1",d.postRetP1) + sL("Post-Ret Work P2",d.postRetP2) + ((d.benefitsP1+d.benefitsP2)>0?sL("CPP/OAS P1",d.cppP1+d.oasP1)+(mode==='Couple'?sL("CPP/OAS P2",d.cppP2+d.oasP2):''):'') + sL("DB Pension P1",d.dbP1) + sL("DB Pension P2",d.dbP2) + ln("Inheritance/Bonus",d.windfall,"text-success fw-bold");
                 iL += ln("Taxable Inv. Yield", d.invIncP1 + d.invIncP2, "text-muted");
                 Object.entries(d.wdBreakdown.p1).forEach(([t,a])=>iL+=sL(`${t} W/D P1`,a)); if(mode==='Couple') Object.entries(d.wdBreakdown.p2).forEach(([t,a])=>iL+=sL(`${t} W/D P2`,a));
                 
                 let eL = ln("Living Exp",d.expenses)+ln("Mortgage",d.mortgagePay)+ln("Debt Repayment",d.debtPay)+ln("Tax Paid P1",d.taxP1,"val-negative")+(mode==='Couple'?ln("Tax Paid P2",d.taxP2,"val-negative"):'');
                 
-                // FIX: Added Contribution (+X) markers to assets
                 let aL = ln(`TFSA P1${fmtC(d.flows.contributions.p1.tfsa)}`, d.assetsP1.tfsa) + (mode==='Couple'?ln(`TFSA P2${fmtC(d.flows.contributions.p2.tfsa)}`, d.assetsP2.tfsa):'');
                 aL += ln(`${d.p1Age>=72?'RRIF':'RRSP'} P1${fmtC(d.flows.contributions.p1.rrsp)}`, d.assetsP1.rrsp) + (mode==='Couple'?ln(`${d.p2Age>=72?'RRIF':'RRSP'} P2${fmtC(d.flows.contributions.p2.rrsp)}`, d.assetsP2.rrsp):'');
                 aL += ln("LIRF P1",d.assetsP1.lirf) + (mode==='Couple'?ln("LIRF P2",d.assetsP2.lirf):'');
@@ -1329,6 +1369,10 @@ class RetirementPlanner {
         if(document.getElementById('p1_db_bridge_start_val')) document.getElementById('p1_db_bridge_start_val').innerText = this.getRaw('p1_db_bridge_start')||'60';
         if(document.getElementById('p2_db_lifetime_start_val')) document.getElementById('p2_db_lifetime_start_val').innerText = this.getRaw('p2_db_lifetime_start')||'60';
         if(document.getElementById('p2_db_bridge_start_val')) document.getElementById('p2_db_bridge_start_val').innerText = this.getRaw('p2_db_bridge_start')||'60';
+        
+        // NEW: Load Contribution Limits
+        if(document.getElementById('cfg_tfsa_limit')) document.getElementById('cfg_tfsa_limit').value = (this.getVal('cfg_tfsa_limit') || 7000).toLocaleString();
+        if(document.getElementById('cfg_rrsp_limit')) document.getElementById('cfg_rrsp_limit').value = (this.getVal('cfg_rrsp_limit') || 32960).toLocaleString();
 
         this.updatePostRetIncomeVisibility();
         this.updateBenefitVisibility();
