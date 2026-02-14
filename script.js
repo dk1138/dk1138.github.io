@@ -1,14 +1,14 @@
 /**
- * Retirement Planner Pro - Logic v10.29 (Final: Complete & Unabridged)
+ * Retirement Planner Pro - Logic v10.30 (Final: Complete & Unabridged)
  * Includes:
  * 1. DB Pension Split (Lifetime + Bridge)
  * 2. Non-Reg Yield vs Growth (Tax Drag + ACB)
- * 3. Reporting Fixes (Cash Inflow, Effective Surplus)
+ * 3. Reporting Fixes: Cash Inflow is now GROSS to align with Expenses (which includes Tax).
  * 4. Pension Income Splitting (T1032 Optimization)
  */
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.29";
+        this.APP_VERSION = "10.30";
         this.state = {
             inputs: {}, debt: [],
             properties: [{ name: "Primary Home", value: 1000000, mortgage: 430000, growth: 3.0, rate: 3.29, payment: 0, manual: false, includeInNW: false }],
@@ -750,13 +750,9 @@ class RetirementPlanner {
                 let eligibleP1 = 0, eligibleP2 = 0;
                 
                 // Identify Eligible Income (Approximation of T1032)
-                // Always Eligible: RPP (DB Pension)
                 eligibleP1 += db1;
                 eligibleP2 += db2;
                 
-                // Eligible if 65+: RRIF, LIF, Annuity
-                // Note: Strategy withdrawals (yWd) happen AFTER tax/surplus calculation, so we can't split those yet.
-                // We optimize based on the base mandatory flows.
                 if (a1 >= 65) {
                    eligibleP1 += rrif1 + (p1.lif > 0 ? p1.lif * 0.05 : 0); // Approx LIF flow if any
                 }
@@ -768,7 +764,6 @@ class RetirementPlanner {
                 if (tTx1 > tTx2 && eligibleP1 > 0) {
                     let maxTransfer = eligibleP1 * 0.5;
                     let diff = tTx1 - tTx2;
-                    // Transfer enough to equalize, but not more than max
                     let transfer = Math.min(maxTransfer, diff / 2);
                     tTx1 -= transfer;
                     tTx2 += transfer;
@@ -795,7 +790,6 @@ class RetirementPlanner {
             const nI1 = tTx1-t1.totalTax+wfN1, nI2 = al2 ? tTx2-t2.totalTax+wfN2 : 0;
             
             // NEW: Non-Reg grows by (Total Return - Yield). Yield is handled as income/reinvestment above.
-            // This prevents double counting the yield.
             let cR1_nreg_growth = cR1.nreg - p1.nreg_yield;
             let cR2_nreg_growth = cR2.nreg - p2.nreg_yield;
 
@@ -835,8 +829,7 @@ class RetirementPlanner {
                                         let ratio = withdrawn / (p1.nreg + withdrawn);
                                         let gain = withdrawn * (( (p1.nreg+withdrawn) - p1_acb ) / (p1.nreg+withdrawn));
                                         if(gain > 0) {
-                                            // Future update: Add cap gains tax to expenses in next year?
-                                            // For now, implicit net effect
+                                            // Future: Tax logic
                                         }
                                         p1_acb -= (p1_acb * ratio);
                                     }
@@ -876,16 +869,18 @@ class RetirementPlanner {
 
             if(!onlyCalcNW) {
                 let tWd = Object.values(yWd).reduce((a,b)=>a+b,0), tGr = Object.values(gr1).reduce((a,b)=>a+b,0)+Object.values(gr2).reduce((a,b)=>a+b,0);
-                // NEW: Calculate Effective Surplus = Raw Surplus + Total Strategic Withdrawals
-                // If the user covered the deficit with withdrawals, this should be close to 0.
+                // Reporting Fix: Effective Surplus
                 let effectiveSurplus = surp + tWd; 
-                if(Math.abs(effectiveSurplus) < 5) effectiveSurplus = 0; // Floating point cleanup
+                if(Math.abs(effectiveSurplus) < 5) effectiveSurplus = 0; 
 
                 this.state.projectionData.push({
                     year:yr, p1Age:a1, p2Age:al2?a2:null, p1Alive:al1, p2Alive:al2, incomeP1:g1, incomeP2:g2, benefitsP1:c1+o1, benefitsP2:c2+o2, cppP1:c1, cppP2:c2, oasP1:o1, oasP2:o2, dbP1:db1, dbP2:db2, taxP1:t1.totalTax, taxP2:t2.totalTax, p1Net:fN1, p2Net:fN2, expenses:aExp, mortgagePay:mOut, debtPay:dRep, 
-                    surplus: effectiveSurplus, // Updated to show effective result
-                    rawSurplus: surp, // Keep raw for debugging if needed
-                    drawdown:surp<0?Math.abs(surp):0, debugNW:fNW, debugTotalInflow:g1+g2+c1+o1+c2+o2+db1+db2+tWd+wfT1+wfT2+wfN1+wfN2+pst1+pst2, assetsP1:{...p1}, assetsP2:{...p2}, wdBreakdown:wDBrk, inv_tfsa:p1.tfsa+p2.tfsa, inv_rrsp:p1.rrsp+p2.rrsp, inv_cash:p1.cash+p2.cash, inv_nreg:p1.nreg+p2.nreg, inv_crypto:p1.crypto+p2.crypto, flows:{contributions:yCont, withdrawals:yWd}, totalGrowth:tGr, growthPct:iTot>0?(tGr/(iTot-tGr-surp))*100:0, events:evt, householdNet:fN1+fN2, visualExpenses:aExp+mOut+dRep+t1.totalTax+t2.totalTax, mortgage:tRM, homeValue:tRE, investTot:iTot, liquidNW:lNW, isCrashYear:cYr, windfall:wfT1+wfT2+wfN1+wfN2, postRetP1:pst1, postRetP2:pst2
+                    surplus: effectiveSurplus, 
+                    rawSurplus: surp, 
+                    drawdown:surp<0?Math.abs(surp):0, debugNW:fNW, debugTotalInflow:g1+g2+c1+o1+c2+o2+db1+db2+tWd+wfT1+wfT2+wfN1+wfN2+pst1+pst2, assetsP1:{...p1}, assetsP2:{...p2}, wdBreakdown:wDBrk, inv_tfsa:p1.tfsa+p2.tfsa, inv_rrsp:p1.rrsp+p2.rrsp, inv_cash:p1.cash+p2.cash, inv_nreg:p1.nreg+p2.nreg, inv_crypto:p1.crypto+p2.crypto, flows:{contributions:yCont, withdrawals:yWd}, totalGrowth:tGr, growthPct:iTot>0?(tGr/(iTot-tGr-surp))*100:0, events:evt, 
+                    // Reporting Fix: householdNet is now effectively GROSS inflow to match Expenses column
+                    householdNet: (tTx1 + wfN1 + getWd('P1')) + (al2 ? (tTx2 + wfN2 + getWd('P2')) : 0), 
+                    visualExpenses:aExp+mOut+dRep+t1.totalTax+t2.totalTax, mortgage:tRM, homeValue:tRE, investTot:iTot, liquidNW:lNW, isCrashYear:cYr, windfall:wfT1+wfT2+wfN1+wfN2, postRetP1:pst1, postRetP2:pst2
                 });
             }
             eC*=(1+infl); eR*=(1+infl); eT*=(1+infl); eG*=(1+infl); eS*=(1+infl); eN*=(1+infl);
@@ -893,7 +888,7 @@ class RetirementPlanner {
 
         if(!onlyCalcNW) {
             const th = document.documentElement.getAttribute('data-bs-theme')||'dark', hC = th==='light'?'bg-white text-dark border-bottom border-dark-subtle':'bg-transparent text-white border-secondary', tT = th==='light'?'text-dark':'text-body';
-            // UPDATE: Changed "Net Income" to "Cash Inflow"
+            // Reporting Fix: Renamed column to Cash Inflow
             let html = `<div class="grid-header ${hC}"><div class="col-start col-timeline ${tT}">Timeline</div><div class="col-start">Status</div><div class="text-body ${tT}">Cash Inflow</div><div class="text-danger">Expenses</div><div class="${tT}">Surplus</div><div class="${tT}">Net Worth</div><div class="text-center ${tT}"><i class="bi bi-chevron-bar-down"></i></div></div>`;
             this.state.projectionData.forEach((d, idx) => {
                 const df = this.getDiscountFactor(idx), fmtK = n => { const v=n/df, a=Math.abs(v); if(Math.round(a)===0)return''; const s=v<0?'-':''; return a>=1000000?s+(a/1000000).toFixed(1)+'M':(a>=1000?s+Math.round(a/1000)+'k':s+a.toFixed(0)); };
@@ -913,7 +908,6 @@ class RetirementPlanner {
                 aL += ln("Manual RRIF P1",d.assetsP1.rrif_acct) + (mode==='Couple'?ln("Manual RRIF P2",d.assetsP2.rrif_acct):'');
                 aL += ln("Non-Reg P1",d.assetsP1.nreg)+(mode==='Couple'?ln("Non-Reg P2",d.assetsP2.nreg):'')+ln("Cash P1",d.assetsP1.cash)+(mode==='Couple'?ln("Cash P2",d.assetsP2.cash):'')+ln("Liquid Net Worth",d.liquidNW,"text-info fw-bold")+ln("Total Real Estate Eq.",d.homeValue-d.mortgage);
                 
-                // UPDATE: Changed "Total Net" to "Total Cash Avail."
                 const rB = th==='light'?'bg-white border-bottom border-dark-subtle':'', rT = th==='light'?'text-dark':'text-white';
                 html += `<div class="grid-row-group" style="${th==='light'?'border-bottom:1px solid #ddd;':''}"><div class="grid-summary-row ${rB}" onclick="app.toggleRow(this)"><div class="col-start col-timeline"><div class="d-flex align-items-center"><span class="fw-bold fs-6 me-1 ${rT}">${d.year}</span><span class="event-icons-inline">${d.events.map(k=>this.getIconHTML(k,th)).join('')}</span></div><span class="age-text ${rT}">${p1A} ${mode==='Couple'?'/ '+p2A:''}</span></div><div class="col-start">${stat}</div><div class="val-positive">${fmtK(d.householdNet)}</div><div class="val-neutral text-danger">${fmtK(d.visualExpenses)}</div><div class="${d.surplus<0?'val-negative':'val-positive'}">${d.surplus>0?'+':''}${fmtK(d.surplus)}</div><div class="fw-bold ${rT}">${fmtK(d.debugNW)}</div><div class="text-center toggle-icon ${rT}"><i class="bi bi-chevron-down"></i></div></div><div class="grid-detail-wrapper"><div class="detail-container"><div class="detail-box surface-card"><div class="detail-title">Income Sources</div>${iL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total Cash Avail.</span> <span class="text-success fw-bold">${fmtK(d.householdNet)}</span></div></div><div class="detail-box surface-card"><div class="detail-title">Outflows & Taxes</div>${eL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total Out</span> <span class="text-danger fw-bold">${fmtK(d.visualExpenses)}</span></div></div><div class="detail-box surface-card"><div class="detail-title">Assets (End of Year)</div>${aL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total NW</span> <span class="text-info fw-bold">${fmtK(d.debugNW)}</span></div></div></div></div></div>`;
             });
@@ -1339,12 +1333,8 @@ class RetirementPlanner {
         if(document.getElementById('exp_gogo_val')) document.getElementById('exp_gogo_val').innerText = this.getRaw('exp_gogo_age')||75;
         if(document.getElementById('exp_slow_val')) document.getElementById('exp_slow_val').innerText = this.getRaw('exp_slow_age')||85;
         const advM = document.getElementById('expense_mode_advanced')?.checked; if(document.getElementById('expense-phase-controls')) document.getElementById('expense-phase-controls').style.display = advM?'flex':'none';
-        
-        // Load NEW DB Inputs
-        if(document.getElementById('p1_db_lifetime_start_val')) document.getElementById('p1_db_lifetime_start_val').innerText = this.getRaw('p1_db_lifetime_start')||'60';
-        if(document.getElementById('p1_db_bridge_start_val')) document.getElementById('p1_db_bridge_start_val').innerText = this.getRaw('p1_db_bridge_start')||'60';
-        if(document.getElementById('p2_db_lifetime_start_val')) document.getElementById('p2_db_lifetime_start_val').innerText = this.getRaw('p2_db_lifetime_start')||'60';
-        if(document.getElementById('p2_db_bridge_start_val')) document.getElementById('p2_db_bridge_start_val').innerText = this.getRaw('p2_db_bridge_start')||'60';
+        if(document.getElementById('p1_db_start_val')) document.getElementById('p1_db_start_val').innerText = this.getRaw('p1_db_start_age')||'60';
+        if(document.getElementById('p2_db_start_val')) document.getElementById('p2_db_start_val').innerText = this.getRaw('p2_db_start_age')||'60';
         
         if(document.getElementById('p1_oas_years_val')) document.getElementById('p1_oas_years_val').innerText = '40';
         if(document.getElementById('p2_oas_years_val')) document.getElementById('p2_oas_years_val').innerText = '40';
@@ -1353,6 +1343,12 @@ class RetirementPlanner {
         if(document.getElementById('p2_cpp_start_val')) document.getElementById('p2_cpp_start_val').innerText = this.getRaw('p2_cpp_start')||'65';
         if(document.getElementById('p2_oas_start_val')) document.getElementById('p2_oas_start_val').innerText = this.getRaw('p2_oas_start')||'65';
         
+        // Load NEW DB Inputs
+        if(document.getElementById('p1_db_lifetime_start_val')) document.getElementById('p1_db_lifetime_start_val').innerText = this.getRaw('p1_db_lifetime_start')||'60';
+        if(document.getElementById('p1_db_bridge_start_val')) document.getElementById('p1_db_bridge_start_val').innerText = this.getRaw('p1_db_bridge_start')||'60';
+        if(document.getElementById('p2_db_lifetime_start_val')) document.getElementById('p2_db_lifetime_start_val').innerText = this.getRaw('p2_db_lifetime_start')||'60';
+        if(document.getElementById('p2_db_bridge_start_val')) document.getElementById('p2_db_bridge_start_val').innerText = this.getRaw('p2_db_bridge_start')||'60';
+
         this.updatePostRetIncomeVisibility();
         this.updateBenefitVisibility();
     }
