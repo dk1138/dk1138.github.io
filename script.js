@@ -1,15 +1,17 @@
 /**
- * Retirement Planner Pro - Logic v10.32 (Final: Complete & Unabridged)
+ * Retirement Planner Pro - Logic v10.33 (Final: Complete & Unabridged)
  * Includes:
  * 1. DB Pension Split (Lifetime + Bridge)
  * 2. Non-Reg Yield vs Growth (Tax Drag + ACB)
  * 3. Reporting Fixes (Cash Inflow, Effective Surplus)
  * 4. Pension Income Splitting (T1032)
- * 5. Contribution Limits (Waterfall Logic for TFSA/RRSP caps)
+ * 5. Contribution Limits (Waterfall Logic)
+ * 6. UI Update: Income Sources grouped by Person (P1 vs P2)
+ * 7. Strategy Update: RRSP Accumulation prioritizes lower balance first (Tax Efficiency)
  */
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.32";
+        this.APP_VERSION = "10.33";
         this.state = {
             inputs: {}, debt: [],
             properties: [{ name: "Primary Home", value: 1000000, mortgage: 430000, growth: 3.0, rate: 3.29, payment: 0, manual: false, includeInNW: false }],
@@ -438,7 +440,6 @@ class RetirementPlanner {
             p1_cpp_enabled: true, p1_oas_enabled: true, p1_db_enabled: false,
             p2_cpp_enabled: true, p2_oas_enabled: true, p2_db_enabled: false,
             pension_split_enabled: false,
-            // NEW: Contribution Limit Defaults
             cfg_tfsa_limit: '7,000', cfg_rrsp_limit: '32,960',
             exp_gogo_age: '75', exp_slow_age: '85', enable_post_ret_income_p1: false, enable_post_ret_income_p2: false, p1_post_inc: '0', p1_post_growth: '2.0', p2_post_inc: '0', p2_post_growth: '2.0' 
         };
@@ -470,6 +471,9 @@ class RetirementPlanner {
         if(document.getElementById('p2_cpp_start_val')) document.getElementById('p2_cpp_start_val').innerText = this.getRaw('p2_cpp_start')||'65';
         if(document.getElementById('p2_oas_start_val')) document.getElementById('p2_oas_start_val').innerText = this.getRaw('p2_oas_start')||'65';
         
+        if(document.getElementById('cfg_tfsa_limit')) document.getElementById('cfg_tfsa_limit').value = (this.getVal('cfg_tfsa_limit') || 7000).toLocaleString();
+        if(document.getElementById('cfg_rrsp_limit')) document.getElementById('cfg_rrsp_limit').value = (this.getVal('cfg_rrsp_limit') || 32960).toLocaleString();
+
         this.updatePostRetIncomeVisibility(); 
         this.updateBenefitVisibility();
     }
@@ -570,18 +574,42 @@ class RetirementPlanner {
         const d = this.state.projectionData[idx], rows = [], fmt = n => n>=1000000 ? '$'+(n/1000000).toFixed(1)+'M' : (n>=1000 ? '$'+Math.round(n/1000)+'k' : '$'+Math.round(n));
         const potName = `Available Cash\n${fmt(d.debugTotalInflow)}`;
         
-        [['incomeP1','Employment P1'], ['incomeP2','Employment P2'], ['benefitsP1','Gov Benefits P1'], ['benefitsP2','Gov Benefits P2'], ['dbP1','DB Pension P1'], ['dbP2','DB Pension P2'], ['windfall','Inheritance/Bonus'], ['postRetP1','Post-Ret Work P1'], ['postRetP2','Post-Ret Work P2']].forEach(([k,n]) => { if(d[k]>0) rows.push([`${n}\n${fmt(d[k])}`, potName, Math.round(d[k])]); });
+        // P1 Inflows
+        if(d.incomeP1>0) rows.push([`Employment P1\n${fmt(d.incomeP1)}`, potName, Math.round(d.incomeP1)]);
+        if(d.postRetP1>0) rows.push([`Post-Ret Work P1\n${fmt(d.postRetP1)}`, potName, Math.round(d.postRetP1)]);
+        if(d.benefitsP1>0) rows.push([`Gov Benefits P1\n${fmt(d.benefitsP1)}`, potName, Math.round(d.benefitsP1)]);
+        if(d.dbP1>0) rows.push([`DB Pension P1\n${fmt(d.dbP1)}`, potName, Math.round(d.dbP1)]);
+        if(d.invIncP1>0) rows.push([`Inv. Yield P1\n${fmt(d.invIncP1)}`, potName, Math.round(d.invIncP1)]);
+
+        // P2 Inflows
+        if(d.incomeP2>0) rows.push([`Employment P2\n${fmt(d.incomeP2)}`, potName, Math.round(d.incomeP2)]);
+        if(d.postRetP2>0) rows.push([`Post-Ret Work P2\n${fmt(d.postRetP2)}`, potName, Math.round(d.postRetP2)]);
+        if(d.benefitsP2>0) rows.push([`Gov Benefits P2\n${fmt(d.benefitsP2)}`, potName, Math.round(d.benefitsP2)]);
+        if(d.dbP2>0) rows.push([`DB Pension P2\n${fmt(d.dbP2)}`, potName, Math.round(d.dbP2)]);
+        if(d.invIncP2>0) rows.push([`Inv. Yield P2\n${fmt(d.invIncP2)}`, potName, Math.round(d.invIncP2)]);
+
+        if(d.windfall>0) rows.push([`Inheritance/Bonus\n${fmt(d.windfall)}`, potName, Math.round(d.windfall)]);
+
         if(d.flows?.withdrawals) Object.entries(d.flows.withdrawals).forEach(([s,a]) => { if(a>0) rows.push([`${s}\n${fmt(a)}`, potName, Math.round(a)]); });
         
         const tTax = d.taxP1 + d.taxP2, tDebt = d.mortgagePay + d.debtPay;
         if(tTax>0) rows.push([potName, `Taxes\n${fmt(tTax)}`, Math.round(tTax)]);
         if(d.expenses>0) rows.push([potName, `Living Exp.\n${fmt(d.expenses)}`, Math.round(d.expenses)]);
         if(tDebt>0) rows.push([potName, `Mortgage/Debt\n${fmt(tDebt)}`, Math.round(tDebt)]);
-        if(d.flows?.contributions) Object.entries(d.flows.contributions).forEach(([t,a]) => { if(a>0) rows.push([potName, `To ${this.strategyLabels[t]||t}\n${fmt(a)}`, Math.round(a)]); });
+        if(d.flows?.contributions) {
+             Object.entries(d.flows.contributions.p1).forEach(([t,a]) => { if(a>0) rows.push([potName, `To P1 ${this.strategyLabels[t]||t}\n${fmt(a)}`, Math.round(a)]); });
+             Object.entries(d.flows.contributions.p2).forEach(([t,a]) => { if(a>0) rows.push([potName, `To P2 ${this.strategyLabels[t]||t}\n${fmt(a)}`, Math.round(a)]); });
+        }
 
         const unq = new Set(); rows.forEach(r => { unq.add(r[0]); unq.add(r[1]); });
         const nodesCfg = Array.from(unq).map(n => {
-            let c='#a8a29e'; if(n.includes("Cash")) c='#f59e0b'; else if(n.includes("Emp")||n.includes("Post")) c='#10b981'; else if(n.includes("Gov")||n.includes("DB")) c='#06b6d4'; else if(n.includes("Inh")) c='#22c55e'; else if(n.includes("Taxes")) c='#ef4444'; else if(n.includes("Exp")) c='#f97316'; else if(n.includes("Mort")||n.includes("Debt")) c='#dc2626'; else if(["RRIF","TFSA","RRSP","Non-Reg","Crypto","Cash"].some(x=>n.includes(x))) c=n.startsWith("To ")?'#3b82f6':'#8b5cf6';
+            let c='#a8a29e'; 
+            if(n.includes("P1")) c='#0ea5e9'; // Cyan/Info
+            if(n.includes("P2")) c='#8b5cf6'; // Purple
+            if(n.includes("Taxes")) c='#ef4444'; 
+            if(n.includes("Exp")) c='#f97316'; 
+            if(n.includes("Mort")||n.includes("Debt")) c='#dc2626'; 
+            if(n.includes("Available Cash")) c='#10b981';
             return { color: c };
         });
 
@@ -817,14 +845,30 @@ class RetirementPlanner {
                         } 
                     }
                     else if(t==='rrsp'){
-                        if(al1 && (!this.state.inputs['skip_first_rrsp_p1']||i>0)){
-                            let take = Math.min(r, p1_rrsp_room);
-                            p1.rrsp+=take; yCont.p1.rrsp+=take; r-=take;
-                        } 
-                        if(al2 && r>0 && (!this.state.inputs['skip_first_rrsp_p2']||i>0)){
-                            let take = Math.min(r, p2_rrsp_room);
-                            p2.rrsp+=take; yCont.p2.rrsp+=take; r-=take;
+                        // FEATURE: Prioritize lower balance (Tax Efficiency)
+                        const p1HasRoom = (!this.state.inputs['skip_first_rrsp_p1']||i>0) && al1;
+                        const p2HasRoom = (!this.state.inputs['skip_first_rrsp_p2']||i>0) && al2;
+                        
+                        // Decide order based on balance (fill lower first)
+                        let priority = [];
+                        if (p1HasRoom && p2HasRoom) {
+                             if (p1.rrsp < p2.rrsp) priority = [{p: p1, room: p1_rrsp_room, k: 'p1'}, {p: p2, room: p2_rrsp_room, k: 'p2'}];
+                             else priority = [{p: p2, room: p2_rrsp_room, k: 'p2'}, {p: p1, room: p1_rrsp_room, k: 'p1'}];
+                        } else if (p1HasRoom) {
+                            priority = [{p: p1, room: p1_rrsp_room, k: 'p1'}];
+                        } else if (p2HasRoom) {
+                            priority = [{p: p2, room: p2_rrsp_room, k: 'p2'}];
                         }
+
+                        // Fill in priority order
+                        priority.forEach(obj => {
+                            if (r > 0) {
+                                let take = Math.min(r, obj.room);
+                                obj.p.rrsp += take;
+                                yCont[obj.k].rrsp += take;
+                                r -= take;
+                            }
+                        });
                     }
                     else if(t==='nreg'){
                         if(al1){ p1.nreg+=r; yCont.p1.nreg+=r; p1_acb+=r; r=0; }
@@ -914,9 +958,35 @@ class RetirementPlanner {
                 else if(p1R) stat = d.p1Age<gLim?`<span class="status-pill status-gogo">Go-go Phase</span>`:d.p1Age<sLim?`<span class="status-pill status-slow">Slow-go Phase</span>`:`<span class="status-pill status-nogo">No-go Phase</span>`;
                 
                 const ln = (l,v,c='') => (!v||Math.round(v)===0)?'':`<div class="detail-item"><span>${l}</span> <span class="${c}">${fmtK(v)}</span></div>`, sL = (l,v) => (!v||Math.round(v)===0)?'':`<div class="detail-item sub"><span>${l}</span> <span>${fmtK(v)}</span></div>`;
-                let iL = ln("Employment P1",d.incomeP1) + (mode==='Couple'?ln("Employment P2",d.incomeP2):'') + sL("Post-Ret Work P1",d.postRetP1) + sL("Post-Ret Work P2",d.postRetP2) + ((d.benefitsP1+d.benefitsP2)>0?sL("CPP/OAS P1",d.cppP1+d.oasP1)+(mode==='Couple'?sL("CPP/OAS P2",d.cppP2+d.oasP2):''):'') + sL("DB Pension P1",d.dbP1) + sL("DB Pension P2",d.dbP2) + ln("Inheritance/Bonus",d.windfall,"text-success fw-bold");
-                iL += ln("Taxable Inv. Yield", d.invIncP1 + d.invIncP2, "text-muted");
-                Object.entries(d.wdBreakdown.p1).forEach(([t,a])=>iL+=sL(`${t} W/D P1`,a)); if(mode==='Couple') Object.entries(d.wdBreakdown.p2).forEach(([t,a])=>iL+=sL(`${t} W/D P2`,a));
+                
+                // FEATURE: Grouped Income Display
+                let groupP1 = '', groupP2 = '', groupOther = '';
+                
+                // P1 Income Items
+                if(d.incomeP1 > 0) groupP1 += ln("Employment", d.incomeP1);
+                if(d.postRetP1 > 0) groupP1 += sL("Post-Ret Work", d.postRetP1);
+                if(d.dbP1 > 0) groupP1 += sL("DB Pension", d.dbP1);
+                if(d.benefitsP1 > 0) groupP1 += sL("CPP / OAS", d.benefitsP1);
+                if(d.invIncP1 > 0) groupP1 += ln("Inv. Yield (Taxable)", d.invIncP1, "text-muted");
+                Object.entries(d.wdBreakdown.p1).forEach(([t,a]) => groupP1 += sL(`${t} Withdrawals`, a));
+
+                // P2 Income Items
+                if(mode==='Couple') {
+                    if(d.incomeP2 > 0) groupP2 += ln("Employment", d.incomeP2);
+                    if(d.postRetP2 > 0) groupP2 += sL("Post-Ret Work", d.postRetP2);
+                    if(d.dbP2 > 0) groupP2 += sL("DB Pension", d.dbP2);
+                    if(d.benefitsP2 > 0) groupP2 += sL("CPP / OAS", d.benefitsP2);
+                    if(d.invIncP2 > 0) groupP2 += ln("Inv. Yield (Taxable)", d.invIncP2, "text-muted");
+                    Object.entries(d.wdBreakdown.p2).forEach(([t,a]) => groupP2 += sL(`${t} Withdrawals`, a));
+                }
+
+                // Other Items
+                if(d.windfall > 0) groupOther += ln("Inheritance/Bonus", d.windfall, "text-success fw-bold");
+
+                let iL = '';
+                if(groupP1) iL += `<div class="mb-2"><span class="text-info fw-bold small text-uppercase" style="font-size:0.7rem; border-bottom:1px solid #334155; display:block; margin-bottom:4px;">Player 1</span>${groupP1}</div>`;
+                if(groupP2) iL += `<div class="mb-2"><span class="text-purple fw-bold small text-uppercase" style="font-size:0.7rem; border-bottom:1px solid #334155; display:block; margin-bottom:4px;">Player 2</span>${groupP2}</div>`;
+                if(groupOther) iL += `<div>${groupOther}</div>`;
                 
                 let eL = ln("Living Exp",d.expenses)+ln("Mortgage",d.mortgagePay)+ln("Debt Repayment",d.debtPay)+ln("Tax Paid P1",d.taxP1,"val-negative")+(mode==='Couple'?ln("Tax Paid P2",d.taxP2,"val-negative"):'');
                 
@@ -1370,7 +1440,7 @@ class RetirementPlanner {
         if(document.getElementById('p2_db_lifetime_start_val')) document.getElementById('p2_db_lifetime_start_val').innerText = this.getRaw('p2_db_lifetime_start')||'60';
         if(document.getElementById('p2_db_bridge_start_val')) document.getElementById('p2_db_bridge_start_val').innerText = this.getRaw('p2_db_bridge_start')||'60';
         
-        // NEW: Load Contribution Limits
+        // Load Contribution Limits
         if(document.getElementById('cfg_tfsa_limit')) document.getElementById('cfg_tfsa_limit').value = (this.getVal('cfg_tfsa_limit') || 7000).toLocaleString();
         if(document.getElementById('cfg_rrsp_limit')) document.getElementById('cfg_rrsp_limit').value = (this.getVal('cfg_rrsp_limit') || 32960).toLocaleString();
 
