@@ -1,13 +1,14 @@
 /**
- * Retirement Planner Pro - Logic v10.28 (Final: Complete & Unabridged)
+ * Retirement Planner Pro - Logic v10.29 (Final: Complete & Unabridged)
  * Includes:
- * 1. DB Pension Split (Lifetime + Bridge to 65)
- * 2. Non-Reg Yield vs Growth Split (Tax Drag + ACB)
- * 3. Reporting Fixes: "Net Income" -> "Cash Inflow", Fixed Surplus Display
+ * 1. DB Pension Split (Lifetime + Bridge)
+ * 2. Non-Reg Yield vs Growth (Tax Drag + ACB)
+ * 3. Reporting Fixes (Cash Inflow, Effective Surplus)
+ * 4. Pension Income Splitting (T1032 Optimization)
  */
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.28";
+        this.APP_VERSION = "10.29";
         this.state = {
             inputs: {}, debt: [],
             properties: [{ name: "Primary Home", value: 1000000, mortgage: 430000, growth: 3.0, rate: 3.29, payment: 0, manual: false, includeInNW: false }],
@@ -435,6 +436,7 @@ class RetirementPlanner {
             p1_db_bridge_start: '60', p2_db_bridge_start: '60', 
             p1_cpp_enabled: true, p1_oas_enabled: true, p1_db_enabled: false,
             p2_cpp_enabled: true, p2_oas_enabled: true, p2_db_enabled: false,
+            pension_split_enabled: false,
             exp_gogo_age: '75', exp_slow_age: '85', enable_post_ret_income_p1: false, enable_post_ret_income_p2: false, p1_post_inc: '0', p1_post_growth: '2.0', p2_post_inc: '0', p2_post_growth: '2.0' 
         };
         
@@ -742,6 +744,43 @@ class RetirementPlanner {
             p2_acb += nrY2;
 
             let tTx1=g1+c1+o1+rrif1+db1+wfT1+pst1, tTx2=g2+c2+o2+rrif2+db2+wfT2+pst2;
+            
+            // NEW: Pension Income Splitting Optimization (Before Tax Calc)
+            if (mode === 'Couple' && this.state.inputs['pension_split_enabled']) {
+                let eligibleP1 = 0, eligibleP2 = 0;
+                
+                // Identify Eligible Income (Approximation of T1032)
+                // Always Eligible: RPP (DB Pension)
+                eligibleP1 += db1;
+                eligibleP2 += db2;
+                
+                // Eligible if 65+: RRIF, LIF, Annuity
+                // Note: Strategy withdrawals (yWd) happen AFTER tax/surplus calculation, so we can't split those yet.
+                // We optimize based on the base mandatory flows.
+                if (a1 >= 65) {
+                   eligibleP1 += rrif1 + (p1.lif > 0 ? p1.lif * 0.05 : 0); // Approx LIF flow if any
+                }
+                if (a2 >= 65) {
+                   eligibleP2 += rrif2 + (p2.lif > 0 ? p2.lif * 0.05 : 0);
+                }
+
+                // Determine High Earner
+                if (tTx1 > tTx2 && eligibleP1 > 0) {
+                    let maxTransfer = eligibleP1 * 0.5;
+                    let diff = tTx1 - tTx2;
+                    // Transfer enough to equalize, but not more than max
+                    let transfer = Math.min(maxTransfer, diff / 2);
+                    tTx1 -= transfer;
+                    tTx2 += transfer;
+                } else if (tTx2 > tTx1 && eligibleP2 > 0) {
+                    let maxTransfer = eligibleP2 * 0.5;
+                    let diff = tTx2 - tTx1;
+                    let transfer = Math.min(maxTransfer, diff / 2);
+                    tTx2 -= transfer;
+                    tTx1 += transfer;
+                }
+            }
+
             if(rrspM) {
                 const brk = tDat.FED.brackets[0];
                 if(al1 && p1.rrsp>0 && tTx1<brk) { let d=Math.min(brk-tTx1, p1.rrsp); if(d>0){ p1.rrsp-=d; tTx1+=d; yWd['RRSP Top-Up']=(yWd['RRSP Top-Up']||0)+d; wDBrk.p1[a1>=72?'RRIF':'RRSP']=(wDBrk.p1[a1>=72?'RRIF':'RRSP']||0)+d; } }
@@ -796,9 +835,8 @@ class RetirementPlanner {
                                         let ratio = withdrawn / (p1.nreg + withdrawn);
                                         let gain = withdrawn * (( (p1.nreg+withdrawn) - p1_acb ) / (p1.nreg+withdrawn));
                                         if(gain > 0) {
-                                            // Capital Gain Tax Impact (Simplified: Just reducing surplus/increasing deficit visually in future?)
-                                            // Note: We can't easily re-run tax calc here. The Yield Tax was already applied.
-                                            // We accept that Cap Gains tax is a "next year" problem or effectively reduces net withdrawal.
+                                            // Future update: Add cap gains tax to expenses in next year?
+                                            // For now, implicit net effect
                                         }
                                         p1_acb -= (p1_acb * ratio);
                                     }
