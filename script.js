@@ -1,13 +1,13 @@
 /**
- * Retirement Planner Pro - Logic v10.27 (Final: Complete & Unabridged)
+ * Retirement Planner Pro - Logic v10.28 (Final: Complete & Unabridged)
  * Includes:
  * 1. DB Pension Split (Lifetime + Bridge to 65)
  * 2. Non-Reg Yield vs Growth Split (Tax Drag + ACB)
- * 3. Comparison Charting & Full State Management
+ * 3. Reporting Fixes: "Net Income" -> "Cash Inflow", Fixed Surplus Display
  */
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.27";
+        this.APP_VERSION = "10.28";
         this.state = {
             inputs: {}, debt: [],
             properties: [{ name: "Primary Home", value: 1000000, mortgage: 430000, growth: 3.0, rate: 3.29, payment: 0, manual: false, includeInNW: false }],
@@ -460,12 +460,13 @@ class RetirementPlanner {
         
         if(document.getElementById('p1_oas_years_val')) document.getElementById('p1_oas_years_val').innerText = '40';
         if(document.getElementById('p2_oas_years_val')) document.getElementById('p2_oas_years_val').innerText = '40';
+        if(document.getElementById('p1_cpp_start_val')) document.getElementById('p1_cpp_start_val').innerText = this.getRaw('p1_cpp_start')||'65';
+        if(document.getElementById('p1_oas_start_val')) document.getElementById('p1_oas_start_val').innerText = this.getRaw('p1_oas_start')||'65';
+        if(document.getElementById('p2_cpp_start_val')) document.getElementById('p2_cpp_start_val').innerText = this.getRaw('p2_cpp_start')||'65';
+        if(document.getElementById('p2_oas_start_val')) document.getElementById('p2_oas_start_val').innerText = this.getRaw('p2_oas_start')||'65';
         
         this.updatePostRetIncomeVisibility(); 
         this.updateBenefitVisibility();
-        this.updateAgeDisplay('p1'); this.updateAgeDisplay('p2'); 
-        this.updateScenarioBadge(null);
-        this.run();
     }
 
     exportToCSV() {
@@ -622,6 +623,7 @@ class RetirementPlanner {
         const bR1_ret = { tfsa:gR('p1_tfsa_ret_retire'), rrsp:gR('p1_rrsp_ret_retire'), cash:gR('p1_cash_ret_retire'), nreg:gR('p1_nonreg_ret_retire'), cryp:gR('p1_crypto_ret_retire'), lirf:gR('p1_lirf_ret_retire'), lif:gR('p1_lif_ret_retire'), rrif_acct:gR('p1_rrif_acct_ret_retire'), inc:gR('p1_income_growth') };
         const bR2_ret = { tfsa:gR('p2_tfsa_ret_retire'), rrsp:gR('p2_rrsp_ret_retire'), cash:gR('p2_cash_ret_retire'), nreg:gR('p2_nonreg_ret_retire'), cryp:gR('p2_crypto_ret_retire'), lirf:gR('p2_lirf_ret_retire'), lif:gR('p2_lif_ret_retire'), rrif_acct:gR('p2_rrif_acct_ret_retire'), inc:gR('p2_income_growth') };
         
+        let p1DB = this.getVal('p1_db_pension')*12, p2DB = this.getVal('p2_db_pension')*12;
         let extVals = {
             p1PI: this.getVal('p1_post_inc'), p1PG: gR('p1_post_growth'), p1PS: new Date((this.getRaw('p1_post_start')||'2100-01')+"-01"), p1PE: new Date((this.getRaw('p1_post_end')||'2100-01')+"-01"),
             p2PI: this.getVal('p2_post_inc'), p2PG: gR('p2_post_growth'), p2PS: new Date((this.getRaw('p2_post_start')||'2100-01')+"-01"), p2PE: new Date((this.getRaw('p2_post_end')||'2100-01')+"-01")
@@ -794,8 +796,9 @@ class RetirementPlanner {
                                         let ratio = withdrawn / (p1.nreg + withdrawn);
                                         let gain = withdrawn * (( (p1.nreg+withdrawn) - p1_acb ) / (p1.nreg+withdrawn));
                                         if(gain > 0) {
-                                            // Future update: Add cap gains tax to expenses in next year?
-                                            // For now, implicit net effect
+                                            // Capital Gain Tax Impact (Simplified: Just reducing surplus/increasing deficit visually in future?)
+                                            // Note: We can't easily re-run tax calc here. The Yield Tax was already applied.
+                                            // We accept that Cap Gains tax is a "next year" problem or effectively reduces net withdrawal.
                                         }
                                         p1_acb -= (p1_acb * ratio);
                                     }
@@ -835,8 +838,16 @@ class RetirementPlanner {
 
             if(!onlyCalcNW) {
                 let tWd = Object.values(yWd).reduce((a,b)=>a+b,0), tGr = Object.values(gr1).reduce((a,b)=>a+b,0)+Object.values(gr2).reduce((a,b)=>a+b,0);
+                // NEW: Calculate Effective Surplus = Raw Surplus + Total Strategic Withdrawals
+                // If the user covered the deficit with withdrawals, this should be close to 0.
+                let effectiveSurplus = surp + tWd; 
+                if(Math.abs(effectiveSurplus) < 5) effectiveSurplus = 0; // Floating point cleanup
+
                 this.state.projectionData.push({
-                    year:yr, p1Age:a1, p2Age:al2?a2:null, p1Alive:al1, p2Alive:al2, incomeP1:g1, incomeP2:g2, benefitsP1:c1+o1, benefitsP2:c2+o2, cppP1:c1, cppP2:c2, oasP1:o1, oasP2:o2, dbP1:db1, dbP2:db2, taxP1:t1.totalTax, taxP2:t2.totalTax, p1Net:fN1, p2Net:fN2, expenses:aExp, mortgagePay:mOut, debtPay:dRep, surplus:surp, drawdown:surp<0?Math.abs(surp):0, debugNW:fNW, debugTotalInflow:g1+g2+c1+o1+c2+o2+db1+db2+tWd+wfT1+wfT2+wfN1+wfN2+pst1+pst2, assetsP1:{...p1}, assetsP2:{...p2}, wdBreakdown:wDBrk, inv_tfsa:p1.tfsa+p2.tfsa, inv_rrsp:p1.rrsp+p2.rrsp, inv_cash:p1.cash+p2.cash, inv_nreg:p1.nreg+p2.nreg, inv_crypto:p1.crypto+p2.crypto, flows:{contributions:yCont, withdrawals:yWd}, totalGrowth:tGr, growthPct:iTot>0?(tGr/(iTot-tGr-surp))*100:0, events:evt, householdNet:fN1+fN2, visualExpenses:aExp+mOut+dRep+t1.totalTax+t2.totalTax, mortgage:tRM, homeValue:tRE, investTot:iTot, liquidNW:lNW, isCrashYear:cYr, windfall:wfT1+wfT2+wfN1+wfN2, postRetP1:pst1, postRetP2:pst2
+                    year:yr, p1Age:a1, p2Age:al2?a2:null, p1Alive:al1, p2Alive:al2, incomeP1:g1, incomeP2:g2, benefitsP1:c1+o1, benefitsP2:c2+o2, cppP1:c1, cppP2:c2, oasP1:o1, oasP2:o2, dbP1:db1, dbP2:db2, taxP1:t1.totalTax, taxP2:t2.totalTax, p1Net:fN1, p2Net:fN2, expenses:aExp, mortgagePay:mOut, debtPay:dRep, 
+                    surplus: effectiveSurplus, // Updated to show effective result
+                    rawSurplus: surp, // Keep raw for debugging if needed
+                    drawdown:surp<0?Math.abs(surp):0, debugNW:fNW, debugTotalInflow:g1+g2+c1+o1+c2+o2+db1+db2+tWd+wfT1+wfT2+wfN1+wfN2+pst1+pst2, assetsP1:{...p1}, assetsP2:{...p2}, wdBreakdown:wDBrk, inv_tfsa:p1.tfsa+p2.tfsa, inv_rrsp:p1.rrsp+p2.rrsp, inv_cash:p1.cash+p2.cash, inv_nreg:p1.nreg+p2.nreg, inv_crypto:p1.crypto+p2.crypto, flows:{contributions:yCont, withdrawals:yWd}, totalGrowth:tGr, growthPct:iTot>0?(tGr/(iTot-tGr-surp))*100:0, events:evt, householdNet:fN1+fN2, visualExpenses:aExp+mOut+dRep+t1.totalTax+t2.totalTax, mortgage:tRM, homeValue:tRE, investTot:iTot, liquidNW:lNW, isCrashYear:cYr, windfall:wfT1+wfT2+wfN1+wfN2, postRetP1:pst1, postRetP2:pst2
                 });
             }
             eC*=(1+infl); eR*=(1+infl); eT*=(1+infl); eG*=(1+infl); eS*=(1+infl); eN*=(1+infl);
@@ -844,7 +855,8 @@ class RetirementPlanner {
 
         if(!onlyCalcNW) {
             const th = document.documentElement.getAttribute('data-bs-theme')||'dark', hC = th==='light'?'bg-white text-dark border-bottom border-dark-subtle':'bg-transparent text-white border-secondary', tT = th==='light'?'text-dark':'text-body';
-            let html = `<div class="grid-header ${hC}"><div class="col-start col-timeline ${tT}">Timeline</div><div class="col-start">Status</div><div class="text-body ${tT}">Net Income</div><div class="text-danger">Expenses</div><div class="${tT}">Surplus</div><div class="${tT}">Net Worth</div><div class="text-center ${tT}"><i class="bi bi-chevron-bar-down"></i></div></div>`;
+            // UPDATE: Changed "Net Income" to "Cash Inflow"
+            let html = `<div class="grid-header ${hC}"><div class="col-start col-timeline ${tT}">Timeline</div><div class="col-start">Status</div><div class="text-body ${tT}">Cash Inflow</div><div class="text-danger">Expenses</div><div class="${tT}">Surplus</div><div class="${tT}">Net Worth</div><div class="text-center ${tT}"><i class="bi bi-chevron-bar-down"></i></div></div>`;
             this.state.projectionData.forEach((d, idx) => {
                 const df = this.getDiscountFactor(idx), fmtK = n => { const v=n/df, a=Math.abs(v); if(Math.round(a)===0)return''; const s=v<0?'-':''; return a>=1000000?s+(a/1000000).toFixed(1)+'M':(a>=1000?s+Math.round(a/1000)+'k':s+a.toFixed(0)); };
                 const p1A=d.p1Alive?d.p1Age:'†', p2A=mode==='Couple'?(d.p2Alive?d.p2Age:'†'):'', p1R=d.p1Age>=p1.retAge, p2R=mode==='Couple'?d.p2Age>=p2.retAge:true;
@@ -863,8 +875,9 @@ class RetirementPlanner {
                 aL += ln("Manual RRIF P1",d.assetsP1.rrif_acct) + (mode==='Couple'?ln("Manual RRIF P2",d.assetsP2.rrif_acct):'');
                 aL += ln("Non-Reg P1",d.assetsP1.nreg)+(mode==='Couple'?ln("Non-Reg P2",d.assetsP2.nreg):'')+ln("Cash P1",d.assetsP1.cash)+(mode==='Couple'?ln("Cash P2",d.assetsP2.cash):'')+ln("Liquid Net Worth",d.liquidNW,"text-info fw-bold")+ln("Total Real Estate Eq.",d.homeValue-d.mortgage);
                 
+                // UPDATE: Changed "Total Net" to "Total Cash Avail."
                 const rB = th==='light'?'bg-white border-bottom border-dark-subtle':'', rT = th==='light'?'text-dark':'text-white';
-                html += `<div class="grid-row-group" style="${th==='light'?'border-bottom:1px solid #ddd;':''}"><div class="grid-summary-row ${rB}" onclick="app.toggleRow(this)"><div class="col-start col-timeline"><div class="d-flex align-items-center"><span class="fw-bold fs-6 me-1 ${rT}">${d.year}</span><span class="event-icons-inline">${d.events.map(k=>this.getIconHTML(k,th)).join('')}</span></div><span class="age-text ${rT}">${p1A} ${mode==='Couple'?'/ '+p2A:''}</span></div><div class="col-start">${stat}</div><div class="val-positive">${fmtK(d.householdNet)}</div><div class="val-neutral text-danger">${fmtK(d.visualExpenses)}</div><div class="${d.surplus<0?'val-negative':'val-positive'}">${d.surplus>0?'+':''}${fmtK(d.surplus)}</div><div class="fw-bold ${rT}">${fmtK(d.debugNW)}</div><div class="text-center toggle-icon ${rT}"><i class="bi bi-chevron-down"></i></div></div><div class="grid-detail-wrapper"><div class="detail-container"><div class="detail-box surface-card"><div class="detail-title">Income Sources</div>${iL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total Net</span> <span class="text-success fw-bold">${fmtK(d.householdNet)}</span></div></div><div class="detail-box surface-card"><div class="detail-title">Outflows & Taxes</div>${eL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total Out</span> <span class="text-danger fw-bold">${fmtK(d.visualExpenses)}</span></div></div><div class="detail-box surface-card"><div class="detail-title">Assets (End of Year)</div>${aL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total NW</span> <span class="text-info fw-bold">${fmtK(d.debugNW)}</span></div></div></div></div></div>`;
+                html += `<div class="grid-row-group" style="${th==='light'?'border-bottom:1px solid #ddd;':''}"><div class="grid-summary-row ${rB}" onclick="app.toggleRow(this)"><div class="col-start col-timeline"><div class="d-flex align-items-center"><span class="fw-bold fs-6 me-1 ${rT}">${d.year}</span><span class="event-icons-inline">${d.events.map(k=>this.getIconHTML(k,th)).join('')}</span></div><span class="age-text ${rT}">${p1A} ${mode==='Couple'?'/ '+p2A:''}</span></div><div class="col-start">${stat}</div><div class="val-positive">${fmtK(d.householdNet)}</div><div class="val-neutral text-danger">${fmtK(d.visualExpenses)}</div><div class="${d.surplus<0?'val-negative':'val-positive'}">${d.surplus>0?'+':''}${fmtK(d.surplus)}</div><div class="fw-bold ${rT}">${fmtK(d.debugNW)}</div><div class="text-center toggle-icon ${rT}"><i class="bi bi-chevron-down"></i></div></div><div class="grid-detail-wrapper"><div class="detail-container"><div class="detail-box surface-card"><div class="detail-title">Income Sources</div>${iL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total Cash Avail.</span> <span class="text-success fw-bold">${fmtK(d.householdNet)}</span></div></div><div class="detail-box surface-card"><div class="detail-title">Outflows & Taxes</div>${eL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total Out</span> <span class="text-danger fw-bold">${fmtK(d.visualExpenses)}</span></div></div><div class="detail-box surface-card"><div class="detail-title">Assets (End of Year)</div>${aL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total NW</span> <span class="text-info fw-bold">${fmtK(d.debugNW)}</span></div></div></div></div></div>`;
             });
             const grid = document.getElementById('projectionGrid'); if(grid) grid.innerHTML = html;
         }
@@ -1295,8 +1308,8 @@ class RetirementPlanner {
         if(document.getElementById('p2_db_lifetime_start_val')) document.getElementById('p2_db_lifetime_start_val').innerText = this.getRaw('p2_db_lifetime_start')||'60';
         if(document.getElementById('p2_db_bridge_start_val')) document.getElementById('p2_db_bridge_start_val').innerText = this.getRaw('p2_db_bridge_start')||'60';
         
-        if(document.getElementById('p1_oas_years_val')) document.getElementById('p1_oas_years_val').innerText = this.getRaw('p1_oas_years')||'40';
-        if(document.getElementById('p2_oas_years_val')) document.getElementById('p2_oas_years_val').innerText = this.getRaw('p2_oas_years')||'40';
+        if(document.getElementById('p1_oas_years_val')) document.getElementById('p1_oas_years_val').innerText = '40';
+        if(document.getElementById('p2_oas_years_val')) document.getElementById('p2_oas_years_val').innerText = '40';
         if(document.getElementById('p1_cpp_start_val')) document.getElementById('p1_cpp_start_val').innerText = this.getRaw('p1_cpp_start')||'65';
         if(document.getElementById('p1_oas_start_val')) document.getElementById('p1_oas_start_val').innerText = this.getRaw('p1_oas_start')||'65';
         if(document.getElementById('p2_cpp_start_val')) document.getElementById('p2_cpp_start_val').innerText = this.getRaw('p2_cpp_start')||'65';
