@@ -1,9 +1,11 @@
 /**
- * Retirement Planner Pro - Logic v10.35 (Fixed: Iterative Tax Solver & Cash Flow)
- * Fixes:
- * 1. RRSP Withdrawals now correctly add to Taxable Income inside the solver loop.
- * 2. Net Income calculation explicitly includes the Net RRSP withdrawal for "Total Cash Available".
- * 3. Solver now loops up to 5 times to resolve tax drag on withdrawals (The Surplus Paradox).
+ * Retirement Planner Pro - Logic v10.35 (Tax Solver Patch)
+ * Fixed:
+ * 1. RRSP Withdrawal Inclusion: Explicitly re-sums withdrawals into Taxable Income (tTx) 
+ * at the start of every solver iteration to ensure tax is captured.
+ * 2. Cash Flow Reporting: Net Income calculation now explicitly includes 
+ * (Gross Income + Gross Withdrawals - Total Tax) to ensure visually correct totals.
+ * 3. Versioning: Added UI Version Badge.
  */
 class RetirementPlanner {
     constructor() {
@@ -96,11 +98,21 @@ class RetirementPlanner {
             this.bindEvents(); 
             this.initSidebar();
             this.initPopovers(); 
+            this.injectVersionBadge();
 
             setTimeout(() => { this.syncStateFromDOM(); this.run(); }, 500); 
         };
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup);
         else setup(); 
+    }
+
+    injectVersionBadge() {
+        if(document.getElementById('rp-version-badge')) return;
+        const b = document.createElement('div');
+        b.id = 'rp-version-badge';
+        b.style.cssText = 'position:fixed; top:5px; right:5px; opacity:0.6; font-size:11px; font-family:monospace; color:var(--bs-body-color); z-index:9999; pointer-events:none;';
+        b.innerText = 'v' + this.APP_VERSION;
+        document.body.appendChild(b);
     }
 
     initPopovers() {
@@ -767,21 +779,24 @@ class RetirementPlanner {
             let mOut = 0; simP.forEach(p => { if(p.mortgage>0 && p.payment>0) { let pA=p.payment*12, int=p.mortgage*(p.rate/100), prn=pA-int; if(prn>p.mortgage) { prn=p.mortgage; pA=prn+int; } p.mortgage=Math.max(0, p.mortgage-prn); mOut+=pA; } p.value*=(1+(p.growth/100)); });
 
             // -------------------------------------------------------------------------
-            // THE ITERATIVE TAX SOLVER (v10.35 Fixed)
+            // THE ITERATIVE TAX SOLVER (v10.35)
             // -------------------------------------------------------------------------
             let iter = 0;
             let finalSurp = 0;
             let t1 = {}, t2 = {};
             let tTx1 = 0, tTx2 = 0;
             let nI1 = 0, nI2 = 0;
-            
-            // Track Cumulative Withdrawals for this year (needed for tax re-calc)
+
+            // Reset Wd Tracking for this year (cumulative within year)
             let currWd = { p1: { rrsp:0, nreg:0, tfsa:0, cash:0, crypto:0 }, p2: { rrsp:0, nreg:0, tfsa:0, cash:0, crypto:0 } };
             
             while(iter < 5) {
-                // 1. Calculate Total Taxable Income (Base + Current Cumulative Withdrawals)
-                // IMPORTANT: We must re-add the incremental withdrawals to the tax base here.
-                let totalRRIF1 = rrif1 + currWd.p1.rrsp; 
+                // 1. Calculate Total Taxable Income (Base + Current Withdrawals)
+                // Note: TFSA/Cash/Crypto withdrawals usually don't add to tTx (Crypto capital gains excluded for simplicity here or could be added)
+                // RRSP/RRIF/LIF withdrawals DO add to tTx.
+                
+                // Track Mandatory RRIF in total withdrawals for tax purposes
+                let totalRRIF1 = rrif1 + currWd.p1.rrsp; // In decumulation, RRSP bucket serves as RRIF/RRSP
                 let totalRRIF2 = rrif2 + currWd.p2.rrsp;
 
                 tTx1 = g1 + c1 + o1 + totalRRIF1 + db1 + wfT1 + pst1 + nrY1;
@@ -794,7 +809,9 @@ class RetirementPlanner {
                     if (a1 >= 65) { eligibleP1 += totalRRIF1 + (p1.lif > 0 ? p1.lif * 0.05 : 0); }
                     if (a2 >= 65) { eligibleP2 += totalRRIF2 + (p2.lif > 0 ? p2.lif * 0.05 : 0); }
 
+                    // Reset to pre-split for calculation
                     let preSplitT1 = tTx1, preSplitT2 = tTx2;
+
                     if (preSplitT1 > preSplitT2 && eligibleP1 > 0) {
                         let maxTransfer = eligibleP1 * 0.5;
                         let diff = preSplitT1 - preSplitT2;
@@ -808,7 +825,8 @@ class RetirementPlanner {
                     }
                 }
 
-                // 3. RRSP Top-Up Logic (Only on first iteration)
+                // 3. RRSP Top-Up Logic (Only on first iteration to avoid oscillation, or check logic)
+                // For simplicity, do RRSP Top Up only on iter 0
                 if(iter === 0 && rrspM) {
                     const brk = tDat.FED.brackets[0];
                     if(al1 && p1.rrsp>0 && tTx1<brk) { 
@@ -825,43 +843,40 @@ class RetirementPlanner {
                 t1 = al1 ? this.calculateTaxDetailed(tTx1, prov, tDat) : {totalTax:0};
                 t2 = al2 ? this.calculateTaxDetailed(tTx2, prov, tDat) : {totalTax:0};
 
-                // 5. Calculate Net Income / Cash Flow
-                // CRITICAL FIX: Net Income = (Gross Taxable - Tax) + Non-Taxable + Non-Reg Capital Withdrawals
-                // currWd.p1.rrsp is INSIDE tTx1, so (tTx1 - tax) correctly captures the Net RRSP cash.
-                // currWd.p1.tfsa etc are OUTSIDE tTx1, so we add them here.
+                // 5. Calculate Net Income (The "Total Cash" Fix)
+                // Instead of deducing from tax, we explicitly sum all sources to ensure visual accuracy
+                // Cash = (Gross Taxable Inc) - (Tax) + (Non-Taxable Inc) + (Non-Taxable Withdrawals)
+                // We use the tTx calculated above which includes the withdrawal gross
                 
-                let net1 = (tTx1 - t1.totalTax) + wfN1 + currWd.p1.tfsa + currWd.p1.cash + currWd.p1.crypto + currWd.p1.nreg;
-                let net2 = (al2 ? (tTx2 - t2.totalTax) + wfN2 + currWd.p2.tfsa + currWd.p2.cash + currWd.p2.crypto + currWd.p2.nreg : 0);
-
-                nI1 = net1; nI2 = net2;
+                nI1 = (tTx1 - t1.totalTax) + wfN1 + currWd.p1.tfsa + currWd.p1.cash + currWd.p1.crypto + currWd.p1.nreg;
+                nI2 = (al2 ? (tTx2 - t2.totalTax) + wfN2 + currWd.p2.tfsa + currWd.p2.cash + currWd.p2.crypto + currWd.p2.nreg : 0);
+                
                 finalSurp = (nI1 + nI2) - (aExp + mOut + dRep);
 
                 // 6. Check Convergence
-                if (finalSurp >= -5) { 
+                if (finalSurp >= -5) { // Tolerance $5
                     break; // Solved
                 }
 
-                // 7. Solve Deficit
+                // 7. Solve Deficit (Incremental Withdrawal)
                 let deficit = Math.abs(finalSurp);
                 
-                // Helper to execute withdrawal and track it in currWd
-                const wd = (walletObj, pKey, typeStr, amountNeeded) => {
-                    if(amountNeeded <= 0) return 0;
-                    let avail = walletObj[typeStr];
-                    let take = Math.min(avail, amountNeeded);
+                // Decumulation Strategy Helper
+                const wd = (p, t, a) => { 
+                    if(a<=0)return 0; 
+                    let tk=Math.min(p[t],a); 
+                    p[t]-=tk; 
                     
-                    if(take > 0) {
-                        walletObj[typeStr] -= take;
-                        currWd[pKey][typeStr] += take;
-                        
-                        // Reporting
-                        let lbl = (pKey==='p1'?"P1 ":"P2 ") + this.strategyLabels[typeStr];
-                        yWd[lbl] = (yWd[lbl]||0) + take;
-                        wDBrk[pKey][this.strategyLabels[typeStr]] = (wDBrk[pKey][this.strategyLabels[typeStr]]||0) + take;
-                        
-                        return amountNeeded - take;
-                    }
-                    return amountNeeded;
+                    // Track for next iteration's tax calc
+                    let pKey = (p===p1?'p1':'p2');
+                    currWd[pKey][t] += tk;
+
+                    // Reporting
+                    let k=(p===p1?"P1 ":"P2 ")+this.strategyLabels[t]; 
+                    yWd[k]=(yWd[k]||0)+tk; 
+                    wDBrk[pKey][this.strategyLabels[t]]=(wDBrk[pKey][this.strategyLabels[t]]||0)+tk; 
+                    
+                    return a-tk; 
                 };
 
                 // Iterate Strategies
@@ -871,38 +886,36 @@ class RetirementPlanner {
                             if(t==='nreg') {
                                 let wdAmt = Math.min(p1.nreg, deficit);
                                 if(wdAmt > 0) {
-                                    // Special case for Non-Reg to adjust ACB
-                                    let remainingDeficit = wd(p1, 'p1', t, deficit);
-                                    let actualTaken = deficit - remainingDeficit;
-                                    if(actualTaken > 0) {
-                                        let ratio = actualTaken / (p1.nreg + actualTaken); // p1.nreg was already reduced inside wd
+                                    let actualWd = wd(p1, t, deficit);
+                                    let withdrawn = deficit - actualWd; 
+                                    if(withdrawn > 0) {
+                                        let ratio = withdrawn / (p1.nreg + withdrawn); // Approx ACB adjust
                                         p1_acb -= (p1_acb * ratio);
                                     }
-                                    deficit = remainingDeficit;
+                                    deficit = actualWd;
                                 }
                             } else {
-                                deficit = wd(p1, 'p1', t, deficit); 
+                                deficit=wd(p1,t,deficit); 
                             }
                         }
                         if(al2 && deficit > 0) {
                              if(t==='nreg') {
                                 let wdAmt = Math.min(p2.nreg, deficit);
                                 if(wdAmt > 0) {
-                                    let remainingDeficit = wd(p2, 'p2', t, deficit);
-                                    let actualTaken = deficit - remainingDeficit;
-                                    if(actualTaken > 0) {
-                                        let ratio = actualTaken / (p2.nreg + actualTaken);
+                                    let actualWd = wd(p2, t, deficit);
+                                    let withdrawn = deficit - actualWd;
+                                    if(withdrawn > 0) {
+                                        let ratio = withdrawn / (p2.nreg + withdrawn);
                                         p2_acb -= (p2_acb * ratio);
                                     }
-                                    deficit = remainingDeficit;
+                                    deficit = actualWd;
                                 }
                              } else {
-                                 deficit = wd(p2, 'p2', t, deficit); 
+                                 deficit=wd(p2,t,deficit); 
                              }
                         } 
                     } 
                 });
-                
                 iter++;
             }
             // End Iterative Solver
@@ -963,7 +976,6 @@ class RetirementPlanner {
 
             // Reporting Helpers
             const getWd = pfix => ['TFSA','Cash','Non-Reg','Crypto'].reduce((s,k)=>s+(yWd[`${pfix} ${k}`]||0), 0);
-            let fN1 = al1 ? nI1 : 0, fN2 = al2 ? nI2 : 0; 
             
             // Add RRIF withdrawals to reporting breakdown if present
             if(rrif1 > 0) { wDBrk.p1.RRIF = (wDBrk.p1.RRIF||0) + rrif1; yWd['P1 RRIF'] = (yWd['P1 RRIF']||0) + rrif1; }
@@ -997,11 +1009,11 @@ class RetirementPlanner {
                 let tWd = Object.values(yWd).reduce((a,b)=>a+b,0), tGr = Object.values(gr1).reduce((a,b)=>a+b,0)+Object.values(gr2).reduce((a,b)=>a+b,0);
                 
                 this.state.projectionData.push({
-                    year:yr, p1Age:a1, p2Age:al2?a2:null, p1Alive:al1, p2Alive:al2, incomeP1:g1, incomeP2:g2, benefitsP1:c1+o1, benefitsP2:c2+o2, cppP1:c1, cppP2:c2, oasP1:o1, oasP2:o2, dbP1:db1, dbP2:db2, taxP1:t1.totalTax, taxP2:t2.totalTax, p1Net:fN1, p2Net:fN2, expenses:aExp, mortgagePay:mOut, debtPay:dRep, 
+                    year:yr, p1Age:a1, p2Age:al2?a2:null, p1Alive:al1, p2Alive:al2, incomeP1:g1, incomeP2:g2, benefitsP1:c1+o1, benefitsP2:c2+o2, cppP1:c1, cppP2:c2, oasP1:o1, oasP2:o2, dbP1:db1, dbP2:db2, taxP1:t1.totalTax, taxP2:t2.totalTax, p1Net:nI1, p2Net:nI2, expenses:aExp, mortgagePay:mOut, debtPay:dRep, 
                     surplus: finalSurp, 
                     rawSurplus: finalSurp, 
                     drawdown:finalSurp<0?Math.abs(finalSurp):0, debugNW:fNW, debugTotalInflow:g1+g2+c1+o1+c2+o2+db1+db2+tWd+wfT1+wfT2+wfN1+wfN2+pst1+pst2+nrY1+nrY2, assetsP1:{...p1}, assetsP2:{...p2}, wdBreakdown:wDBrk, inv_tfsa:p1.tfsa+p2.tfsa, inv_rrsp:p1.rrsp+p2.rrsp, inv_cash:p1.cash+p2.cash, inv_nreg:p1.nreg+p2.nreg, inv_crypto:p1.crypto+p2.crypto, flows:{contributions:yCont, withdrawals:yWd}, totalGrowth:tGr, growthPct:iTot>0?(tGr/(iTot-tGr-finalSurp))*100:0, events:evt, 
-                    householdNet: fN1 + fN2, 
+                    householdNet: nI1 + nI2, 
                     visualExpenses:aExp+mOut+dRep+t1.totalTax+t2.totalTax, mortgage:tRM, homeValue:tRE, investTot:iTot, liquidNW:lNW, isCrashYear:cYr, windfall:wfT1+wfT2+wfN1+wfN2, postRetP1:pst1, postRetP2:pst2, 
                     invIncP1: nrY1, invIncP2: nrY2
                 });
@@ -1030,7 +1042,7 @@ class RetirementPlanner {
                 if(d.dbP1 > 0) groupP1 += sL("DB Pension", d.dbP1);
                 if(d.benefitsP1 > 0) groupP1 += sL("CPP / OAS", d.benefitsP1);
                 if(d.invIncP1 > 0) groupP1 += ln("Inv. Yield (Taxable)", d.invIncP1, "text-muted");
-                Object.entries(d.wdBreakdown.p1).forEach(([t,a]) => groupP1 += sL(`${t} Withdrawals`, a));
+                Object.entries(d.wdBreakdown.p1).forEach(([t,a]) => groupP1 += sL(`${t} Withdrawals`, a, "text-warning fw-bold")); // Highlight withdrawals
 
                 // P2 Income Items
                 if(mode==='Couple') {
@@ -1039,7 +1051,7 @@ class RetirementPlanner {
                     if(d.dbP2 > 0) groupP2 += sL("DB Pension", d.dbP2);
                     if(d.benefitsP2 > 0) groupP2 += sL("CPP / OAS", d.benefitsP2);
                     if(d.invIncP2 > 0) groupP2 += ln("Inv. Yield (Taxable)", d.invIncP2, "text-muted");
-                    Object.entries(d.wdBreakdown.p2).forEach(([t,a]) => groupP2 += sL(`${t} Withdrawals`, a));
+                    Object.entries(d.wdBreakdown.p2).forEach(([t,a]) => groupP2 += sL(`${t} Withdrawals`, a, "text-warning fw-bold"));
                 }
 
                 if(d.windfall > 0) groupOther += ln("Inheritance/Bonus", d.windfall, "text-success fw-bold");
