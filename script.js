@@ -1,14 +1,13 @@
 /**
- * Retirement Planner Pro - Logic v10.34 (Refactored)
+ * Retirement Planner Pro - Logic v10.35 (Final Refactored)
  * * Changelog:
- * - Refactored generateProjectionTable into modular helper methods.
- * - Improved variable naming for clarity.
- * - Centralized logic for Contributions (Waterfall) and Withdrawals (Decumulation).
- * - Preserved all 10.33 features: Pension Splitting, Tax Drag, UI Grouping, Optimization.
+ * - v10.35: Added automatic Version Number injection into UI Header.
+ * - v10.34: Modularized projection logic (Inflows/Outflows/Surplus helpers).
+ * - v10.33: Pension Splitting, Tax Drag, UI Grouping, Optimization.
  */
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.34";
+        this.APP_VERSION = "10.35";
         this.state = {
             inputs: {},
             debt: [],
@@ -87,6 +86,18 @@ class RetirementPlanner {
 
     init() {
         const setup = () => {
+            // Version Header Injection
+            const headerEl = document.querySelector('.navbar-brand') || document.querySelector('h1');
+            if(headerEl && !document.getElementById('rp_version_badge')) {
+                const vSpan = document.createElement('span');
+                vSpan.id = 'rp_version_badge';
+                vSpan.className = 'badge bg-secondary ms-2 small opacity-75';
+                vSpan.style.fontSize = '0.65rem';
+                vSpan.style.verticalAlign = 'middle';
+                vSpan.innerText = `v${this.APP_VERSION}`;
+                headerEl.appendChild(vSpan);
+            }
+
             this.confirmModal = new bootstrap.Modal(document.getElementById('confirmationModal'));
             if(document.getElementById('saveScenarioModal')) {
                 this.saveModalInstance = new bootstrap.Modal(document.getElementById('saveScenarioModal'));
@@ -905,7 +916,7 @@ class RetirementPlanner {
         this.state.additionalIncome.forEach(s => {
             let sY=new Date(s.start+"-01").getFullYear(), eY=(s.end?new Date(s.end+"-01"):new Date("2100-01-01")).getFullYear();
             if(yr>=sY && yr<=eY) {
-                let amt = s.amount * Math.pow(1+(s.growth/100), yr-sY) * (s.freq==='month'?12:1) * (yr===sY?(12-new Date(s.start+"-01").getMonth())/12:(yr===eY?Math.min(1, (new Date(s.end+"-01").getMonth()+1)/12):1));
+                let amt = s.amount * Math.pow(1+(s.growth/100), yr-sY) * (s.freq==='month'?12:1) * (cY===sY?(12-new Date(s.start+"-01").getMonth())/12:(cY===eY?Math.min(1, (new Date(s.end+"-01").getMonth()+1)/12):1));
                 if(amt>0) { 
                     let target = (s.owner==='p2' && alive2) ? res.p2 : res.p1;
                     if(s.taxable) { target.gross += amt; target.earned += amt; } 
