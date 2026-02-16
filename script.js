@@ -1,13 +1,14 @@
 /**
- * Retirement Planner Pro - Logic v10.35 (Final Refactored)
+ * Retirement Planner Pro - Logic v10.36 (High Visibility Badge)
  * * Changelog:
- * - v10.35: Added automatic Version Number injection into UI Header.
- * - v10.34: Modularized projection logic (Inflows/Outflows/Surplus helpers).
- * - v10.33: Pension Splitting, Tax Drag, UI Grouping, Optimization.
+ * - v10.36: Aggressive Header Detection for Version Badge (looks for #app-title, .navbar-brand, h1, h2).
+ * - v10.36: Badge color changed to Yellow/Black for visibility.
+ * - v10.34: Modularized projection logic.
+ * - v10.33: Core Financial Logic complete.
  */
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.35";
+        this.APP_VERSION = "10.36";
         this.state = {
             inputs: {},
             debt: [],
@@ -86,16 +87,24 @@ class RetirementPlanner {
 
     init() {
         const setup = () => {
-            // Version Header Injection
-            const headerEl = document.querySelector('.navbar-brand') || document.querySelector('h1');
+            // Version Header Injection - Improved Discovery
+            const selectors = ['#app-title', '.navbar-brand', 'h1', '.h1', 'h2'];
+            let headerEl = null;
+            for (const sel of selectors) {
+                headerEl = document.querySelector(sel);
+                if (headerEl) break;
+            }
+
             if(headerEl && !document.getElementById('rp_version_badge')) {
                 const vSpan = document.createElement('span');
                 vSpan.id = 'rp_version_badge';
-                vSpan.className = 'badge bg-secondary ms-2 small opacity-75';
+                vSpan.className = 'badge bg-warning text-dark ms-2 small'; // Yellow/Dark for Visibility
                 vSpan.style.fontSize = '0.65rem';
                 vSpan.style.verticalAlign = 'middle';
                 vSpan.innerText = `v${this.APP_VERSION}`;
                 headerEl.appendChild(vSpan);
+            } else if (!headerEl) {
+                console.warn("Retirement Planner: Could not find a Header (h1, .navbar-brand) to attach the version badge.");
             }
 
             this.confirmModal = new bootstrap.Modal(document.getElementById('confirmationModal'));
@@ -916,7 +925,7 @@ class RetirementPlanner {
         this.state.additionalIncome.forEach(s => {
             let sY=new Date(s.start+"-01").getFullYear(), eY=(s.end?new Date(s.end+"-01"):new Date("2100-01-01")).getFullYear();
             if(yr>=sY && yr<=eY) {
-                let amt = s.amount * Math.pow(1+(s.growth/100), yr-sY) * (s.freq==='month'?12:1) * (cY===sY?(12-new Date(s.start+"-01").getMonth())/12:(cY===eY?Math.min(1, (new Date(s.end+"-01").getMonth()+1)/12):1));
+                let amt = s.amount * Math.pow(1+(s.growth/100), yr-sY) * (s.freq==='month'?12:1) * (yr===sY?(12-new Date(s.start+"-01").getMonth())/12:(cY===eY?Math.min(1, (new Date(s.end+"-01").getMonth()+1)/12):1));
                 if(amt>0) { 
                     let target = (s.owner==='p2' && alive2) ? res.p2 : res.p1;
                     if(s.taxable) { target.gross += amt; target.earned += amt; } 
