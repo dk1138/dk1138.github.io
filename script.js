@@ -1,13 +1,13 @@
 /**
- * Retirement Planner Pro - Logic v10.38 (Pre-Tax Display Fix)
+ * Retirement Planner Pro - Logic v10.39 (Income Growth Fix)
  * * Changelog:
- * - v10.38: FIXED: Projection Grid "Cash Inflow" now displays GROSS (Pre-Tax) income + withdrawals to align with the "Expenses" column (which includes taxes).
+ * - v10.39: FIXED: Income Growth rate variable lookup was incorrect (looking for '_ret' suffix), causing income to stay flat (0% growth) regardless of user input.
+ * - v10.38: FIXED: Projection Grid "Cash Inflow" now displays GROSS (Pre-Tax) income.
  * - v10.37: FIXED: RRSP/RRIF withdrawals now trigger a "Gross-Up" tax calculation based on marginal rate.
- * - v10.37: FIXED: Sankey "Total Cash" now dynamically sums inflows to ensure perfect matching.
  */
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.38";
+        this.APP_VERSION = "10.39";
         this.state = {
             inputs: {},
             debt: [],
@@ -848,7 +848,11 @@ class RetirementPlanner {
         const stress = this.state.inputs['stressTestEnabled'] && i === 0; 
         const getRates = (p, ret) => {
             const r = id => this.getVal(`${p}_${id}_ret` + (isAdv && ret ? '_retire' : ''))/100;
-            return { tfsa: r('tfsa'), rrsp: r('rrsp'), cash: r('cash'), nreg: r('nonreg'), cryp: r('crypto'), lirf: r('lirf'), lif: r('lif'), rrif_acct: r('rrif_acct'), inc: r('income_growth') };
+            return { 
+                tfsa: r('tfsa'), rrsp: r('rrsp'), cash: r('cash'), nreg: r('nonreg'), 
+                cryp: r('crypto'), lirf: r('lirf'), lif: r('lif'), rrif_acct: r('rrif_acct'), 
+                inc: this.getVal(`${p}_income_growth`)/100 // FIXED: Direct lookup without _ret suffix
+            };
         };
         const g1 = getRates('p1', isRet1), g2 = getRates('p2', isRet2);
         
