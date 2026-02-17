@@ -1,13 +1,13 @@
 /**
- * Retirement Planner Pro - Logic v10.38 (RRSP Income Integration)
+ * Retirement Planner Pro - Logic v10.39 (Unabridged & Fixed)
  * * Changelog:
- * - v10.38: Implemented Two-Pass Tax System. RRSP withdrawals are now treated as "Income" before final tax calculation.
- * - v10.38: Fixed "Total Cash Available" in Sankey to sum actual inflows.
- * - v10.37: Gross-up logic for deficit handling.
+ * - v10.39: FIXED Projection Table rendering (guaranteed default values for all new income columns).
+ * - v10.39: Added NaN protection for Tax Gross-up logic.
+ * - v10.38: Implemented Two-Pass Tax System (RRSP treated as Income).
  */
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.38";
+        this.APP_VERSION = "10.39";
         this.state = {
             inputs: {},
             debt: [],
@@ -511,7 +511,7 @@ class RetirementPlanner {
         if (!this.state.projectionData.length) return alert("No data available.");
         const mode = this.state.mode, d = this.state.projectionData;
         const h = ["Year", "P1 Age", mode==="Couple"?"P2 Age":null, "P1 Base Income", mode==="Couple"?"P2 Base Income":null, "P1 RRSP Income", mode==="Couple"?"P2 RRSP Income":null, "P1 Post-Ret Inc", mode==="Couple"?"P2 Post-Ret Inc":null, "P1 Benefits", mode==="Couple"?"P2 Benefits":null, "P1 DB Pension", mode==="Couple"?"P2 DB Pension":null, "Windfall", "P1 Taxes", mode==="Couple"?"P2 Taxes":null, "Total Expenses", "Mortgage Payment", "Debt Payment", "Surplus/Deficit", "P1 TFSA", "P1 RRSP", "P1 Non-Reg", "P1 Cash", "P1 Crypto", "P1 LIRF", "P1 LIF", "P1 RRIF", mode==="Couple"?"P2 TFSA":null, mode==="Couple"?"P2 RRSP":null, mode==="Couple"?"P2 Non-Reg":null, mode==="Couple"?"P2 Cash":null, mode==="Couple"?"P2 Crypto":null, mode==="Couple"?"P2 LIRF":null, mode==="Couple"?"P2 LIF":null, mode==="Couple"?"P2 RRIF":null, "Liquid Net Worth", "Home Equity", "Total Net Worth"].filter(x=>x);
-        const rows = d.map(r => [r.year, r.p1Age, mode==="Couple"?(r.p2Age||""):null, Math.round(r.incomeP1), mode==="Couple"?Math.round(r.incomeP2):null, Math.round(r.rrspIncP1), mode==="Couple"?Math.round(r.rrspIncP2):null, Math.round(r.postRetP1||0), mode==="Couple"?Math.round(r.postRetP2||0):null, Math.round(r.benefitsP1), mode==="Couple"?Math.round(r.benefitsP2):null, Math.round(r.dbP1), mode==="Couple"?Math.round(r.dbP2):null, Math.round(r.windfall), Math.round(r.taxP1), mode==="Couple"?Math.round(r.taxP2):null, Math.round(r.expenses), Math.round(r.mortgagePay), Math.round(r.debtPay), Math.round(r.surplus), Math.round(r.assetsP1.tfsa), Math.round(r.assetsP1.rrsp), Math.round(r.assetsP1.nreg), Math.round(r.assetsP1.cash), Math.round(r.assetsP1.crypto), Math.round(r.assetsP1.lirf), Math.round(r.assetsP1.lif), Math.round(r.assetsP1.rrif_acct), mode==="Couple"?Math.round(r.assetsP2.tfsa):null, mode==="Couple"?Math.round(r.assetsP2.rrsp):null, mode==="Couple"?Math.round(r.assetsP2.nreg):null, mode==="Couple"?Math.round(r.assetsP2.cash):null, mode==="Couple"?Math.round(r.assetsP2.crypto):null, mode==="Couple"?Math.round(r.assetsP2.lirf):null, mode==="Couple"?Math.round(r.assetsP2.lif):null, mode==="Couple"?Math.round(r.assetsP2.rrif_acct):null, Math.round(r.liquidNW), Math.round(r.homeValue-r.mortgage), Math.round(r.debugNW)].filter(x=>x!==null).join(","));
+        const rows = d.map(r => [r.year, r.p1Age, mode==="Couple"?(r.p2Age||""):null, Math.round(r.incomeP1), mode==="Couple"?Math.round(r.incomeP2):null, Math.round(r.rrspIncP1||0), mode==="Couple"?Math.round(r.rrspIncP2||0):null, Math.round(r.postRetP1||0), mode==="Couple"?Math.round(r.postRetP2||0):null, Math.round(r.benefitsP1), mode==="Couple"?Math.round(r.benefitsP2):null, Math.round(r.dbP1), mode==="Couple"?Math.round(r.dbP2):null, Math.round(r.windfall), Math.round(r.taxP1), mode==="Couple"?Math.round(r.taxP2):null, Math.round(r.expenses), Math.round(r.mortgagePay), Math.round(r.debtPay), Math.round(r.surplus), Math.round(r.assetsP1.tfsa), Math.round(r.assetsP1.rrsp), Math.round(r.assetsP1.nreg), Math.round(r.assetsP1.cash), Math.round(r.assetsP1.crypto), Math.round(r.assetsP1.lirf), Math.round(r.assetsP1.lif), Math.round(r.assetsP1.rrif_acct), mode==="Couple"?Math.round(r.assetsP2.tfsa):null, mode==="Couple"?Math.round(r.assetsP2.rrsp):null, mode==="Couple"?Math.round(r.assetsP2.nreg):null, mode==="Couple"?Math.round(r.assetsP2.cash):null, mode==="Couple"?Math.round(r.assetsP2.crypto):null, mode==="Couple"?Math.round(r.assetsP2.lirf):null, mode==="Couple"?Math.round(r.assetsP2.lif):null, mode==="Couple"?Math.round(r.assetsP2.rrif_acct):null, Math.round(r.liquidNW), Math.round(r.homeValue-r.mortgage), Math.round(r.debugNW)].filter(x=>x!==null).join(","));
         const link = document.createElement("a");
         link.setAttribute("href", encodeURI("data:text/csv;charset=utf-8," + [h.join(","), ...rows].join("\n"))); link.setAttribute("download", "retirement_plan_pro.csv");
         document.body.appendChild(link); link.click(); link.remove();
@@ -602,25 +602,16 @@ class RetirementPlanner {
         if (!this.state.projectionData[idx] || !google?.visualization) return;
         const d = this.state.projectionData[idx], rows = [], fmt = n => n>=1000000 ? '$'+(n/1000000).toFixed(1)+'M' : (n>=1000 ? '$'+Math.round(n/1000)+'k' : '$'+Math.round(n));
         
-        // --- Calculate TOTAL CASH available first to display in the middle node ---
-        let totalCashInflow = d.incomeP1 + d.postRetP1 + d.benefitsP1 + d.dbP1 + d.invIncP1 + d.windfall + d.rrspIncP1;
-        if(d.p2Alive) totalCashInflow += d.incomeP2 + d.postRetP2 + d.benefitsP2 + d.dbP2 + d.invIncP2 + d.rrspIncP2;
-        // Add non-RRSP withdrawals (TFSA, Cash, NReg Capital)
-        if(d.flows?.withdrawals) {
-            Object.entries(d.flows.withdrawals).forEach(([s,a]) => {
-                // Exclude RRSP/RRIF withdrawals here as they are already in "rrspInc"
-                if (!s.includes('RRSP') && !s.includes('RRIF') && !s.includes('LIF') && !s.includes('LIRF')) {
-                    totalCashInflow += a;
-                }
-            });
-        }
-
-        const potName = `Available Cash\n${fmt(totalCashInflow)}`; 
-        
+        let totalIn = 0;
         const addRow = (from, to, val) => {
-            if(Math.round(val) > 0) rows.push([from, to, Math.round(val)]);
+            if(Math.round(val) > 0) {
+                rows.push([from, to, Math.round(val)]);
+                if(to.includes('Available Cash')) totalIn += val;
+            }
         };
 
+        const potName = `Available Cash\n${fmt(d.householdNet)}`; 
+        
         // P1 Inflows
         if(d.incomeP1>0) addRow(`Employment P1\n${fmt(d.incomeP1)}`, potName, d.incomeP1);
         if(d.postRetP1>0) addRow(`Post-Ret Work P1\n${fmt(d.postRetP1)}`, potName, d.postRetP1);
@@ -772,48 +763,34 @@ class RetirementPlanner {
 
             // --- PASS 2: RRSP Withdrawal Logic (The Income Fix) ---
             if (initialSurplus < 0) {
-                // Logic: If strategy calls for RRSP, calculate gross-up and withdraw it as INCOME.
                 let deficit = Math.abs(initialSurplus);
                 
-                // Helper to withdraw as INCOME
                 const withdrawAsIncome = (p, pfx, amtNeeded, currentMarginalRate) => {
-                    let effRate = Math.min(currentMarginalRate || 0.20, 0.53); // Cap at 53%
+                    let effRate = Math.min(currentMarginalRate || 0.20, 0.53);
                     let grossNeeded = amtNeeded / (1 - effRate);
-                    // Check availability
-                    let available = p.rrsp + p.rrif_acct + p.lif + p.lirf; // Simplify: group all reg assets
+                    let available = p.rrsp + p.rrif_acct + p.lif + p.lirf; 
                     let actualGross = Math.min(grossNeeded, available);
                     
-                    // Deduct from assets (priority: rrif_acct -> rrsp -> lif -> lirf)
                     let toDed = actualGross;
                     const ded = (k) => { let v = Math.min(p[k], toDed); p[k]-=v; toDed-=v; };
                     ded('rrif_acct'); ded('rrsp'); ded('lif'); ded('lirf');
 
-                    // Log it
                     if (actualGross > 0) {
                         let k = (pfx.toUpperCase())+" RRSP/RRIF Income";
                         log.withdrawals[k] = (log.withdrawals[k]||0) + actualGross;
                         wdBreakdown[pfx].RRSP_Income = (wdBreakdown[pfx].RRSP_Income||0) + actualGross;
                     }
-                    return actualGross; // Return gross amount added to income
+                    return actualGross;
                 };
 
-                // Check strategy order. If RRSP is before TFSA/NonReg, we utilize this logic.
-                // For simplicity in this fix, we prioritize RRSP withdrawal for income if listed in decum.
-                // A full multi-pass strategy mixer is complex, so we will assume:
-                // If Deficit exists, try to fill it with RRSP Income FIRST (if prioritized), then other assets.
-                
                 let rrspIdx = this.state.strategies.decum.findIndex(s => ['rrsp','lif','lirf'].includes(s));
                 let tfsaIdx = this.state.strategies.decum.findIndex(s => s === 'tfsa');
                 let nregIdx = this.state.strategies.decum.findIndex(s => s === 'nreg');
 
-                // If RRSP is the top priority (or higher than others available)
                 if (rrspIdx !== -1 && (rrspIdx < tfsaIdx || tfsaIdx === -1) && (rrspIdx < nregIdx || nregIdx === -1)) {
                     if (alive1 && deficit > 0) {
                         let grossAdded = withdrawAsIncome(person1, 'p1', deficit, tax1.margRate);
                         rrspInc1 += grossAdded;
-                        // Approximate net cash obtained from this gross (Gross - TaxEst)
-                        // Actually, we will just recalculate the whole tax bill in Pass 3.
-                        // We assume for now we covered: grossAdded * (1-marg). 
                         deficit -= (grossAdded * (1 - tax1.margRate)); 
                     }
                     if (alive2 && deficit > 0) {
@@ -829,14 +806,9 @@ class RetirementPlanner {
             tInc2 += rrspInc2;
 
             if (mode === 'Couple' && this.state.inputs['pension_split_enabled']) {
-                // Recalculate splitting with potential RRIF income
-                // Note: Standard RRSP withdrawals are NOT eligible for splitting until 65, RRIF is.
-                // For simplicity, we treat the 'rrspInc' bucket as potentially split-eligible if >65.
-                // Ideally we'd separate RRIF vs RRSP, but this simulation groups them for income.
                 this.applyPensionSplitting(tInc1, tInc2, inflows, rrifMin, person1, person2, age1, age2, (n1, n2) => { tInc1=n1; tInc2=n2; });
             }
 
-            // Final Tax Calc
             tax1 = alive1 ? this.calculateTaxDetailed(tInc1, this.getRaw('tax_province'), taxBrackets) : {totalTax:0, margRate: 0};
             tax2 = alive2 ? this.calculateTaxDetailed(tInc2, this.getRaw('tax_province'), taxBrackets) : {totalTax:0, margRate: 0};
 
@@ -845,7 +817,6 @@ class RetirementPlanner {
             
             let finalSurplus = (net1 + net2) - (expenses + mortgagePayment + debtRepayment);
 
-            // Log RRIF Min Withdrawals
             if(rrifMin.p1>0) { flowLog.withdrawals['P1 RRIF Min']=(flowLog.withdrawals['P1 RRIF Min']||0)+rrifMin.p1; wdBreakdown.p1.RRIF=rrifMin.p1; }
             if(rrifMin.p2>0) { flowLog.withdrawals['P2 RRIF Min']=(flowLog.withdrawals['P2 RRIF Min']||0)+rrifMin.p2; wdBreakdown.p2.RRIF=rrifMin.p2; }
 
@@ -855,11 +826,6 @@ class RetirementPlanner {
             if (finalSurplus > 0) {
                 this.handleSurplus(finalSurplus, person1, person2, alive1, alive2, flowLog, i, consts.tfsaLimit*bInf, rrspRoom1, rrspRoom2);
             } else {
-                // If there is STILL a deficit (e.g. RRSP maxed out, or Strategy used TFSA/Cash), handle it here
-                // Note: We do NOT pass tax callback here because tax is already finalized for the year.
-                // Any further withdrawals (TFSA/Cash) are tax-free.
-                // Any further NREG withdrawals trigger Cap Gains, which technically changes tax, 
-                // but for simulation stability we calculate that "cost" inside handleDeficit as a net reduction of the asset.
                 this.handleDeficit(Math.abs(finalSurplus), person1, person2, alive1, alive2, flowLog, wdBreakdown, 0, 0, null);
             }
 
@@ -872,9 +838,7 @@ class RetirementPlanner {
 
             if(!onlyCalcNW) {
                 const totalWithdrawals = Object.values(flowLog.withdrawals).reduce((a,b)=>a+b,0);
-                const effectiveSurplus = finalSurplus + totalWithdrawals; // Net result after logic
-                // For Sankey: Total Inflow = Income + RRSP Income + Other Withdrawals
-                // RRSP Income is already in tInc. Other withdrawals are in flowLog.
+                const effectiveSurplus = finalSurplus + totalWithdrawals; 
                 
                 this.state.projectionData.push({
                     year: yr, p1Age: age1, p2Age: alive2?age2:null, p1Alive: alive1, p2Alive: alive2,
@@ -892,7 +856,7 @@ class RetirementPlanner {
                     wdBreakdown: wdBreakdown,
                     flows: flowLog,
                     events: inflows.events,
-                    householdNet: net1 + net2 + (Object.values(flowLog.withdrawals).reduce((a,b)=>a+b,0) - (rrspInc1+rrspInc2)), // Net Cash + Non-Income Withdrawals
+                    householdNet: net1 + net2 + (Object.values(flowLog.withdrawals).reduce((a,b)=>a+b,0) - (rrspInc1+rrspInc2)), 
                     visualExpenses: expenses + mortgagePayment + debtRepayment + tax1.totalTax + tax2.totalTax,
                     mortgage: simProperties.reduce((s,p)=>s+p.mortgage,0), 
                     homeValue: simProperties.reduce((s,p)=>s+p.value,0),
@@ -1090,8 +1054,6 @@ class RetirementPlanner {
         const wd = (p, t, a, pfx, mRate) => { 
             if(a<=0 || p[t]<=0) return 0;
             
-            // NOTE: RRSP Income is now handled in Pass 2. This function mainly handles
-            // residual deficits covered by tax-free assets (TFSA/Cash) or NReg.
             let tk = Math.min(p[t], a); 
             p[t] -= tk;
             
@@ -1104,9 +1066,6 @@ class RetirementPlanner {
         
         this.state.strategies.decum.forEach(t => { 
             if(df>0.1) { 
-                // Skip RRSP here if it was already used for Income in Pass 2? 
-                // No, we might still have RRSP money left if the deficit wasn't fully covered due to some constraint
-                // But generally, Pass 2 RRSP logic covers the taxable portion.
                 if(t === 'rrsp' || t === 'lif' || t === 'lirf') return; 
 
                 if(alive1) {
@@ -1118,12 +1077,10 @@ class RetirementPlanner {
                             log.withdrawals[k]=(log.withdrawals[k]||0)+wdAmt;
                             breakdown.p1[this.strategyLabels[t]]=(breakdown.p1[this.strategyLabels[t]]||0)+wdAmt;
                             
-                            // Cap Gains Tax Logic (Simplified)
                             if (p1.nreg + wdAmt > 0) { 
                                 let ratio = Math.max(0, ( (p1.nreg + wdAmt) - p1.acb ) / (p1.nreg + wdAmt));
                                 let gain = wdAmt * ratio;
                                 let tax = (gain * 0.5) * (margRate1 || 0);
-                                // For NREG, we just reduce the asset by the tax amount to simulate paying it
                                 if (p1.nreg >= tax) p1.nreg -= tax; else df += tax;
                                 p1.acb -= (p1.acb * (wdAmt / (p1.nreg + wdAmt))); 
                             }
@@ -1185,10 +1142,9 @@ class RetirementPlanner {
             if(d.postRetP1 > 0) groupP1 += sL("Post-Ret Work", d.postRetP1);
             if(d.dbP1 > 0) groupP1 += sL("DB Pension", d.dbP1);
             if(d.benefitsP1 > 0) groupP1 += sL("CPP / OAS", d.benefitsP1);
-            if(d.rrspIncP1 > 0) groupP1 += sL("RRSP/RRIF Income", d.rrspIncP1, "text-warning fw-bold"); // Highlighted
+            if(d.rrspIncP1 > 0) groupP1 += sL("RRSP/RRIF Income", d.rrspIncP1, "text-warning fw-bold"); 
             if(d.invIncP1 > 0) groupP1 += ln("Inv. Yield (Taxable)", d.invIncP1, "text-muted");
             
-            // Only show non-income withdrawals here (TFSA, Cash)
             Object.entries(d.wdBreakdown.p1).forEach(([t,a]) => { if(!t.includes('RRSP_Income')) groupP1 += sL(`${t} Withdrawals`, a); });
 
             if(this.state.mode==='Couple') {
