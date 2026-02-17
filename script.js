@@ -1,13 +1,13 @@
 /**
- * Retirement Planner Pro - Logic v10.37 (Tax Fix & Math Correction)
+ * Retirement Planner Pro - Logic v10.38 (Pre-Tax Display Fix)
  * * Changelog:
+ * - v10.38: FIXED: Projection Grid "Cash Inflow" now displays GROSS (Pre-Tax) income + withdrawals to align with the "Expenses" column (which includes taxes).
  * - v10.37: FIXED: RRSP/RRIF withdrawals now trigger a "Gross-Up" tax calculation based on marginal rate.
  * - v10.37: FIXED: Sankey "Total Cash" now dynamically sums inflows to ensure perfect matching.
- * - v10.36: Aggressive Header Detection for Version Badge.
  */
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.37";
+        this.APP_VERSION = "10.38";
         this.state = {
             inputs: {},
             debt: [],
@@ -802,6 +802,13 @@ class RetirementPlanner {
                 const effectiveSurplus = surplus + totalWithdrawals;
                 const hhNetCash = totalNetIncome + totalWithdrawals; // Net Income + Withdrawals available for spending
 
+                // Calculate Gross Inflow for Display Purposes
+                // Gross = Gross Income + Benefits + Pension + Taxable Windfall + Non-Taxable Windfall + Yields + Gross Withdrawals
+                const p1GrossTotal = inflows.p1.gross + inflows.p1.benefits + inflows.p1.pension + inflows.p1.windfallTaxable + inflows.p1.windfallNonTax;
+                const p2GrossTotal = inflows.p2.gross + inflows.p2.benefits + inflows.p2.pension + inflows.p2.windfallTaxable + inflows.p2.windfallNonTax;
+                const totalYield = (person1.nreg * person1.nreg_yield) + (alive2 ? (person2.nreg * person2.nreg_yield) : 0);
+                const grossInflow = p1GrossTotal + p2GrossTotal + totalYield + totalWithdrawals;
+
                 this.state.projectionData.push({
                     year: yr, p1Age: age1, p2Age: alive2?age2:null, p1Alive: alive1, p2Alive: alive2,
                     incomeP1: inflows.p1.gross, incomeP2: inflows.p2.gross,
@@ -817,7 +824,8 @@ class RetirementPlanner {
                     wdBreakdown: wdBreakdown,
                     flows: flowLog,
                     events: inflows.events,
-                    householdNet: hhNetCash, // This is explicitly Net Cash Available now
+                    householdNet: hhNetCash, // Net Cash Available
+                    grossInflow: grossInflow, // Gross Cash Inflow
                     visualExpenses: expenses + mortgagePayment + debtRepayment + tax1.totalTax + tax2.totalTax,
                     mortgage: simProperties.reduce((s,p)=>s+p.mortgage,0), 
                     homeValue: simProperties.reduce((s,p)=>s+p.value,0),
@@ -1189,7 +1197,7 @@ class RetirementPlanner {
             aL += ln("Liquid Net Worth",d.liquidNW,"text-info fw-bold")+ln("Total Real Estate Eq.",d.homeValue-d.mortgage);
             
             const rB = th==='light'?'bg-white border-bottom border-dark-subtle':'', rT = th==='light'?'text-dark':'text-white';
-            html += `<div class="grid-row-group" style="${th==='light'?'border-bottom:1px solid #ddd;':''}"><div class="grid-summary-row ${rB}" onclick="app.toggleRow(this)"><div class="col-start col-timeline"><div class="d-flex align-items-center"><span class="fw-bold fs-6 me-1 ${rT}">${d.year}</span><span class="event-icons-inline">${d.events.map(k=>this.getIconHTML(k,th)).join('')}</span></div><span class="age-text ${rT}">${p1A} ${this.state.mode==='Couple'?'/ '+p2A:''}</span></div><div class="col-start">${stat}</div><div class="val-positive">${fmtK(d.householdNet)}</div><div class="val-neutral text-danger">${fmtK(d.visualExpenses)}</div><div class="${d.surplus<0?'val-negative':'val-positive'}">${d.surplus>0?'+':''}${fmtK(d.surplus)}</div><div class="fw-bold ${rT}">${fmtK(d.debugNW)}</div><div class="text-center toggle-icon ${rT}"><i class="bi bi-chevron-down"></i></div></div><div class="grid-detail-wrapper"><div class="detail-container"><div class="detail-box surface-card"><div class="detail-title">Income Sources</div>${iL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total Cash Avail.</span> <span class="text-success fw-bold">${fmtK(d.householdNet)}</span></div></div><div class="detail-box surface-card"><div class="detail-title">Outflows & Taxes</div>${eL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total Out</span> <span class="text-danger fw-bold">${fmtK(d.visualExpenses)}</span></div></div><div class="detail-box surface-card"><div class="detail-title">Assets (End of Year)</div>${aL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total NW</span> <span class="text-info fw-bold">${fmtK(d.debugNW)}</span></div></div></div></div></div>`;
+            html += `<div class="grid-row-group" style="${th==='light'?'border-bottom:1px solid #ddd;':''}"><div class="grid-summary-row ${rB}" onclick="app.toggleRow(this)"><div class="col-start col-timeline"><div class="d-flex align-items-center"><span class="fw-bold fs-6 me-1 ${rT}">${d.year}</span><span class="event-icons-inline">${d.events.map(k=>this.getIconHTML(k,th)).join('')}</span></div><span class="age-text ${rT}">${p1A} ${this.state.mode==='Couple'?'/ '+p2A:''}</span></div><div class="col-start">${stat}</div><div class="val-positive">${fmtK(d.grossInflow)}</div><div class="val-neutral text-danger">${fmtK(d.visualExpenses)}</div><div class="${d.surplus<0?'val-negative':'val-positive'}">${d.surplus>0?'+':''}${fmtK(d.surplus)}</div><div class="fw-bold ${rT}">${fmtK(d.debugNW)}</div><div class="text-center toggle-icon ${rT}"><i class="bi bi-chevron-down"></i></div></div><div class="grid-detail-wrapper"><div class="detail-container"><div class="detail-box surface-card"><div class="detail-title">Income Sources</div>${iL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total Gross Inflow</span> <span class="text-success fw-bold">${fmtK(d.grossInflow)}</span></div></div><div class="detail-box surface-card"><div class="detail-title">Outflows & Taxes</div>${eL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total Out</span> <span class="text-danger fw-bold">${fmtK(d.visualExpenses)}</span></div></div><div class="detail-box surface-card"><div class="detail-title">Assets (End of Year)</div>${aL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total NW</span> <span class="text-info fw-bold">${fmtK(d.debugNW)}</span></div></div></div></div></div>`;
         });
         const grid = document.getElementById('projectionGrid'); if(grid) grid.innerHTML = html;
     }
