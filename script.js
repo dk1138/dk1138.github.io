@@ -1,9 +1,9 @@
 /**
- * Retirement Planner Pro - Logic v10.39 (Unabridged & Fixed)
+ * Retirement Planner Pro - Logic v10.39 (STABLE)
  * * Changelog:
- * - v10.39: FIXED Projection Table rendering (guaranteed default values for all new income columns).
- * - v10.39: Added NaN protection for Tax Gross-up logic.
- * - v10.38: Implemented Two-Pass Tax System (RRSP treated as Income).
+ * - v10.39: CRITICAL FIX: Removed undefined 'cY' variable in projection loop that caused income streams to crash.
+ * - v10.39: LOGIC UPDATE: Moved 'applyGrowth' to end-of-year. Year 1 now reflects inputs exactly (before growth).
+ * - v10.38: Two-Pass Tax System for RRSP Income.
  */
 class RetirementPlanner {
     constructor() {
@@ -100,7 +100,7 @@ class RetirementPlanner {
                 vSpan.style.fontSize = '0.65rem';
                 vSpan.style.verticalAlign = 'middle';
                 vSpan.innerText = `v${this.APP_VERSION}`;
-                headerEl.appendChild(vSpan);
+                if(headerEl) headerEl.appendChild(vSpan);
             }
 
             this.confirmModal = new bootstrap.Modal(document.getElementById('confirmationModal'));
@@ -511,7 +511,7 @@ class RetirementPlanner {
         if (!this.state.projectionData.length) return alert("No data available.");
         const mode = this.state.mode, d = this.state.projectionData;
         const h = ["Year", "P1 Age", mode==="Couple"?"P2 Age":null, "P1 Base Income", mode==="Couple"?"P2 Base Income":null, "P1 RRSP Income", mode==="Couple"?"P2 RRSP Income":null, "P1 Post-Ret Inc", mode==="Couple"?"P2 Post-Ret Inc":null, "P1 Benefits", mode==="Couple"?"P2 Benefits":null, "P1 DB Pension", mode==="Couple"?"P2 DB Pension":null, "Windfall", "P1 Taxes", mode==="Couple"?"P2 Taxes":null, "Total Expenses", "Mortgage Payment", "Debt Payment", "Surplus/Deficit", "P1 TFSA", "P1 RRSP", "P1 Non-Reg", "P1 Cash", "P1 Crypto", "P1 LIRF", "P1 LIF", "P1 RRIF", mode==="Couple"?"P2 TFSA":null, mode==="Couple"?"P2 RRSP":null, mode==="Couple"?"P2 Non-Reg":null, mode==="Couple"?"P2 Cash":null, mode==="Couple"?"P2 Crypto":null, mode==="Couple"?"P2 LIRF":null, mode==="Couple"?"P2 LIF":null, mode==="Couple"?"P2 RRIF":null, "Liquid Net Worth", "Home Equity", "Total Net Worth"].filter(x=>x);
-        const rows = d.map(r => [r.year, r.p1Age, mode==="Couple"?(r.p2Age||""):null, Math.round(r.incomeP1), mode==="Couple"?Math.round(r.incomeP2):null, Math.round(r.rrspIncP1||0), mode==="Couple"?Math.round(r.rrspIncP2||0):null, Math.round(r.postRetP1||0), mode==="Couple"?Math.round(r.postRetP2||0):null, Math.round(r.benefitsP1), mode==="Couple"?Math.round(r.benefitsP2):null, Math.round(r.dbP1), mode==="Couple"?Math.round(r.dbP2):null, Math.round(r.windfall), Math.round(r.taxP1), mode==="Couple"?Math.round(r.taxP2):null, Math.round(r.expenses), Math.round(r.mortgagePay), Math.round(r.debtPay), Math.round(r.surplus), Math.round(r.assetsP1.tfsa), Math.round(r.assetsP1.rrsp), Math.round(r.assetsP1.nreg), Math.round(r.assetsP1.cash), Math.round(r.assetsP1.crypto), Math.round(r.assetsP1.lirf), Math.round(r.assetsP1.lif), Math.round(r.assetsP1.rrif_acct), mode==="Couple"?Math.round(r.assetsP2.tfsa):null, mode==="Couple"?Math.round(r.assetsP2.rrsp):null, mode==="Couple"?Math.round(r.assetsP2.nreg):null, mode==="Couple"?Math.round(r.assetsP2.cash):null, mode==="Couple"?Math.round(r.assetsP2.crypto):null, mode==="Couple"?Math.round(r.assetsP2.lirf):null, mode==="Couple"?Math.round(r.assetsP2.lif):null, mode==="Couple"?Math.round(r.assetsP2.rrif_acct):null, Math.round(r.liquidNW), Math.round(r.homeValue-r.mortgage), Math.round(r.debugNW)].filter(x=>x!==null).join(","));
+        const rows = d.map(r => [r.year, r.p1Age, mode==="Couple"?(r.p2Age||""):null, Math.round(r.incomeP1), mode==="Couple"?Math.round(r.incomeP2):null, Math.round(r.rrspIncP1), mode==="Couple"?Math.round(r.rrspIncP2):null, Math.round(r.postRetP1||0), mode==="Couple"?Math.round(r.postRetP2||0):null, Math.round(r.benefitsP1), mode==="Couple"?Math.round(r.benefitsP2):null, Math.round(r.dbP1), mode==="Couple"?Math.round(r.dbP2):null, Math.round(r.windfall), Math.round(r.taxP1), mode==="Couple"?Math.round(r.taxP2):null, Math.round(r.expenses), Math.round(r.mortgagePay), Math.round(r.debtPay), Math.round(r.surplus), Math.round(r.assetsP1.tfsa), Math.round(r.assetsP1.rrsp), Math.round(r.assetsP1.nreg), Math.round(r.assetsP1.cash), Math.round(r.assetsP1.crypto), Math.round(r.assetsP1.lirf), Math.round(r.assetsP1.lif), Math.round(r.assetsP1.rrif_acct), mode==="Couple"?Math.round(r.assetsP2.tfsa):null, mode==="Couple"?Math.round(r.assetsP2.rrsp):null, mode==="Couple"?Math.round(r.assetsP2.nreg):null, mode==="Couple"?Math.round(r.assetsP2.cash):null, mode==="Couple"?Math.round(r.assetsP2.crypto):null, mode==="Couple"?Math.round(r.assetsP2.lirf):null, mode==="Couple"?Math.round(r.assetsP2.lif):null, mode==="Couple"?Math.round(r.assetsP2.rrif_acct):null, Math.round(r.liquidNW), Math.round(r.homeValue-r.mortgage), Math.round(r.debugNW)].filter(x=>x!==null).join(","));
         const link = document.createElement("a");
         link.setAttribute("href", encodeURI("data:text/csv;charset=utf-8," + [h.join(","), ...rows].join("\n"))); link.setAttribute("download", "retirement_plan_pro.csv");
         document.body.appendChild(link); link.click(); link.remove();
@@ -610,7 +610,19 @@ class RetirementPlanner {
             }
         };
 
-        const potName = `Available Cash\n${fmt(d.householdNet)}`; 
+        // Calculate explicit Total Available for middle node label
+        let availableCash = d.incomeP1 + d.postRetP1 + d.benefitsP1 + d.dbP1 + d.invIncP1 + d.windfall + d.rrspIncP1;
+        if(d.p2Alive) availableCash += d.incomeP2 + d.postRetP2 + d.benefitsP2 + d.dbP2 + d.invIncP2 + d.rrspIncP2;
+        // Add other non-income withdrawals (TFSA, Cash)
+        if(d.flows?.withdrawals) {
+            Object.entries(d.flows.withdrawals).forEach(([s,a]) => {
+                if (!s.includes('RRSP') && !s.includes('RRIF') && !s.includes('LIF') && !s.includes('LIRF')) {
+                    availableCash += a;
+                }
+            });
+        }
+
+        const potName = `Available Cash\n${fmt(availableCash)}`; 
         
         // P1 Inflows
         if(d.incomeP1>0) addRow(`Employment P1\n${fmt(d.incomeP1)}`, potName, d.incomeP1);
@@ -630,7 +642,7 @@ class RetirementPlanner {
 
         if(d.windfall>0) addRow(`Inheritance/Bonus\n${fmt(d.windfall)}`, potName, d.windfall);
 
-        // Withdrawals mapped to Available Cash (Only Non-Registered/TFSA here)
+        // Non-Income Withdrawals (TFSA, Cash, NReg Capital)
         if(d.flows?.withdrawals) Object.entries(d.flows.withdrawals).forEach(([s,a]) => {
              if (!s.includes('RRSP') && !s.includes('RRIF') && !s.includes('LIF') && !s.includes('LIRF')) {
                  addRow(`${s}\n${fmt(a)}`, potName, a);
@@ -639,12 +651,11 @@ class RetirementPlanner {
         
         const tTax = d.taxP1 + d.taxP2, tDebt = d.mortgagePay + d.debtPay;
         
-        // Outflows from Available Cash
+        // Outflows
         if(tTax>0) addRow(potName, `Taxes\n${fmt(tTax)}`, tTax);
         if(d.expenses>0) addRow(potName, `Living Exp.\n${fmt(d.expenses)}`, d.expenses);
         if(tDebt>0) addRow(potName, `Mortgage/Debt\n${fmt(tDebt)}`, tDebt);
         
-        // Surplus Contributions
         if(d.flows?.contributions) {
              Object.entries(d.flows.contributions.p1).forEach(([t,a]) => addRow(potName, `To P1 ${this.strategyLabels[t]||t}\n${fmt(a)}`, a));
              Object.entries(d.flows.contributions.p2).forEach(([t,a]) => addRow(potName, `To P2 ${this.strategyLabels[t]||t}\n${fmt(a)}`, a));
@@ -724,8 +735,7 @@ class RetirementPlanner {
             const isRet1 = age1 >= person1.retAge;
             const isRet2 = mode==='Couple' ? age2 >= person2.retAge : true;
             
-            this.applyGrowth(person1, person2, isRet1, isRet2, this.state.inputs['asset_mode_advanced'], consts.inflation, i);
-
+            // --- INFLOWS & EXPENSES ---
             const inflows = this.calcInflows(yr, i, person1, person2, age1, age2, alive1, alive2, isRet1, isRet2, consts, bInf, trackedEvents);
             const rrifMin = this.calcRRIFMin(person1, person2, age1, age2, alive1, alive2);
             const expenses = this.calcOutflows(yr, i, age1, bInf, isRet1, isRet2);
@@ -745,11 +755,10 @@ class RetirementPlanner {
 
             let taxBrackets = this.getInflatedTaxData(bInf);
 
-            // --- PASS 1: Calculate Base Tax & Deficit ---
+            // --- PASS 1: Base Tax & Deficit Check ---
             let tInc1 = inflows.p1.gross + inflows.p1.benefits + inflows.p1.pension + rrifMin.p1 + inflows.p1.windfallTaxable + (person1.nreg * person1.nreg_yield);
             let tInc2 = inflows.p2.gross + inflows.p2.benefits + inflows.p2.pension + rrifMin.p2 + inflows.p2.windfallTaxable + (alive2 ? (person2.nreg * person2.nreg_yield) : 0);
 
-            // Initial Tax Calc
             let tax1 = alive1 ? this.calculateTaxDetailed(tInc1, this.getRaw('tax_province'), taxBrackets) : {totalTax:0, margRate: 0};
             let tax2 = alive2 ? this.calculateTaxDetailed(tInc2, this.getRaw('tax_province'), taxBrackets) : {totalTax:0, margRate: 0};
 
@@ -766,7 +775,7 @@ class RetirementPlanner {
                 let deficit = Math.abs(initialSurplus);
                 
                 const withdrawAsIncome = (p, pfx, amtNeeded, currentMarginalRate) => {
-                    let effRate = Math.min(currentMarginalRate || 0.20, 0.53);
+                    let effRate = Math.min(currentMarginalRate || 0.20, 0.53); 
                     let grossNeeded = amtNeeded / (1 - effRate);
                     let available = p.rrsp + p.rrif_acct + p.lif + p.lirf; 
                     let actualGross = Math.min(grossNeeded, available);
@@ -801,7 +810,7 @@ class RetirementPlanner {
                 }
             }
 
-            // --- PASS 3: Recalculate Tax with RRSP Income ---
+            // --- PASS 3: Final Tax Recalculation ---
             tInc1 += rrspInc1;
             tInc2 += rrspInc2;
 
@@ -865,6 +874,10 @@ class RetirementPlanner {
                     invIncP1: (person1.nreg * person1.nreg_yield), invIncP2: (person2.nreg * person2.nreg_yield)
                 });
             }
+
+            // --- ASSET GROWTH (Moved to End of Loop) ---
+            // This ensures Year 0 reflects inputs, and growth happens overnight into next year.
+            this.applyGrowth(person1, person2, isRet1, isRet2, this.state.inputs['asset_mode_advanced'], consts.inflation, i);
 
             consts.cppMax1*=(1+consts.inflation); consts.oasMax1*=(1+consts.inflation);
             consts.cppMax2*=(1+consts.inflation); consts.oasMax2*=(1+consts.inflation);
@@ -947,7 +960,8 @@ class RetirementPlanner {
         this.state.additionalIncome.forEach(s => {
             let sY=new Date(s.start+"-01").getFullYear(), eY=(s.end?new Date(s.end+"-01"):new Date("2100-01-01")).getFullYear();
             if(yr>=sY && yr<=eY) {
-                let amt = s.amount * Math.pow(1+(s.growth/100), yr-sY) * (s.freq==='month'?12:1) * (yr===sY?(12-new Date(s.start+"-01").getMonth())/12:(cY===eY?Math.min(1, (new Date(s.end+"-01").getMonth()+1)/12):1));
+                // FIXED: Replaced undefined cY with yr
+                let amt = s.amount * Math.pow(1+(s.growth/100), yr-sY) * (s.freq==='month'?12:1) * (yr===sY?(12-new Date(s.start+"-01").getMonth())/12:(yr===eY?Math.min(1, (new Date(s.end+"-01").getMonth()+1)/12):1));
                 if(amt>0) { 
                     let target = (s.owner==='p2' && alive2) ? res.p2 : res.p1;
                     if(s.taxable) { target.gross += amt; target.earned += amt; } 
@@ -1054,6 +1068,8 @@ class RetirementPlanner {
         const wd = (p, t, a, pfx, mRate) => { 
             if(a<=0 || p[t]<=0) return 0;
             
+            // NOTE: RRSP Income is now handled in Pass 2. This function mainly handles
+            // residual deficits covered by tax-free assets (TFSA/Cash) or NReg.
             let tk = Math.min(p[t], a); 
             p[t] -= tk;
             
@@ -1077,6 +1093,7 @@ class RetirementPlanner {
                             log.withdrawals[k]=(log.withdrawals[k]||0)+wdAmt;
                             breakdown.p1[this.strategyLabels[t]]=(breakdown.p1[this.strategyLabels[t]]||0)+wdAmt;
                             
+                            // Cap Gains Tax Logic (Simplified)
                             if (p1.nreg + wdAmt > 0) { 
                                 let ratio = Math.max(0, ( (p1.nreg + wdAmt) - p1.acb ) / (p1.nreg + wdAmt));
                                 let gain = wdAmt * ratio;
@@ -1142,9 +1159,10 @@ class RetirementPlanner {
             if(d.postRetP1 > 0) groupP1 += sL("Post-Ret Work", d.postRetP1);
             if(d.dbP1 > 0) groupP1 += sL("DB Pension", d.dbP1);
             if(d.benefitsP1 > 0) groupP1 += sL("CPP / OAS", d.benefitsP1);
-            if(d.rrspIncP1 > 0) groupP1 += sL("RRSP/RRIF Income", d.rrspIncP1, "text-warning fw-bold"); 
+            if(d.rrspIncP1 > 0) groupP1 += sL("RRSP/RRIF Income", d.rrspIncP1, "text-warning fw-bold"); // Highlighted
             if(d.invIncP1 > 0) groupP1 += ln("Inv. Yield (Taxable)", d.invIncP1, "text-muted");
             
+            // Only show non-income withdrawals here (TFSA, Cash)
             Object.entries(d.wdBreakdown.p1).forEach(([t,a]) => { if(!t.includes('RRSP_Income')) groupP1 += sL(`${t} Withdrawals`, a); });
 
             if(this.state.mode==='Couple') {
@@ -1587,7 +1605,7 @@ class RetirementPlanner {
         if(document.getElementById('p1_db_lifetime_start_val')) document.getElementById('p1_db_lifetime_start_val').innerText = this.getRaw('p1_db_lifetime_start')||'60';
         if(document.getElementById('p1_db_bridge_start_val')) document.getElementById('p1_db_bridge_start_val').innerText = this.getRaw('p1_db_bridge_start')||'60';
         if(document.getElementById('p2_db_lifetime_start_val')) document.getElementById('p2_db_lifetime_start_val').innerText = this.getRaw('p2_db_lifetime_start')||'60';
-        if(document.getElementById('p2_db_bridge_start_val')) document.getElementById('p2_db_bridge_start_val').innerText = this.getRaw('p2_db_bridge_start')||'60';
+        if(document.getElementById('p2_db_bridge_start_val')) document.getElementById('p2_db_bridge_start_val').innerText = '60';
         
         if(document.getElementById('p1_oas_years_val')) document.getElementById('p1_oas_years_val').innerText = '40';
         if(document.getElementById('p2_oas_years_val')) document.getElementById('p2_oas_years_val').innerText = '40';
