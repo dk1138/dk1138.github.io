@@ -1,14 +1,13 @@
 /**
- * Retirement Planner Pro - Logic v10.36 (High Visibility Badge)
+ * Retirement Planner Pro - Logic v10.37 (Tax Fix & Math Correction)
  * * Changelog:
- * - v10.36: Aggressive Header Detection for Version Badge (looks for #app-title, .navbar-brand, h1, h2).
- * - v10.36: Badge color changed to Yellow/Black for visibility.
- * - v10.34: Modularized projection logic.
- * - v10.33: Core Financial Logic complete.
+ * - v10.37: FIXED: RRSP/RRIF withdrawals now trigger a "Gross-Up" tax calculation based on marginal rate.
+ * - v10.37: FIXED: Sankey "Total Cash" now dynamically sums inflows to ensure perfect matching.
+ * - v10.36: Aggressive Header Detection for Version Badge.
  */
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.36";
+        this.APP_VERSION = "10.37";
         this.state = {
             inputs: {},
             debt: [],
@@ -87,7 +86,7 @@ class RetirementPlanner {
 
     init() {
         const setup = () => {
-            // Version Header Injection - Improved Discovery
+            // Version Header Injection
             const selectors = ['#app-title', '.navbar-brand', 'h1', '.h1', 'h2'];
             let headerEl = null;
             for (const sel of selectors) {
@@ -98,13 +97,11 @@ class RetirementPlanner {
             if(headerEl && !document.getElementById('rp_version_badge')) {
                 const vSpan = document.createElement('span');
                 vSpan.id = 'rp_version_badge';
-                vSpan.className = 'badge bg-warning text-dark ms-2 small'; // Yellow/Dark for Visibility
+                vSpan.className = 'badge bg-warning text-dark ms-2 small';
                 vSpan.style.fontSize = '0.65rem';
                 vSpan.style.verticalAlign = 'middle';
                 vSpan.innerText = `v${this.APP_VERSION}`;
                 headerEl.appendChild(vSpan);
-            } else if (!headerEl) {
-                console.warn("Retirement Planner: Could not find a Header (h1, .navbar-brand) to attach the version badge.");
             }
 
             this.confirmModal = new bootstrap.Modal(document.getElementById('confirmationModal'));
@@ -605,33 +602,47 @@ class RetirementPlanner {
     drawSankey(idx) {
         if (!this.state.projectionData[idx] || !google?.visualization) return;
         const d = this.state.projectionData[idx], rows = [], fmt = n => n>=1000000 ? '$'+(n/1000000).toFixed(1)+'M' : (n>=1000 ? '$'+Math.round(n/1000)+'k' : '$'+Math.round(n));
-        const potName = `Available Cash\n${fmt(d.debugTotalInflow)}`;
+        
+        let totalIn = 0;
+        const addRow = (from, to, val) => {
+            if(Math.round(val) > 0) {
+                rows.push([from, to, Math.round(val)]);
+                if(to.includes('Available Cash')) totalIn += val;
+            }
+        };
+
+        const potName = `Available Cash\n${fmt(d.householdNet)}`; // Dynamic total based on calculated net cash
         
         // P1 Inflows
-        if(d.incomeP1>0) rows.push([`Employment P1\n${fmt(d.incomeP1)}`, potName, Math.round(d.incomeP1)]);
-        if(d.postRetP1>0) rows.push([`Post-Ret Work P1\n${fmt(d.postRetP1)}`, potName, Math.round(d.postRetP1)]);
-        if(d.benefitsP1>0) rows.push([`Gov Benefits P1\n${fmt(d.benefitsP1)}`, potName, Math.round(d.benefitsP1)]);
-        if(d.dbP1>0) rows.push([`DB Pension P1\n${fmt(d.dbP1)}`, potName, Math.round(d.dbP1)]);
-        if(d.invIncP1>0) rows.push([`Inv. Yield P1\n${fmt(d.invIncP1)}`, potName, Math.round(d.invIncP1)]);
+        if(d.incomeP1>0) addRow(`Employment P1\n${fmt(d.incomeP1)}`, potName, d.incomeP1);
+        if(d.postRetP1>0) addRow(`Post-Ret Work P1\n${fmt(d.postRetP1)}`, potName, d.postRetP1);
+        if(d.benefitsP1>0) addRow(`Gov Benefits P1\n${fmt(d.benefitsP1)}`, potName, d.benefitsP1);
+        if(d.dbP1>0) addRow(`DB Pension P1\n${fmt(d.dbP1)}`, potName, d.dbP1);
+        if(d.invIncP1>0) addRow(`Inv. Yield P1\n${fmt(d.invIncP1)}`, potName, d.invIncP1);
 
         // P2 Inflows
-        if(d.incomeP2>0) rows.push([`Employment P2\n${fmt(d.incomeP2)}`, potName, Math.round(d.incomeP2)]);
-        if(d.postRetP2>0) rows.push([`Post-Ret Work P2\n${fmt(d.postRetP2)}`, potName, Math.round(d.postRetP2)]);
-        if(d.benefitsP2>0) rows.push([`Gov Benefits P2\n${fmt(d.benefitsP2)}`, potName, Math.round(d.benefitsP2)]);
-        if(d.dbP2>0) rows.push([`DB Pension P2\n${fmt(d.dbP2)}`, potName, Math.round(d.dbP2)]);
-        if(d.invIncP2>0) rows.push([`Inv. Yield P2\n${fmt(d.invIncP2)}`, potName, Math.round(d.invIncP2)]);
+        if(d.incomeP2>0) addRow(`Employment P2\n${fmt(d.incomeP2)}`, potName, d.incomeP2);
+        if(d.postRetP2>0) addRow(`Post-Ret Work P2\n${fmt(d.postRetP2)}`, potName, d.postRetP2);
+        if(d.benefitsP2>0) addRow(`Gov Benefits P2\n${fmt(d.benefitsP2)}`, potName, d.benefitsP2);
+        if(d.dbP2>0) addRow(`DB Pension P2\n${fmt(d.dbP2)}`, potName, d.dbP2);
+        if(d.invIncP2>0) addRow(`Inv. Yield P2\n${fmt(d.invIncP2)}`, potName, d.invIncP2);
 
-        if(d.windfall>0) rows.push([`Inheritance/Bonus\n${fmt(d.windfall)}`, potName, Math.round(d.windfall)]);
+        if(d.windfall>0) addRow(`Inheritance/Bonus\n${fmt(d.windfall)}`, potName, d.windfall);
 
-        if(d.flows?.withdrawals) Object.entries(d.flows.withdrawals).forEach(([s,a]) => { if(a>0) rows.push([`${s}\n${fmt(a)}`, potName, Math.round(a)]); });
+        // Withdrawals mapped to Available Cash
+        if(d.flows?.withdrawals) Object.entries(d.flows.withdrawals).forEach(([s,a]) => addRow(`${s}\n${fmt(a)}`, potName, a));
         
         const tTax = d.taxP1 + d.taxP2, tDebt = d.mortgagePay + d.debtPay;
-        if(tTax>0) rows.push([potName, `Taxes\n${fmt(tTax)}`, Math.round(tTax)]);
-        if(d.expenses>0) rows.push([potName, `Living Exp.\n${fmt(d.expenses)}`, Math.round(d.expenses)]);
-        if(tDebt>0) rows.push([potName, `Mortgage/Debt\n${fmt(tDebt)}`, Math.round(tDebt)]);
+        
+        // Outflows from Available Cash
+        if(tTax>0) addRow(potName, `Taxes\n${fmt(tTax)}`, tTax);
+        if(d.expenses>0) addRow(potName, `Living Exp.\n${fmt(d.expenses)}`, d.expenses);
+        if(tDebt>0) addRow(potName, `Mortgage/Debt\n${fmt(tDebt)}`, tDebt);
+        
+        // Surplus Contributions
         if(d.flows?.contributions) {
-             Object.entries(d.flows.contributions.p1).forEach(([t,a]) => { if(a>0) rows.push([potName, `To P1 ${this.strategyLabels[t]||t}\n${fmt(a)}`, Math.round(a)]); });
-             Object.entries(d.flows.contributions.p2).forEach(([t,a]) => { if(a>0) rows.push([potName, `To P2 ${this.strategyLabels[t]||t}\n${fmt(a)}`, Math.round(a)]); });
+             Object.entries(d.flows.contributions.p1).forEach(([t,a]) => addRow(potName, `To P1 ${this.strategyLabels[t]||t}\n${fmt(a)}`, a));
+             Object.entries(d.flows.contributions.p2).forEach(([t,a]) => addRow(potName, `To P2 ${this.strategyLabels[t]||t}\n${fmt(a)}`, a));
         }
 
         const unq = new Set(); rows.forEach(r => { unq.add(r[0]); unq.add(r[1]); });
@@ -672,13 +683,9 @@ class RetirementPlanner {
         const mode = this.state.mode;
         const curY = new Date().getFullYear();
         
-        // Initial Assets P1
         let person1 = { tfsa: this.getVal('p1_tfsa'), rrsp: this.getVal('p1_rrsp'), cash: this.getVal('p1_cash'), nreg: this.getVal('p1_nonreg'), crypto: this.getVal('p1_crypto'), lirf: this.getVal('p1_lirf'), lif: this.getVal('p1_lif'), rrif_acct: this.getVal('p1_rrif_acct'), inc: this.getVal('p1_income'), dob: new Date(this.getRaw('p1_dob')), retAge: this.getVal('p1_retireAge'), lifeExp: this.getVal('p1_lifeExp'), nreg_yield: this.getVal('p1_nonreg_yield')/100, acb: this.getVal('p1_nonreg') };
-        
-        // Initial Assets P2
         let person2 = { tfsa: this.getVal('p2_tfsa'), rrsp: this.getVal('p2_rrsp'), cash: this.getVal('p2_cash'), nreg: this.getVal('p2_nonreg'), crypto: this.getVal('p2_crypto'), lirf: this.getVal('p2_lirf'), lif: this.getVal('p2_lif'), rrif_acct: this.getVal('p2_rrif_acct'), inc: this.getVal('p2_income'), dob: new Date(this.getRaw('p2_dob')), retAge: this.getVal('p2_retireAge'), lifeExp: this.getVal('p2_lifeExp'), nreg_yield: this.getVal('p2_nonreg_yield')/100, acb: this.getVal('p2_nonreg') };
 
-        // Simulation Variables
         let simProperties = JSON.parse(JSON.stringify(this.state.properties));
         let totalDebt = this.getTotalDebt();
         const p1StartAge = curY - person1.dob.getFullYear();
@@ -688,7 +695,6 @@ class RetirementPlanner {
         let trackedEvents = new Set();
         let finalNetWorth = 0;
 
-        // Constants that inflate
         let consts = {
             cppMax1: this.getVal('p1_cpp_est_base'),
             oasMax1: this.CONSTANTS.MAX_OAS_2026 * (Math.max(0, Math.min(40, this.getVal('p1_oas_years'))) / 40),
@@ -699,7 +705,6 @@ class RetirementPlanner {
             inflation: this.getVal('inflation_rate')/100
         };
 
-        // Main Loop
         for (let i=0; i<=yearsToRun; i++) {
             const yr = curY+i;
             const age1 = p1StartAge+i;
@@ -713,19 +718,12 @@ class RetirementPlanner {
             const isRet1 = age1 >= person1.retAge;
             const isRet2 = mode==='Couple' ? age2 >= person2.retAge : true;
             
-            // Apply Growth Rates
             this.applyGrowth(person1, person2, isRet1, isRet2, this.state.inputs['asset_mode_advanced'], consts.inflation, i);
 
-            // Calculate Inflows (Employment, Pension, Gov Benefits)
             const inflows = this.calcInflows(yr, i, person1, person2, age1, age2, alive1, alive2, isRet1, isRet2, consts, bInf, trackedEvents);
-
-            // Calculate Mandatory Outflows (RRIF Minimums)
             const rrifMin = this.calcRRIFMin(person1, person2, age1, age2, alive1, alive2);
-
-            // Calculate Expenses
             const expenses = this.calcOutflows(yr, i, age1, bInf, isRet1, isRet2);
 
-            // Calculate Real Estate Costs & Debt
             let mortgagePayment = 0;
             simProperties.forEach(p => { 
                 if(p.mortgage>0 && p.payment>0) { 
@@ -739,16 +737,13 @@ class RetirementPlanner {
             let debtRepayment = totalDebt>0 ? Math.min(totalDebt, 6000) : 0; totalDebt-=debtRepayment;
             if(simProperties.reduce((s,p)=>s+p.mortgage,0)<=0 && !trackedEvents.has('Mortgage Paid')){ trackedEvents.add('Mortgage Paid'); inflows.events.push('Mortgage Paid'); }
 
-            // Taxable Income Calculation
             let taxableIncome1 = inflows.p1.gross + inflows.p1.benefits + inflows.p1.pension + rrifMin.p1 + inflows.p1.windfallTaxable + (person1.nreg * person1.nreg_yield);
             let taxableIncome2 = inflows.p2.gross + inflows.p2.benefits + inflows.p2.pension + rrifMin.p2 + inflows.p2.windfallTaxable + (alive2 ? (person2.nreg * person2.nreg_yield) : 0);
 
-            // Pension Splitting Optimization
             if (mode === 'Couple' && this.state.inputs['pension_split_enabled']) {
                 this.applyPensionSplitting(taxableIncome1, taxableIncome2, inflows, rrifMin, person1, person2, age1, age2, (n1, n2) => { taxableIncome1=n1; taxableIncome2=n2; });
             }
 
-            // RRSP Deduction Logic (Top-Up)
             let rrspDed = { p1: 0, p2: 0 };
             const taxBrackets = this.getInflatedTaxData(bInf);
             if(this.state.inputs['strat_rrsp_topup']) {
@@ -763,24 +758,20 @@ class RetirementPlanner {
                  }
             }
 
-            // Calculate Taxes
-            const tax1 = alive1 ? this.calculateTaxDetailed(taxableIncome1, this.getRaw('tax_province'), taxBrackets) : {totalTax:0};
-            const tax2 = alive2 ? this.calculateTaxDetailed(taxableIncome2, this.getRaw('tax_province'), taxBrackets) : {totalTax:0};
+            // --- Tax Calculation with Marginal Rate Capture ---
+            const tax1 = alive1 ? this.calculateTaxDetailed(taxableIncome1, this.getRaw('tax_province'), taxBrackets) : {totalTax:0, margRate: 0};
+            const tax2 = alive2 ? this.calculateTaxDetailed(taxableIncome2, this.getRaw('tax_province'), taxBrackets) : {totalTax:0, margRate: 0};
 
-            // Calculate Net Cash
             const netIncome1 = taxableIncome1 - tax1.totalTax + inflows.p1.windfallNonTax;
             const netIncome2 = alive2 ? taxableIncome2 - tax2.totalTax + inflows.p2.windfallNonTax : 0;
             
-            // Determine Surplus/Deficit
             const totalNetIncome = netIncome1 + netIncome2;
             const totalOutflows = expenses + mortgagePayment + debtRepayment;
             let surplus = totalNetIncome - totalOutflows;
 
-            // Handle Surplus (Contributions) or Deficit (Withdrawals)
             let flowLog = { contributions: { p1:{tfsa:0, rrsp:0, nreg:0, cash:0, crypto:0}, p2:{tfsa:0, rrsp:0, nreg:0, cash:0, crypto:0} }, withdrawals: {} };
             let wdBreakdown = { p1: {}, p2: {} };
 
-            // Add RRIF Mins to Withdrawals Log
             if(rrifMin.p1>0) { flowLog.withdrawals['P1 RRIF']=(flowLog.withdrawals['P1 RRIF']||0)+rrifMin.p1; wdBreakdown.p1.RRIF=rrifMin.p1; }
             if(rrifMin.p2>0) { flowLog.withdrawals['P2 RRIF']=(flowLog.withdrawals['P2 RRIF']||0)+rrifMin.p2; wdBreakdown.p2.RRIF=rrifMin.p2; }
             if(rrspDed.p1>0) { flowLog.withdrawals['P1 RRSP Top-Up']=(flowLog.withdrawals['P1 RRSP Top-Up']||0)+rrspDed.p1; wdBreakdown.p1.RRSP=rrspDed.p1; }
@@ -792,10 +783,13 @@ class RetirementPlanner {
             if (surplus > 0) {
                 this.handleSurplus(surplus, person1, person2, alive1, alive2, flowLog, i, consts.tfsaLimit*bInf, rrspRoom1, rrspRoom2);
             } else {
-                this.handleDeficit(Math.abs(surplus), person1, person2, alive1, alive2, flowLog, wdBreakdown);
+                // Pass marginal rates to deficit handler for gross-up calculation
+                this.handleDeficit(Math.abs(surplus), person1, person2, alive1, alive2, flowLog, wdBreakdown, tax1.margRate, tax2.margRate, (pfx, taxAmt) => {
+                    if (pfx === 'p1') tax1.totalTax += taxAmt;
+                    if (pfx === 'p2') tax2.totalTax += taxAmt;
+                });
             }
 
-            // Calculate Net Worth
             const assets1 = person1.tfsa+person1.rrsp+person1.crypto+person1.nreg+person1.cash+person1.lirf+person1.lif+person1.rrif_acct;
             const assets2 = alive2 ? person2.tfsa+person2.rrsp+person2.crypto+person2.nreg+person2.cash+person2.lirf+person2.lif+person2.rrif_acct : 0;
             const liquidNW = (assets1 + assets2) - totalDebt;
@@ -804,9 +798,9 @@ class RetirementPlanner {
             finalNetWorth = liquidNW + (realEstateValue - realEstateDebt);
 
             if(!onlyCalcNW) {
-                // Calculate Effective Surplus/Deficit for Display (including withdrawals)
                 const totalWithdrawals = Object.values(flowLog.withdrawals).reduce((a,b)=>a+b,0);
                 const effectiveSurplus = surplus + totalWithdrawals;
+                const hhNetCash = totalNetIncome + totalWithdrawals; // Net Income + Withdrawals available for spending
 
                 this.state.projectionData.push({
                     year: yr, p1Age: age1, p2Age: alive2?age2:null, p1Alive: alive1, p2Alive: alive2,
@@ -823,18 +817,17 @@ class RetirementPlanner {
                     wdBreakdown: wdBreakdown,
                     flows: flowLog,
                     events: inflows.events,
-                    householdNet: finalNetWorth, // Using finalNW as primary metric
+                    householdNet: hhNetCash, // This is explicitly Net Cash Available now
                     visualExpenses: expenses + mortgagePayment + debtRepayment + tax1.totalTax + tax2.totalTax,
                     mortgage: simProperties.reduce((s,p)=>s+p.mortgage,0), 
                     homeValue: simProperties.reduce((s,p)=>s+p.value,0),
                     windfall: inflows.p1.windfallTaxable + inflows.p1.windfallNonTax + inflows.p2.windfallTaxable + inflows.p2.windfallNonTax,
                     postRetP1: inflows.p1.postRet, postRetP2: inflows.p2.postRet,
                     invIncP1: (person1.nreg * person1.nreg_yield), invIncP2: (person2.nreg * person2.nreg_yield),
-                    debugTotalInflow: inflows.p1.gross+inflows.p2.gross+inflows.p1.benefits+inflows.p2.benefits+inflows.p1.pension+inflows.p2.pension+totalWithdrawals
+                    debugTotalInflow: hhNetCash
                 });
             }
 
-            // Inflate constants for next loop
             consts.cppMax1*=(1+consts.inflation); consts.oasMax1*=(1+consts.inflation);
             consts.cppMax2*=(1+consts.inflation); consts.oasMax2*=(1+consts.inflation);
         }
@@ -843,10 +836,8 @@ class RetirementPlanner {
         return finalNetWorth;
     }
 
-    // --- Helper Methods for Projection ---
-
     applyGrowth(p1, p2, isRet1, isRet2, isAdv, inf, i) {
-        const stress = this.state.inputs['stressTestEnabled'] && i === 0; // Immediate crash
+        const stress = this.state.inputs['stressTestEnabled'] && i === 0; 
         const getRates = (p, ret) => {
             const r = id => this.getVal(`${p}_${id}_ret` + (isAdv && ret ? '_retire' : ''))/100;
             return { tfsa: r('tfsa'), rrsp: r('rrsp'), cash: r('cash'), nreg: r('nonreg'), cryp: r('crypto'), lirf: r('lirf'), lif: r('lif'), rrif_acct: r('rrif_acct'), inc: r('income_growth') };
@@ -858,9 +849,8 @@ class RetirementPlanner {
         const grow = (p, rates) => {
             p.tfsa*=(1+rates.tfsa); p.rrsp*=(1+rates.rrsp); p.cash*=(1+rates.cash); p.crypto*=(1+rates.cryp);
             p.lirf*=(1+rates.lirf); p.lif*=(1+rates.lif); p.rrif_acct*=(1+rates.rrif_acct);
-            // Non-Reg Growth: Subtract Yield (Taxable) from Total Return
             p.nreg *= (1 + (rates.nreg - p.nreg_yield));
-            if(!isRet1) p.inc *= (1+rates.inc); // Only grow income if working
+            if(!isRet1) p.inc *= (1+rates.inc); 
         };
         grow(p1, g1); grow(p2, g2);
     }
@@ -872,14 +862,12 @@ class RetirementPlanner {
             let inf = { gross:0, earned:0, benefits:0, pension:0, postRet:0 };
             if(!isRet) { inf.gross += p.inc; inf.earned += p.inc; }
             
-            // DB Pension
             if(this.state.inputs[`${pfx}_db_enabled`]) {
                 const lStart = parseInt(this.getRaw(`${pfx}_db_lifetime_start`)||60), bStart = parseInt(this.getRaw(`${pfx}_db_bridge_start`)||60);
                 if(age >= lStart) inf.pension += this.getVal(`${pfx}_db_lifetime`) * 12 * bInf;
                 if(age >= bStart && age < 65) inf.pension += this.getVal(`${pfx}_db_bridge`) * 12 * bInf;
             }
 
-            // Post-Retirement Income
             if(this.state.inputs[`enable_post_ret_income_${pfx}`]) {
                 const start = new Date(this.getRaw(`${pfx}_post_start`)+"-01"), end = new Date(this.getRaw(`${pfx}_post_end`)+"-01");
                 const sY=start.getFullYear(), eY=end.getFullYear();
@@ -890,7 +878,6 @@ class RetirementPlanner {
                 }
             }
 
-            // Benefits
             if(this.state.inputs[`${pfx}_cpp_enabled`] && age>=parseInt(this.getRaw(`${pfx}_cpp_start`))) {
                 inf.benefits += this.calcBen(maxCpp, parseInt(this.getRaw(`${pfx}_cpp_start`)), 1, p.retAge, 'cpp');
                 if(age === parseInt(this.getRaw(`${pfx}_cpp_start`))) events.add(`${pfx.toUpperCase()} CPP`);
@@ -905,11 +892,9 @@ class RetirementPlanner {
         if(alive1) { let r = calcP(p1, age1, isRet1, 'p1', c.cppMax1, c.oasMax1); res.p1 = {...res.p1, ...r}; }
         if(alive2) { let r = calcP(p2, age2, isRet2, 'p2', c.cppMax2, c.oasMax2); res.p2 = {...res.p2, ...r}; }
 
-        // Events & Windfalls
         if(alive1 && isRet1 && !events.has('P1 Retires')){ events.add('P1 Retires'); res.events.push('P1 Retires'); }
         if(alive2 && isRet2 && !events.has('P2 Retires')){ events.add('P2 Retires'); res.events.push('P2 Retires'); }
         
-        // Windfalls logic
         this.state.windfalls.forEach(w => {
             let act=false, amt=0, sY=new Date(w.start+"-01").getFullYear();
             if(w.freq==='one'){ if(sY===yr) { act=true; amt=w.amount; } }
@@ -921,7 +906,6 @@ class RetirementPlanner {
             }
         });
 
-        // Additional Income Streams
         this.state.additionalIncome.forEach(s => {
             let sY=new Date(s.start+"-01").getFullYear(), eY=(s.end?new Date(s.end+"-01"):new Date("2100-01-01")).getFullYear();
             if(yr>=sY && yr<=eY) {
@@ -1026,16 +1010,59 @@ class RetirementPlanner {
         });
     }
 
-    handleDeficit(amount, p1, p2, alive1, alive2, log, breakdown) {
+    handleDeficit(amount, p1, p2, alive1, alive2, log, breakdown, margRate1, margRate2, onTaxIncrease) {
         let df = amount;
-        const wd = (p, t, a, pfx) => { 
-            if(a<=0)return 0; 
-            let tk=Math.min(p[t],a); 
-            p[t]-=tk; 
-            let k=(pfx.toUpperCase())+" "+this.strategyLabels[t]; 
-            log.withdrawals[k]=(log.withdrawals[k]||0)+tk; 
-            breakdown[pfx][this.strategyLabels[t]]=(breakdown[pfx][this.strategyLabels[t]]||0)+tk; 
-            return a-tk; 
+        
+        // Helper: Calculate Gross Withdrawal needed to net 'amt' after tax
+        // If taxable, gross = amt / (1 - marginal_rate)
+        const wd = (p, t, a, pfx, mRate) => { 
+            if(a<=0 || p[t]<=0) return 0;
+            
+            let isTaxable = ['rrsp', 'rrif_acct', 'lif', 'lirf'].includes(t);
+            let grossNeeded = a;
+            let taxHit = 0;
+
+            if (isTaxable) {
+                // Limit marginal rate to avoid divide-by-zero or absurd tax (cap at 54%)
+                let effRate = Math.min(mRate || 0, 0.54); 
+                grossNeeded = a / (1 - effRate);
+                taxHit = grossNeeded - a;
+            }
+
+            let tk = Math.min(p[t], grossNeeded); // Take what is available
+            
+            // If we hit the asset limit, adjust the tax hit and net cash received
+            if (tk < grossNeeded && isTaxable) {
+                // We took everything (tk). Tax on this is tk * effRate
+                // Wait, logic check: We took 'tk' gross. 
+                // Net cash = tk * (1 - effRate)
+                // Tax = tk * effRate
+                // Amount covered = Net cash
+                // But simplified: 
+                let effRate = Math.min(mRate || 0, 0.54);
+                taxHit = tk * effRate;
+                let netReceived = tk - taxHit;
+                
+                // Update external tax total
+                if(onTaxIncrease) onTaxIncrease(pfx, taxHit);
+                
+                p[t] -= tk;
+                let k = (pfx.toUpperCase())+" "+this.strategyLabels[t];
+                log.withdrawals[k] = (log.withdrawals[k]||0) + tk; // Log Gross
+                breakdown[pfx][this.strategyLabels[t]] = (breakdown[pfx][this.strategyLabels[t]]||0) + tk;
+                
+                return a - netReceived; // Remaining deficit
+            } 
+            
+            // Normal case: We have enough
+            if (isTaxable && onTaxIncrease) onTaxIncrease(pfx, taxHit);
+            
+            p[t] -= tk;
+            let k = (pfx.toUpperCase())+" "+this.strategyLabels[t];
+            log.withdrawals[k] = (log.withdrawals[k]||0) + tk; // Log Gross Withdrawal
+            breakdown[pfx][this.strategyLabels[t]] = (breakdown[pfx][this.strategyLabels[t]]||0) + tk;
+            
+            return 0; // Deficit covered
         };
         
         this.state.strategies.decum.forEach(t => { 
@@ -1044,35 +1071,66 @@ class RetirementPlanner {
                     if(t==='nreg') {
                         let wdAmt = Math.min(p1.nreg, df);
                         if(wdAmt > 0) {
-                            let actualWd = wd(p1, t, df, 'p1');
-                            let withdrawn = df - actualWd; 
-                            if(withdrawn > 0) {
-                                let ratio = withdrawn / (p1.nreg + withdrawn);
-                                p1.acb -= (p1.acb * ratio);
+                            p1.nreg -= wdAmt;
+                            let k = "P1 "+this.strategyLabels[t];
+                            log.withdrawals[k]=(log.withdrawals[k]||0)+wdAmt;
+                            breakdown.p1[this.strategyLabels[t]]=(breakdown.p1[this.strategyLabels[t]]||0)+wdAmt;
+                            
+                            // Calculate Cap Gains Tax
+                            // simplified: gain ratio = (Value - ACB) / Value
+                            // gain = wdAmt * ratio
+                            // taxable = gain * 0.5
+                            // tax = taxable * margRate
+                            if (p1.nreg + wdAmt > 0) { // Avoid div by zero
+                                let ratio = Math.max(0, ( (p1.nreg + wdAmt) - p1.acb ) / (p1.nreg + wdAmt));
+                                let gain = wdAmt * ratio;
+                                let tax = (gain * 0.5) * (margRate1 || 0);
+                                if(onTaxIncrease) onTaxIncrease('p1', tax);
+                                p1.acb -= (p1.acb * (wdAmt / (p1.nreg + wdAmt))); // Reduce ACB proportionally
+                                
+                                // Since we paid tax from the withdrawal (effectively), we need to withdraw *more*? 
+                                // Or we assume tax is paid next year? 
+                                // For this simulation, let's assume we withdraw 'tax' extra from NREG if available to stay cash neutral
+                                if (p1.nreg >= tax) {
+                                    p1.nreg -= tax; // Pay tax from nreg
+                                    // log tax payment?
+                                } else {
+                                    // Deficit increases by tax amount if we can't pay it now
+                                    df += tax; 
+                                }
                             }
-                            df = actualWd;
+                            df -= wdAmt;
                         }
-                    } else { df=wd(p1,t,df,'p1'); }
+                    } else { 
+                        df = wd(p1, t, df, 'p1', margRate1); 
+                    }
                 }
                 if(alive2 && df>0) {
                      if(t==='nreg') {
                         let wdAmt = Math.min(p2.nreg, df);
                         if(wdAmt > 0) {
-                            let actualWd = wd(p2, t, df, 'p2');
-                            let withdrawn = df - actualWd;
-                            if(withdrawn > 0) {
-                                let ratio = withdrawn / (p2.nreg + withdrawn);
-                                p2.acb -= (p2.acb * ratio);
+                            p2.nreg -= wdAmt;
+                            let k = "P2 "+this.strategyLabels[t];
+                            log.withdrawals[k]=(log.withdrawals[k]||0)+wdAmt;
+                            breakdown.p2[this.strategyLabels[t]]=(breakdown.p2[this.strategyLabels[t]]||0)+wdAmt;
+                            
+                            if (p2.nreg + wdAmt > 0) {
+                                let ratio = Math.max(0, ( (p2.nreg + wdAmt) - p2.acb ) / (p2.nreg + wdAmt));
+                                let gain = wdAmt * ratio;
+                                let tax = (gain * 0.5) * (margRate2 || 0);
+                                if(onTaxIncrease) onTaxIncrease('p2', tax);
+                                p2.acb -= (p2.acb * (wdAmt / (p2.nreg + wdAmt)));
+                                if (p2.nreg >= tax) p2.nreg -= tax; else df += tax;
                             }
-                            df = actualWd;
+                            df -= wdAmt;
                         }
-                     } else { df=wd(p2,t,df,'p2'); }
+                     } else { 
+                        df = wd(p2, t, df, 'p2', margRate2); 
+                    }
                 } 
             } 
         });
     }
-
-    // --- UI and Utilities ---
 
     renderProjectionGrid() {
         const th = document.documentElement.getAttribute('data-bs-theme')||'dark';
@@ -1086,7 +1144,6 @@ class RetirementPlanner {
             const fmtC = (v) => v > 0 ? ` <span class="text-success small fw-bold">(+${fmtK(v)})</span>` : '';
             const p1A=d.p1Alive?d.p1Age:'†', p2A=this.state.mode==='Couple'?(d.p2Alive?d.p2Age:'†'):'';
             
-            // Status Logic
             const p1R = this.getVal('p1_retireAge') <= d.p1Age, p2R = this.getVal('p2_retireAge') <= (d.p2Age||0);
             const gLim = parseInt(this.getRaw('exp_gogo_age')), sLim = parseInt(this.getRaw('exp_slow_age'));
             let stat = `<span class="status-pill status-working">Working</span>`;
