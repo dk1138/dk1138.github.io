@@ -1,6 +1,7 @@
 /**
- * Retirement Planner Pro - Logic v10.52 (Hotfix)
+ * Retirement Planner Pro - Logic v10.53
  * * Changelog:
+ * - v10.53: UI Update: Strategy tab now places Withdrawal Order drag-and-drop at the top.
  * - v10.52: FIXED: Syntax error in estimateCPPOAS function that prevented script loading.
  * - v10.51: FIXED: Monte Carlo now draws to the 'Risk' tab chart instead of a modal.
  * - v10.51: NEW: Visualizes P10, Median, and P90 trajectories.
@@ -9,7 +10,7 @@
 
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.52";
+        this.APP_VERSION = "10.53";
         this.state = {
             inputs: {},
             debt: [],
@@ -1437,7 +1438,7 @@ class RetirementPlanner {
             const p1A=d.p1Alive?d.p1Age:'†', p2A=this.state.mode==='Couple'?(d.p2Alive?d.p2Age:'†'):'';
             
             const p1R = this.getVal('p1_retireAge') <= d.p1Age, p2R = this.getVal('p2_retireAge') <= (d.p2Age||0);
-            const gLim = parseInt(this.getRaw('exp_gogo_age')), sLim = parseInt(this.getRaw('exp_slow_age'));
+            const gLim = parseInt(this.getRaw('exp_gogo_age'))||75, sLim = parseInt(this.getRaw('exp_slow_age'));
             let stat = `<span class="status-pill status-working">Working</span>`;
             if(this.state.mode==='Couple') { if(p1R&&p2R) stat = d.p1Age<gLim?`<span class="status-pill status-gogo">Go-go Phase</span>`:d.p1Age<sLim?`<span class="status-pill status-slow">Slow-go Phase</span>`:`<span class="status-pill status-nogo">No-go Phase</span>`; else if(p1R||p2R) stat = `<span class="status-pill status-semi">Transition</span>`; }
             else if(p1R) stat = d.p1Age<gLim?`<span class="status-pill status-gogo">Go-go Phase</span>`:d.p1Age<sLim?`<span class="status-pill status-slow">Slow-go Phase</span>`:`<span class="status-pill status-nogo">No-go Phase</span>`;
@@ -1592,8 +1593,32 @@ class RetirementPlanner {
 
     renderStrategy() {
         this.renderList('strat-accum-list', this.state.strategies.accum, 'accum', document.getElementById('strat-accum-container'));
-        const d = document.getElementById('strat-decumulation'); d.innerHTML = `<div class="card border-secondary mb-3 strategy-opt-box surface-card"><div class="card-header border-secondary text-uppercase small fw-bold text-muted"><i class="bi bi-stars text-warning me-2"></i>Optimization Strategies</div><div class="card-body p-3"><div class="form-check form-switch"><input class="form-check-input live-calc" type="checkbox" role="switch" id="strat_rrsp_topup" ${this.state.inputs['strat_rrsp_topup']?'checked':''}><label class="form-check-label small fw-bold" for="strat_rrsp_topup">RRSP Low-Income Top-Up<div class="text-muted fw-normal mt-1" style="font-size:0.75rem; line-height:1.2;">Withdraws RRSP to fill the lowest tax bracket (~$55k) in years with low income.</div></label></div></div></div><h6 class="small fw-bold mb-3 text-uppercase text-muted">Withdrawal Order (Drag to Reorder)</h6>`;
+        
+        const d = document.getElementById('strat-decumulation'); 
+        d.innerHTML = ''; 
+        
+        // Render List First (Top of Column)
         this.renderList('strat-decum-list', this.state.strategies.decum, 'decum', d);
+        
+        // Render RRSP Toggle Below (Clean UI)
+        // If the toggle already exists in HTML (via index.html update), we don't need to re-render it.
+        // However, to ensure backward compatibility if index.html isn't updated yet, we check.
+        if (!document.getElementById('strat_rrsp_topup')) {
+            const settingsDiv = document.createElement('div');
+            settingsDiv.className = 'mt-4 pt-3 border-top border-secondary';
+            settingsDiv.innerHTML = `
+                <div class="form-check form-switch">
+                    <input class="form-check-input live-calc" type="checkbox" role="switch" id="strat_rrsp_topup" ${this.state.inputs['strat_rrsp_topup']?'checked':''}>
+                    <label class="form-check-label small fw-bold" for="strat_rrsp_topup">
+                        RRSP Low-Income Top-Up
+                        <div class="text-muted fw-normal mt-1" style="font-size:0.75rem; line-height:1.2;">
+                            Withdraws RRSP to fill the lowest tax bracket (~$55k) in years with low income.
+                        </div>
+                    </label>
+                </div>
+            `;
+            d.appendChild(settingsDiv);
+        }
     }
 
     renderList(id, arr, type, cont) {
