@@ -438,66 +438,6 @@
                         </div>
                       </div>
                       
-                      <div class="row g-4 mb-4 py-4 border-top border-bottom border-secondary align-items-center bg-black bg-opacity-10 rounded-3 mx-0 mt-2">
-                        <div class="col-12">
-                            <div class="d-flex align-items-center mb-3">
-                                <h6 class="text-light mb-0 fw-bold text-uppercase ls-1">Post-Retirement Income</h6>
-                                <button type="button" class="btn btn-link p-0 ms-2 text-muted info-btn" data-bs-toggle="popover" data-bs-title="Post-Retirement Work" data-bs-content="Income earned after your official retirement age (e.g. consulting, part-time work). This is added to your total income but treated separately from your main career earnings.">
-                                  <i class="bi bi-info-circle"></i>
-                                </button>
-                            </div>
-                            <div class="row">
-                                <div class="col-12 col-md-6">
-                                  <div class="form-check form-switch d-flex align-items-center gap-2 mb-0">
-                                    <input class="form-check-input live-calc mt-0 fs-5" type="checkbox" id="enable_post_ret_income_p1">
-                                    <label class="form-check-label fw-medium" for="enable_post_ret_income_p1">Enable P1 Post-Retirement Work</label>
-                                  </div>
-                                </div>
-                                <div class="col-12 col-md-6 p2-column">
-                                  <div class="form-check form-switch d-flex align-items-center gap-2 mb-0">
-                                    <input class="form-check-input live-calc mt-0 fs-5" type="checkbox" id="enable_post_ret_income_p2">
-                                    <label class="form-check-label fw-medium" for="enable_post_ret_income_p2">Enable P2 Post-Retirement Work</label>
-                                  </div>
-                                </div>
-                            </div>
-                        </div>
-                      </div>
-                      
-                      <div id="post-ret-income-container">
-                        <div class="row g-4 mb-4">
-                          <div class="col-12 col-xl-6">
-                            <div class="card h-100 border-secondary surface-card shadow-none" id="p1-post-ret-card" style="display:none;">
-                              <div class="card-body p-4">
-                                <h6 class="text-info fw-bold text-uppercase ls-1 mb-4 pb-2 border-bottom border-secondary">P1 Post-Ret Income</h6>
-                                <div class="row g-3 mb-3">
-                                  <div class="col-8"><label class="form-label">Annual Amount</label><div class="input-group"><span class="input-group-text">$</span><input type="text" class="form-control live-calc formatted-num" id="p1_post_inc" value="20,000"></div></div>
-                                  <div class="col-4"><label class="form-label">Growth %</label><div class="input-group"><input type="text" class="form-control live-calc formatted-num" id="p1_post_growth" value="2.0"><span class="input-group-text">%</span></div></div>
-                                </div>
-                                <div class="row g-3">
-                                  <div class="col-6"><label class="form-label">Start Month/Year</label><input type="month" class="form-control live-calc" id="p1_post_start"></div>
-                                  <div class="col-6"><label class="form-label">End Month/Year</label><input type="month" class="form-control live-calc" id="p1_post_end"></div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                          <div class="col-12 col-xl-6 p2-column">
-                            <div class="card h-100 border-secondary surface-card shadow-none" id="p2-post-ret-card" style="display:none;">
-                              <div class="card-body p-4">
-                                <h6 class="text-purple fw-bold text-uppercase ls-1 mb-4 pb-2 border-bottom border-secondary" style="color: var(--purple);">P2 Post-Ret Income</h6>
-                                <div class="row g-3 mb-3">
-                                  <div class="col-8"><label class="form-label">Annual Amount</label><div class="input-group"><span class="input-group-text">$</span><input type="text" class="form-control live-calc formatted-num" id="p2_post_inc" value="15,000"></div></div>
-                                  <div class="col-4"><label class="form-label">Growth %</label><div class="input-group"><input type="text" class="form-control live-calc formatted-num" id="p2_post_growth" value="2.0"><span class="input-group-text">%</span></div></div>
-                                </div>
-                                <div class="row g-3">
-                                  <div class="col-6"><label class="form-label">Start Month/Year</label><input type="month" class="form-control live-calc" id="p2_post_start"></div>
-                                  <div class="col-6"><label class="form-label">End Month/Year</label><input type="month" class="form-control live-calc" id="p2_post_end"></div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      
                       <div class="card border-primary border-opacity-50 bg-primary bg-opacity-10 mt-2">
                         <div class="card-body p-4">
                           <div class="row text-center align-items-center">
@@ -513,20 +453,6 @@
                         </div>
                       </div>
                       
-                      <div class="row g-4 mt-2 p2-column">
-                        <div class="col-12">
-                            <div class="p-3 border border-secondary rounded-3 surface-card bg-info bg-opacity-10">
-                                <div class="form-check form-switch d-flex align-items-center gap-3 ms-4">
-                                    <input class="form-check-input live-calc fs-4 mt-0" type="checkbox" id="pension_split_enabled">
-                                    <div>
-                                        <label class="form-check-label fw-bold" for="pension_split_enabled">Enable Pension Income Splitting</label>
-                                        <div class="small text-muted">Automatically optimizes taxes by splitting eligible pension income (RRIF, LIF, DB Pension) between spouses aged 65+.</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                      </div>
-
                     </div>
                   </div>
 
@@ -572,12 +498,14 @@
                   </div>
 
                   <div class="card mb-4 border-secondary shadow-sm">
-                    <div class="card-header d-flex align-items-center surface-card border-bottom border-secondary p-3">
-                      <i class="bi bi-credit-card-2-front text-danger fs-4 me-3"></i>
-                      <h5 class="mb-0 fw-bold text-uppercase ls-1 me-2">6. Other Liabilities</h5>
-                      <button type="button" class="btn btn-link p-0 text-muted info-btn" data-bs-toggle="popover" data-bs-title="Debts" data-bs-content="Track other debts like Car Loans, Student Loans, or LOCs. <br><b>Note:</b> Mortgages should be tracked in the Real Estate section above.">
-                        <i class="bi bi-info-circle"></i>
-                      </button>
+                    <div class="card-header d-flex align-items-center justify-content-between surface-card border-bottom border-secondary p-3">
+                      <div class="d-flex align-items-center">
+                        <i class="bi bi-credit-card-2-front text-danger fs-4 me-3"></i>
+                        <h5 class="mb-0 fw-bold text-uppercase ls-1 me-2">6. Other Liabilities</h5>
+                        <button type="button" class="btn btn-link p-0 text-muted info-btn" data-bs-toggle="popover" data-bs-title="Debts" data-bs-content="Track other debts like Car Loans, Student Loans, or LOCs. <br><b>Note:</b> Mortgages should be tracked in the Real Estate section above.">
+                            <i class="bi bi-info-circle"></i>
+                        </button>
+                      </div>
                     </div>
                     <div class="card-body p-4">
                       <div id="debt-container" class="mb-4"></div>
@@ -801,6 +729,21 @@
                           </div>
                         </div>
                       </div>
+
+                      <div class="row g-4 mt-2 p2-column">
+                        <div class="col-12">
+                            <div class="p-3 border border-secondary rounded-3 surface-card bg-info bg-opacity-10">
+                                <div class="form-check form-switch d-flex align-items-center gap-3 ms-4">
+                                    <input class="form-check-input live-calc fs-4 mt-0" type="checkbox" id="pension_split_enabled">
+                                    <div>
+                                        <label class="form-check-label fw-bold" for="pension_split_enabled">Enable Pension Income Splitting</label>
+                                        <div class="small text-muted">Automatically optimizes taxes by splitting eligible pension income (RRIF, LIF, DB Pension) between spouses aged 65+.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                      </div>
+
                     </div>
                   </div>
 
