@@ -1,14 +1,14 @@
 /**
- * Retirement Planner Pro - Logic v10.46 (HOTFIX: TFSA Over-withdrawal)
+ * Retirement Planner Pro - Logic v10.47 (Smart Income Streams & Post-Retirement Fix)
  * * Changelog:
- * - v10.46: FIXED: "Iterative Deficit" loop now correctly accounts for non-taxable withdrawals (TFSA/Capital) when calculating remaining deficit. 
- * Previously, TFSA withdrawals did not reduce the calculated deficit, causing the loop to run max times and withdraw 5x the needed amount.
+ * - v10.47: ENHANCED: Additional Income streams now support relative scheduling (e.g., "Start 0 years after retirement", "Lasts for 5 years").
+ * - v10.47: REMOVED: Legacy "Post-Retirement Income" hardcoded section (superseded by flexible streams).
+ * - v10.46: FIXED: "Iterative Deficit" loop now correctly accounts for non-taxable withdrawals (TFSA/Capital).
  * - v10.45: FIXED: "Surplus" calculation is now Iterative.
- * - v10.45: FIXED: Real Estate payment input is now debounced.
  */
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.46";
+        this.APP_VERSION = "10.47";
         this.state = {
             inputs: {},
             debt: [],
@@ -129,7 +129,6 @@ class RetirementPlanner {
             this.loadScenariosList(); 
             this.syncStateFromDOM(); 
             this.toggleModeDisplay(); 
-            this.updatePostRetIncomeVisibility(); 
             this.updateBenefitVisibility();
             this.updateAgeDisplay('p1'); 
             this.updateAgeDisplay('p2');
@@ -264,7 +263,7 @@ class RetirementPlanner {
                 document.querySelectorAll('.lbl-ret').forEach(el => el.innerText = isAdv ? 'Pre-Ret(%)' : 'Return (%)');
                 this.run();
             }
-            if (e.target.id === 'enable_post_ret_income_p1' || e.target.id === 'enable_post_ret_income_p2') this.updatePostRetIncomeVisibility();
+            // Removed post-ret income enable toggles logic
             if (e.target.classList.contains('live-calc') && (e.target.tagName === 'SELECT' || e.target.type === 'checkbox' || e.target.type === 'radio')) {
                 if(e.target.id && !e.target.id.startsWith('comp_')) this.state.inputs[e.target.id] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
                 if(e.target.id && e.target.id.includes('_enabled')) this.updateBenefitVisibility();
@@ -324,12 +323,10 @@ class RetirementPlanner {
                     if(field === 'payment') this.state.properties[idx].manual = true;
                     if(!['payment', 'name', 'includeInNW'].includes(field)) { this.state.properties[idx].manual = false; this.calculateSingleMortgage(idx); }
                     
-                    // Special debounce for manual payment entry to trigger payoff calc without jitter
                     if(field === 'payment') this.debouncedPayoffUpdate(idx);
                 }
                 if (cl.contains('formatted-num')) this.formatInput(e.target);
                 
-                // If it's not payment, run normal debounce
                 if(field !== 'payment') this.debouncedRun();
             }
             if (cl.contains('windfall-update')) {
@@ -341,8 +338,14 @@ class RetirementPlanner {
             }
             if (cl.contains('income-stream-update')) {
                 const { idx, field } = e.target.dataset;
-                let val = e.target.type === 'checkbox' ? e.target.checked : (['amount', 'growth'].includes(field) ? Number(e.target.value.replace(/,/g, '')) || 0 : e.target.value);
-                if (this.state.additionalIncome[idx]) this.state.additionalIncome[idx][field] = val;
+                let val = e.target.type === 'checkbox' ? e.target.checked : (['amount', 'growth', 'startRel', 'duration'].includes(field) ? Number(e.target.value.replace(/,/g, '')) || 0 : e.target.value);
+                if (this.state.additionalIncome[idx]) {
+                    this.state.additionalIncome[idx][field] = val;
+                    // Trigger re-render if mode changed to show correct inputs
+                    if (field === 'startMode' || field === 'endMode') {
+                        this.renderAdditionalIncome();
+                    }
+                }
                 if (cl.contains('formatted-num')) this.formatInput(e.target);
                 this.updateIncomeDisplay(); this.debouncedRun();
             }
@@ -413,12 +416,6 @@ class RetirementPlanner {
         }
     }
 
-    updatePostRetIncomeVisibility() {
-        const $ = id => document.getElementById(id);
-        if($('p1-post-ret-card')) $('p1-post-ret-card').style.display = ($('enable_post_ret_income_p1')?.checked) ? 'block' : 'none';
-        if($('p2-post-ret-card')) $('p2-post-ret-card').style.display = ($('enable_post_ret_income_p2')?.checked) ? 'block' : 'none';
-    }
-
     updateBenefitVisibility() {
         const toggles = ['p1_cpp', 'p1_oas', 'p1_db', 'p2_cpp', 'p2_oas', 'p2_db'];
         toggles.forEach(prefix => {
@@ -485,7 +482,7 @@ class RetirementPlanner {
             p2_cpp_enabled: true, p2_oas_enabled: true, p2_db_enabled: false,
             pension_split_enabled: false,
             cfg_tfsa_limit: '7,000', cfg_rrsp_limit: '32,960',
-            exp_gogo_age: '75', exp_slow_age: '85', enable_post_ret_income_p1: false, enable_post_ret_income_p2: false, p1_post_inc: '0', p1_post_growth: '2.0', p2_post_inc: '0', p2_post_growth: '2.0' 
+            exp_gogo_age: '75', exp_slow_age: '85'
         };
         
         document.querySelectorAll('input, select').forEach(el => {
@@ -518,7 +515,6 @@ class RetirementPlanner {
         if(document.getElementById('cfg_tfsa_limit')) document.getElementById('cfg_tfsa_limit').value = (this.getVal('cfg_tfsa_limit') || 7000).toLocaleString();
         if(document.getElementById('cfg_rrsp_limit')) document.getElementById('cfg_rrsp_limit').value = (this.getVal('cfg_rrsp_limit') || 32960).toLocaleString();
 
-        this.updatePostRetIncomeVisibility(); 
         this.updateBenefitVisibility();
     }
 
@@ -548,15 +544,104 @@ class RetirementPlanner {
     renderAdditionalIncome() {
         const cP1 = document.getElementById('p1-additional-income-container'), cP2 = document.getElementById('p2-additional-income-container');
         if(cP1) cP1.innerHTML = ''; if(cP2) cP2.innerHTML = '';
+        
         this.state.additionalIncome.forEach((w, idx) => {
             const tgt = w.owner === 'p2' ? cP2 : cP1; if(!tgt) return;
             const div = document.createElement('div'); div.className = 'income-stream-row p-3 border border-secondary rounded-3 bg-black bg-opacity-25 mt-3 mb-3';
-            div.innerHTML = `<div class="d-flex justify-content-between mb-3"><input type="text" class="form-control form-control-sm bg-transparent border-0 fw-bold text-info fs-6 income-stream-update px-0" placeholder="Stream Name" value="${w.name}" data-idx="${idx}" data-field="name"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-2 rounded-circle" onclick="app.removeAdditionalIncome(${idx})"><i class="bi bi-x-lg"></i></button></div><div class="row g-3 align-items-center mb-2"><div class="col-6"><label class="form-label small text-muted mb-1">Amount</label><div class="input-group input-group-sm"><span class="input-group-text border-secondary text-muted">$</span><input type="text" class="form-control border-secondary formatted-num income-stream-update" value="${w.amount.toLocaleString()}" data-idx="${idx}" data-field="amount"></div></div><div class="col-6"><label class="form-label small text-muted mb-1">Frequency</label><select class="form-select form-select-sm border-secondary income-stream-update" data-idx="${idx}" data-field="freq"><option value="month" ${w.freq==='month'?'selected':''}>/ Month</option><option value="year" ${w.freq==='year'?'selected':''}>/ Year</option></select></div></div><div class="row g-3 align-items-end"><div class="col-4"><label class="form-label small text-muted mb-1">Growth %</label><div class="input-group input-group-sm"><input type="number" step="0.1" class="form-control border-secondary income-stream-update" value="${w.growth}" data-idx="${idx}" data-field="growth"><span class="input-group-text border-secondary text-muted">%</span></div></div><div class="col-4"><label class="form-label small text-muted mb-1">Start Date</label><input type="month" class="form-control form-control-sm border-secondary income-stream-update" value="${w.start || new Date().toISOString().slice(0, 7)}" data-idx="${idx}" data-field="start"></div><div class="col-4"><label class="form-label small text-muted mb-1">End Date</label><input type="month" class="form-control form-control-sm border-secondary income-stream-update" value="${w.end}" data-idx="${idx}" data-field="end"></div></div><div class="row mt-3 pt-2 border-top border-secondary"><div class="col-12 d-flex justify-content-end"><div class="form-check"><input class="form-check-input income-stream-update" type="checkbox" id="inc_tax_${idx}" ${w.taxable?'checked':''} data-idx="${idx}" data-field="taxable"><label class="form-check-label text-muted small" for="inc_tax_${idx}">Is Taxable?</label></div></div></div>`;
-            tgt.appendChild(div); div.querySelectorAll('.formatted-num').forEach(el => el.addEventListener('input', e => this.formatInput(e.target)));
+            
+            // Set defaults if new fields missing
+            if(!w.startMode) w.startMode = 'date';
+            if(w.startRel === undefined) w.startRel = 0;
+            if(!w.endMode) w.endMode = 'date';
+            if(w.duration === undefined) w.duration = 5;
+
+            let startInputHtml = w.startMode === 'date' 
+                ? `<input type="month" class="form-control form-control-sm border-secondary income-stream-update" value="${w.start || new Date().toISOString().slice(0, 7)}" data-idx="${idx}" data-field="start">`
+                : `<div class="input-group input-group-sm"><input type="number" class="form-control border-secondary income-stream-update" value="${w.startRel}" data-idx="${idx}" data-field="startRel"><span class="input-group-text border-secondary text-muted">Yrs</span></div>`;
+
+            let endInputHtml = w.endMode === 'date'
+                ? `<input type="month" class="form-control form-control-sm border-secondary income-stream-update" value="${w.end}" data-idx="${idx}" data-field="end">`
+                : `<div class="input-group input-group-sm"><input type="number" class="form-control border-secondary income-stream-update" value="${w.duration}" data-idx="${idx}" data-field="duration"><span class="input-group-text border-secondary text-muted">Yrs</span></div>`;
+
+            div.innerHTML = `
+            <div class="d-flex justify-content-between mb-3">
+                <input type="text" class="form-control form-control-sm bg-transparent border-0 fw-bold text-info fs-6 income-stream-update px-0" placeholder="Stream Name" value="${w.name}" data-idx="${idx}" data-field="name">
+                <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2 rounded-circle" onclick="app.removeAdditionalIncome(${idx})"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="row g-3 align-items-center mb-2">
+                <div class="col-6">
+                    <label class="form-label small text-muted mb-1">Amount</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text border-secondary text-muted">$</span>
+                        <input type="text" class="form-control border-secondary formatted-num income-stream-update" value="${w.amount.toLocaleString()}" data-idx="${idx}" data-field="amount">
+                    </div>
+                </div>
+                <div class="col-6">
+                    <label class="form-label small text-muted mb-1">Frequency</label>
+                    <select class="form-select form-select-sm border-secondary income-stream-update" data-idx="${idx}" data-field="freq">
+                        <option value="month" ${w.freq==='month'?'selected':''}>/ Month</option>
+                        <option value="year" ${w.freq==='year'?'selected':''}>/ Year</option>
+                    </select>
+                </div>
+            </div>
+            <div class="row g-3 align-items-end mb-2">
+                <div class="col-6">
+                    <label class="form-label small text-muted mb-1">Start</label>
+                    <select class="form-select form-select-sm border-secondary income-stream-update mb-1" data-idx="${idx}" data-field="startMode" style="font-size: 0.75rem;">
+                        <option value="date" ${w.startMode==='date'?'selected':''}>Specific Date</option>
+                        <option value="ret_relative" ${w.startMode==='ret_relative'?'selected':''}>After Retirement</option>
+                    </select>
+                    ${startInputHtml}
+                </div>
+                <div class="col-6">
+                    <label class="form-label small text-muted mb-1">End</label>
+                    <select class="form-select form-select-sm border-secondary income-stream-update mb-1" data-idx="${idx}" data-field="endMode" style="font-size: 0.75rem;">
+                        <option value="date" ${w.endMode==='date'?'selected':''}>Specific Date</option>
+                        <option value="duration" ${w.endMode==='duration'?'selected':''}>Duration</option>
+                    </select>
+                    ${endInputHtml}
+                </div>
+            </div>
+            <div class="row mt-2">
+                <div class="col-6">
+                    <label class="form-label small text-muted mb-1">Growth %</label>
+                    <div class="input-group input-group-sm">
+                        <input type="number" step="0.1" class="form-control border-secondary income-stream-update" value="${w.growth}" data-idx="${idx}" data-field="growth">
+                        <span class="input-group-text border-secondary text-muted">%</span>
+                    </div>
+                </div>
+                <div class="col-6 d-flex align-items-end justify-content-end">
+                    <div class="form-check mb-1">
+                        <input class="form-check-input income-stream-update" type="checkbox" id="inc_tax_${idx}" ${w.taxable?'checked':''} data-idx="${idx}" data-field="taxable">
+                        <label class="form-check-label text-muted small" for="inc_tax_${idx}">Is Taxable?</label>
+                    </div>
+                </div>
+            </div>`;
+            tgt.appendChild(div); 
+            div.querySelectorAll('.formatted-num').forEach(el => el.addEventListener('input', e => this.formatInput(e.target)));
         });
     }
 
-    addAdditionalIncome(owner) { this.state.additionalIncome.push({ name: "Side Hustle", amount: 0, freq: 'month', owner, taxable: true, start: new Date().toISOString().slice(0, 7), end: '', growth: 2.0 }); this.renderAdditionalIncome(); this.updateIncomeDisplay(); this.run(); }
+    addAdditionalIncome(owner) { 
+        this.state.additionalIncome.push({ 
+            name: "Side Hustle / Consulting", 
+            amount: 0, 
+            freq: 'month', 
+            owner, 
+            taxable: true, 
+            startMode: 'date',
+            start: new Date().toISOString().slice(0, 7), 
+            startRel: 0,
+            endMode: 'date',
+            end: '', 
+            duration: 10,
+            growth: 2.0 
+        }); 
+        this.renderAdditionalIncome(); 
+        this.updateIncomeDisplay(); 
+        this.run(); 
+    }
+    
     removeAdditionalIncome(idx) { this.showConfirm("Remove income stream?", () => { this.state.additionalIncome.splice(idx, 1); this.renderAdditionalIncome(); this.updateIncomeDisplay(); this.run(); }); }
 
     renderProperties() {
@@ -814,7 +899,6 @@ class RetirementPlanner {
                     let cashFromNonTaxableWd = Math.max(0, currentWithdrawals - addedToTaxableIncome);
 
                     // Deficit = Total Outflows - (Net Income + Non-Taxable Cash generated by withdrawals)
-                    // Note: Taxable withdrawals are already inside 'dynTotalNet' because taxableIncome1/2 was updated.
                     let currentDeficit = totalOutflows - (dynTotalNet + cashFromNonTaxableWd);
                     
                     if (currentDeficit < 1) break; // Close enough
@@ -843,19 +927,14 @@ class RetirementPlanner {
             finalNetWorth = liquidNW + (realEstateValue - realEstateDebt);
 
             if(!onlyCalcNW) {
-                // Because we baked withdrawals into NetIncome during the loop, Surplus is accurate (should be ~0 or slightly positive from RRIF mins).
-                
-                const totalWithdrawals = Object.values(flowLog.withdrawals).reduce((a,b)=>a+b,0);
-                
                 // Gross Inflow for Display
+                const totalWithdrawals = Object.values(flowLog.withdrawals).reduce((a,b)=>a+b,0);
                 const p1GrossTotal = inflows.p1.gross + inflows.p1.cpp + inflows.p1.oas + inflows.p1.pension + inflows.p1.windfallTaxable + inflows.p1.windfallNonTax;
                 const p2GrossTotal = inflows.p2.gross + inflows.p2.cpp + inflows.p2.oas + inflows.p2.pension + inflows.p2.windfallTaxable + inflows.p2.windfallNonTax;
                 const totalYield = (person1.nreg * person1.nreg_yield) + (alive2 ? (person2.nreg * person2.nreg_yield) : 0);
                 const grossInflow = p1GrossTotal + p2GrossTotal + totalYield + totalWithdrawals;
                 
-                // We need to calculate what the "Surplus" value is for the grid (Cash remaining).
-                // Cash = (Base Net Income) + (Withdrawals Net of Tax?) 
-                // Easier: Total Net Cash = (Total Gross Inflow) - (Total Outflows + Taxes)
+                // Net Cash Surplus
                 const cashSurplus = grossInflow - (totalOutflows + tax1.totalTax + tax2.totalTax);
 
                 this.state.projectionData.push({
@@ -931,16 +1010,6 @@ class RetirementPlanner {
                 if(age >= bStart && age < 65) inf.pension += this.getVal(`${pfx}_db_bridge`) * 12 * bInf;
             }
 
-            if(this.state.inputs[`enable_post_ret_income_${pfx}`]) {
-                const start = new Date(this.getRaw(`${pfx}_post_start`)+"-01"), end = new Date(this.getRaw(`${pfx}_post_end`)+"-01");
-                const sY=start.getFullYear(), eY=end.getFullYear();
-                if(yr>=sY && yr<=eY) {
-                    let f=1; if(yr===sY) f=(12-start.getMonth())/12; if(yr===eY) f=Math.min(f, (end.getMonth()+1)/12);
-                    let val = this.getVal(`${pfx}_post_inc`) * Math.pow(1+(this.getVal(`${pfx}_post_growth`)/100), i) * f;
-                    inf.postRet += val; inf.gross += val; inf.earned += val;
-                }
-            }
-
             if(this.state.inputs[`${pfx}_cpp_enabled`] && age>=parseInt(this.getRaw(`${pfx}_cpp_start`))) {
                 inf.cpp = this.calcBen(maxCpp, parseInt(this.getRaw(`${pfx}_cpp_start`)), 1, p.retAge, 'cpp');
                 if(age === parseInt(this.getRaw(`${pfx}_cpp_start`))) events.add(`${pfx.toUpperCase()} CPP`);
@@ -970,13 +1039,54 @@ class RetirementPlanner {
         });
 
         this.state.additionalIncome.forEach(s => {
-            let sY=new Date(s.start+"-01").getFullYear(), eY=(s.end?new Date(s.end+"-01"):new Date("2100-01-01")).getFullYear();
+            let sY, eY;
+            
+            // Calculate Start Year
+            if (s.startMode === 'ret_relative') {
+                const ownerP = s.owner === 'p2' ? p2 : p1;
+                const retYear = ownerP.dob.getFullYear() + ownerP.retAge;
+                sY = retYear + (s.startRel || 0);
+            } else {
+                sY = new Date(s.start+"-01").getFullYear();
+            }
+
+            // Calculate End Year
+            if (s.endMode === 'duration') {
+                eY = sY + (s.duration || 0);
+            } else {
+                eY = (s.end ? new Date(s.end+"-01") : new Date("2100-01-01")).getFullYear();
+            }
+
             if(yr>=sY && yr<=eY) {
-                let amt = s.amount * Math.pow(1+(s.growth/100), yr-sY) * (s.freq==='month'?12:1) * (yr===sY?(12-new Date(s.start+"-01").getMonth())/12:(cY===eY?Math.min(1, (new Date(s.end+"-01").getMonth()+1)/12):1));
+                // Growth calc needs base year. For relative start, base is sY. For date start, base is s.start
+                let baseYear = s.startMode === 'ret_relative' ? sY : new Date(s.start+"-01").getFullYear();
+                
+                let amt = s.amount * Math.pow(1+(s.growth/100), yr-baseYear);
+                
+                // Frequency Adjustment
+                amt *= (s.freq==='month' ? 12 : 1);
+                
+                // Partial year logic (simplified for relative dates to be full year)
+                if (s.startMode === 'date') {
+                     if (yr === sY) amt *= (12 - new Date(s.start+"-01").getMonth()) / 12;
+                }
+                if (s.endMode === 'date' && s.end) {
+                     if (yr === eY) amt *= Math.min(1, (new Date(s.end+"-01").getMonth() + 1) / 12);
+                }
+
                 if(amt>0) { 
                     let target = (s.owner==='p2' && alive2) ? res.p2 : res.p1;
-                    if(s.taxable) { target.gross += amt; target.earned += amt; } 
-                    else target.windfallNonTax += amt;
+                    if (target) {
+                        if(s.taxable) { 
+                            target.gross += amt; 
+                            target.earned += amt;
+                            // Check if this is technically post-retirement work
+                            const ownerP = s.owner === 'p2' ? p2 : p1;
+                            const isRet = (s.owner==='p2' ? isRet2 : isRet1);
+                            if(isRet) target.postRet += amt;
+                        } 
+                        else target.windfallNonTax += amt;
+                    }
                 }
             }
         });
@@ -1459,9 +1569,30 @@ class RetirementPlanner {
         const prov=this.getRaw('tax_province'), cY=new Date().getFullYear();
         let add = { p1T:0, p1N:0, p2T:0, p2N:0 };
         this.state.additionalIncome.forEach(s => {
-            let sY=new Date(s.start+"-01").getFullYear(), eY=(s.end?new Date(s.end+"-01"):new Date("2100-01-01")).getFullYear();
+            let sY, eY;
+            if(s.startMode === 'ret_relative'){
+                const dob = new Date(this.getRaw(`${s.owner}_dob`) + "-01").getFullYear();
+                const retAge = this.getVal(`${s.owner}_retireAge`);
+                sY = dob + retAge + (s.startRel || 0);
+            } else {
+                sY = new Date(s.start+"-01").getFullYear();
+            }
+            
+            if(s.endMode === 'duration'){
+                eY = sY + (s.duration || 0);
+            } else {
+                eY = (s.end ? new Date(s.end+"-01") : new Date("2100-01-01")).getFullYear();
+            }
+
             if(cY>=sY && cY<=eY) {
-                let a = s.amount * Math.pow(1+(s.growth/100), cY-sY) * (s.freq==='month'?12:1) * (cY===sY?(12-new Date(s.start+"-01").getMonth())/12:(cY===eY?Math.min(1, (new Date(s.end+"-01").getMonth()+1)/12):1));
+                // Growth from start year
+                let baseYear = s.startMode === 'ret_relative' ? sY : new Date(s.start+"-01").getFullYear();
+                let a = s.amount * Math.pow(1+(s.growth/100), cY-baseYear) * (s.freq==='month'?12:1);
+                
+                // Partial year logic
+                if (s.startMode === 'date' && cY===sY) a *= (12-new Date(s.start+"-01").getMonth())/12;
+                if (s.endMode === 'date' && s.end && cY===eY) a *= Math.min(1, (new Date(s.end+"-01").getMonth()+1)/12);
+
                 if(a>0){ if(s.owner==='p1'){ s.taxable?add.p1T+=a:add.p1N+=a; } else { s.taxable?add.p2T+=a:add.p2N+=a; } }
             }
         });
@@ -1703,7 +1834,6 @@ class RetirementPlanner {
         if(document.getElementById('cfg_tfsa_limit')) document.getElementById('cfg_tfsa_limit').value = (this.getVal('cfg_tfsa_limit') || 7000).toLocaleString();
         if(document.getElementById('cfg_rrsp_limit')) document.getElementById('cfg_rrsp_limit').value = (this.getVal('cfg_rrsp_limit') || 32960).toLocaleString();
 
-        this.updatePostRetIncomeVisibility(); 
         this.updateBenefitVisibility();
     }
     
