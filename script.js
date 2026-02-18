@@ -1,15 +1,14 @@
 /**
- * Retirement Planner Pro - Logic v10.42 (Split Income & Red Withdrawals)
+ * Retirement Planner Pro - Logic v10.43 (Crypto Line & Decoupled Withdrawals)
  * * Changelog:
- * - v10.42: IMPROVED: Income Sources now list CPP, OAS, and DB Pension separately.
- * - v10.42: FIXED: RRSP withdrawals after age 72 are now labeled "RRIF", merging with mandatory minimums into a single line item.
- * - v10.42: VISUAL: Asset list now shows withdrawals in red (e.g., -35k) alongside green contributions.
- * - v10.41: FIXED: "Surplus" calculation subtracts generated taxes.
- * - v10.40: IMPROVED: Smart RRSP splitting.
+ * - v10.43: IMPROVED: Deficit funding now tracks asset order independently for each spouse. If P1 runs out of Account A, they move to Account B immediately, even if P2 is still on Account A.
+ * - v10.43: FIXED: Added missing "Crypto" line item to the Assets list in the projection grid.
+ * - v10.42: IMPROVED: Split Income Sources & Red Withdrawal Indicators.
+ * - v10.41: FIXED: Surplus tax calculation.
  */
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.42";
+        this.APP_VERSION = "10.43";
         this.state = {
             inputs: {},
             debt: [],
@@ -513,8 +512,8 @@ class RetirementPlanner {
     exportToCSV() {
         if (!this.state.projectionData.length) return alert("No data available.");
         const mode = this.state.mode, d = this.state.projectionData;
-        const h = ["Year", "P1 Age", mode==="Couple"?"P2 Age":null, "P1 Base Income", mode==="Couple"?"P2 Base Income":null, "P1 Post-Ret Inc", mode==="Couple"?"P2 Post-Ret Inc":null, "P1 CPP", mode==="Couple"?"P2 CPP":null, "P1 OAS", mode==="Couple"?"P2 OAS":null, "P1 DB Pension", mode==="Couple"?"P2 DB Pension":null, "Windfall", "P1 Taxes", mode==="Couple"?"P2 Taxes":null, "Total Expenses", "Mortgage Payment", "Debt Payment", "Surplus/Deficit", "P1 TFSA", "P1 RRSP", "P1 Non-Reg", "P1 Cash", "P1 Crypto", "P1 LIRF", "P1 LIF", "P1 RRIF", mode==="Couple"?"P2 TFSA":null, mode==="Couple"?"P2 RRSP":null, mode==="Couple"?"P2 Non-Reg":null, mode==="Couple"?"P2 Cash":null, mode==="Couple"?"P2 Crypto":null, mode==="Couple"?"P2 LIRF":null, mode==="Couple"?"P2 LIF":null, mode==="Couple"?"P2 RRIF":null, "Liquid Net Worth", "Home Equity", "Total Net Worth"].filter(x=>x);
-        const rows = d.map(r => [r.year, r.p1Age, mode==="Couple"?(r.p2Age||""):null, Math.round(r.incomeP1), mode==="Couple"?Math.round(r.incomeP2):null, Math.round(r.postRetP1||0), mode==="Couple"?Math.round(r.postRetP2||0):null, Math.round(r.cppP1), mode==="Couple"?Math.round(r.cppP2):null, Math.round(r.oasP1), mode==="Couple"?Math.round(r.oasP2):null, Math.round(r.dbP1), mode==="Couple"?Math.round(r.dbP2):null, Math.round(r.windfall), Math.round(r.taxP1), mode==="Couple"?Math.round(r.taxP2):null, Math.round(r.expenses), Math.round(r.mortgagePay), Math.round(r.debtPay), Math.round(r.surplus), Math.round(r.assetsP1.tfsa), Math.round(r.assetsP1.rrsp), Math.round(r.assetsP1.nreg), Math.round(r.assetsP1.cash), Math.round(r.assetsP1.crypto), Math.round(r.assetsP1.lirf), Math.round(r.assetsP1.lif), Math.round(r.assetsP1.rrif_acct), mode==="Couple"?Math.round(r.assetsP2.tfsa):null, mode==="Couple"?Math.round(r.assetsP2.rrsp):null, mode==="Couple"?Math.round(r.assetsP2.nreg):null, mode==="Couple"?Math.round(r.assetsP2.cash):null, mode==="Couple"?Math.round(r.assetsP2.crypto):null, mode==="Couple"?Math.round(r.assetsP2.lirf):null, mode==="Couple"?Math.round(r.assetsP2.lif):null, mode==="Couple"?Math.round(r.assetsP2.rrif_acct):null, Math.round(r.liquidNW), Math.round(r.homeValue-r.mortgage), Math.round(r.debugNW)].filter(x=>x!==null).join(","));
+        const h = ["Year", "P1 Age", mode==="Couple"?"P2 Age":null, "P1 Base Income", mode==="Couple"?"P2 Base Income":null, "P1 Post-Ret Inc", mode==="Couple"?"P2 Post-Ret Inc":null, "P1 Benefits", mode==="Couple"?"P2 Benefits":null, "P1 DB Pension", mode==="Couple"?"P2 DB Pension":null, "Windfall", "P1 Taxes", mode==="Couple"?"P2 Taxes":null, "Total Expenses", "Mortgage Payment", "Debt Payment", "Surplus/Deficit", "P1 TFSA", "P1 RRSP", "P1 Non-Reg", "P1 Cash", "P1 Crypto", "P1 LIRF", "P1 LIF", "P1 RRIF", mode==="Couple"?"P2 TFSA":null, mode==="Couple"?"P2 RRSP":null, mode==="Couple"?"P2 Non-Reg":null, mode==="Couple"?"P2 Cash":null, mode==="Couple"?"P2 Crypto":null, mode==="Couple"?"P2 LIRF":null, mode==="Couple"?"P2 LIF":null, mode==="Couple"?"P2 RRIF":null, "Liquid Net Worth", "Home Equity", "Total Net Worth"].filter(x=>x);
+        const rows = d.map(r => [r.year, r.p1Age, mode==="Couple"?(r.p2Age||""):null, Math.round(r.incomeP1), mode==="Couple"?Math.round(r.incomeP2):null, Math.round(r.postRetP1||0), mode==="Couple"?Math.round(r.postRetP2||0):null, Math.round(r.benefitsP1), mode==="Couple"?Math.round(r.benefitsP2):null, Math.round(r.dbP1), mode==="Couple"?Math.round(r.dbP2):null, Math.round(r.windfall), Math.round(r.taxP1), mode==="Couple"?Math.round(r.taxP2):null, Math.round(r.expenses), Math.round(r.mortgagePay), Math.round(r.debtPay), Math.round(r.surplus), Math.round(r.assetsP1.tfsa), Math.round(r.assetsP1.rrsp), Math.round(r.assetsP1.nreg), Math.round(r.assetsP1.cash), Math.round(r.assetsP1.crypto), Math.round(r.assetsP1.lirf), Math.round(r.assetsP1.lif), Math.round(r.assetsP1.rrif_acct), mode==="Couple"?Math.round(r.assetsP2.tfsa):null, mode==="Couple"?Math.round(r.assetsP2.rrsp):null, mode==="Couple"?Math.round(r.assetsP2.nreg):null, mode==="Couple"?Math.round(r.assetsP2.cash):null, mode==="Couple"?Math.round(r.assetsP2.crypto):null, mode==="Couple"?Math.round(r.assetsP2.lirf):null, mode==="Couple"?Math.round(r.assetsP2.lif):null, mode==="Couple"?Math.round(r.assetsP2.rrif_acct):null, Math.round(r.liquidNW), Math.round(r.homeValue-r.mortgage), Math.round(r.debugNW)].filter(x=>x!==null).join(","));
         const link = document.createElement("a");
         link.setAttribute("href", encodeURI("data:text/csv;charset=utf-8," + [h.join(","), ...rows].join("\n"))); link.setAttribute("download", "retirement_plan_pro.csv");
         document.body.appendChild(link); link.click(); link.remove();
@@ -812,7 +811,7 @@ class RetirementPlanner {
                     incomeP1: inflows.p1.gross, incomeP2: inflows.p2.gross,
                     cppP1: inflows.p1.cpp, cppP2: inflows.p2.cpp,
                     oasP1: inflows.p1.oas, oasP2: inflows.p2.oas,
-                    benefitsP1: inflows.p1.cpp + inflows.p1.oas, benefitsP2: inflows.p2.cpp + inflows.p2.oas, // Keep for backward compat if needed, but display specific fields
+                    benefitsP1: inflows.p1.cpp + inflows.p1.oas, benefitsP2: inflows.p2.cpp + inflows.p2.oas,
                     dbP1: inflows.p1.pension, dbP2: inflows.p2.pension,
                     taxP1: tax1.totalTax, taxP2: tax2.totalTax,
                     p1Net: netIncome1, p2Net: netIncome2,
@@ -1028,6 +1027,11 @@ class RetirementPlanner {
         let runInc2 = curInc2;
         const prov = this.getRaw('tax_province');
         const TOLERANCE = 50; 
+        
+        // Pointers for independent strategy progression
+        let p1StratIdx = 0;
+        let p2StratIdx = 0;
+        const strats = this.state.strategies.decum;
 
         const wd = (p, t, a, pfx, mRate) => { 
             if(a<=0 || p[t]<=0) return 0;
@@ -1044,9 +1048,9 @@ class RetirementPlanner {
 
             let tk = Math.min(p[t], grossNeeded);
             
-            // Determine correct logging key (RRSP -> RRIF if old enough)
-            let logKey = this.strategyLabels[t];
             let currentAge = (pfx === 'p1') ? age1 : age2;
+            let logKey = this.strategyLabels[t];
+            // Unified Label: If RRSP and age >= 72, call it RRIF
             if (t === 'rrsp' && currentAge >= this.CONSTANTS.RRIF_START_AGE) logKey = 'RRIF';
 
             if (tk < grossNeeded && isTaxable) {
@@ -1069,131 +1073,92 @@ class RetirementPlanner {
             return 0; 
         };
         
-        this.state.strategies.decum.forEach(t => { 
-            if (df > 1) { 
-                const isTaxableStr = ['rrsp', 'rrif_acct', 'lif', 'lirf'].includes(t);
+        // Loop until deficit filled or both run out of options
+        while(df > 1 && (p1StratIdx < strats.length || p2StratIdx < strats.length)) {
+            // Find valid current asset for P1
+            while(p1StratIdx < strats.length && (p1[strats[p1StratIdx]] <= 0 || !alive1)) { p1StratIdx++; }
+            // Find valid current asset for P2
+            while(p2StratIdx < strats.length && (p2[strats[p2StratIdx]] <= 0 || !alive2)) { p2StratIdx++; }
 
-                if (isTaxableStr && this.state.mode === 'Couple' && alive1 && alive2) {
-                    while (df > 1 && (p1[t] > 0 || p2[t] > 0)) {
-                        const mR1 = this.calculateTaxDetailed(runInc1, prov, taxBrackets).margRate;
-                        const mR2 = this.calculateTaxDetailed(runInc2, prov, taxBrackets).margRate;
+            const p1Type = p1StratIdx < strats.length ? strats[p1StratIdx] : null;
+            const p2Type = p2StratIdx < strats.length ? strats[p2StratIdx] : null;
 
-                        let target = null;
-                        let gap = 0;
-                        const isEqual = Math.abs(runInc1 - runInc2) < TOLERANCE;
+            if(!p1Type && !p2Type) break; // Bankrupt
 
-                        if (!isEqual && p1[t] > 0 && (runInc1 < runInc2 || p2[t] <= 0)) {
-                            target = 'p1';
-                            gap = (p2[t] > 0) ? (runInc2 - runInc1) : 999999999;
-                        } else if (!isEqual && p2[t] > 0 && (runInc2 < runInc1 || p1[t] <= 0)) {
-                            target = 'p2';
-                            gap = (p1[t] > 0) ? (runInc1 - runInc2) : 999999999;
-                        } else {
-                            let half = df / 2;
-                            if(p1[t] <= 0) {
-                                let startP2 = p2[t];
-                                let remP2 = wd(p2, t, df, 'p2', mR2);
-                                runInc2 += (startP2 - p2[t]);
-                                df = remP2;
-                            } else if (p2[t] <= 0) {
-                                let startP1 = p1[t];
-                                let remP1 = wd(p1, t, df, 'p1', mR1);
-                                runInc1 += (startP1 - p1[t]);
-                                df = remP1;
-                            } else {
-                                let startP1 = p1[t];
-                                let remP1 = wd(p1, t, half, 'p1', mR1);
-                                runInc1 += (startP1 - p1[t]);
-                                
-                                let startP2 = p2[t];
-                                let remP2 = wd(p2, t, half, 'p2', mR2);
-                                runInc2 += (startP2 - p2[t]);
-                                
-                                df = df - (half - remP1) - (half - remP2); 
-                            }
-                            continue; 
-                        }
+            // Recalculate marginal rates
+            const mR1 = this.calculateTaxDetailed(runInc1, prov, taxBrackets).margRate;
+            const mR2 = this.calculateTaxDetailed(runInc2, prov, taxBrackets).margRate;
 
-                        if (target) {
-                            let mR = target === 'p1' ? mR1 : mR2;
-                            let effRate = Math.min(mR || 0, 0.54);
-                            let netGap = gap * (1 - effRate);
-                            let toTake = Math.min(df, netGap);
-                            if (toTake < 1) toTake = Math.min(df, 10); 
+            let target = null;
+            
+            // Logic: Who pays?
+            // If only one has assets, they pay.
+            // If both have assets, prioritize lower income to fill brackets.
+            // If incomes are equal (within tolerance), split.
+            
+            if (!p1Type) target = 'p2';
+            else if (!p2Type) target = 'p1';
+            else {
+                // Both have assets. Check income.
+                if (Math.abs(runInc1 - runInc2) < TOLERANCE) target = 'split';
+                else if (runInc1 < runInc2) target = 'p1';
+                else target = 'p2';
+            }
 
-                            if (target === 'p1') {
-                                let startP1 = p1[t];
-                                let rem = wd(p1, t, toTake, 'p1', mR);
-                                runInc1 += (startP1 - p1[t]);
-                                df = df - (toTake - rem);
-                            } else {
-                                let startP2 = p2[t];
-                                let rem = wd(p2, t, toTake, 'p2', mR);
-                                runInc2 += (startP2 - p2[t]);
-                                df = df - (toTake - rem);
-                            }
-                        }
-                    }
-                } else {
-                    if(alive1) {
-                        if(t==='nreg') {
-                            let wdAmt = Math.min(p1.nreg, df);
-                            if(wdAmt > 0) {
-                                p1.nreg -= wdAmt;
-                                let k = "P1 "+this.strategyLabels[t];
-                                log.withdrawals[k]=(log.withdrawals[k]||0)+wdAmt;
-                                breakdown.p1[this.strategyLabels[t]]=(breakdown.p1[this.strategyLabels[t]]||0)+wdAmt;
-                                
-                                if (p1.nreg + wdAmt > 0) {
-                                    const mR1 = this.calculateTaxDetailed(runInc1, prov, taxBrackets).margRate;
-                                    let ratio = Math.max(0, ( (p1.nreg + wdAmt) - p1.acb ) / (p1.nreg + wdAmt));
-                                    let gain = wdAmt * ratio;
-                                    let tax = (gain * 0.5) * (mR1 || 0);
-                                    if(onTaxIncrease) onTaxIncrease('p1', tax);
-                                    p1.acb -= (p1.acb * (wdAmt / (p1.nreg + wdAmt))); 
-                                    if (p1.nreg >= tax) p1.nreg -= tax; else df += tax; 
-                                }
-                                df -= wdAmt;
-                            }
-                        } else { 
-                            const mR1 = this.calculateTaxDetailed(runInc1, prov, taxBrackets).margRate;
-                            let startP1 = p1[t];
-                            let rem = wd(p1, t, df, 'p1', mR1);
-                            runInc1 += (startP1 - p1[t]);
-                            df = rem;
-                        }
-                    }
-                    if(alive2 && df > 0) {
-                         if(t==='nreg') {
-                            let wdAmt = Math.min(p2.nreg, df);
-                            if(wdAmt > 0) {
-                                p2.nreg -= wdAmt;
-                                let k = "P2 "+this.strategyLabels[t];
-                                log.withdrawals[k]=(log.withdrawals[k]||0)+wdAmt;
-                                breakdown.p2[this.strategyLabels[t]]=(breakdown.p2[this.strategyLabels[t]]||0)+wdAmt;
-                                
-                                if (p2.nreg + wdAmt > 0) {
-                                    const mR2 = this.calculateTaxDetailed(runInc2, prov, taxBrackets).margRate;
-                                    let ratio = Math.max(0, ( (p2.nreg + wdAmt) - p2.acb ) / (p2.nreg + wdAmt));
-                                    let gain = wdAmt * ratio;
-                                    let tax = (gain * 0.5) * (mR2 || 0);
-                                    if(onTaxIncrease) onTaxIncrease('p2', tax);
-                                    p2.acb -= (p2.acb * (wdAmt / (p2.nreg + wdAmt)));
-                                    if (p2.nreg >= tax) p2.nreg -= tax; else df += tax;
-                                }
-                                df -= wdAmt;
-                            }
-                         } else { 
-                            const mR2 = this.calculateTaxDetailed(runInc2, prov, taxBrackets).margRate;
-                            let startP2 = p2[t];
-                            let rem = wd(p2, t, df, 'p2', mR2);
-                            runInc2 += (startP2 - p2[t]);
-                            df = rem;
-                        }
-                    }
+            // Execute Withdrawal
+            // We take small chunks (e.g. $1000) or calculate exact gap to next bracket/equality
+            // To ensure 50/50 split works smoothly without complex lookahead, we can just take min(df, splitAmount)
+            
+            if (target === 'split') {
+                let half = df / 2;
+                // Try P1
+                let remP1 = wd(p1, p1Type, half, 'p1', mR1);
+                runInc1 += (half - remP1); // Approx increase (only if taxable)
+                // Try P2
+                let remP2 = wd(p2, p2Type, half, 'p2', mR2);
+                runInc2 += (half - remP2);
+                
+                df = remP1 + remP2; // Remaining deficit is sum of what couldn't be taken
+            } else {
+                // Single Target
+                // If targeting lower income, try to fill gap to higher income
+                let toTake = df;
+                if (p1Type && p2Type) {
+                    // Cap withdrawal to reach other spouse's income level (for tax efficiency)
+                    let gap = Math.abs(runInc1 - runInc2);
+                    let mR = (target === 'p1' ? mR1 : mR2);
+                    let effRate = Math.min(mR || 0, 0.54);
+                    let netGap = gap * (1 - effRate);
+                    if (netGap > 0) toTake = Math.min(df, netGap);
                 }
-            } 
-        });
+                
+                // Force progress to avoid infinite loops on tiny gaps
+                if (toTake < 10) toTake = Math.min(df, 500);
+
+                if (target === 'p1') {
+                    let rem = wd(p1, p1Type, toTake, 'p1', mR1);
+                    // Only increase tracked income if the source is taxable
+                    if (['rrsp', 'rrif_acct', 'lif', 'lirf'].includes(p1Type)) {
+                         // We don't have the exact gross withdrawn here easily without refactoring wd, 
+                         // but for sorting logic, we just need to know they took money.
+                         // For precise bracket filling, wd() handles the tax hit. 
+                         // We approximate income increase by the Gross Equivalent of what we got.
+                         // But actually, runInc is used for Margin Rate lookup.
+                         // wd() uses margin rate. 
+                         let usedGross = (toTake - rem) / (1 - Math.min(mR1, 0.54));
+                         runInc1 += usedGross;
+                    }
+                    df = df - (toTake - rem);
+                } else {
+                    let rem = wd(p2, p2Type, toTake, 'p2', mR2);
+                    if (['rrsp', 'rrif_acct', 'lif', 'lirf'].includes(p2Type)) {
+                         let usedGross = (toTake - rem) / (1 - Math.min(mR2, 0.54));
+                         runInc2 += usedGross;
+                    }
+                    df = df - (toTake - rem);
+                }
+            }
+        }
     }
 
     renderProjectionGrid() {
@@ -1230,7 +1195,6 @@ class RetirementPlanner {
             if(d.dbP1 > 0) groupP1 += sL("DB Pension", d.dbP1);
             if(d.invIncP1 > 0) groupP1 += ln("Inv. Yield (Taxable)", d.invIncP1, "text-muted");
             
-            // Consolidate RRIF/RRSP display logic here if needed, but updated logic puts it in wdBreakdown correctly
             Object.entries(d.wdBreakdown.p1).forEach(([t,a]) => groupP1 += sL(`${t} Withdrawals`, a));
 
             if(this.state.mode==='Couple') {
@@ -1254,7 +1218,6 @@ class RetirementPlanner {
             
             let aL = ln(`TFSA P1${fmtFlow(d.flows.contributions.p1.tfsa, d.wdBreakdown.p1['TFSA'])}`, d.assetsP1.tfsa) + (this.state.mode==='Couple'?ln(`TFSA P2${fmtFlow(d.flows.contributions.p2.tfsa, d.wdBreakdown.p2['TFSA'])}`, d.assetsP2.tfsa):'');
             
-            // RRSP/RRIF Label Logic for Asset List
             let r1Label = d.p1Age >= 72 ? 'RRIF' : 'RRSP';
             let r1Wd = (d.wdBreakdown.p1['RRSP']||0) + (d.wdBreakdown.p1['RRIF']||0);
             aL += ln(`${r1Label} P1${fmtFlow(d.flows.contributions.p1.rrsp, r1Wd)}`, d.assetsP1.rrsp);
@@ -1270,6 +1233,7 @@ class RetirementPlanner {
             aL += ln("Manual RRIF P1",d.assetsP1.rrif_acct) + (this.state.mode==='Couple'?ln("Manual RRIF P2",d.assetsP2.rrif_acct):'');
             aL += ln(`Non-Reg P1${fmtFlow(d.flows.contributions.p1.nreg, d.wdBreakdown.p1['Non-Reg'])}`, d.assetsP1.nreg) + (this.state.mode==='Couple'?ln(`Non-Reg P2${fmtFlow(d.flows.contributions.p2.nreg, d.wdBreakdown.p2['Non-Reg'])}`, d.assetsP2.nreg):'');
             aL += ln(`Cash P1${fmtFlow(d.flows.contributions.p1.cash, d.wdBreakdown.p1['Cash'])}`, d.assetsP1.cash) + (this.state.mode==='Couple'?ln(`Cash P2${fmtFlow(d.flows.contributions.p2.cash, d.wdBreakdown.p2['Cash'])}`, d.assetsP2.cash):'');
+            aL += ln(`Crypto P1${fmtFlow(d.flows.contributions.p1.crypto, d.wdBreakdown.p1['Crypto'])}`, d.assetsP1.crypto) + (this.state.mode==='Couple'?ln(`Crypto P2${fmtFlow(d.flows.contributions.p2.crypto, d.wdBreakdown.p2['Crypto'])}`, d.assetsP2.crypto):'');
             aL += ln("Liquid Net Worth",d.liquidNW,"text-info fw-bold")+ln("Total Real Estate Eq.",d.homeValue-d.mortgage);
             
             const rB = th==='light'?'bg-white border-bottom border-dark-subtle':'', rT = th==='light'?'text-dark':'text-white';
