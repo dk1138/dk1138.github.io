@@ -106,13 +106,15 @@ body {
   color: var(--text-main);
 }
 
+/* --- STICKY SIDEBAR LOGIC --- */
 .sticky-sidebar {
   position: -webkit-sticky;
   position: sticky;
-  top: 20px;
-  z-index: 100;
+  top: 20px; /* Offset from top of viewport */
+  z-index: 1020;
   transition: all 0.3s ease;
-  margin-top: 65px;
+  max-height: calc(100vh - 40px); /* Prevent sidebar from exceeding viewport */
+  overflow-y: auto; /* Allow internal scrolling */
 }
 
 .sidebar-collapsed-btn {
