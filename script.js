@@ -1302,7 +1302,26 @@ class RetirementPlanner {
     updateAgeDisplay(pfx) {
         const dI = this.getRaw(`${pfx}_dob`), el = document.getElementById(`${pfx}_age`);
         if(!dI){ el.innerHTML="--"; return; }
-        el.innerHTML = Math.abs(new Date(Date.now() - new Date(dI+"-01").getTime()).getUTCFullYear() - 1970) + " years old";
+        
+        const age = Math.abs(new Date(Date.now() - new Date(dI+"-01").getTime()).getUTCFullYear() - 1970);
+        el.innerHTML = age + " years old";
+
+        // NEW LOGIC: Update the slider min to be the current age
+        const slider = document.getElementById(`qa_${pfx}_retireAge_range`);
+        if (slider) {
+            // Set min to current age
+            slider.min = age;
+            
+            // If current value is now impossible (below age), bump it up
+            if (parseInt(slider.value) < age) {
+                slider.value = age;
+                // Also update the state and the text label
+                this.state.inputs[`${pfx}_retireAge`] = age;
+                const label = document.getElementById(`qa_${pfx}_retireAge_val`);
+                if(label) label.innerText = age;
+                this.debouncedRun();
+            }
+        }
     }
 
     toggleSidebar() {
