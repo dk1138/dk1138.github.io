@@ -107,6 +107,15 @@ body {
 }
 
 /* --- STICKY SIDEBAR LOGIC --- */
+/* FIX: Added Sidebar Column logic for smooth collapse */
+#sidebarCol {
+  transition: width 0.3s ease;
+  overflow-x: hidden; /* Prevents horizontal scrollbar when collapsing */
+  min-width: 60px; /* FIX: Wide enough for button */
+  padding-left: 0;
+  padding-right: 0;
+}
+
 .sticky-sidebar {
   position: -webkit-sticky;
   position: sticky;
@@ -117,9 +126,11 @@ body {
   overflow-y: auto; /* Allow internal scrolling */
 }
 
+/* FIX: Centered button logic */
 .sidebar-collapsed-btn {
   width: 40px;
   height: 40px;
+  margin: 0 auto; /* Centers the button in the collapsed column */
   border-radius: 8px;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
@@ -363,7 +374,7 @@ body:not(.is-couple) .p2-column:not(td):not(th) { display: none; }
   grid-template-columns: 110px 100px 1fr 1fr 1fr 1.2fr 30px;
   position: sticky;
   top: 0;
-  z-index: 1000;
+  z-index: 1020; /* FIX: Increased from 1000 */
   background: var(--bg-card);
   padding: 8px;
   border-bottom: 2px solid var(--border-color);
@@ -375,6 +386,12 @@ body:not(.is-couple) .p2-column:not(td):not(th) { display: none; }
   text-align: right;
   align-items: center;
   box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
+
+/* FIX: Dark Mode Opaque Header for readability */
+[data-bs-theme="dark"] .grid-header {
+  background-color: var(--bg-card) !important;
+  opacity: 1;
 }
 
 .grid-header .col-start, .grid-summary-row .col-start { text-align: left; }
@@ -654,6 +671,9 @@ body:not(.is-couple) .p2-column:not(td):not(th) { display: none; }
   }
   .nav-item { min-width: 100px; }
   .household-row { text-align: center; margin-bottom: 1rem; }
+  #sidebarCol {
+    min-width: 0;
+  }
 }
 
 /* Info Button Styling */
