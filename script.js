@@ -777,7 +777,7 @@ class RetirementPlanner {
             if (surplus > 0) {
                 this.handleSurplus(surplus, person1, person2, alive1, alive2, flowLog, i, consts.tfsaLimit*bInf, rrspRoom1, rrspRoom2);
             } else {
-                this.handleDeficit(Math.abs(surplus), person1, person2, taxableIncome1, taxableIncome2, alive1, alive2, flowLog, wdBreakdown, tax1.margRate, tax2.margRate, (pfx, taxAmt) => {
+                this.handleDeficit(Math.abs(surplus), person1, person2, taxableIncome1, taxableIncome2, alive1, alive2, flowLog, wdBreakdown, taxBrackets, (pfx, taxAmt) => {
                     if (pfx === 'p1') tax1.totalTax += taxAmt;
                     if (pfx === 'p2') tax2.totalTax += taxAmt;
                 });
@@ -1013,11 +1013,13 @@ class RetirementPlanner {
         });
     }
 
-    handleDeficit(amount, p1, p2, curInc1, curInc2, alive1, alive2, log, breakdown, margRate1, margRate2, onTaxIncrease) {
+    handleDeficit(amount, p1, p2, curInc1, curInc2, alive1, alive2, log, breakdown, taxBrackets, onTaxIncrease) {
         let df = amount;
         let runInc1 = curInc1;
         let runInc2 = curInc2;
-        
+        const prov = this.getRaw('tax_province');
+        const TOLERANCE = 50; // $50 difference is considered equal
+
         const wd = (p, t, a, pfx, mRate) => { 
             if(a<=0 || p[t]<=0) return 0;
             
@@ -1054,66 +1056,89 @@ class RetirementPlanner {
         };
         
         this.state.strategies.decum.forEach(t => { 
-            if(df>0.1) {
+            if (df > 1) { // While deficit remains
                 const isTaxableStr = ['rrsp', 'rrif_acct', 'lif', 'lirf'].includes(t);
-                
+
                 if (isTaxableStr && this.state.mode === 'Couple' && alive1 && alive2) {
+                    // Loop to balance or split
                     while (df > 1 && (p1[t] > 0 || p2[t] > 0)) {
+                        // Recalculate marginal rates based on current running income
+                        // This ensures we don't use the low bracket rate for a high bracket withdrawal
+                        const mR1 = this.calculateTaxDetailed(runInc1, prov, taxBrackets).margRate;
+                        const mR2 = this.calculateTaxDetailed(runInc2, prov, taxBrackets).margRate;
+
                         let target = null;
                         let gap = 0;
-                        
-                        if (p1[t] > 0 && (runInc1 < runInc2 || p2[t] <= 0)) {
+
+                        // Check equality with tolerance
+                        const isEqual = Math.abs(runInc1 - runInc2) < TOLERANCE;
+
+                        if (!isEqual && p1[t] > 0 && (runInc1 < runInc2 || p2[t] <= 0)) {
+                            // P1 is lower and has money
                             target = 'p1';
                             gap = (p2[t] > 0) ? (runInc2 - runInc1) : 999999999;
-                        } else if (p2[t] > 0 && (runInc2 < runInc1 || p1[t] <= 0)) {
+                        } else if (!isEqual && p2[t] > 0 && (runInc2 < runInc1 || p1[t] <= 0)) {
+                            // P2 is lower and has money
                             target = 'p2';
                             gap = (p1[t] > 0) ? (runInc1 - runInc2) : 999999999;
                         } else {
-                            // Equal - Split
+                            // Incomes Equal (or one side empty and can't catch up, effectively equal for processing)
+                            // Split 50/50 Net
                             let half = df / 2;
-                            if (p1[t] > 0) {
-                                let startP1 = p1[t];
-                                let remP1 = wd(p1, t, half, 'p1', margRate1);
-                                runInc1 += (startP1 - p1[t]);
-                                df = df - (half - remP1);
-                            }
-                            if (p2[t] > 0) {
+                            
+                            // Handle if P1 empty
+                            if(p1[t] <= 0) {
                                 let startP2 = p2[t];
-                                let remP2 = wd(p2, t, half, 'p2', margRate2);
+                                let remP2 = wd(p2, t, df, 'p2', mR2); // Take full df
                                 runInc2 += (startP2 - p2[t]);
-                                df = df - (half - remP2);
+                                df = remP2; // Should be 0 or remaining if P2 ran out
+                            } else if (p2[t] <= 0) {
+                                let startP1 = p1[t];
+                                let remP1 = wd(p1, t, df, 'p1', mR1);
+                                runInc1 += (startP1 - p1[t]);
+                                df = remP1;
+                            } else {
+                                // Both have money, equal split
+                                let startP1 = p1[t];
+                                let remP1 = wd(p1, t, half, 'p1', mR1);
+                                runInc1 += (startP1 - p1[t]);
+                                
+                                let startP2 = p2[t];
+                                let remP2 = wd(p2, t, half, 'p2', mR2);
+                                runInc2 += (startP2 - p2[t]);
+                                
+                                df = df - (half - remP1) - (half - remP2); 
                             }
-                            continue;
+                            continue; // Continue while loop (df might be > 0 if assets ran out)
                         }
 
+                        // Target Logic (filling gap)
                         if (target) {
-                            let mR = target === 'p1' ? margRate1 : margRate2;
+                            let mR = target === 'p1' ? mR1 : mR2;
                             let effRate = Math.min(mR || 0, 0.54);
-                            
-                            // Amount to take: limited by Deficit OR Net Gap
                             let netGap = gap * (1 - effRate);
-                            // If gap is tiny (already equal), treat as equal split next loop
-                            if (netGap < 1 && gap < 999999) netGap = 0; 
                             
-                            let toTake = (gap < 999999 && netGap > 0) ? Math.min(df, netGap) : df;
+                            // If gap is tiny but > tolerance, just fill it.
+                            let toTake = Math.min(df, netGap);
                             
-                            if (toTake < 1 && gap > 0) toTake = Math.min(df, 100); // Force progress
+                            // Force minimum step to prevent Zeno's paradox with floating points
+                            if (toTake < 1) toTake = Math.min(df, 10); 
 
                             if (target === 'p1') {
                                 let startP1 = p1[t];
-                                let rem = wd(p1, t, toTake, 'p1', margRate1);
+                                let rem = wd(p1, t, toTake, 'p1', mR);
                                 runInc1 += (startP1 - p1[t]);
                                 df = df - (toTake - rem);
                             } else {
                                 let startP2 = p2[t];
-                                let rem = wd(p2, t, toTake, 'p2', margRate2);
+                                let rem = wd(p2, t, toTake, 'p2', mR);
                                 runInc2 += (startP2 - p2[t]);
                                 df = df - (toTake - rem);
                             }
                         }
                     }
                 } else {
-                    // Standard Sequential Logic (Single, Dead, or Non-Taxable)
+                    // Non-Couple or Non-Taxable or Dead Spouse Logic
                     if(alive1) {
                         if(t==='nreg') {
                             let wdAmt = Math.min(p1.nreg, df);
@@ -1124,9 +1149,11 @@ class RetirementPlanner {
                                 breakdown.p1[this.strategyLabels[t]]=(breakdown.p1[this.strategyLabels[t]]||0)+wdAmt;
                                 
                                 if (p1.nreg + wdAmt > 0) {
+                                    // Use dynamic marginal rate here as well
+                                    const mR1 = this.calculateTaxDetailed(runInc1, prov, taxBrackets).margRate;
                                     let ratio = Math.max(0, ( (p1.nreg + wdAmt) - p1.acb ) / (p1.nreg + wdAmt));
                                     let gain = wdAmt * ratio;
-                                    let tax = (gain * 0.5) * (margRate1 || 0);
+                                    let tax = (gain * 0.5) * (mR1 || 0);
                                     if(onTaxIncrease) onTaxIncrease('p1', tax);
                                     p1.acb -= (p1.acb * (wdAmt / (p1.nreg + wdAmt))); 
                                     if (p1.nreg >= tax) p1.nreg -= tax; else df += tax; 
@@ -1134,10 +1161,14 @@ class RetirementPlanner {
                                 df -= wdAmt;
                             }
                         } else { 
-                            df = wd(p1, t, df, 'p1', margRate1); 
+                            const mR1 = this.calculateTaxDetailed(runInc1, prov, taxBrackets).margRate;
+                            let startP1 = p1[t];
+                            let rem = wd(p1, t, df, 'p1', mR1);
+                            runInc1 += (startP1 - p1[t]);
+                            df = rem;
                         }
                     }
-                    if(alive2 && df>0) {
+                    if(alive2 && df > 0) {
                          if(t==='nreg') {
                             let wdAmt = Math.min(p2.nreg, df);
                             if(wdAmt > 0) {
@@ -1147,9 +1178,10 @@ class RetirementPlanner {
                                 breakdown.p2[this.strategyLabels[t]]=(breakdown.p2[this.strategyLabels[t]]||0)+wdAmt;
                                 
                                 if (p2.nreg + wdAmt > 0) {
+                                    const mR2 = this.calculateTaxDetailed(runInc2, prov, taxBrackets).margRate;
                                     let ratio = Math.max(0, ( (p2.nreg + wdAmt) - p2.acb ) / (p2.nreg + wdAmt));
                                     let gain = wdAmt * ratio;
-                                    let tax = (gain * 0.5) * (margRate2 || 0);
+                                    let tax = (gain * 0.5) * (mR2 || 0);
                                     if(onTaxIncrease) onTaxIncrease('p2', tax);
                                     p2.acb -= (p2.acb * (wdAmt / (p2.nreg + wdAmt)));
                                     if (p2.nreg >= tax) p2.nreg -= tax; else df += tax;
@@ -1157,7 +1189,11 @@ class RetirementPlanner {
                                 df -= wdAmt;
                             }
                          } else { 
-                            df = wd(p2, t, df, 'p2', margRate2); 
+                            const mR2 = this.calculateTaxDetailed(runInc2, prov, taxBrackets).margRate;
+                            let startP2 = p2[t];
+                            let rem = wd(p2, t, df, 'p2', mR2);
+                            runInc2 += (startP2 - p2[t]);
+                            df = rem;
                         }
                     }
                 }
