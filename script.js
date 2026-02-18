@@ -1,14 +1,14 @@
 /**
- * Retirement Planner Pro - Logic v10.48 (Standardized Delete Confirmation)
+ * Retirement Planner Pro - Logic v10.50 (Monte Carlo Simulation)
  * * Changelog:
- * - v10.48: FIXED: Debt/Liability deletion now triggers a confirmation modal to prevent accidental data loss.
+ * - v10.50: NEW: Monte Carlo Simulation added. Runs 500 iterations to determine Success Probability.
+ * - v10.49: INTERNAL: Refactored growth engine to support variable volatility.
+ * - v10.48: FIXED: Debt/Liability deletion now triggers a confirmation modal.
  * - v10.47: ENHANCED: Additional Income streams now support relative scheduling.
- * - v10.47: REMOVED: Legacy "Post-Retirement Income" hardcoded section.
- * - v10.46: FIXED: "Iterative Deficit" loop correctly accounts for non-taxable withdrawals.
  */
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.48";
+        this.APP_VERSION = "10.50";
         this.state = {
             inputs: {},
             debt: [],
@@ -52,6 +52,7 @@ class RetirementPlanner {
         this.charts = { nw: null, sankey: null }; 
         this.confirmModal = null; 
         this.saveModalInstance = null;
+        this.mcModalInstance = null;
         this.sliderTimeout = null;
 
         this.expensesByCategory = {
@@ -93,6 +94,14 @@ class RetirementPlanner {
         };
     }
 
+    // Box-Muller transform for Normal Distribution
+    randn_bm() {
+        let u = 0, v = 0;
+        while(u === 0) u = Math.random(); 
+        while(v === 0) v = Math.random();
+        return Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.PI * v );
+    }
+
     init() {
         const setup = () => {
             // Version Header Injection
@@ -117,6 +126,25 @@ class RetirementPlanner {
             if(document.getElementById('saveScenarioModal')) {
                 this.saveModalInstance = new bootstrap.Modal(document.getElementById('saveScenarioModal'));
             }
+            
+            // Monte Carlo Modal Injection
+            if(!document.getElementById('monteCarloModal')) {
+                const mcM = document.createElement('div');
+                mcM.innerHTML = `<div class="modal fade" id="monteCarloModal" tabindex="-1"><div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content surface-card border-secondary"><div class="modal-header border-secondary"><h5 class="modal-title"><i class="bi bi-dice-5-fill text-info me-2"></i>Monte Carlo Simulation</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><p class="text-muted small">This simulation runs your retirement plan <strong>500 times</strong> with randomized annual investment returns to determine the probability of success. It applies a standard deviation (volatility) to your projected returns.</p><div class="row mb-3"><div class="col-md-6"><label class="form-label text-muted small fw-bold">Market Volatility (Std. Dev)</label><select class="form-select form-select-sm border-secondary" id="mc_volatility"><option value="0.08">Low (8%) - Conservative</option><option value="0.12" selected>Medium (12%) - Balanced</option><option value="0.18">High (18%) - Aggressive</option></select></div><div class="col-md-6 d-flex align-items-end"><button class="btn btn-primary w-100 btn-sm" id="btnRunMC"><i class="bi bi-play-fill"></i> Run Simulation</button></div></div><hr class="border-secondary"><div id="mc_results_area" class="d-none"><div class="text-center mb-4"><h1 class="display-4 fw-bold" id="mc_success_rate">0%</h1><p class="text-muted text-uppercase small letter-spacing-1">Probability of Success</p><span class="badge bg-secondary" id="mc_fail_age"></span></div><div class="row g-3"><div class="col-md-4"><div class="p-3 border border-secondary rounded-3 text-center bg-black bg-opacity-25"><div class="small text-muted mb-1">Bottom 10% Outcome</div><div class="fw-bold text-danger fs-5" id="mc_p10_nw">$0</div></div></div><div class="col-md-4"><div class="p-3 border border-secondary rounded-3 text-center bg-black bg-opacity-25"><div class="small text-muted mb-1">Median Outcome</div><div class="fw-bold text-info fs-5" id="mc_median_nw">$0</div></div></div><div class="col-md-4"><div class="p-3 border border-secondary rounded-3 text-center bg-black bg-opacity-25"><div class="small text-muted mb-1">Top 10% Outcome</div><div class="fw-bold text-success fs-5" id="mc_p90_nw">$0</div></div></div></div><div class="mt-3 text-center"><small class="text-muted fst-italic">"Success" is defined as having > $0 liquid assets at the end of the plan.</small></div></div></div></div></div></div>`;
+                document.body.appendChild(mcM);
+            }
+            this.mcModalInstance = new bootstrap.Modal(document.getElementById('monteCarloModal'));
+            
+            // Add MC Button to sidebar if missing
+            const actContainer = document.querySelector('.d-grid.gap-2.mb-4');
+            if(actContainer && !document.getElementById('btnOpenMC')) {
+                const btn = document.createElement('button');
+                btn.className = 'btn btn-outline-info d-flex align-items-center justify-content-center';
+                btn.id = 'btnOpenMC';
+                btn.innerHTML = '<i class="bi bi-dice-5-fill me-2"></i> Monte Carlo';
+                actContainer.appendChild(btn);
+            }
+
             this.setupGridContainer(); 
             this.populateAgeSelects();
             const savedData = localStorage.getItem(this.AUTO_SAVE_KEY);
@@ -295,6 +323,10 @@ class RetirementPlanner {
         $('btnExportCSV').addEventListener('click', () => this.exportToCSV());
         $('fileUpload').addEventListener('change', e => this.handleFileUpload(e));
         $('btnClearStorage').addEventListener('click', () => this.clearStorage());
+        
+        // Monte Carlo Events
+        if ($('btnOpenMC')) $('btnOpenMC').addEventListener('click', () => this.mcModalInstance.show());
+        if ($('btnRunMC')) $('btnRunMC').addEventListener('click', () => this.runMonteCarlo());
 
         document.body.addEventListener('input', e => {
             const cl = e.target.classList;
@@ -698,6 +730,58 @@ class RetirementPlanner {
         } catch (e) { console.error("Error:", e); }
     }
 
+    runMonteCarlo() {
+        const SIMULATIONS = 500;
+        const volatility = parseFloat(document.getElementById('mc_volatility').value) || 0.12;
+        const results = [];
+        
+        // Disable button during run
+        const btn = document.getElementById('btnRunMC');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Simulating...';
+        btn.disabled = true;
+
+        setTimeout(() => {
+            for (let i = 0; i < SIMULATIONS; i++) {
+                // Pass a unique randomizer or just the volatility settings
+                // We use onlyCalcNW = true to skip recording display arrays (performance)
+                // We pass simSettings to enable volatility
+                const finalNW = this.generateProjectionTable(true, { volatility: volatility });
+                results.push(finalNW);
+            }
+            
+            this.processMonteCarloResults(results);
+            
+            // Restore button
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }, 100); // Short timeout to allow UI to render spinner
+    }
+
+    processMonteCarloResults(results) {
+        results.sort((a, b) => a - b);
+        const successes = results.filter(nw => nw > 0).length;
+        const rate = (successes / results.length) * 100;
+        
+        const p10 = results[Math.floor(results.length * 0.1)];
+        const median = results[Math.floor(results.length * 0.5)];
+        const p90 = results[Math.floor(results.length * 0.9)];
+        
+        // Update Modal UI
+        document.getElementById('mc_success_rate').innerText = `${rate.toFixed(1)}%`;
+        
+        // Color coding for success rate
+        const srEl = document.getElementById('mc_success_rate');
+        srEl.className = rate >= 90 ? 'display-4 fw-bold text-success' : (rate >= 75 ? 'display-4 fw-bold text-warning' : 'display-4 fw-bold text-danger');
+
+        const fmt = n => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+        document.getElementById('mc_p10_nw').innerText = fmt(p10);
+        document.getElementById('mc_median_nw').innerText = fmt(median);
+        document.getElementById('mc_p90_nw').innerText = fmt(p90);
+        
+        document.getElementById('mc_results_area').classList.remove('d-none');
+    }
+
     drawSankey(idx) {
         if (!this.state.projectionData[idx] || !google?.visualization) return;
         const d = this.state.projectionData[idx], rows = [], fmt = n => n>=1000000 ? '$'+(n/1000000).toFixed(1)+'M' : (n>=1000 ? '$'+Math.round(n/1000)+'k' : '$'+Math.round(n));
@@ -774,11 +858,13 @@ class RetirementPlanner {
         return v; 
     }
 
-    generateProjectionTable(onlyCalcNW = false) {
+    // UPDATED: Added simContext parameter to support Monte Carlo randomization
+    generateProjectionTable(onlyCalcNW = false, simContext = null) {
         if(!onlyCalcNW) this.state.projectionData = [];
         const mode = this.state.mode;
         const curY = new Date().getFullYear();
         
+        // Clone initial state for simulation so we don't mutate the UI source
         let person1 = { tfsa: this.getVal('p1_tfsa'), rrsp: this.getVal('p1_rrsp'), cash: this.getVal('p1_cash'), nreg: this.getVal('p1_nonreg'), crypto: this.getVal('p1_crypto'), lirf: this.getVal('p1_lirf'), lif: this.getVal('p1_lif'), rrif_acct: this.getVal('p1_rrif_acct'), inc: this.getVal('p1_income'), dob: new Date(this.getRaw('p1_dob')), retAge: this.getVal('p1_retireAge'), lifeExp: this.getVal('p1_lifeExp'), nreg_yield: this.getVal('p1_nonreg_yield')/100, acb: this.getVal('p1_nonreg') };
         let person2 = { tfsa: this.getVal('p2_tfsa'), rrsp: this.getVal('p2_rrsp'), cash: this.getVal('p2_cash'), nreg: this.getVal('p2_nonreg'), crypto: this.getVal('p2_crypto'), lirf: this.getVal('p2_lirf'), lif: this.getVal('p2_lif'), rrif_acct: this.getVal('p2_rrif_acct'), inc: this.getVal('p2_income'), dob: new Date(this.getRaw('p2_dob')), retAge: this.getVal('p2_retireAge'), lifeExp: this.getVal('p2_lifeExp'), nreg_yield: this.getVal('p2_nonreg_yield')/100, acb: this.getVal('p2_nonreg') };
 
@@ -814,7 +900,7 @@ class RetirementPlanner {
             const isRet1 = age1 >= person1.retAge;
             const isRet2 = mode==='Couple' ? age2 >= person2.retAge : true;
             
-            this.applyGrowth(person1, person2, isRet1, isRet2, this.state.inputs['asset_mode_advanced'], consts.inflation, i);
+            this.applyGrowth(person1, person2, isRet1, isRet2, this.state.inputs['asset_mode_advanced'], consts.inflation, i, simContext);
 
             const inflows = this.calcInflows(yr, i, person1, person2, age1, age2, alive1, alive2, isRet1, isRet2, consts, bInf, trackedEvents);
             const rrifMin = this.calcRRIFMin(person1, person2, age1, age2, alive1, alive2);
@@ -974,7 +1060,7 @@ class RetirementPlanner {
         return finalNetWorth;
     }
 
-    applyGrowth(p1, p2, isRet1, isRet2, isAdv, inf, i) {
+    applyGrowth(p1, p2, isRet1, isRet2, isAdv, inf, i, simContext) {
         const stress = this.state.inputs['stressTestEnabled'] && i === 0; 
         const getRates = (p, ret) => {
             const r = id => this.getVal(`${p}_${id}_ret` + (isAdv && ret ? '_retire' : ''))/100;
@@ -987,6 +1073,17 @@ class RetirementPlanner {
         const g1 = getRates('p1', isRet1), g2 = getRates('p2', isRet2);
         
         if(stress) { ['tfsa','rrsp','nreg','cash','lirf','lif','rrif_acct'].forEach(k=>{ g1[k]=-0.15; g2[k]=-0.15; }); g1.cryp=-0.40; g2.cryp=-0.40; }
+
+        // If in Monte Carlo mode, apply random shock to investment returns
+        // We do NOT shock Cash or Fixed Income buckets as heavily (or at all for simplicity, or reduced)
+        // For this logic, we assume crypto/stocks get the shock.
+        if (simContext && simContext.volatility) {
+            const shock = this.randn_bm() * simContext.volatility;
+            ['tfsa','rrsp','nreg','cryp','lirf','lif','rrif_acct'].forEach(k => {
+                g1[k] += shock;
+                g2[k] += shock;
+            });
+        }
 
         const grow = (p, rates) => {
             p.tfsa*=(1+rates.tfsa); p.rrsp*=(1+rates.rrsp); p.cash*=(1+rates.cash); p.crypto*=(1+rates.cryp);
