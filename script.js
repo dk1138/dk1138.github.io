@@ -1,14 +1,13 @@
 /**
- * Retirement Planner Pro - Logic v10.43 (Crypto Line & Decoupled Withdrawals)
+ * Retirement Planner Pro - Logic v10.44 (Tax Circularity Fix)
  * * Changelog:
- * - v10.43: IMPROVED: Deficit funding now tracks asset order independently for each spouse. If P1 runs out of Account A, they move to Account B immediately, even if P2 is still on Account A.
- * - v10.43: FIXED: Added missing "Crypto" line item to the Assets list in the projection grid.
- * - v10.42: IMPROVED: Split Income Sources & Red Withdrawal Indicators.
- * - v10.41: FIXED: Surplus tax calculation.
+ * - v10.44: FIXED: Added a "Second Pass" withdrawal loop. If withdrawing assets creates a new tax bill (leaving a deficit), the system now withdraws again to cover that specific tax gap.
+ * - v10.44: IMPROVED: Non-Reg withdrawals now correctly gross-up for Capital Gains tax to ensure cash inflow matches total outflows.
+ * - v10.43: FIXED: Asset list Crypto line item & Independent spouse withdrawal order.
  */
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.43";
+        this.APP_VERSION = "10.44";
         this.state = {
             inputs: {},
             debt: [],
@@ -1050,7 +1049,6 @@ class RetirementPlanner {
             
             let currentAge = (pfx === 'p1') ? age1 : age2;
             let logKey = this.strategyLabels[t];
-            // Unified Label: If RRSP and age >= 72, call it RRIF
             if (t === 'rrsp' && currentAge >= this.CONSTANTS.RRIF_START_AGE) logKey = 'RRIF';
 
             if (tk < grossNeeded && isTaxable) {
