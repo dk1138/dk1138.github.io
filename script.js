@@ -1,6 +1,7 @@
 /**
- * Retirement Planner Pro - Logic v10.51 (Monte Carlo Charting Edition)
+ * Retirement Planner Pro - Logic v10.52 (Hotfix)
  * * Changelog:
+ * - v10.52: FIXED: Syntax error in estimateCPPOAS function that prevented script loading.
  * - v10.51: FIXED: Monte Carlo now draws to the 'Risk' tab chart instead of a modal.
  * - v10.51: NEW: Visualizes P10, Median, and P90 trajectories.
  * - v10.50: Core Monte Carlo engine added.
@@ -8,7 +9,7 @@
 
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.51";
+        this.APP_VERSION = "10.52";
         this.state = {
             inputs: {},
             debt: [],
@@ -1073,7 +1074,7 @@ class RetirementPlanner {
                     dbP1: inflows.p1.pension, dbP2: inflows.p2.pension,
                     taxP1: tax1.totalTax, taxP2: tax2.totalTax,
                     p1Net: netIncome1, p2Net: netIncome2,
-                    expenses: expenses, mortgagePay: mortgagePayment, debtPay: debtRepayment,
+                    expenses: expenses, mortgagePay: mortgagePayment, debtRepayment,
                     surplus: Math.abs(cashSurplus) < 5 ? 0 : cashSurplus,
                     debugNW: finalNetWorth,
                     liquidNW: liquidNW,
@@ -1667,7 +1668,7 @@ class RetirementPlanner {
             const eC = document.getElementById(`${p}_cpp_est`); 
             if(eC){ 
                 eC.innerText = cE ? `$${Math.round(cV).toLocaleString()}/yr` : "Disabled"; 
-                eC.classList.remove('text-danger') : eC.classList.add('text-danger'); 
+                if(cE) eC.classList.remove('text-danger'); else eC.classList.add('text-danger'); 
             }
             
             let oasYears = Math.max(0, Math.min(40, this.getVal(`${p}_oas_years`)));
@@ -1678,7 +1679,7 @@ class RetirementPlanner {
             const eO = document.getElementById(`${p}_oas_est`); 
             if(eO){ 
                 eO.innerText = oE ? `$${Math.round(oV).toLocaleString()}/yr` : "Disabled"; 
-                eO.classList.remove('text-danger') : eO.classList.add('text-danger'); 
+                if(oE) eO.classList.remove('text-danger'); else eO.classList.add('text-danger'); 
             }
         });
     }
