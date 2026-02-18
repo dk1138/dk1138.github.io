@@ -1,14 +1,14 @@
 /**
- * Retirement Planner Pro - Logic v10.50 (Monte Carlo Simulation)
+ * Retirement Planner Pro - Logic v10.51 (Monte Carlo Charting Edition)
  * * Changelog:
- * - v10.50: NEW: Monte Carlo Simulation added. Runs 500 iterations to determine Success Probability.
- * - v10.49: INTERNAL: Refactored growth engine to support variable volatility.
- * - v10.48: FIXED: Debt/Liability deletion now triggers a confirmation modal.
- * - v10.47: ENHANCED: Additional Income streams now support relative scheduling.
+ * - v10.51: FIXED: Monte Carlo now draws to the 'Risk' tab chart instead of a modal.
+ * - v10.51: NEW: Visualizes P10, Median, and P90 trajectories.
+ * - v10.50: Core Monte Carlo engine added.
  */
+
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.50";
+        this.APP_VERSION = "10.51";
         this.state = {
             inputs: {},
             debt: [],
@@ -49,10 +49,9 @@ class RetirementPlanner {
             }
         };
 
-        this.charts = { nw: null, sankey: null }; 
+        this.charts = { nw: null, sankey: null, mc: null }; 
         this.confirmModal = null; 
         this.saveModalInstance = null;
-        this.mcModalInstance = null;
         this.sliderTimeout = null;
 
         this.expensesByCategory = {
@@ -94,7 +93,7 @@ class RetirementPlanner {
         };
     }
 
-    // Box-Muller transform for Normal Distribution
+    // Box-Muller transform for Normal Distribution (Standard Deviation)
     randn_bm() {
         let u = 0, v = 0;
         while(u === 0) u = Math.random(); 
@@ -105,7 +104,7 @@ class RetirementPlanner {
     init() {
         const setup = () => {
             // Version Header Injection
-            const selectors = ['#app-title', '.navbar-brand', 'h1', '.h1', 'h2'];
+            const selectors = ['#app-title', '.navbar-brand', 'h1', '.h1', 'h2', 'h4'];
             let headerEl = null;
             for (const sel of selectors) {
                 headerEl = document.querySelector(sel);
@@ -127,24 +126,6 @@ class RetirementPlanner {
                 this.saveModalInstance = new bootstrap.Modal(document.getElementById('saveScenarioModal'));
             }
             
-            // Monte Carlo Modal Injection
-            if(!document.getElementById('monteCarloModal')) {
-                const mcM = document.createElement('div');
-                mcM.innerHTML = `<div class="modal fade" id="monteCarloModal" tabindex="-1"><div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content surface-card border-secondary"><div class="modal-header border-secondary"><h5 class="modal-title"><i class="bi bi-dice-5-fill text-info me-2"></i>Monte Carlo Simulation</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><p class="text-muted small">This simulation runs your retirement plan <strong>500 times</strong> with randomized annual investment returns to determine the probability of success. It applies a standard deviation (volatility) to your projected returns.</p><div class="row mb-3"><div class="col-md-6"><label class="form-label text-muted small fw-bold">Market Volatility (Std. Dev)</label><select class="form-select form-select-sm border-secondary" id="mc_volatility"><option value="0.08">Low (8%) - Conservative</option><option value="0.12" selected>Medium (12%) - Balanced</option><option value="0.18">High (18%) - Aggressive</option></select></div><div class="col-md-6 d-flex align-items-end"><button class="btn btn-primary w-100 btn-sm" id="btnRunMC"><i class="bi bi-play-fill"></i> Run Simulation</button></div></div><hr class="border-secondary"><div id="mc_results_area" class="d-none"><div class="text-center mb-4"><h1 class="display-4 fw-bold" id="mc_success_rate">0%</h1><p class="text-muted text-uppercase small letter-spacing-1">Probability of Success</p><span class="badge bg-secondary" id="mc_fail_age"></span></div><div class="row g-3"><div class="col-md-4"><div class="p-3 border border-secondary rounded-3 text-center bg-black bg-opacity-25"><div class="small text-muted mb-1">Bottom 10% Outcome</div><div class="fw-bold text-danger fs-5" id="mc_p10_nw">$0</div></div></div><div class="col-md-4"><div class="p-3 border border-secondary rounded-3 text-center bg-black bg-opacity-25"><div class="small text-muted mb-1">Median Outcome</div><div class="fw-bold text-info fs-5" id="mc_median_nw">$0</div></div></div><div class="col-md-4"><div class="p-3 border border-secondary rounded-3 text-center bg-black bg-opacity-25"><div class="small text-muted mb-1">Top 10% Outcome</div><div class="fw-bold text-success fs-5" id="mc_p90_nw">$0</div></div></div></div><div class="mt-3 text-center"><small class="text-muted fst-italic">"Success" is defined as having > $0 liquid assets at the end of the plan.</small></div></div></div></div></div></div>`;
-                document.body.appendChild(mcM);
-            }
-            this.mcModalInstance = new bootstrap.Modal(document.getElementById('monteCarloModal'));
-            
-            // Add MC Button to sidebar if missing
-            const actContainer = document.querySelector('.d-grid.gap-2.mb-4');
-            if(actContainer && !document.getElementById('btnOpenMC')) {
-                const btn = document.createElement('button');
-                btn.className = 'btn btn-outline-info d-flex align-items-center justify-content-center';
-                btn.id = 'btnOpenMC';
-                btn.innerHTML = '<i class="bi bi-dice-5-fill me-2"></i> Monte Carlo';
-                actContainer.appendChild(btn);
-            }
-
             this.setupGridContainer(); 
             this.populateAgeSelects();
             const savedData = localStorage.getItem(this.AUTO_SAVE_KEY);
@@ -205,8 +186,7 @@ class RetirementPlanner {
     }
 
     updateImportButton(theme) {
-        const lbl = document.querySelector('label[for="fileUpload"]');
-        if(lbl) lbl.className = theme === 'light' ? 'btn btn-outline-dark text-dark flex-grow-1 btn-sm fw-bold' : 'btn btn-outline-primary fw-bold';
+        // No longer needed for file input styling directly but kept for legacy
     }
 
     renderDefaults() {
@@ -231,14 +211,6 @@ class RetirementPlanner {
     setupGridContainer() {
         const gridId = 'projectionGrid';
         if (document.getElementById(gridId)) return; 
-        const oldTableBody = document.getElementById('projectionTableBody');
-        let container = document.querySelector('.card-body') || document.body;
-        const gridContainer = document.createElement('div');
-        gridContainer.id = gridId; gridContainer.className = 'modern-grid';
-        if (oldTableBody && oldTableBody.closest('table').parentNode) {
-            oldTableBody.closest('table').parentNode.insertBefore(gridContainer, oldTableBody.closest('table'));
-            oldTableBody.closest('table').style.display = 'none'; 
-        } else container.appendChild(gridContainer);
     }
 
     syncStateFromDOM() {
@@ -291,7 +263,6 @@ class RetirementPlanner {
                 document.querySelectorAll('.lbl-ret').forEach(el => el.innerText = isAdv ? 'Pre-Ret(%)' : 'Return (%)');
                 this.run();
             }
-            // Removed post-ret income enable toggles logic
             if (e.target.classList.contains('live-calc') && (e.target.tagName === 'SELECT' || e.target.type === 'checkbox' || e.target.type === 'radio')) {
                 if(e.target.id && !e.target.id.startsWith('comp_')) this.state.inputs[e.target.id] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
                 if(e.target.id && e.target.id.includes('_enabled')) this.updateBenefitVisibility();
@@ -324,9 +295,8 @@ class RetirementPlanner {
         $('fileUpload').addEventListener('change', e => this.handleFileUpload(e));
         $('btnClearStorage').addEventListener('click', () => this.clearStorage());
         
-        // Monte Carlo Events
-        if ($('btnOpenMC')) $('btnOpenMC').addEventListener('click', () => this.mcModalInstance.show());
-        if ($('btnRunMC')) $('btnRunMC').addEventListener('click', () => this.runMonteCarlo());
+        // Monte Carlo Button Handler is integrated via HTML onclick, but we can double bind safety if needed
+        // The main fix is ensuring app.runMonteCarlo is defined below.
 
         document.body.addEventListener('input', e => {
             const cl = e.target.classList;
@@ -373,7 +343,6 @@ class RetirementPlanner {
                 let val = e.target.type === 'checkbox' ? e.target.checked : (['amount', 'growth', 'startRel', 'duration'].includes(field) ? Number(e.target.value.replace(/,/g, '')) || 0 : e.target.value);
                 if (this.state.additionalIncome[idx]) {
                     this.state.additionalIncome[idx][field] = val;
-                    // Trigger re-render if mode changed to show correct inputs
                     if (field === 'startMode' || field === 'endMode') {
                         this.renderAdditionalIncome();
                     }
@@ -730,57 +699,139 @@ class RetirementPlanner {
         } catch (e) { console.error("Error:", e); }
     }
 
+    // ---------------- MONTE CARLO ENGINE START ---------------- //
     runMonteCarlo() {
-        const SIMULATIONS = 500;
+        const simCountInput = document.getElementById('mc_sim_count');
+        const SIMULATIONS = simCountInput ? parseInt(simCountInput.value) : 500;
         const volatility = parseFloat(document.getElementById('mc_volatility').value) || 0.12;
-        const results = [];
         
-        // Disable button during run
-        const btn = document.getElementById('btnRunMC');
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Simulating...';
-        btn.disabled = true;
+        const allTrajectories = []; 
+
+        const btn = document.querySelector('button[onclick="app.runMonteCarlo()"]');
+        if(btn) {
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Running...';
+            btn.disabled = true;
+        }
 
         setTimeout(() => {
+            const startYear = new Date().getFullYear();
+            
             for (let i = 0; i < SIMULATIONS; i++) {
-                // Pass a unique randomizer or just the volatility settings
-                // We use onlyCalcNW = true to skip recording display arrays (performance)
-                // We pass simSettings to enable volatility
-                const finalNW = this.generateProjectionTable(true, { volatility: volatility });
-                results.push(finalNW);
+                const trajectory = this.generateProjectionTable(true, { volatility: volatility, returnTrajectory: true }); 
+                allTrajectories.push(trajectory);
             }
             
-            this.processMonteCarloResults(results);
+            this.processMonteCarloChart(allTrajectories, startYear);
             
-            // Restore button
-            btn.innerHTML = originalText;
-            btn.disabled = false;
-        }, 100); // Short timeout to allow UI to render spinner
+            if(btn) {
+                btn.innerHTML = '<i class="bi bi-play-circle-fill me-2"></i> Run Monte Carlo';
+                btn.disabled = false;
+            }
+        }, 100);
     }
 
-    processMonteCarloResults(results) {
-        results.sort((a, b) => a - b);
-        const successes = results.filter(nw => nw > 0).length;
-        const rate = (successes / results.length) * 100;
-        
-        const p10 = results[Math.floor(results.length * 0.1)];
-        const median = results[Math.floor(results.length * 0.5)];
-        const p90 = results[Math.floor(results.length * 0.9)];
-        
-        // Update Modal UI
-        document.getElementById('mc_success_rate').innerText = `${rate.toFixed(1)}%`;
-        
-        // Color coding for success rate
-        const srEl = document.getElementById('mc_success_rate');
-        srEl.className = rate >= 90 ? 'display-4 fw-bold text-success' : (rate >= 75 ? 'display-4 fw-bold text-warning' : 'display-4 fw-bold text-danger');
+    processMonteCarloChart(trajectories, startYear) {
+        // Sort by FINAL Net Worth
+        trajectories.sort((a, b) => a[a.length - 1] - b[b.length - 1]);
 
-        const fmt = n => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
-        document.getElementById('mc_p10_nw').innerText = fmt(p10);
-        document.getElementById('mc_median_nw').innerText = fmt(median);
-        document.getElementById('mc_p90_nw').innerText = fmt(p90);
-        
-        document.getElementById('mc_results_area').classList.remove('d-none');
+        const runs = trajectories.length;
+        const p10Idx = Math.floor(runs * 0.10);
+        const p50Idx = Math.floor(runs * 0.50);
+        const p90Idx = Math.floor(runs * 0.90);
+
+        const p10Data = trajectories[p10Idx];
+        const p50Data = trajectories[p50Idx];
+        const p90Data = trajectories[p90Idx];
+
+        const successCount = trajectories.filter(t => t[t.length-1] > 0).length;
+        const successRate = ((successCount / runs) * 100).toFixed(1);
+
+        const statsBox = document.getElementById('mc_stats_box');
+        const rateEl = document.getElementById('mc_success_rate');
+        if(statsBox && rateEl) {
+            statsBox.style.display = 'block';
+            rateEl.innerText = `${successRate}%`;
+            statsBox.className = successRate >= 90 ? 'card p-3 border-success bg-success bg-opacity-10 text-center' : 
+                               (successRate >= 75 ? 'card p-3 border-warning bg-warning bg-opacity-10 text-center' : 
+                               'card p-3 border-danger bg-danger bg-opacity-10 text-center');
+            rateEl.className = successRate >= 90 ? 'display-4 fw-bold text-success' : 
+                             (successRate >= 75 ? 'display-4 fw-bold text-warning' : 
+                             'display-4 fw-bold text-danger');
+        }
+
+        const ctx = document.getElementById('chartMonteCarlo').getContext('2d');
+        const labels = p50Data.map((_, i) => startYear + i);
+
+        if(this.charts.mc) this.charts.mc.destroy(); 
+
+        this.charts.mc = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Optimistic (Top 10%)',
+                        data: p90Data,
+                        borderColor: '#10b981', 
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Median Outcome',
+                        data: p50Data,
+                        borderColor: '#3b82f6', 
+                        backgroundColor: 'transparent',
+                        borderWidth: 3,
+                        tension: 0.4,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Pessimistic (Bottom 10%)',
+                        data: p10Data,
+                        borderColor: '#ef4444', 
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Zero Line',
+                        data: Array(labels.length).fill(0),
+                        borderColor: '#666', 
+                        borderWidth: 1,
+                        borderDash: [5, 5],
+                        pointRadius: 0,
+                        fill: false
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { position: 'bottom', labels: { color: '#888' } },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(context.raw);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { color: '#333' }, ticks: { color: '#888' } },
+                    y: { 
+                        grid: { color: '#333' }, 
+                        ticks: { color: '#888', callback: (val) => '$' + (val/1000000).toFixed(1) + 'M' } 
+                    }
+                }
+            }
+        });
     }
+    // ---------------- MONTE CARLO ENGINE END ---------------- //
 
     drawSankey(idx) {
         if (!this.state.projectionData[idx] || !google?.visualization) return;
@@ -858,13 +909,11 @@ class RetirementPlanner {
         return v; 
     }
 
-    // UPDATED: Added simContext parameter to support Monte Carlo randomization
     generateProjectionTable(onlyCalcNW = false, simContext = null) {
         if(!onlyCalcNW) this.state.projectionData = [];
         const mode = this.state.mode;
         const curY = new Date().getFullYear();
         
-        // Clone initial state for simulation so we don't mutate the UI source
         let person1 = { tfsa: this.getVal('p1_tfsa'), rrsp: this.getVal('p1_rrsp'), cash: this.getVal('p1_cash'), nreg: this.getVal('p1_nonreg'), crypto: this.getVal('p1_crypto'), lirf: this.getVal('p1_lirf'), lif: this.getVal('p1_lif'), rrif_acct: this.getVal('p1_rrif_acct'), inc: this.getVal('p1_income'), dob: new Date(this.getRaw('p1_dob')), retAge: this.getVal('p1_retireAge'), lifeExp: this.getVal('p1_lifeExp'), nreg_yield: this.getVal('p1_nonreg_yield')/100, acb: this.getVal('p1_nonreg') };
         let person2 = { tfsa: this.getVal('p2_tfsa'), rrsp: this.getVal('p2_rrsp'), cash: this.getVal('p2_cash'), nreg: this.getVal('p2_nonreg'), crypto: this.getVal('p2_crypto'), lirf: this.getVal('p2_lirf'), lif: this.getVal('p2_lif'), rrif_acct: this.getVal('p2_rrif_acct'), inc: this.getVal('p2_income'), dob: new Date(this.getRaw('p2_dob')), retAge: this.getVal('p2_retireAge'), lifeExp: this.getVal('p2_lifeExp'), nreg_yield: this.getVal('p2_nonreg_yield')/100, acb: this.getVal('p2_nonreg') };
 
@@ -876,6 +925,7 @@ class RetirementPlanner {
         const yearsToRun = endAge - Math.min(p1StartAge, mode==='Couple'?p2StartAge:p1StartAge);
         let trackedEvents = new Set();
         let finalNetWorth = 0;
+        let nwArray = [];
 
         let consts = {
             cppMax1: this.getVal('p1_cpp_est_base'),
@@ -964,15 +1014,11 @@ class RetirementPlanner {
             if (surplus > 0) {
                 this.handleSurplus(surplus, person1, person2, alive1, alive2, flowLog, i, consts.tfsaLimit*bInf, rrspRoom1, rrspRoom2);
             } else {
-                // Iterative Deficit Handling loop (Max 5 passes to converge on tax impact)
-                let addedToTaxableIncome = 0; // Accumulate taxable gross-ups (RRSP etc) here
-                
+                let addedToTaxableIncome = 0; 
                 for(let pass=0; pass<5; pass++) {
-                    // Recalculate everything dynamic
                     let dynTax1 = this.calculateTaxDetailed(taxableIncome1, this.getRaw('tax_province'), taxBrackets);
                     let dynTax2 = this.calculateTaxDetailed(taxableIncome2, this.getRaw('tax_province'), taxBrackets);
                     
-                    // Update main loop tax vars for final display
                     tax1 = dynTax1; 
                     tax2 = dynTax2;
 
@@ -980,24 +1026,20 @@ class RetirementPlanner {
                     let dynNet2 = alive2 ? taxableIncome2 - dynTax2.totalTax + inflows.p2.windfallNonTax : 0;
                     let dynTotalNet = dynNet1 + dynNet2;
                     
-                    // Correctly calculate cash generated from withdrawals that WASN'T added to taxable income (e.g. TFSA)
                     let currentWithdrawals = Object.values(flowLog.withdrawals).reduce((a,b)=>a+b,0);
                     let cashFromNonTaxableWd = Math.max(0, currentWithdrawals - addedToTaxableIncome);
 
-                    // Deficit = Total Outflows - (Net Income + Non-Taxable Cash generated by withdrawals)
                     let currentDeficit = totalOutflows - (dynTotalNet + cashFromNonTaxableWd);
                     
-                    if (currentDeficit < 1) break; // Close enough
+                    if (currentDeficit < 1) break; 
                     
                     this.handleDeficit(currentDeficit, person1, person2, taxableIncome1, taxableIncome2, alive1, alive2, flowLog, wdBreakdown, taxBrackets, (pfx, taxAmt, grossAmt) => {
-                        // This callback updates the income tracking for the NEXT pass
                         if (pfx === 'p1') taxableIncome1 += grossAmt;
                         if (pfx === 'p2') taxableIncome2 += grossAmt;
-                        addedToTaxableIncome += grossAmt; // Track this so we don't double count it in the Non-Taxable calculation
+                        addedToTaxableIncome += grossAmt; 
                     }, age1, age2);
                 }
                 
-                // Final Recalc for display consistency
                 tax1 = this.calculateTaxDetailed(taxableIncome1, this.getRaw('tax_province'), taxBrackets);
                 tax2 = this.calculateTaxDetailed(taxableIncome2, this.getRaw('tax_province'), taxBrackets);
                 netIncome1 = taxableIncome1 - tax1.totalTax + inflows.p1.windfallNonTax;
@@ -1012,15 +1054,14 @@ class RetirementPlanner {
             simProperties.forEach(p => { if(p.includeInNW) { realEstateValue+=p.value; realEstateDebt+=p.mortgage; } });
             finalNetWorth = liquidNW + (realEstateValue - realEstateDebt);
 
+            if(onlyCalcNW) nwArray.push(finalNetWorth);
+
             if(!onlyCalcNW) {
-                // Gross Inflow for Display
                 const totalWithdrawals = Object.values(flowLog.withdrawals).reduce((a,b)=>a+b,0);
                 const p1GrossTotal = inflows.p1.gross + inflows.p1.cpp + inflows.p1.oas + inflows.p1.pension + inflows.p1.windfallTaxable + inflows.p1.windfallNonTax;
                 const p2GrossTotal = inflows.p2.gross + inflows.p2.cpp + inflows.p2.oas + inflows.p2.pension + inflows.p2.windfallTaxable + inflows.p2.windfallNonTax;
                 const totalYield = (person1.nreg * person1.nreg_yield) + (alive2 ? (person2.nreg * person2.nreg_yield) : 0);
                 const grossInflow = p1GrossTotal + p2GrossTotal + totalYield + totalWithdrawals;
-                
-                // Net Cash Surplus
                 const cashSurplus = grossInflow - (totalOutflows + tax1.totalTax + tax2.totalTax);
 
                 this.state.projectionData.push({
@@ -1040,7 +1081,7 @@ class RetirementPlanner {
                     wdBreakdown: wdBreakdown,
                     flows: flowLog,
                     events: inflows.events,
-                    householdNet: grossInflow, // Total cash flowing in
+                    householdNet: grossInflow, 
                     grossInflow: grossInflow, 
                     visualExpenses: expenses + mortgagePayment + debtRepayment + tax1.totalTax + tax2.totalTax,
                     mortgage: simProperties.reduce((s,p)=>s+p.mortgage,0), 
@@ -1057,6 +1098,11 @@ class RetirementPlanner {
         }
         
         if(!onlyCalcNW) this.renderProjectionGrid();
+        
+        if(onlyCalcNW) {
+            if(simContext && simContext.returnTrajectory) return nwArray;
+            return finalNetWorth;
+        }
         return finalNetWorth;
     }
 
@@ -1074,9 +1120,6 @@ class RetirementPlanner {
         
         if(stress) { ['tfsa','rrsp','nreg','cash','lirf','lif','rrif_acct'].forEach(k=>{ g1[k]=-0.15; g2[k]=-0.15; }); g1.cryp=-0.40; g2.cryp=-0.40; }
 
-        // If in Monte Carlo mode, apply random shock to investment returns
-        // We do NOT shock Cash or Fixed Income buckets as heavily (or at all for simplicity, or reduced)
-        // For this logic, we assume crypto/stocks get the shock.
         if (simContext && simContext.volatility) {
             const shock = this.randn_bm() * simContext.volatility;
             ['tfsa','rrsp','nreg','cryp','lirf','lif','rrif_acct'].forEach(k => {
@@ -1155,15 +1198,10 @@ class RetirementPlanner {
             }
 
             if(yr>=sY && yr<=eY) {
-                // Growth calc needs base year. For relative start, base is sY. For date start, base is s.start
                 let baseYear = s.startMode === 'ret_relative' ? sY : new Date(s.start+"-01").getFullYear();
-                
                 let amt = s.amount * Math.pow(1+(s.growth/100), yr-baseYear);
-                
-                // Frequency Adjustment
                 amt *= (s.freq==='month' ? 12 : 1);
                 
-                // Partial year logic (simplified for relative dates to be full year)
                 if (s.startMode === 'date') {
                      if (yr === sY) amt *= (12 - new Date(s.start+"-01").getMonth()) / 12;
                 }
@@ -1177,8 +1215,6 @@ class RetirementPlanner {
                         if(s.taxable) { 
                             target.gross += amt; 
                             target.earned += amt;
-                            // Check if this is technically post-retirement work
-                            const ownerP = s.owner === 'p2' ? p2 : p1;
                             const isRet = (s.owner==='p2' ? isRet2 : isRet1);
                             if(isRet) target.postRet += amt;
                         } 
@@ -1298,7 +1334,6 @@ class RetirementPlanner {
             let grossNeeded = a;
 
             if (isTaxable) {
-                // Gross up to cover tax
                 let effRate = Math.min(mRate || 0, 0.54); 
                 grossNeeded = a / (1 - effRate);
             }
@@ -1311,20 +1346,14 @@ class RetirementPlanner {
 
             p[t] -= tk;
             
-            // Update Stats
             let k = (pfx.toUpperCase())+" "+logKey;
             log.withdrawals[k] = (log.withdrawals[k]||0) + tk;
             breakdown[pfx][logKey] = (breakdown[pfx][logKey]||0) + tk;
             
-            // Calculate actual tax impact (approx for loop sorting, precise for callback)
             if (isTaxable) {
-                 // For RRSP/RRIF, the entire amount is taxable income
                  if(onWithdrawal) onWithdrawal(pfx, 0, tk);
-            } else if (t === 'nreg') {
-                 // For Non-Reg... Let's defer NREG income updates to the outer loop since they are complex.
             }
 
-            // Return NET cash obtained
             if (isTaxable) {
                 let effRate = Math.min(mRate || 0, 0.54);
                 return tk * (1 - effRate);
@@ -1359,10 +1388,8 @@ class RetirementPlanner {
                 let gotP1 = wd(p1, p1Type, half, 'p1', mR1);
                 let gotP2 = wd(p2, p2Type, half, 'p2', mR2);
                 
-                // If one couldn't pay their half, push remainder to deficit
                 df = df - (gotP1 + gotP2);
                 
-                // Update running income estimate for sorting
                 if(['rrsp','rrif_acct','lif','lirf'].includes(p1Type)) runInc1 += (gotP1 / (1-Math.min(mR1,0.54)));
                 if(['rrsp','rrif_acct','lif','lirf'].includes(p2Type)) runInc2 += (gotP2 / (1-Math.min(mR2,0.54)));
 
@@ -1372,7 +1399,6 @@ class RetirementPlanner {
                     let gap = Math.abs(runInc1 - runInc2);
                     let mR = (target === 'p1' ? mR1 : mR2);
                     let effRate = Math.min(mR || 0, 0.54);
-                    // Estimate net gap
                     let netGap = gap * (1 - effRate);
                     if (netGap > 0) toTake = Math.min(df, netGap);
                 }
@@ -1513,16 +1539,11 @@ class RetirementPlanner {
         const age = Math.abs(new Date(Date.now() - new Date(dI+"-01").getTime()).getUTCFullYear() - 1970);
         el.innerHTML = age + " years old";
 
-        // NEW LOGIC: Update the slider min to be the current age
         const slider = document.getElementById(`qa_${pfx}_retireAge_range`);
         if (slider) {
-            // Set min to current age
             slider.min = age;
-            
-            // If current value is now impossible (below age), bump it up
             if (parseInt(slider.value) < age) {
                 slider.value = age;
-                // Also update the state and the text label
                 this.state.inputs[`${pfx}_retireAge`] = age;
                 const label = document.getElementById(`qa_${pfx}_retireAge_val`);
                 if(label) label.innerText = age;
@@ -1646,7 +1667,7 @@ class RetirementPlanner {
             const eC = document.getElementById(`${p}_cpp_est`); 
             if(eC){ 
                 eC.innerText = cE ? `$${Math.round(cV).toLocaleString()}/yr` : "Disabled"; 
-                cE ? eC.classList.remove('text-danger') : eC.classList.add('text-danger'); 
+                eC.classList.remove('text-danger') : eC.classList.add('text-danger'); 
             }
             
             let oasYears = Math.max(0, Math.min(40, this.getVal(`${p}_oas_years`)));
@@ -1657,7 +1678,7 @@ class RetirementPlanner {
             const eO = document.getElementById(`${p}_oas_est`); 
             if(eO){ 
                 eO.innerText = oE ? `$${Math.round(oV).toLocaleString()}/yr` : "Disabled"; 
-                oE ? eO.classList.remove('text-danger') : eO.classList.add('text-danger'); 
+                eO.classList.remove('text-danger') : eO.classList.add('text-danger'); 
             }
         });
     }
@@ -1682,11 +1703,8 @@ class RetirementPlanner {
             }
 
             if(cY>=sY && cY<=eY) {
-                // Growth from start year
                 let baseYear = s.startMode === 'ret_relative' ? sY : new Date(s.start+"-01").getFullYear();
                 let a = s.amount * Math.pow(1+(s.growth/100), cY-baseYear) * (s.freq==='month'?12:1);
-                
-                // Partial year logic
                 if (s.startMode === 'date' && cY===sY) a *= (12-new Date(s.start+"-01").getMonth())/12;
                 if (s.endMode === 'date' && s.end && cY===eY) a *= Math.min(1, (new Date(s.end+"-01").getMonth()+1)/12);
 
@@ -1874,16 +1892,16 @@ class RetirementPlanner {
                 },
                 scales: {
                     x: { ticks: { color: textColor }, grid: { color: gridColor } },
-                    y: {
-                        ticks: {
+                    y: { 
+                        ticks: { 
                             color: textColor,
                             callback: function(value) {
                                 if (value >= 1000000) return '$' + (value / 1000000).toFixed(1) + 'M';
                                 if (value >= 1000) return '$' + (value / 1000).toFixed(0) + 'k';
                                 return '$' + value;
                             }
-                        },
-                        grid: { color: gridColor }
+                        }, 
+                        grid: { color: gridColor } 
                     }
                 }
             }
