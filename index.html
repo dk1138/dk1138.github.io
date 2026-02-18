@@ -778,8 +778,8 @@
               </div>
 
               <div class="tab-pane fade p-4 p-md-5" id="strategy-pane" role="tabpanel">
-                <div class="row g-5">
-                  <div class="col-md-6">
+                <div class="row g-5 mb-5">
+                  <div class="col-md-6 border-end border-secondary">
                     <div class="d-flex align-items-center mb-4 pb-2 border-bottom border-success border-opacity-50">
                       <div class="bg-success bg-opacity-10 text-success p-2 rounded me-3 d-flex"><i class="bi bi-piggy-bank fs-3"></i></div>
                       <h5 class="text-success mb-0 me-2 fw-bold text-uppercase ls-1">Accumulation Strategy</h5>
@@ -787,8 +787,26 @@
                         <i class="bi bi-info-circle"></i>
                       </button>
                     </div>
-                    
-                    <div class="card border-secondary mb-4 surface-card shadow-sm">
+                    <p class="small text-muted mb-4 px-2">Drag to prioritize where surplus cash is saved. Top items fill first.</p>
+                    <div id="strat-accum-container" class="mb-0 px-2"></div>
+                  </div>
+
+                  <div class="col-md-6">
+                    <div class="d-flex align-items-center mb-4 pb-2 border-bottom border-warning border-opacity-50">
+                      <div class="bg-warning bg-opacity-10 text-warning p-2 rounded me-3 d-flex"><i class="bi bi-wallet2 fs-3"></i></div>
+                      <h5 class="text-warning mb-0 me-2 fw-bold text-uppercase ls-1">Decumulation Strategy</h5>
+                      <button type="button" class="btn btn-link p-0 text-muted info-btn" data-bs-toggle="popover" data-bs-title="Withdrawal Order" data-bs-content="<b>Drag and Drop</b> to prioritize.<br><br>When you retire (or spend more than you earn), this determines which assets are sold first to cover your expenses. Optimizing this can save significant tax dollars.">
+                        <i class="bi bi-info-circle"></i>
+                      </button>
+                    </div>
+                    <p class="small text-muted mb-4 px-2">Drag to prioritize withdrawal sources during retirement/deficits.</p>
+                    <div id="strat-decumulation" class="mb-0 px-2"></div>
+                  </div>
+                </div>
+
+                <div class="row g-5">
+                  <div class="col-md-6">
+                    <div class="card border-secondary surface-card shadow-sm h-100">
                         <div class="card-header border-secondary text-uppercase small fw-bold text-muted d-flex justify-content-between align-items-center">
                             <span>Annual Contribution Limits</span>
                             <a href="https://www.canada.ca/en/revenue-agency/services/tax/individuals/topics/rrsps-related-plans/contributing-a-rrsp-prpp/contributions-affect-your-rrsp-prpp-deduction-limit.html" target="_blank" class="text-muted" title="CRA Limits Info"><i class="bi bi-box-arrow-up-right"></i></a>
@@ -813,12 +831,11 @@
                             </div>
                         </div>
                     </div>
+                  </div>
 
-                    <p class="small text-muted mb-4 px-2">Drag to prioritize where surplus cash is saved. Top items fill first.</p>
-                    <div id="strat-accum-container" class="mb-5 px-2"></div>
-                    
-                    <div class="strategy-opt-box border-secondary surface-card shadow-sm">
-                      <div class="strategy-opt-header mb-3"><i class="bi bi-sliders text-success me-2"></i>Exceptions / Overrides</div>
+                  <div class="col-md-6">
+                    <div class="strategy-opt-box border-secondary surface-card shadow-sm h-100 p-3">
+                      <div class="strategy-opt-header mb-3 fw-bold text-uppercase small text-muted border-bottom border-secondary pb-2"><i class="bi bi-sliders text-info me-2"></i>Exceptions / Overrides</div>
                       <div class="form-check mb-3">
                         <input class="form-check-input live-calc mt-1" type="checkbox" id="skip_first_tfsa_p1">
                         <label class="form-check-label small" for="skip_first_tfsa_p1">P1: Skip 1st Year TFSA Contrib.</label>
@@ -838,21 +855,6 @@
                         </div>
                       </div>
                     </div>
-                  </div>
-                  
-                  <div class="col-md-6 border-start border-secondary d-none d-md-block" style="margin-left: -1px;"></div>
-                  <div class="col-md-6 mt-md-0 mt-5 pt-md-0 pt-5 border-top border-secondary d-md-none"></div>
-
-                  <div class="col-md-6 ms-md-n1">
-                    <div class="d-flex align-items-center mb-4 pb-2 border-bottom border-warning border-opacity-50">
-                      <div class="bg-warning bg-opacity-10 text-warning p-2 rounded me-3 d-flex"><i class="bi bi-wallet2 fs-3"></i></div>
-                      <h5 class="text-warning mb-0 me-2 fw-bold text-uppercase ls-1">Decumulation Strategy</h5>
-                      <button type="button" class="btn btn-link p-0 text-muted info-btn" data-bs-toggle="popover" data-bs-title="Withdrawal Order" data-bs-content="<b>Drag and Drop</b> to prioritize.<br><br>When you retire (or spend more than you earn), this determines which assets are sold first to cover your expenses. Optimizing this can save significant tax dollars.">
-                        <i class="bi bi-info-circle"></i>
-                      </button>
-                    </div>
-                    <p class="small text-muted mb-4 px-2">Drag to prioritize withdrawal sources during retirement/deficits.</p>
-                    <div id="strat-decumulation" class="mb-4 px-2"></div>
                   </div>
                 </div>
               </div>
