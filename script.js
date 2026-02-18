@@ -1,14 +1,14 @@
 /**
- * Retirement Planner Pro - Logic v10.47 (Smart Income Streams & Post-Retirement Fix)
+ * Retirement Planner Pro - Logic v10.48 (Standardized Delete Confirmation)
  * * Changelog:
- * - v10.47: ENHANCED: Additional Income streams now support relative scheduling (e.g., "Start 0 years after retirement", "Lasts for 5 years").
- * - v10.47: REMOVED: Legacy "Post-Retirement Income" hardcoded section (superseded by flexible streams).
- * - v10.46: FIXED: "Iterative Deficit" loop now correctly accounts for non-taxable withdrawals (TFSA/Capital).
- * - v10.45: FIXED: "Surplus" calculation is now Iterative.
+ * - v10.48: FIXED: Debt/Liability deletion now triggers a confirmation modal to prevent accidental data loss.
+ * - v10.47: ENHANCED: Additional Income streams now support relative scheduling.
+ * - v10.47: REMOVED: Legacy "Post-Retirement Income" hardcoded section.
+ * - v10.46: FIXED: "Iterative Deficit" loop correctly accounts for non-taxable withdrawals.
  */
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.47";
+        this.APP_VERSION = "10.48";
         this.state = {
             inputs: {},
             debt: [],
@@ -1468,7 +1468,7 @@ class RetirementPlanner {
         const c = document.getElementById('debt-container'), div = document.createElement('div'); div.className = 'row g-3 mb-2 align-items-center debt-row';
         div.innerHTML = `<div class="col-12 col-md-5"><input type="text" class="form-control form-control-sm" placeholder="Debt Name"></div><div class="col-8 col-md-4"><div class="input-group input-group-sm"><span class="input-group-text">$</span><input type="text" class="form-control formatted-num live-calc debt-amount" value="0"></div></div><div class="col-4 col-md-3"><button type="button" class="btn btn-outline-danger btn-sm w-100"><i class="bi bi-trash"></i></button></div>`;
         c.appendChild(div); div.querySelector('.debt-amount').addEventListener('input', e => { this.formatInput(e.target); this.debouncedRun(); });
-        div.querySelector('.btn-outline-danger').addEventListener('click', () => { div.remove(); this.debouncedRun(); });
+        div.querySelector('.btn-outline-danger').addEventListener('click', () => this.showConfirm("Remove this liability?", () => { div.remove(); this.debouncedRun(); }));
     }
 
     renderStrategy() {
