@@ -1,20 +1,19 @@
 /**
- * Retirement Planner Pro - Logic v10.53
+ * Retirement Planner Pro - Logic v10.6
  * * Changelog:
+ * - v10.6: NEW: Real Estate Downsizing logic. Sell homes, buy replacement, invest difference.
  * - v10.53: UI Update: Strategy tab now places Withdrawal Order drag-and-drop at the top.
- * - v10.52: FIXED: Syntax error in estimateCPPOAS function that prevented script loading.
- * - v10.51: FIXED: Monte Carlo now draws to the 'Risk' tab chart instead of a modal.
- * - v10.51: NEW: Visualizes P10, Median, and P90 trajectories.
- * - v10.50: Core Monte Carlo engine added.
+ * - v10.52: FIXED: Syntax error in estimateCPPOAS function.
+ * - v10.51: FIXED: Monte Carlo draws to chart.
  */
 
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.53";
+        this.APP_VERSION = "10.6";
         this.state = {
             inputs: {},
             debt: [],
-            properties: [{ name: "Primary Home", value: 1000000, mortgage: 430000, growth: 3.0, rate: 3.29, payment: 0, manual: false, includeInNW: false }],
+            properties: [{ name: "Primary Home", value: 1000000, mortgage: 430000, growth: 3.0, rate: 3.29, payment: 0, manual: false, includeInNW: false, sellEnabled: false, sellAge: 65, replacementValue: 0 }],
             windfalls: [],
             additionalIncome: [],
             strategies: { 
@@ -71,7 +70,8 @@ class RetirementPlanner {
             "P1 CPP": { icon: 'bi-file-earmark-text-fill', color: 'text-info', title: "P1 Starts CPP" }, "P1 OAS": { icon: 'bi-cash-stack', color: 'text-info', title: "P1 Starts OAS" },
             "P2 CPP": { icon: 'bi-file-earmark-text', color: 'text-purple', title: "P2 Starts CPP" }, "P2 OAS": { icon: 'bi-cash', color: 'text-purple', title: "P2 Starts OAS" },
             "P1 Dies": { icon: 'bi-heartbreak-fill', color: 'text-white', title: "P1 Deceased" }, "P2 Dies": { icon: 'bi-heartbreak', color: 'text-white', title: "P2 Deceased" },
-            "Windfall": { icon: 'bi-gift-fill', color: 'text-success', title: "Inheritance/Bonus Received" }
+            "Windfall": { icon: 'bi-gift-fill', color: 'text-success', title: "Inheritance/Bonus Received" },
+            "Downsize": { icon: 'bi-box-seam-fill', color: 'text-primary', title: "Real Estate Downsizing" }
         };
 
         if(typeof google !== 'undefined' && google.charts) google.charts.load('current', {'packages':['sankey']});
@@ -297,9 +297,6 @@ class RetirementPlanner {
         $('fileUpload').addEventListener('change', e => this.handleFileUpload(e));
         $('btnClearStorage').addEventListener('click', () => this.clearStorage());
         
-        // Monte Carlo Button Handler is integrated via HTML onclick, but we can double bind safety if needed
-        // The main fix is ensuring app.runMonteCarlo is defined below.
-
         document.body.addEventListener('input', e => {
             const cl = e.target.classList;
             if (cl.contains('live-calc')) {
@@ -320,12 +317,12 @@ class RetirementPlanner {
             if (cl.contains('property-update')) {
                 const { idx, field } = e.target.dataset;
                 let val = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-                if (['value', 'mortgage', 'payment'].includes(field)) val = Number(String(val).replace(/,/g, '')) || 0;
+                if (['value', 'mortgage', 'payment', 'sellAge', 'replacementValue'].includes(field)) val = Number(String(val).replace(/,/g, '')) || 0;
                 else if (['growth', 'rate'].includes(field)) val = parseFloat(val) || 0;
                 if (this.state.properties[idx]) {
                     this.state.properties[idx][field] = val;
                     if(field === 'payment') this.state.properties[idx].manual = true;
-                    if(!['payment', 'name', 'includeInNW'].includes(field)) { this.state.properties[idx].manual = false; this.calculateSingleMortgage(idx); }
+                    if(!['payment', 'name', 'includeInNW', 'sellEnabled', 'sellAge', 'replacementValue'].includes(field)) { this.state.properties[idx].manual = false; this.calculateSingleMortgage(idx); }
                     
                     if(field === 'payment') this.debouncedPayoffUpdate(idx);
                 }
@@ -495,7 +492,7 @@ class RetirementPlanner {
                 this.state.inputs[el.id] = el.type === 'checkbox' ? el.checked : el.value;
             }
         });
-        this.state.properties = [{ name: "Primary Home", value: 0, mortgage: 0, growth: 3.0, rate: 3.5, payment: 0, manual: false, includeInNW: false }];
+        this.state.properties = [{ name: "Primary Home", value: 0, mortgage: 0, growth: 3.0, rate: 3.5, payment: 0, manual: false, includeInNW: false, sellEnabled: false, sellAge: 65, replacementValue: 0 }];
         this.state.windfalls = []; this.state.additionalIncome = []; 
         for (const cat in this.expensesByCategory) this.expensesByCategory[cat].items = [];
         this.renderProperties(); this.renderWindfalls(); this.renderAdditionalIncome(); this.renderExpenseRows(); this.calcExpenses();
@@ -650,14 +647,99 @@ class RetirementPlanner {
     renderProperties() {
         const c = document.getElementById('real-estate-container'); c.innerHTML = '';
         this.state.properties.forEach((p, idx) => {
-            const div = document.createElement('div'); div.className = 'property-row p-4 border border-secondary rounded-3 surface-card mb-4';
-            div.innerHTML = `<div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom border-secondary"><input type="text" class="form-control form-control-sm bg-transparent border-0 fw-bold fs-6 property-update px-0" style="max-width:300px;" value="${p.name}" data-idx="${idx}" data-field="name">${idx>0?`<button type="button" class="btn btn-sm btn-outline-danger py-0 px-2 rounded-circle" onclick="app.removeProperty(${idx})"><i class="bi bi-x-lg"></i></button>`:''}</div><div class="row g-4"><div class="col-6 col-md-3"><label class="form-label text-muted fw-bold">Value</label><div class="input-group input-group-sm"><span class="input-group-text border-secondary text-muted">$</span><input type="text" class="form-control border-secondary formatted-num property-update" value="${p.value.toLocaleString()}" data-idx="${idx}" data-field="value"></div></div><div class="col-6 col-md-3"><label class="form-label text-muted fw-bold">Mortgage</label><div class="input-group input-group-sm"><span class="input-group-text border-secondary text-muted">$</span><input type="text" class="form-control border-secondary formatted-num property-update" value="${p.mortgage.toLocaleString()}" data-idx="${idx}" data-field="mortgage"></div></div><div class="col-6 col-md-3"><label class="form-label text-muted fw-bold">Growth %</label><div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control border-secondary property-update" value="${p.growth}" data-idx="${idx}" data-field="growth"><span class="input-group-text border-secondary text-muted">%</span></div></div><div class="col-6 col-md-3"><label class="form-label text-muted fw-bold">Rate %</label><div class="input-group input-group-sm"><input type="number" step="0.01" class="form-control border-secondary property-update" value="${p.rate}" data-idx="${idx}" data-field="rate"><span class="input-group-text border-secondary text-muted">%</span></div></div><div class="col-12 col-md-4 mt-4"><label class="form-label text-warning fw-bold">Monthly Pmt</label><div class="input-group input-group-sm"><span class="input-group-text bg-warning bg-opacity-25 text-warning border-warning">$</span><input type="text" class="form-control border-warning formatted-num property-update text-warning fw-bold" value="${Math.round(p.payment).toLocaleString()}" data-idx="${idx}" data-field="payment"></div><div class="mt-2 small" id="prop-payoff-${idx}"></div></div><div class="col-12 border-top border-secondary pt-3 mt-4"><div class="form-check form-switch"><input class="form-check-input property-update fs-5 mt-0" type="checkbox" id="prop_nw_${idx}" ${p.includeInNW?'checked':''} data-idx="${idx}" data-field="includeInNW"><label class="form-check-label text-muted small fw-medium ms-2" style="margin-top: 3px;" for="prop_nw_${idx}">Include in Total Net Worth Calculation</label></div></div></div>`;
-            c.appendChild(div); div.querySelectorAll('.formatted-num').forEach(el => el.addEventListener('input', e => this.formatInput(e.target)));
+            const div = document.createElement('div'); 
+            div.className = 'property-row p-4 border border-secondary rounded-3 surface-card mb-4';
+            
+            // Checkboxes IDs
+            const incNWId = `prop_nw_${idx}`;
+            const sellId = `prop_sell_${idx}`;
+            const sellSectionId = `prop_sell_div_${idx}`;
+
+            // Handle undefined legacy properties
+            if (p.sellEnabled === undefined) p.sellEnabled = false;
+            if (p.sellAge === undefined) p.sellAge = 65;
+            if (p.replacementValue === undefined) p.replacementValue = 0;
+
+            div.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom border-secondary">
+                <input type="text" class="form-control form-control-sm bg-transparent border-0 fw-bold fs-6 property-update px-0" style="max-width:300px;" value="${p.name}" data-idx="${idx}" data-field="name">
+                ${idx > 0 ? `<button type="button" class="btn btn-sm btn-outline-danger py-0 px-2 rounded-circle" onclick="app.removeProperty(${idx})"><i class="bi bi-x-lg"></i></button>` : ''}
+            </div>
+            
+            <div class="row g-4">
+                <div class="col-6 col-md-3">
+                    <label class="form-label text-muted fw-bold">Value</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text border-secondary text-muted">$</span>
+                        <input type="text" class="form-control border-secondary formatted-num property-update" value="${p.value.toLocaleString()}" data-idx="${idx}" data-field="value">
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label text-muted fw-bold">Mortgage</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text border-secondary text-muted">$</span>
+                        <input type="text" class="form-control border-secondary formatted-num property-update" value="${p.mortgage.toLocaleString()}" data-idx="${idx}" data-field="mortgage">
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label text-muted fw-bold">Growth %</label>
+                    <div class="input-group input-group-sm">
+                        <input type="number" step="0.01" class="form-control border-secondary property-update" value="${p.growth}" data-idx="${idx}" data-field="growth">
+                        <span class="input-group-text border-secondary text-muted">%</span>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label text-muted fw-bold">Rate %</label>
+                    <div class="input-group input-group-sm">
+                        <input type="number" step="0.01" class="form-control border-secondary property-update" value="${p.rate}" data-idx="${idx}" data-field="rate">
+                        <span class="input-group-text border-secondary text-muted">%</span>
+                    </div>
+                </div>
+                <div class="col-12 col-md-4 mt-4">
+                    <label class="form-label text-warning fw-bold">Monthly Pmt</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-warning bg-opacity-25 text-warning border-warning">$</span>
+                        <input type="text" class="form-control border-warning formatted-num property-update text-warning fw-bold" value="${Math.round(p.payment).toLocaleString()}" data-idx="${idx}" data-field="payment">
+                    </div>
+                    <div class="mt-2 small" id="prop-payoff-${idx}"></div>
+                </div>
+            </div>
+
+            <div class="mt-4 pt-3 border-top border-secondary">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input property-update fs-5 mt-0" type="checkbox" id="${sellId}" ${p.sellEnabled ? 'checked' : ''} data-idx="${idx}" data-field="sellEnabled" onchange="document.getElementById('${sellSectionId}').style.display = this.checked ? 'flex' : 'none'">
+                        <label class="form-check-label text-info fw-bold small ms-2" for="${sellId}" style="margin-top: 3px;">Plan to Sell / Downsize?</label>
+                    </div>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input property-update mt-0" type="checkbox" id="${incNWId}" ${p.includeInNW ? 'checked' : ''} data-idx="${idx}" data-field="includeInNW">
+                        <label class="form-check-label text-muted small ms-2" for="${incNWId}">Include in NW</label>
+                    </div>
+                </div>
+
+                <div class="row g-3 mt-2 p-3 border border-secondary rounded-3 bg-black bg-opacity-10" id="${sellSectionId}" style="display: ${p.sellEnabled ? 'flex' : 'none'};">
+                    <div class="col-12 col-md-5">
+                        <label class="form-label text-muted small fw-bold">Sell at P1 Age</label>
+                        <input type="number" class="form-control form-control-sm border-secondary property-update" value="${p.sellAge}" data-idx="${idx}" data-field="sellAge">
+                    </div>
+                    <div class="col-12 col-md-7">
+                        <label class="form-label text-muted small fw-bold">Replacement Home Cost</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text border-secondary text-muted">$</span>
+                            <input type="text" class="form-control border-secondary formatted-num property-update" value="${(p.replacementValue || 0).toLocaleString()}" data-idx="${idx}" data-field="replacementValue">
+                        </div>
+                        <div class="form-text text-muted" style="font-size: 0.7rem;">Enter $0 if renting afterwards. Difference is added to cash.</div>
+                    </div>
+                </div>
+            </div>
+            `;
+            c.appendChild(div); 
+            div.querySelectorAll('.formatted-num').forEach(el => el.addEventListener('input', e => this.formatInput(e.target)));
         });
         this.updateAllMortgages();
     }
 
-    addProperty() { this.state.properties.push({ name: "New Property", value: 500000, mortgage: 400000, growth: 3.0, rate: 4.0, payment: 0, manual: false, includeInNW: false }); this.renderProperties(); this.run(); }
+    addProperty() { this.state.properties.push({ name: "New Property", value: 500000, mortgage: 400000, growth: 3.0, rate: 4.0, payment: 0, manual: false, includeInNW: false, sellEnabled: false, sellAge: 65, replacementValue: 0 }); this.renderProperties(); this.run(); }
     removeProperty(idx) { this.showConfirm("Remove property?", () => { this.state.properties.splice(idx, 1); this.renderProperties(); this.run(); }); }
 
     updateAllMortgages() { this.state.properties.forEach((p, idx) => { if(!p.manual) this.calculateSingleMortgage(idx); this.updatePropPayoffDisplay(idx); }); }
@@ -959,17 +1041,64 @@ class RetirementPlanner {
             const expenses = this.calcOutflows(yr, i, age1, bInf, isRet1, isRet2);
 
             let mortgagePayment = 0;
-            simProperties.forEach(p => { 
-                if(p.mortgage>0 && p.payment>0) { 
-                    let annPmt=p.payment*12, interest=p.mortgage*(p.rate/100), principal=annPmt-interest; 
-                    if(principal>p.mortgage) { principal=p.mortgage; annPmt=principal+interest; } 
-                    p.mortgage=Math.max(0, p.mortgage-principal); 
-                    mortgagePayment+=annPmt; 
-                } 
-                p.value*=(1+(p.growth/100)); 
+            
+            // --- PROPERTY DOWNSIZING LOGIC ---
+            let keptProperties = [];
+            simProperties.forEach(p => {
+                // Check if property should be sold this year
+                if (p.sellEnabled && p.sellAge === age1) {
+                    // Logic: Sell Home
+                    const proceeds = p.value;
+                    const mortgageRem = p.mortgage;
+                    const transCosts = proceeds * 0.05; // 5% fees
+                    const netCash = proceeds - mortgageRem - transCosts;
+                    
+                    // Logic: Buy Replacement?
+                    const newHomeCost = (p.replacementValue || 0) * bInf; // Inflate replacement cost
+                    const surplus = netCash - newHomeCost;
+                    
+                    if (surplus > 0) {
+                        // Add surplus to Tax-Free Windfall (assume Principal Res for now)
+                        inflows.p1.windfallNonTax += surplus;
+                    }
+                    
+                    // Add Event
+                    if (!trackedEvents.has('Downsize')) { 
+                        trackedEvents.add('Downsize'); 
+                        inflows.events.push('Downsize'); 
+                    }
+
+                    // Create New Property if applicable
+                    if (newHomeCost > 0) {
+                        keptProperties.push({
+                            name: "Replacement: " + p.name,
+                            value: newHomeCost,
+                            mortgage: 0, // Assume bought with cash from proceeds
+                            growth: p.growth, // Keep same growth rate
+                            rate: 0,
+                            payment: 0,
+                            manual: false,
+                            includeInNW: p.includeInNW,
+                            sellEnabled: false // Prevent infinite loop of selling
+                        });
+                    }
+                } else {
+                    // Normal Property Processing
+                    if(p.mortgage>0 && p.payment>0) { 
+                        let annPmt=p.payment*12, interest=p.mortgage*(p.rate/100), principal=annPmt-interest; 
+                        if(principal>p.mortgage) { principal=p.mortgage; annPmt=principal+interest; } 
+                        p.mortgage=Math.max(0, p.mortgage-principal); 
+                        mortgagePayment+=annPmt; 
+                    } 
+                    p.value*=(1+(p.growth/100));
+                    keptProperties.push(p);
+                }
             });
+            simProperties = keptProperties;
+            // ---------------------------------
+
             let debtRepayment = totalDebt>0 ? Math.min(totalDebt, 6000) : 0; totalDebt-=debtRepayment;
-            if(simProperties.reduce((s,p)=>s+p.mortgage,0)<=0 && !trackedEvents.has('Mortgage Paid')){ trackedEvents.add('Mortgage Paid'); inflows.events.push('Mortgage Paid'); }
+            if(simProperties.reduce((s,p)=>s+p.mortgage,0)<=0 && !trackedEvents.has('Mortgage Paid') && simProperties.some(p => p.mortgage === 0 && p.value > 0)){ trackedEvents.add('Mortgage Paid'); inflows.events.push('Mortgage Paid'); }
 
             let taxableIncome1 = inflows.p1.gross + inflows.p1.cpp + inflows.p1.oas + inflows.p1.pension + rrifMin.p1 + inflows.p1.windfallTaxable + (person1.nreg * person1.nreg_yield);
             let taxableIncome2 = inflows.p2.gross + inflows.p2.cpp + inflows.p2.oas + inflows.p2.pension + rrifMin.p2 + inflows.p2.windfallTaxable + (alive2 ? (person2.nreg * person2.nreg_yield) : 0);
@@ -1601,8 +1730,6 @@ class RetirementPlanner {
         this.renderList('strat-decum-list', this.state.strategies.decum, 'decum', d);
         
         // Render RRSP Toggle Below (Clean UI)
-        // If the toggle already exists in HTML (via index.html update), we don't need to re-render it.
-        // However, to ensure backward compatibility if index.html isn't updated yet, we check.
         if (!document.getElementById('strat_rrsp_topup')) {
             const settingsDiv = document.createElement('div');
             settingsDiv.className = 'mt-4 pt-3 border-top border-secondary';
