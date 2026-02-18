@@ -42,6 +42,10 @@
             </div>
         </div>
 
+        <button class="btn btn-outline-danger shadow-sm d-flex align-items-center gap-2 px-3" id="btnClearAll" type="button" title="Clear All Data">
+            <i class="bi bi-trash3"></i> <span class="d-none d-sm-inline">Clear All</span>
+        </button>
+
         <button class="btn btn-outline-secondary d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;" id="btnThemeToggle" title="Toggle Light/Dark Mode">
           <i class="bi bi-sun-fill"></i>
         </button>
@@ -60,7 +64,21 @@
       </div>
     </div>
 
+    <div class="row mb-4">
+        <div class="col-12">
+            <ul class="nav nav-tabs border-0 flex-nowrap overflow-auto hide-scrollbar m-0" id="myTab" role="tablist">
+                <li class="nav-item" role="presentation"><button class="nav-link active" id="plan-tab" data-bs-toggle="tab" data-bs-target="#plan-pane" type="button" role="tab"><i class="bi bi-pencil-square me-2"></i>Inputs</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link" id="summary-tab" data-bs-toggle="tab" data-bs-target="#summary-pane" type="button" role="tab"><i class="bi bi-table me-2"></i>Projection</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link" id="strategy-tab" data-bs-toggle="tab" data-bs-target="#strategy-pane" type="button" role="tab"><i class="bi bi-sliders me-2"></i>Strategy</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link" id="cashflow-tab" data-bs-toggle="tab" data-bs-target="#cashflow-pane" type="button" role="tab"><i class="bi bi-diagram-3 me-2"></i>Cash Flow</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link" id="scenarios-tab" data-bs-toggle="tab" data-bs-target="#scenarios-pane" type="button" role="tab"><i class="bi bi-save me-2"></i>Files</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link" id="compare-tab" data-bs-toggle="tab" data-bs-target="#compare-pane" type="button" role="tab"><i class="bi bi-bar-chart-line me-2"></i>Compare</button></li>
+            </ul>
+        </div>
+    </div>
+
     <div class="row g-4">
+      
       <div class="col-auto" id="sidebarCol" style="width: 320px; transition: width 0.3s; z-index: 1000;">
         <div id="sidebarExpanded" class="card border-secondary sticky-sidebar shadow-sm">
           <div class="card-header border-bottom border-secondary d-flex justify-content-between align-items-center surface-card">
@@ -120,40 +138,29 @@
       </div>
 
       <div class="col" id="mainCol" style="min-width: 0;">
-        <div class="d-flex flex-wrap align-items-center justify-content-between mb-3 gap-3">
-          <ul class="nav nav-tabs border-0 flex-nowrap overflow-auto hide-scrollbar m-0" id="myTab" role="tablist">
-            <li class="nav-item" role="presentation"><button class="nav-link active" id="plan-tab" data-bs-toggle="tab" data-bs-target="#plan-pane" type="button" role="tab"><i class="bi bi-pencil-square me-2"></i>Inputs</button></li>
-            <li class="nav-item" role="presentation"><button class="nav-link" id="summary-tab" data-bs-toggle="tab" data-bs-target="#summary-pane" type="button" role="tab"><i class="bi bi-table me-2"></i>Projection</button></li>
-            <li class="nav-item" role="presentation"><button class="nav-link" id="strategy-tab" data-bs-toggle="tab" data-bs-target="#strategy-pane" type="button" role="tab"><i class="bi bi-sliders me-2"></i>Strategy</button></li>
-            <li class="nav-item" role="presentation"><button class="nav-link" id="cashflow-tab" data-bs-toggle="tab" data-bs-target="#cashflow-pane" type="button" role="tab"><i class="bi bi-diagram-3 me-2"></i>Cash Flow</button></li>
-            <li class="nav-item" role="presentation"><button class="nav-link" id="scenarios-tab" data-bs-toggle="tab" data-bs-target="#scenarios-pane" type="button" role="tab"><i class="bi bi-save me-2"></i>Files</button></li>
-            <li class="nav-item" role="presentation"><button class="nav-link" id="compare-tab" data-bs-toggle="tab" data-bs-target="#compare-pane" type="button" role="tab"><i class="bi bi-bar-chart-line me-2"></i>Compare</button></li>
-          </ul>
-
-          <div class="d-flex align-items-center gap-3">
-            <div class="btn-group bg-input rounded-3 shadow-sm p-1 border border-secondary" role="group">
-              <input type="radio" class="btn-check" name="planMode" id="modeSingle" autocomplete="off">
-              <label class="btn btn-sm btn-toggle px-3 rounded-2" for="modeSingle"><i class="bi bi-person me-1"></i> Single</label>
-              <input type="radio" class="btn-check" name="planMode" id="modeCouple" autocomplete="off" checked>
-              <label class="btn btn-sm btn-toggle px-3 rounded-2" for="modeCouple"><i class="bi bi-people me-1"></i> Couple</label>
-            </div>
-            <button class="btn btn-sm btn-outline-danger shadow-sm" id="btnClearAll" type="button" title="Clear All Data"><i class="bi bi-trash3 me-1"></i> Clear</button>
-          </div>
-        </div>
-
         <div class="card shadow-sm mb-5 border-secondary">
           <div class="card-body p-0">
             <div class="tab-content" id="myTabContent">
 
               <div class="tab-pane fade show active p-3 p-md-4" id="plan-pane" role="tabpanel">
                 <form id="financialForm">
+                  
                   <div class="card mb-4 border-secondary shadow-sm">
-                    <div class="card-header d-flex align-items-center surface-card border-bottom border-secondary p-3">
-                        <i class="bi bi-person-vcard text-primary fs-4 me-3"></i>
-                        <h5 class="mb-0 me-2 fw-bold text-uppercase ls-1">1. Personal Information</h5>
-                        <button type="button" class="btn btn-link p-0 text-muted info-btn" data-bs-toggle="popover" data-bs-title="Personal Details" data-bs-content="Set your Date of Birth and targeted Retirement Age. <b>Life Expectancy</b> defines how long the simulation runs (ensuring you don't run out of money too early).">
-                          <i class="bi bi-info-circle"></i>
-                        </button>
+                    <div class="card-header d-flex align-items-center justify-content-between surface-card border-bottom border-secondary p-3">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-person-vcard text-primary fs-4 me-3"></i>
+                            <h5 class="mb-0 me-2 fw-bold text-uppercase ls-1">1. Personal Information</h5>
+                            <button type="button" class="btn btn-link p-0 text-muted info-btn" data-bs-toggle="popover" data-bs-title="Personal Details" data-bs-content="Set your Date of Birth and targeted Retirement Age. <b>Life Expectancy</b> defines how long the simulation runs (ensuring you don't run out of money too early).">
+                              <i class="bi bi-info-circle"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="btn-group bg-input rounded-3 shadow-sm p-1 border border-secondary" role="group">
+                          <input type="radio" class="btn-check" name="planMode" id="modeSingle" autocomplete="off">
+                          <label class="btn btn-sm btn-toggle px-3 rounded-2" for="modeSingle"><i class="bi bi-person me-1"></i> Single</label>
+                          <input type="radio" class="btn-check" name="planMode" id="modeCouple" autocomplete="off" checked>
+                          <label class="btn btn-sm btn-toggle px-3 rounded-2" for="modeCouple"><i class="bi bi-people me-1"></i> Couple</label>
+                        </div>
                     </div>
                     <div class="card-body p-4">
                       <div class="row g-4">
@@ -371,7 +378,7 @@
                   </div>
 
                   <div class="card mb-4 border-secondary shadow-sm">
-                    <div class="card-header d-flex align-items-center surface-card border-bottom border-secondary p-3">
+                    <div class="card-header d-flex align-items-center justify-content-between surface-card border-bottom border-secondary p-3">
                       <div class="d-flex align-items-center">
                         <i class="bi bi-house-heart text-danger fs-4 me-3"></i>
                         <h5 class="mb-0 me-2 fw-bold text-uppercase ls-1">3. Real Estate & Mortgage</h5>
@@ -411,7 +418,12 @@
                             <div class="card-body p-4">
                               <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom border-secondary">
                                 <h6 class="text-info mb-0 fw-bold text-uppercase ls-1">Player 1 Income</h6>
-                                <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1" id="btnAddIncomeP1"><i class="bi bi-plus-lg me-1"></i>Add Stream</button>
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="form-check form-switch mb-0" title="Enable Post-Retirement Work">
+                                        <input class="form-check-input live-calc" type="checkbox" id="enable_post_ret_income_p1">
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1" id="btnAddIncomeP1"><i class="bi bi-plus-lg me-1"></i>Add Stream</button>
+                                </div>
                               </div>
                               <div class="row g-3 mb-4">
                                 <div class="col-8"><label class="form-label">Gross Annual Income</label><div class="input-group"><span class="input-group-text">$</span><input type="text" class="form-control live-calc formatted-num" id="p1_income" value="95,000"></div></div>
@@ -427,7 +439,12 @@
                             <div class="card-body p-4">
                               <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom border-secondary">
                                 <h6 class="text-purple mb-0 fw-bold text-uppercase ls-1" style="color: var(--purple);">Player 2 Income</h6>
-                                <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1" id="btnAddIncomeP2"><i class="bi bi-plus-lg me-1"></i>Add Stream</button>
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="form-check form-switch mb-0" title="Enable Post-Retirement Work">
+                                        <input class="form-check-input live-calc" type="checkbox" id="enable_post_ret_income_p2">
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1" id="btnAddIncomeP2"><i class="bi bi-plus-lg me-1"></i>Add Stream</button>
+                                </div>
                               </div>
                               <div class="row g-3 mb-4">
                                 <div class="col-8"><label class="form-label">Gross Annual Income</label><div class="input-group"><span class="input-group-text">$</span><input type="text" class="form-control live-calc formatted-num" id="p2_income" value="70,000"></div></div>
@@ -436,35 +453,6 @@
                               <div id="p2-additional-income-container" class="mb-4"></div>
                               <div class="tax-details-box border-secondary" id="p2_tax_details"></div>
                             </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div class="row g-4 p2-column">
-                        <div class="col-12">
-                            <div class="p-3 border border-secondary rounded-3 surface-card bg-info bg-opacity-10">
-                                <div class="form-check form-switch d-flex align-items-center gap-3">
-                                    <input class="form-check-input live-calc fs-4 mt-0" type="checkbox" id="pension_split_enabled">
-                                    <div>
-                                        <label class="form-check-label fw-bold" for="pension_split_enabled">Enable Pension Income Splitting</label>
-                                        <div class="small text-muted">Automatically optimizes taxes by splitting eligible pension income (RRIF, LIF, DB Pension) between spouses aged 65+.</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                      </div>
-                      
-                      <div class="row g-4 mb-4 py-4 border-top border-bottom border-secondary align-items-center bg-black bg-opacity-10 rounded-3 mx-0 mt-2">
-                        <div class="col-12 col-xl-6">
-                          <div class="form-check form-switch d-flex align-items-center gap-2 mb-0">
-                            <input class="form-check-input live-calc mt-0 fs-5" type="checkbox" id="enable_post_ret_income_p1">
-                            <label class="form-check-label fw-medium" for="enable_post_ret_income_p1">Enable P1 Post-Retirement Work</label>
-                          </div>
-                        </div>
-                        <div class="col-12 col-xl-6 p2-column">
-                          <div class="form-check form-switch d-flex align-items-center gap-2 mb-0">
-                            <input class="form-check-input live-calc mt-0 fs-5" type="checkbox" id="enable_post_ret_income_p2">
-                            <label class="form-check-label fw-medium" for="enable_post_ret_income_p2">Enable P2 Post-Retirement Work</label>
                           </div>
                         </div>
                       </div>
@@ -566,7 +554,10 @@
                   <div class="card mb-4 border-secondary shadow-sm">
                     <div class="card-header d-flex align-items-center surface-card border-bottom border-secondary p-3">
                       <i class="bi bi-credit-card-2-front text-danger fs-4 me-3"></i>
-                      <h5 class="mb-0 fw-bold text-uppercase ls-1">6. Other Liabilities</h5>
+                      <h5 class="mb-0 fw-bold text-uppercase ls-1 me-2">6. Other Liabilities</h5>
+                      <button type="button" class="btn btn-link p-0 text-muted info-btn" data-bs-toggle="popover" data-bs-title="Debts" data-bs-content="Track other debts like Car Loans, Student Loans, or LOCs. <br><b>Note:</b> Mortgages should be tracked in the Real Estate section above.">
+                        <i class="bi bi-info-circle"></i>
+                      </button>
                     </div>
                     <div class="card-body p-4">
                       <div id="debt-container" class="mb-4"></div>
@@ -578,13 +569,15 @@
                     <div class="card-header d-flex align-items-center justify-content-between surface-card border-bottom border-secondary p-3">
                       <div class="d-flex align-items-center">
                         <i class="bi bi-gift text-success fs-4 me-3"></i>
-                        <h5 class="mb-0 fw-bold text-uppercase ls-1">7. Windfalls & Inheritance</h5>
+                        <h5 class="mb-0 fw-bold text-uppercase ls-1 me-2">7. Windfalls & Inheritance</h5>
+                        <button type="button" class="btn btn-link p-0 text-muted info-btn" data-bs-toggle="popover" data-bs-title="Windfalls" data-bs-content="One-time cash inflows like inheritance, selling a business, or downsizing property. <br><b>Taxable:</b> Check this if the amount will be added to your taxable income for that year (e.g. severance, RRSP deregistration).">
+                            <i class="bi bi-info-circle"></i>
+                        </button>
                       </div>
                       <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3" id="btnAddWindfall"><i class="bi bi-plus-lg me-1"></i> Add Event</button>
                     </div>
                     <div class="card-body p-4">
                       <div id="windfall-container"></div>
-                      <p class="small text-muted mt-3 mb-0"><i class="bi bi-info-circle me-1"></i> Track one-time inheritances, large bonuses, or the sale of significant assets here.</p>
                     </div>
                   </div>
 
@@ -788,6 +781,21 @@
                           </div>
                         </div>
                       </div>
+
+                      <div class="row g-4 mt-2 p2-column">
+                        <div class="col-12">
+                            <div class="p-3 border border-secondary rounded-3 surface-card bg-info bg-opacity-10">
+                                <div class="form-check form-switch d-flex align-items-center gap-3">
+                                    <input class="form-check-input live-calc fs-4 mt-0" type="checkbox" id="pension_split_enabled">
+                                    <div>
+                                        <label class="form-check-label fw-bold" for="pension_split_enabled">Enable Pension Income Splitting</label>
+                                        <div class="small text-muted">Automatically optimizes taxes by splitting eligible pension income (RRIF, LIF, DB Pension) between spouses aged 65+.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                      </div>
+
                     </div>
                   </div>
 
