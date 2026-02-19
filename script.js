@@ -1,14 +1,14 @@
 /**
- * Retirement Planner Pro - Logic v10.7
+ * Retirement Planner Pro - Logic v10.8
  * * Changelog:
+ * - v10.8: UX Update: Wizard layout fixes, single/couple toggle bug fix, pre-wizard skip prompt.
  * - v10.7: NEW: Onboarding Wizard for first-time users.
  * - v10.6: NEW: Real Estate Downsizing logic.
- * - v10.53: UI Update: Strategy tab improvements.
  */
 
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.7";
+        this.APP_VERSION = "10.8";
         this.state = {
             inputs: {},
             debt: [],
@@ -128,7 +128,7 @@ class RetirementPlanner {
                 this.saveModalInstance = new bootstrap.Modal(document.getElementById('saveScenarioModal'));
             }
             if(document.getElementById('onboardingWizard')) {
-                this.wizardModal = new bootstrap.Modal(document.getElementById('onboardingWizard'), {backdrop: 'static', keyboard: false});
+                this.wizardModal = new bootstrap.Modal(document.getElementById('onboardingWizard'));
             }
             
             this.setupGridContainer(); 
@@ -162,9 +162,18 @@ class RetirementPlanner {
 
     checkOnboarding() {
         if (!localStorage.getItem(this.ONBOARDING_KEY)) {
-            // Show wizard if key not found
-            if (this.wizardModal) this.wizardModal.show();
+            // Confirm dialog before popping up the wizard
+            if(confirm("Welcome to Retirement Planner Pro!\n\nWould you like to use the Quick Setup Wizard to set your baseline numbers? \n\nClick 'OK' to start, or 'Cancel' to skip and explore on your own.")) {
+                if (this.wizardModal) this.wizardModal.show();
+            } else {
+                localStorage.setItem(this.ONBOARDING_KEY, 'true');
+            }
         }
+    }
+
+    skipWizard() {
+        localStorage.setItem(this.ONBOARDING_KEY, 'true');
+        if (this.wizardModal) this.wizardModal.hide();
     }
 
     finishWizard() {
@@ -387,14 +396,14 @@ class RetirementPlanner {
         $('btnClearStorage').addEventListener('click', () => this.clearStorage());
         
         // Wizard Listeners
-        if($('wiz_mode_couple') && $('wiz_mode_single')) {
-            $('wiz_mode_single').addEventListener('change', () => document.querySelectorAll('.wiz-p2-row').forEach(el=>el.style.display='none'));
-            $('wiz_mode_couple').addEventListener('change', () => document.querySelectorAll('.wiz-p2-row').forEach(el=>el.style.display='flex'));
-        }
+        if($('wiz_mode_single')) $('wiz_mode_single').addEventListener('change', () => document.querySelectorAll('.wiz-p2-col').forEach(el=>el.style.display='none'));
+        if($('wiz_mode_couple')) $('wiz_mode_couple').addEventListener('change', () => document.querySelectorAll('.wiz-p2-col').forEach(el=>el.style.display=''));
+        
         if($('wiz_prop_toggle')) {
             $('wiz_prop_toggle').addEventListener('change', (e) => document.getElementById('wiz_prop_fields').style.display = e.target.checked ? 'flex' : 'none');
         }
         if($('btnWizardFinish')) $('btnWizardFinish').addEventListener('click', () => this.finishWizard());
+        if($('btnWizardSkip')) $('btnWizardSkip').addEventListener('click', () => this.skipWizard());
 
         document.body.addEventListener('input', e => {
             const cl = e.target.classList;
@@ -1931,8 +1940,8 @@ class RetirementPlanner {
             if(cY>=sY && cY<=eY) {
                 let baseYear = s.startMode === 'ret_relative' ? sY : new Date(s.start+"-01").getFullYear();
                 let amt = s.amount * Math.pow(1+(s.growth/100), cY-baseYear) * (s.freq==='month'?12:1);
-                if (s.startMode === 'date' && cY===sY) a *= (12-new Date(s.start+"-01").getMonth())/12;
-                if (s.endMode === 'date' && s.end && cY===eY) a *= Math.min(1, (new Date(s.end+"-01").getMonth()+1)/12);
+                if (s.startMode === 'date' && cY===sY) amt *= (12-new Date(s.start+"-01").getMonth())/12;
+                if (s.endMode === 'date' && s.end && cY===eY) amt *= Math.min(1, (new Date(s.end+"-01").getMonth()+1)/12);
 
                 if(amt>0){ if(s.owner==='p1'){ s.taxable?add.p1T+=amt:add.p1N+=amt; } else { s.taxable?add.p2T+=amt:add.p2N+=amt; } }
             }
