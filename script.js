@@ -1,14 +1,14 @@
 /**
- * Retirement Planner Pro - Logic v10.8
+ * Retirement Planner Pro - Logic v10.8.1
  * * Changelog:
+ * - v10.8.1: BUGFIX: "Clear All" modal now properly closes and triggers UI refresh to blank state.
  * - v10.8: PERFORMANCE: Offloaded Monte Carlo Simulation to Web Worker (worker.js) for lag-free UI.
  * - v10.7: NEW: Monte Carlo Simulation now supports Historical Data (S&P 500 Bootstrap).
- * - v10.6: NEW: Real Estate Downsizing logic. Sell homes, buy replacement, invest difference.
  */
 
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.8";
+        this.APP_VERSION = "10.8.1";
         this.state = {
             inputs: {},
             debt: [],
@@ -202,10 +202,22 @@ class RetirementPlanner {
     showConfirm(message, onConfirm) {
         const modalEl = document.getElementById('confirmationModal');
         modalEl.querySelector('.modal-body').textContent = message;
+        
         const btn = document.getElementById('btnConfirmAction');
         const newBtn = btn.cloneNode(true);
         btn.parentNode.replaceChild(newBtn, btn);
-        newBtn.addEventListener('click', () => { onConfirm(); this.confirmModal.hide(); });
+        
+        // Wrapped in try/finally to ensure the modal ALWAYS closes, even if the onConfirm action errors out.
+        newBtn.addEventListener('click', () => { 
+            try {
+                onConfirm(); 
+            } catch (e) {
+                console.error("Error executing confirmation action:", e);
+            } finally {
+                this.confirmModal.hide(); 
+            }
+        });
+        
         this.confirmModal.show();
     }
 
@@ -287,7 +299,7 @@ class RetirementPlanner {
             });
         }
 
-        $('btnClearAll').addEventListener('click', () => this.showConfirm("Clear all data?", () => this.resetAllData()));
+        $('btnClearAll').addEventListener('click', () => this.showConfirm("Clear all data? This will wipe your current unsaved plan.", () => this.resetAllData()));
         $('btnAddProperty').addEventListener('click', () => this.addProperty());
         $('btnAddWindfall').addEventListener('click', () => this.addWindfall());
         if ($('btnAddIncomeP1')) $('btnAddIncomeP1').addEventListener('click', () => this.addAdditionalIncome('p1'));
@@ -486,16 +498,26 @@ class RetirementPlanner {
         
         document.querySelectorAll('input, select').forEach(el => {
             if(el.id && !el.id.startsWith('comp_') && !el.className.includes('-update') && !el.classList.contains('debt-amount')) {
-                if(defs[el.id] !== undefined) el.type === 'checkbox' ? el.checked = defs[el.id] : el.value = defs[el.id];
-                else if (el.type === 'checkbox' || el.type === 'radio') { if(el.name !== 'planMode') el.checked = false; } else el.value = '0';
+                if(defs[el.id] !== undefined) {
+                    if (el.type === 'checkbox') el.checked = defs[el.id];
+                    else el.value = defs[el.id];
+                }
+                else if (el.type === 'checkbox' || el.type === 'radio') { 
+                    if(el.name !== 'planMode') el.checked = false; 
+                } 
+                else {
+                    el.value = '0';
+                }
                 this.state.inputs[el.id] = el.type === 'checkbox' ? el.checked : el.value;
             }
         });
+
         this.state.properties = [{ name: "Primary Home", value: 0, mortgage: 0, growth: 3.0, rate: 3.5, payment: 0, manual: false, includeInNW: false, sellEnabled: false, sellAge: 65, replacementValue: 0 }];
         this.state.windfalls = []; this.state.additionalIncome = []; 
         for (const cat in this.expensesByCategory) this.expensesByCategory[cat].items = [];
         this.renderProperties(); this.renderWindfalls(); this.renderAdditionalIncome(); this.renderExpenseRows(); this.calcExpenses();
         document.getElementById('debt-container').innerHTML = ''; this.state.debt = [];
+        
         this.updateSidebarSync('p1_retireAge', 65); this.updateSidebarSync('p2_retireAge', 65); this.updateSidebarSync('inflation_rate', 2.0); this.updateSidebarSync('p1_tfsa_ret', 6.0);
         document.getElementById('exp_gogo_val').innerText = '75'; document.getElementById('exp_slow_val').innerText = '85'; 
         
@@ -515,6 +537,9 @@ class RetirementPlanner {
         if(document.getElementById('cfg_rrsp_limit')) document.getElementById('cfg_rrsp_limit').value = (this.getVal('cfg_rrsp_limit') || 32960).toLocaleString();
 
         this.updateBenefitVisibility();
+        this.updateAgeDisplay('p1');
+        this.updateAgeDisplay('p2');
+        this.run(); 
     }
 
     exportToCSV() {
