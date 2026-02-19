@@ -1,15 +1,14 @@
 /**
- * Retirement Planner Pro - Logic v10.6
+ * Retirement Planner Pro - Logic v10.7
  * * Changelog:
- * - v10.6: NEW: Real Estate Downsizing logic. Sell homes, buy replacement, invest difference.
- * - v10.53: UI Update: Strategy tab now places Withdrawal Order drag-and-drop at the top.
- * - v10.52: FIXED: Syntax error in estimateCPPOAS function.
- * - v10.51: FIXED: Monte Carlo draws to chart.
+ * - v10.7: NEW: Onboarding Wizard for first-time users.
+ * - v10.6: NEW: Real Estate Downsizing logic.
+ * - v10.53: UI Update: Strategy tab improvements.
  */
 
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.6";
+        this.APP_VERSION = "10.7";
         this.state = {
             inputs: {},
             debt: [],
@@ -27,6 +26,7 @@ class RetirementPlanner {
 
         this.AUTO_SAVE_KEY = 'rp_autosave_v1';
         this.THEME_KEY = 'rp_theme';
+        this.ONBOARDING_KEY = 'rp_has_onboarded_v1';
         
         this.CONSTANTS = {
             MAX_CPP_2026: 18092, 
@@ -53,6 +53,7 @@ class RetirementPlanner {
         this.charts = { nw: null, sankey: null, mc: null }; 
         this.confirmModal = null; 
         this.saveModalInstance = null;
+        this.wizardModal = null;
         this.sliderTimeout = null;
 
         this.expensesByCategory = {
@@ -95,7 +96,6 @@ class RetirementPlanner {
         };
     }
 
-    // Box-Muller transform for Normal Distribution (Standard Deviation)
     randn_bm() {
         let u = 0, v = 0;
         while(u === 0) u = Math.random(); 
@@ -127,6 +127,9 @@ class RetirementPlanner {
             if(document.getElementById('saveScenarioModal')) {
                 this.saveModalInstance = new bootstrap.Modal(document.getElementById('saveScenarioModal'));
             }
+            if(document.getElementById('onboardingWizard')) {
+                this.wizardModal = new bootstrap.Modal(document.getElementById('onboardingWizard'), {backdrop: 'static', keyboard: false});
+            }
             
             this.setupGridContainer(); 
             this.populateAgeSelects();
@@ -148,11 +151,97 @@ class RetirementPlanner {
             this.bindEvents(); 
             this.initSidebar();
             this.initPopovers(); 
+            
+            this.checkOnboarding();
 
             setTimeout(() => { this.syncStateFromDOM(); this.run(); }, 500); 
         };
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup);
         else setup(); 
+    }
+
+    checkOnboarding() {
+        if (!localStorage.getItem(this.ONBOARDING_KEY)) {
+            // Show wizard if key not found
+            if (this.wizardModal) this.wizardModal.show();
+        }
+    }
+
+    finishWizard() {
+        const getW = (id) => {
+            const el = document.getElementById(id);
+            return el ? (Number(el.value.replace(/,/g, '')) || 0) : 0;
+        };
+        
+        const curYear = new Date().getFullYear();
+        const p1Age = parseInt(document.getElementById('wiz_p1_age').value) || 35;
+        const p2Age = parseInt(document.getElementById('wiz_p2_age').value) || 35;
+        
+        // 1. Set DOBs
+        const p1Dob = `${curYear - p1Age}-06`; // approximate mid-year
+        const p2Dob = `${curYear - p2Age}-06`;
+        
+        document.getElementById('p1_dob').value = p1Dob;
+        document.getElementById('p2_dob').value = p2Dob;
+        this.updateAgeDisplay('p1');
+        this.updateAgeDisplay('p2');
+
+        // 2. Set Retire Ages
+        document.getElementById('p1_retireAge').value = document.getElementById('wiz_p1_retAge').value;
+        document.getElementById('p2_retireAge').value = document.getElementById('wiz_p2_retAge').value;
+
+        // 3. Set Income
+        document.getElementById('p1_income').value = document.getElementById('wiz_p1_inc').value;
+        document.getElementById('p2_income').value = document.getElementById('wiz_p2_inc').value;
+
+        // 4. Set Expenses (Clear existing, set single item for simple mode)
+        this.expensesByCategory['Living'].items = [];
+        this.expensesByCategory['Housing'].items = []; 
+        this.expensesByCategory['Kids'].items = []; 
+        this.expensesByCategory['Lifestyle'].items = []; 
+        
+        const monthlyExp = getW('wiz_monthly_spend');
+        this.expensesByCategory['Living'].items.push({
+            name: "General Living Expenses",
+            curr: monthlyExp, ret: monthlyExp * 0.9, trans: monthlyExp, gogo: monthlyExp, slow: monthlyExp * 0.9, nogo: monthlyExp * 0.8, freq: 12
+        });
+        
+        // 5. Assets
+        document.getElementById('p1_tfsa').value = document.getElementById('wiz_p1_tfsa').value;
+        document.getElementById('p1_rrsp').value = document.getElementById('wiz_p1_rrsp').value;
+        document.getElementById('p1_cash').value = document.getElementById('wiz_p1_cash').value;
+        
+        document.getElementById('p2_tfsa').value = document.getElementById('wiz_p2_tfsa').value;
+        document.getElementById('p2_rrsp').value = document.getElementById('wiz_p2_rrsp').value;
+        document.getElementById('p2_cash').value = document.getElementById('wiz_p2_cash').value;
+
+        // 6. Property
+        const hasHome = document.getElementById('wiz_prop_toggle').checked;
+        if(hasHome) {
+            const val = getW('wiz_prop_val');
+            const mort = getW('wiz_prop_mort');
+            this.state.properties = [{ 
+                name: "Primary Home", value: val, mortgage: mort, 
+                growth: 3.0, rate: 4.5, payment: 0, manual: false, includeInNW: false, sellEnabled: false, sellAge: 65, replacementValue: 0 
+            }];
+        } else {
+            this.state.properties = [];
+        }
+
+        // 7. Mode
+        const mode = document.getElementById('wiz_mode_couple').checked ? 'Couple' : 'Single';
+        if(mode === 'Single') document.getElementById('modeSingle').click();
+        else document.getElementById('modeCouple').click();
+
+        // 8. Finalize
+        this.renderProperties();
+        this.renderExpenseRows();
+        this.syncStateFromDOM();
+        this.run();
+        
+        // Mark as done
+        localStorage.setItem(this.ONBOARDING_KEY, 'true');
+        this.wizardModal.hide();
     }
 
     initPopovers() {
@@ -217,7 +306,7 @@ class RetirementPlanner {
 
     syncStateFromDOM() {
         document.querySelectorAll('input, select').forEach(el => {
-            if (el.id && !el.id.startsWith('comp_') && !el.className.includes('-update') && !el.classList.contains('debt-amount')) {
+            if (el.id && !el.id.startsWith('comp_') && !el.id.startsWith('wiz_') && !el.className.includes('-update') && !el.classList.contains('debt-amount')) {
                 this.state.inputs[el.id] = el.type === 'checkbox' || el.type === 'radio' ? el.checked : el.value;
             }
         });
@@ -266,7 +355,7 @@ class RetirementPlanner {
                 this.run();
             }
             if (e.target.classList.contains('live-calc') && (e.target.tagName === 'SELECT' || e.target.type === 'checkbox' || e.target.type === 'radio')) {
-                if(e.target.id && !e.target.id.startsWith('comp_')) this.state.inputs[e.target.id] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+                if(e.target.id && !e.target.id.startsWith('comp_') && !e.target.id.startsWith('wiz_')) this.state.inputs[e.target.id] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
                 if(e.target.id && e.target.id.includes('_enabled')) this.updateBenefitVisibility();
                 this.findOptimal(); this.run(); this.calcExpenses(); 
             }
@@ -297,11 +386,21 @@ class RetirementPlanner {
         $('fileUpload').addEventListener('change', e => this.handleFileUpload(e));
         $('btnClearStorage').addEventListener('click', () => this.clearStorage());
         
+        // Wizard Listeners
+        if($('wiz_mode_couple') && $('wiz_mode_single')) {
+            $('wiz_mode_single').addEventListener('change', () => document.querySelectorAll('.wiz-p2-row').forEach(el=>el.style.display='none'));
+            $('wiz_mode_couple').addEventListener('change', () => document.querySelectorAll('.wiz-p2-row').forEach(el=>el.style.display='flex'));
+        }
+        if($('wiz_prop_toggle')) {
+            $('wiz_prop_toggle').addEventListener('change', (e) => document.getElementById('wiz_prop_fields').style.display = e.target.checked ? 'flex' : 'none');
+        }
+        if($('btnWizardFinish')) $('btnWizardFinish').addEventListener('click', () => this.finishWizard());
+
         document.body.addEventListener('input', e => {
             const cl = e.target.classList;
             if (cl.contains('live-calc')) {
                 if (cl.contains('formatted-num')) this.formatInput(e.target);
-                if (e.target.id && !e.target.id.startsWith('comp_') && e.target.id !== 'exp_gogo_age' && e.target.id !== 'exp_slow_age' && !cl.contains('property-update') && !cl.contains('windfall-update') && !cl.contains('debt-amount') && !cl.contains('income-stream-update')) {
+                if (e.target.id && !e.target.id.startsWith('comp_') && !e.target.id.startsWith('wiz_') && e.target.id !== 'exp_gogo_age' && e.target.id !== 'exp_slow_age' && !cl.contains('property-update') && !cl.contains('windfall-update') && !cl.contains('debt-amount') && !cl.contains('income-stream-update')) {
                     this.state.inputs[e.target.id] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
                     this.updateSidebarSync(e.target.id, e.target.value);
                 }
@@ -349,6 +448,8 @@ class RetirementPlanner {
                 if (cl.contains('formatted-num')) this.formatInput(e.target);
                 this.updateIncomeDisplay(); this.debouncedRun();
             }
+            // Wizard specific formatting
+            if (e.target.id && e.target.id.startsWith('wiz_') && cl.contains('formatted-num')) this.formatInput(e.target);
         });
 
         $('p1_dob').addEventListener('change', () => this.updateAgeDisplay('p1'));
@@ -452,6 +553,7 @@ class RetirementPlanner {
     clearStorage() {
         if(confirm("Delete auto-saved data and reset everything to defaults?")) { 
             localStorage.removeItem(this.AUTO_SAVE_KEY); 
+            localStorage.removeItem(this.ONBOARDING_KEY);
             this.updateScenarioBadge(null);
             location.reload(); 
         }
@@ -486,7 +588,7 @@ class RetirementPlanner {
         };
         
         document.querySelectorAll('input, select').forEach(el => {
-            if(el.id && !el.id.startsWith('comp_') && !el.className.includes('-update') && !el.classList.contains('debt-amount')) {
+            if(el.id && !el.id.startsWith('comp_') && !el.id.startsWith('wiz_') && !el.className.includes('-update') && !el.classList.contains('debt-amount')) {
                 if(defs[el.id] !== undefined) el.type === 'checkbox' ? el.checked = defs[el.id] : el.value = defs[el.id];
                 else if (el.type === 'checkbox' || el.type === 'radio') { if(el.name !== 'planMode') el.checked = false; } else el.value = '0';
                 this.state.inputs[el.id] = el.type === 'checkbox' ? el.checked : el.value;
@@ -1045,45 +1147,36 @@ class RetirementPlanner {
             // --- PROPERTY DOWNSIZING LOGIC ---
             let keptProperties = [];
             simProperties.forEach(p => {
-                // Check if property should be sold this year
                 if (p.sellEnabled && p.sellAge === age1) {
-                    // Logic: Sell Home
                     const proceeds = p.value;
                     const mortgageRem = p.mortgage;
-                    const transCosts = proceeds * 0.05; // 5% fees
+                    const transCosts = proceeds * 0.05; 
                     const netCash = proceeds - mortgageRem - transCosts;
                     
-                    // Logic: Buy Replacement?
-                    const newHomeCost = (p.replacementValue || 0) * bInf; // Inflate replacement cost
+                    const newHomeCost = (p.replacementValue || 0) * bInf; 
                     const surplus = netCash - newHomeCost;
                     
-                    if (surplus > 0) {
-                        // Add surplus to Tax-Free Windfall (assume Principal Res for now)
-                        inflows.p1.windfallNonTax += surplus;
-                    }
+                    if (surplus > 0) inflows.p1.windfallNonTax += surplus;
                     
-                    // Add Event
                     if (!trackedEvents.has('Downsize')) { 
                         trackedEvents.add('Downsize'); 
                         inflows.events.push('Downsize'); 
                     }
 
-                    // Create New Property if applicable
                     if (newHomeCost > 0) {
                         keptProperties.push({
                             name: "Replacement: " + p.name,
                             value: newHomeCost,
-                            mortgage: 0, // Assume bought with cash from proceeds
-                            growth: p.growth, // Keep same growth rate
+                            mortgage: 0, 
+                            growth: p.growth, 
                             rate: 0,
                             payment: 0,
                             manual: false,
                             includeInNW: p.includeInNW,
-                            sellEnabled: false // Prevent infinite loop of selling
+                            sellEnabled: false 
                         });
                     }
                 } else {
-                    // Normal Property Processing
                     if(p.mortgage>0 && p.payment>0) { 
                         let annPmt=p.payment*12, interest=p.mortgage*(p.rate/100), principal=annPmt-interest; 
                         if(principal>p.mortgage) { principal=p.mortgage; annPmt=principal+interest; } 
@@ -1311,18 +1404,15 @@ class RetirementPlanner {
 
         this.state.additionalIncome.forEach(s => {
             let sY, eY;
-            
-            // Calculate Start Year
-            if (s.startMode === 'ret_relative') {
-                const ownerP = s.owner === 'p2' ? p2 : p1;
-                const retYear = ownerP.dob.getFullYear() + ownerP.retAge;
-                sY = retYear + (s.startRel || 0);
+            if(s.startMode === 'ret_relative'){
+                const dob = new Date(this.getRaw(`${s.owner}_dob`) + "-01").getFullYear();
+                const retAge = this.getVal(`${s.owner}_retireAge`);
+                sY = dob + retAge + (s.startRel || 0);
             } else {
                 sY = new Date(s.start+"-01").getFullYear();
             }
-
-            // Calculate End Year
-            if (s.endMode === 'duration') {
+            
+            if(s.endMode === 'duration'){
                 eY = sY + (s.duration || 0);
             } else {
                 eY = (s.end ? new Date(s.end+"-01") : new Date("2100-01-01")).getFullYear();
@@ -1330,28 +1420,11 @@ class RetirementPlanner {
 
             if(yr>=sY && yr<=eY) {
                 let baseYear = s.startMode === 'ret_relative' ? sY : new Date(s.start+"-01").getFullYear();
-                let amt = s.amount * Math.pow(1+(s.growth/100), yr-baseYear);
-                amt *= (s.freq==='month' ? 12 : 1);
-                
-                if (s.startMode === 'date') {
-                     if (yr === sY) amt *= (12 - new Date(s.start+"-01").getMonth()) / 12;
-                }
-                if (s.endMode === 'date' && s.end) {
-                     if (yr === eY) amt *= Math.min(1, (new Date(s.end+"-01").getMonth() + 1) / 12);
-                }
+                let amt = s.amount * Math.pow(1+(s.growth/100), cY-baseYear) * (s.freq==='month'?12:1);
+                if (s.startMode === 'date' && cY===sY) a *= (12-new Date(s.start+"-01").getMonth())/12;
+                if (s.endMode === 'date' && s.end && cY===eY) a *= Math.min(1, (new Date(s.end+"-01").getMonth()+1)/12);
 
-                if(amt>0) { 
-                    let target = (s.owner==='p2' && alive2) ? res.p2 : res.p1;
-                    if (target) {
-                        if(s.taxable) { 
-                            target.gross += amt; 
-                            target.earned += amt;
-                            const isRet = (s.owner==='p2' ? isRet2 : isRet1);
-                            if(isRet) target.postRet += amt;
-                        } 
-                        else target.windfallNonTax += amt;
-                    }
-                }
+                if(amt>0){ if(s.owner==='p1'){ s.taxable?add.p1T+=amt:add.p1N+=amt; } else { s.taxable?add.p2T+=amt:add.p2N+=amt; } }
             }
         });
 
@@ -1857,11 +1930,11 @@ class RetirementPlanner {
 
             if(cY>=sY && cY<=eY) {
                 let baseYear = s.startMode === 'ret_relative' ? sY : new Date(s.start+"-01").getFullYear();
-                let a = s.amount * Math.pow(1+(s.growth/100), cY-baseYear) * (s.freq==='month'?12:1);
+                let amt = s.amount * Math.pow(1+(s.growth/100), cY-baseYear) * (s.freq==='month'?12:1);
                 if (s.startMode === 'date' && cY===sY) a *= (12-new Date(s.start+"-01").getMonth())/12;
                 if (s.endMode === 'date' && s.end && cY===eY) a *= Math.min(1, (new Date(s.end+"-01").getMonth()+1)/12);
 
-                if(a>0){ if(s.owner==='p1'){ s.taxable?add.p1T+=a:add.p1N+=a; } else { s.taxable?add.p2T+=a:add.p2N+=a; } }
+                if(amt>0){ if(s.owner==='p1'){ s.taxable?add.p1T+=amt:add.p1N+=amt; } else { s.taxable?add.p2T+=amt:add.p2N+=amt; } }
             }
         });
         const p1G=this.getVal('p1_income')+add.p1T, p2G=this.getVal('p2_income')+add.p2T, hhG=p1G+add.p1N+(this.state.mode==='Couple'?p2G+add.p2N:0);
