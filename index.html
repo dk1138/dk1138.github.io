@@ -1022,6 +1022,7 @@
         <div class="modal-content shadow-lg border-secondary rounded-4">
           <div class="modal-header border-secondary p-4 surface-card rounded-top-4">
             <h5 class="modal-title fs-5 fw-bold text-white d-flex align-items-center"><i class="bi bi-magic text-primary me-3"></i>Welcome to Retirement Planner Pro</h5>
+            <button type="button" class="btn-close btn-close-white" onclick="app.skipWizard()" aria-label="Close"></button>
           </div>
           <div class="modal-body p-4 p-md-5">
              <p class="text-muted mb-4">Let's get started with a quick baseline. You can tweak all these details later.</p>
@@ -1033,29 +1034,81 @@
                 <input type="radio" class="btn-check" name="wizMode" id="wiz_mode_couple" autocomplete="off" checked>
                 <label class="btn btn-outline-primary" for="wiz_mode_couple">Couple</label>
              </div>
+             
              <div class="row g-3 mb-5">
-                <div class="col-6"><label class="form-label small text-muted">P1 Current Age</label><input type="number" id="wiz_p1_age" class="form-control form-control-sm" value="35"></div>
-                <div class="col-6"><label class="form-label small text-muted">P1 Retire Age</label><input type="number" id="wiz_p1_retAge" class="form-control form-control-sm" value="65"></div>
-                <div class="col-6 wiz-p2-row"><label class="form-label small text-muted">P2 Current Age</label><input type="number" id="wiz_p2_age" class="form-control form-control-sm" value="35"></div>
-                <div class="col-6 wiz-p2-row"><label class="form-label small text-muted">P2 Retire Age</label><input type="number" id="wiz_p2_retAge" class="form-control form-control-sm" value="65"></div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label small text-muted">P1 Current Age</label>
+                    <input type="number" id="wiz_p1_age" class="form-control form-control-sm border-secondary" value="35">
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label small text-muted">P1 Retire Age</label>
+                    <input type="number" id="wiz_p1_retAge" class="form-control form-control-sm border-secondary" value="65">
+                </div>
+                <div class="col-6 col-md-3 wiz-p2-col">
+                    <label class="form-label small text-muted" style="color: var(--purple) !important;">P2 Current Age</label>
+                    <input type="number" id="wiz_p2_age" class="form-control form-control-sm border-secondary" value="35">
+                </div>
+                <div class="col-6 col-md-3 wiz-p2-col">
+                    <label class="form-label small text-muted" style="color: var(--purple) !important;">P2 Retire Age</label>
+                    <input type="number" id="wiz_p2_retAge" class="form-control form-control-sm border-secondary" value="65">
+                </div>
              </div>
 
              <h6 class="fw-bold text-info border-bottom border-secondary pb-2 mb-3">2. Income & Expenses</h6>
+             <div class="row g-3 mb-4">
+                <div class="col-6">
+                    <label class="form-label small text-muted">P1 Gross Income/yr</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text border-secondary">$</span>
+                        <input type="text" id="wiz_p1_inc" class="form-control border-secondary formatted-num" value="80,000">
+                    </div>
+                </div>
+                <div class="col-6 wiz-p2-col">
+                    <label class="form-label small text-muted" style="color: var(--purple) !important;">P2 Gross Income/yr</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text border-secondary">$</span>
+                        <input type="text" id="wiz_p2_inc" class="form-control border-secondary formatted-num" value="70,000">
+                    </div>
+                </div>
+             </div>
              <div class="row g-3 mb-5">
-                <div class="col-6"><label class="form-label small text-muted">P1 Gross Income/yr</label><div class="input-group input-group-sm"><span class="input-group-text border-secondary">$</span><input type="text" id="wiz_p1_inc" class="form-control border-secondary formatted-num" value="80,000"></div></div>
-                <div class="col-6 wiz-p2-row"><label class="form-label small text-muted">P2 Gross Income/yr</label><div class="input-group input-group-sm"><span class="input-group-text border-secondary">$</span><input type="text" id="wiz_p2_inc" class="form-control border-secondary formatted-num" value="70,000"></div></div>
-                <div class="col-12"><label class="form-label small text-muted">Current Monthly Spending (Total Household)</label><div class="input-group input-group-sm"><span class="input-group-text border-secondary">$</span><input type="text" id="wiz_monthly_spend" class="form-control border-secondary formatted-num" value="6,000"></div></div>
+                <div class="col-12">
+                    <label class="form-label small text-muted">Current Monthly Spending (Total Household)</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text border-secondary">$</span>
+                        <input type="text" id="wiz_monthly_spend" class="form-control border-secondary formatted-num" value="6,000">
+                    </div>
+                </div>
              </div>
 
              <h6 class="fw-bold text-info border-bottom border-secondary pb-2 mb-3">3. Current Savings</h6>
-             <div class="row g-3 mb-5">
-                <div class="col-4"><label class="form-label small text-muted">P1 TFSA</label><input type="text" id="wiz_p1_tfsa" class="form-control form-control-sm border-secondary formatted-num" value="10,000"></div>
-                <div class="col-4"><label class="form-label small text-muted">P1 RRSP</label><input type="text" id="wiz_p1_rrsp" class="form-control form-control-sm border-secondary formatted-num" value="25,000"></div>
-                <div class="col-4"><label class="form-label small text-muted">P1 Cash</label><input type="text" id="wiz_p1_cash" class="form-control form-control-sm border-secondary formatted-num" value="5,000"></div>
-                
-                <div class="col-4 wiz-p2-row"><label class="form-label small text-muted">P2 TFSA</label><input type="text" id="wiz_p2_tfsa" class="form-control form-control-sm border-secondary formatted-num" value="10,000"></div>
-                <div class="col-4 wiz-p2-row"><label class="form-label small text-muted">P2 RRSP</label><input type="text" id="wiz_p2_rrsp" class="form-control form-control-sm border-secondary formatted-num" value="25,000"></div>
-                <div class="col-4 wiz-p2-row"><label class="form-label small text-muted">P2 Cash</label><input type="text" id="wiz_p2_cash" class="form-control form-control-sm border-secondary formatted-num" value="5,000"></div>
+             <div class="row g-3 mb-2">
+                <div class="col-4">
+                    <label class="form-label small text-muted">P1 TFSA</label>
+                    <input type="text" id="wiz_p1_tfsa" class="form-control form-control-sm border-secondary formatted-num" value="10,000">
+                </div>
+                <div class="col-4">
+                    <label class="form-label small text-muted">P1 RRSP</label>
+                    <input type="text" id="wiz_p1_rrsp" class="form-control form-control-sm border-secondary formatted-num" value="25,000">
+                </div>
+                <div class="col-4">
+                    <label class="form-label small text-muted">P1 Cash</label>
+                    <input type="text" id="wiz_p1_cash" class="form-control form-control-sm border-secondary formatted-num" value="5,000">
+                </div>
+             </div>
+             <div class="row g-3 mb-5 wiz-p2-col">
+                <div class="col-4">
+                    <label class="form-label small text-muted" style="color: var(--purple) !important;">P2 TFSA</label>
+                    <input type="text" id="wiz_p2_tfsa" class="form-control form-control-sm border-secondary formatted-num" value="10,000">
+                </div>
+                <div class="col-4">
+                    <label class="form-label small text-muted" style="color: var(--purple) !important;">P2 RRSP</label>
+                    <input type="text" id="wiz_p2_rrsp" class="form-control form-control-sm border-secondary formatted-num" value="25,000">
+                </div>
+                <div class="col-4">
+                    <label class="form-label small text-muted" style="color: var(--purple) !important;">P2 Cash</label>
+                    <input type="text" id="wiz_p2_cash" class="form-control form-control-sm border-secondary formatted-num" value="5,000">
+                </div>
              </div>
 
              <h6 class="fw-bold text-info border-bottom border-secondary pb-2 mb-3">4. Home Ownership</h6>
@@ -1064,12 +1117,25 @@
                 <label class="form-check-label small text-white fw-bold ms-2 mt-1" for="wiz_prop_toggle">I own a home</label>
              </div>
              <div class="row g-3 mb-2" id="wiz_prop_fields">
-                <div class="col-6"><label class="form-label small text-muted">Home Value</label><div class="input-group input-group-sm"><span class="input-group-text border-secondary">$</span><input type="text" id="wiz_prop_val" class="form-control border-secondary formatted-num" value="800,000"></div></div>
-                <div class="col-6"><label class="form-label small text-muted">Remaining Mortgage</label><div class="input-group input-group-sm"><span class="input-group-text border-secondary">$</span><input type="text" id="wiz_prop_mort" class="form-control border-secondary formatted-num" value="400,000"></div></div>
+                <div class="col-6">
+                    <label class="form-label small text-muted">Home Value</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text border-secondary">$</span>
+                        <input type="text" id="wiz_prop_val" class="form-control border-secondary formatted-num" value="800,000">
+                    </div>
+                </div>
+                <div class="col-6">
+                    <label class="form-label small text-muted">Remaining Mortgage</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text border-secondary">$</span>
+                        <input type="text" id="wiz_prop_mort" class="form-control border-secondary formatted-num" value="400,000">
+                    </div>
+                </div>
              </div>
           </div>
-          <div class="modal-footer border-secondary p-3 surface-card rounded-bottom-4">
-            <button type="button" class="btn btn-primary px-4 py-2 fs-6 fw-bold w-100" id="btnWizardFinish">Generate Plan</button>
+          <div class="modal-footer border-secondary p-3 surface-card rounded-bottom-4 d-flex justify-content-between">
+            <button type="button" class="btn btn-link text-muted fw-bold text-decoration-none" id="btnWizardSkip" onclick="app.skipWizard()">Skip Setup</button>
+            <button type="button" class="btn btn-primary px-4 py-2 fs-6 fw-bold" id="btnWizardFinish">Generate Plan</button>
           </div>
         </div>
       </div>
