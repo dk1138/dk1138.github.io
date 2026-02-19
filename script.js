@@ -1,14 +1,14 @@
 /**
- * Retirement Planner Pro - Logic v10.7
+ * Retirement Planner Pro - Logic v10.8
  * * Changelog:
+ * - v10.8: PERFORMANCE: Offloaded Monte Carlo Simulation to Web Worker (worker.js) for lag-free UI.
  * - v10.7: NEW: Monte Carlo Simulation now supports Historical Data (S&P 500 Bootstrap).
  * - v10.6: NEW: Real Estate Downsizing logic. Sell homes, buy replacement, invest difference.
- * - v10.53: UI Update: Strategy tab now places Withdrawal Order drag-and-drop at the top.
  */
 
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.7";
+        this.APP_VERSION = "10.8";
         this.state = {
             inputs: {},
             debt: [],
@@ -108,14 +108,6 @@ class RetirementPlanner {
         };
     }
 
-    // Box-Muller transform for Normal Distribution (Standard Deviation)
-    randn_bm() {
-        let u = 0, v = 0;
-        while(u === 0) u = Math.random(); 
-        while(v === 0) v = Math.random();
-        return Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.PI * v );
-    }
-
     init() {
         const setup = () => {
             // Version Header Injection
@@ -180,7 +172,6 @@ class RetirementPlanner {
         const savedTheme = localStorage.getItem(this.THEME_KEY) || 'dark';
         document.documentElement.setAttribute('data-bs-theme', savedTheme);
         this.updateThemeIcon(savedTheme); 
-        this.updateImportButton(savedTheme); 
     }
 
     toggleTheme() {
@@ -188,7 +179,6 @@ class RetirementPlanner {
         document.documentElement.setAttribute('data-bs-theme', next);
         localStorage.setItem(this.THEME_KEY, next);
         this.updateThemeIcon(next); 
-        this.updateImportButton(next); 
         this.renderExpenseRows(); 
         this.run(); 
     }
@@ -198,10 +188,6 @@ class RetirementPlanner {
         if (!btn) return;
         btn.innerHTML = theme === 'dark' ? '<i class="bi bi-sun-fill"></i>' : '<i class="bi bi-moon-stars-fill"></i>';
         btn.className = theme === 'dark' ? 'btn btn-outline-secondary d-flex align-items-center justify-content-center' : 'btn btn-outline-dark d-flex align-items-center justify-content-center text-dark';
-    }
-
-    updateImportButton(theme) {
-        // No longer needed for file input styling directly but kept for legacy
     }
 
     renderDefaults() {
@@ -804,8 +790,6 @@ class RetirementPlanner {
         const methodEl = document.getElementById('mc_sim_method');
         const method = methodEl ? methodEl.value : 'random';
         const volatility = parseFloat(document.getElementById('mc_volatility').value) || 0.12;
-        
-        const allTrajectories = []; 
 
         const btn = document.querySelector('button[onclick="app.runMonteCarlo()"]');
         if(btn) {
@@ -813,35 +797,70 @@ class RetirementPlanner {
             btn.disabled = true;
         }
 
-        setTimeout(() => {
-            const startYear = new Date().getFullYear();
-            
-            for (let i = 0; i < SIMULATIONS; i++) {
-                let simContext = { returnTrajectory: true, method: method };
-                
-                if (method === 'historical') {
-                    // Pick a random starting year from the historical array
-                    const startIdx = Math.floor(Math.random() * this.SP500_HISTORICAL.length);
-                    simContext.histSequence = [];
-                    // Populate up to 100 years of sequence, wrapping around if needed
-                    for (let y = 0; y < 100; y++) {
-                        simContext.histSequence.push(this.SP500_HISTORICAL[(startIdx + y) % this.SP500_HISTORICAL.length]);
-                    }
-                } else {
-                    simContext.volatility = volatility;
-                }
+        const startYear = new Date().getFullYear();
 
-                const trajectory = this.generateProjectionTable(true, simContext); 
-                allTrajectories.push(trajectory);
-            }
+        // Check for Web Worker support
+        if (window.Worker) {
+            // Spin up the background worker
+            const worker = new Worker('worker.js');
             
-            this.processMonteCarloChart(allTrajectories, startYear);
+            // Package all required state to send to the worker
+            const workerData = {
+                simulations: SIMULATIONS,
+                method: method,
+                volatility: volatility,
+                sp500: this.SP500_HISTORICAL,
+                inputs: this.state.inputs,
+                properties: this.state.properties,
+                windfalls: this.state.windfalls,
+                additionalIncome: this.state.additionalIncome,
+                strategies: this.state.strategies,
+                mode: this.state.mode,
+                expenseMode: this.state.expenseMode,
+                expensesByCategory: this.expensesByCategory,
+                totalDebt: this.getTotalDebt(),
+                constants: this.CONSTANTS,
+                strategyLabels: this.strategyLabels
+            };
+
+            // Send data to the worker
+            worker.postMessage(workerData);
             
+            // Listen for the completed data back from the worker
+            worker.onmessage = (e) => {
+                const trajectories = e.data.trajectories;
+                
+                // Process the returned trajectories onto the chart
+                this.processMonteCarloChart(trajectories, startYear);
+                
+                // Reset UI
+                if(btn) {
+                    btn.innerHTML = '<i class="bi bi-play-circle-fill me-2"></i> Run Monte Carlo';
+                    btn.disabled = false;
+                }
+                
+                // Kill the worker to free up memory
+                worker.terminate();
+            };
+            
+            // Handle errors gracefully
+            worker.onerror = (error) => {
+                console.error('Worker error:', error);
+                alert("An error occurred during the simulation. Check the console for details.");
+                if(btn) {
+                    btn.innerHTML = '<i class="bi bi-play-circle-fill me-2"></i> Run Monte Carlo';
+                    btn.disabled = false;
+                }
+                worker.terminate();
+            };
+        } else {
+            // Browser doesn't support Web Workers
+            alert("Your browser doesn't support background processing (Web Workers). The simulation cannot run.");
             if(btn) {
                 btn.innerHTML = '<i class="bi bi-play-circle-fill me-2"></i> Run Monte Carlo';
                 btn.disabled = false;
             }
-        }, 100);
+        }
     }
 
     processMonteCarloChart(trajectories, startYear) {
