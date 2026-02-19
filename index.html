@@ -64,6 +64,20 @@
       </div>
     </div>
 
+    <div class="row mb-4">
+        <div class="col-12">
+            <ul class="nav nav-tabs border-0 flex-nowrap overflow-auto hide-scrollbar m-0" id="myTab" role="tablist">
+                <li class="nav-item" role="presentation"><button class="nav-link active" id="plan-tab" data-bs-toggle="tab" data-bs-target="#plan-pane" type="button" role="tab"><i class="bi bi-pencil-square me-2"></i>Inputs</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link" id="summary-tab" data-bs-toggle="tab" data-bs-target="#summary-pane" type="button" role="tab"><i class="bi bi-table me-2"></i>Projection</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link" id="strategy-tab" data-bs-toggle="tab" data-bs-target="#strategy-pane" type="button" role="tab"><i class="bi bi-sliders me-2"></i>Strategy</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link" id="risk-tab" data-bs-toggle="tab" data-bs-target="#risk-pane" type="button" role="tab"><i class="bi bi-activity me-2"></i>Risk (Monte Carlo)</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link" id="cashflow-tab" data-bs-toggle="tab" data-bs-target="#cashflow-pane" type="button" role="tab"><i class="bi bi-diagram-3 me-2"></i>Cash Flow</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link" id="scenarios-tab" data-bs-toggle="tab" data-bs-target="#scenarios-pane" type="button" role="tab"><i class="bi bi-save me-2"></i>Files</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link" id="compare-tab" data-bs-toggle="tab" data-bs-target="#compare-pane" type="button" role="tab"><i class="bi bi-bar-chart-line me-2"></i>Compare</button></li>
+            </ul>
+        </div>
+    </div>
+
     <div class="row g-4">
       
       <div class="col-auto" id="sidebarCol" style="width: 320px; transition: width 0.3s; z-index: 1000;">
@@ -116,19 +130,6 @@
       </div>
 
       <div class="col" id="mainCol" style="min-width: 0;">
-        
-        <div class="mb-4">
-            <ul class="nav nav-tabs border-0 flex-nowrap overflow-auto hide-scrollbar m-0" id="myTab" role="tablist">
-                <li class="nav-item" role="presentation"><button class="nav-link active" id="plan-tab" data-bs-toggle="tab" data-bs-target="#plan-pane" type="button" role="tab"><i class="bi bi-pencil-square me-2"></i>Inputs</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link" id="summary-tab" data-bs-toggle="tab" data-bs-target="#summary-pane" type="button" role="tab"><i class="bi bi-table me-2"></i>Projection</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link" id="strategy-tab" data-bs-toggle="tab" data-bs-target="#strategy-pane" type="button" role="tab"><i class="bi bi-sliders me-2"></i>Strategy</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link" id="risk-tab" data-bs-toggle="tab" data-bs-target="#risk-pane" type="button" role="tab"><i class="bi bi-activity me-2"></i>Risk (Monte Carlo)</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link" id="cashflow-tab" data-bs-toggle="tab" data-bs-target="#cashflow-pane" type="button" role="tab"><i class="bi bi-diagram-3 me-2"></i>Cash Flow</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link" id="scenarios-tab" data-bs-toggle="tab" data-bs-target="#scenarios-pane" type="button" role="tab"><i class="bi bi-save me-2"></i>Files</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link" id="compare-tab" data-bs-toggle="tab" data-bs-target="#compare-pane" type="button" role="tab"><i class="bi bi-bar-chart-line me-2"></i>Compare</button></li>
-            </ul>
-        </div>
-
         <div class="card shadow-sm mb-5 border-secondary">
           <div class="card-body p-0">
             <div class="tab-content" id="myTabContent">
