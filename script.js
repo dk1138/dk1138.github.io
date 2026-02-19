@@ -1,15 +1,14 @@
 /**
- * Retirement Planner Pro - Logic v10.6
+ * Retirement Planner Pro - Logic v10.7
  * * Changelog:
+ * - v10.7: NEW: Monte Carlo Simulation now supports Historical Data (S&P 500 Bootstrap).
  * - v10.6: NEW: Real Estate Downsizing logic. Sell homes, buy replacement, invest difference.
  * - v10.53: UI Update: Strategy tab now places Withdrawal Order drag-and-drop at the top.
- * - v10.52: FIXED: Syntax error in estimateCPPOAS function.
- * - v10.51: FIXED: Monte Carlo draws to chart.
  */
 
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.6";
+        this.APP_VERSION = "10.7";
         this.state = {
             inputs: {},
             debt: [],
@@ -49,6 +48,20 @@ class RetirementPlanner {
                 NU: { brackets: [50877, 101754, 165429], rates: [0.04, 0.07, 0.09, 0.115] }
             }
         };
+
+        // S&P 500 Annual Returns (1928 - 2023)
+        this.SP500_HISTORICAL = [
+            0.4381, -0.0830, -0.2512, -0.4384, -0.0864, 0.4998, -0.0119, 0.4674, 0.3194, -0.3534,
+            0.2928, -0.0110, -0.1067, -0.1277, 0.1917, 0.2506, 0.1903, 0.3582, -0.0843, 0.0520,
+            0.0570, 0.1830, 0.3081, 0.2368, 0.1815, -0.0121, 0.5230, 0.3260, 0.0630, -0.1046,
+            0.4336, 0.1196, 0.0047, 0.2681, -0.0881, 0.2280, 0.1648, 0.1245, -0.1006, 0.2398,
+            0.1106, -0.0850, 0.0401, 0.1431, 0.1898, -0.1466, -0.2647, 0.3720, 0.2384, -0.0718,
+            0.0656, 0.1844, 0.3250, -0.0491, 0.2155, 0.2256, 0.0627, 0.3173, 0.1867, 0.0525,
+            0.1661, 0.3169, -0.0310, 0.3047, 0.0762, 0.1008, 0.0132, 0.3758, 0.2296, 0.3336,
+            0.2858, 0.2104, -0.0910, -0.1189, -0.2210, 0.2868, 0.1088, 0.0491, 0.1579, 0.0549,
+            -0.3849, 0.2646, 0.1506, 0.0211, 0.1600, 0.3239, 0.1369, 0.0138, 0.1196, 0.2183,
+            -0.0438, 0.3149, 0.1840, 0.2871, -0.1811, 0.2423
+        ];
 
         this.charts = { nw: null, sankey: null, mc: null }; 
         this.confirmModal = null; 
@@ -787,6 +800,9 @@ class RetirementPlanner {
     runMonteCarlo() {
         const simCountInput = document.getElementById('mc_sim_count');
         const SIMULATIONS = simCountInput ? parseInt(simCountInput.value) : 500;
+        
+        const methodEl = document.getElementById('mc_sim_method');
+        const method = methodEl ? methodEl.value : 'random';
         const volatility = parseFloat(document.getElementById('mc_volatility').value) || 0.12;
         
         const allTrajectories = []; 
@@ -801,7 +817,21 @@ class RetirementPlanner {
             const startYear = new Date().getFullYear();
             
             for (let i = 0; i < SIMULATIONS; i++) {
-                const trajectory = this.generateProjectionTable(true, { volatility: volatility, returnTrajectory: true }); 
+                let simContext = { returnTrajectory: true, method: method };
+                
+                if (method === 'historical') {
+                    // Pick a random starting year from the historical array
+                    const startIdx = Math.floor(Math.random() * this.SP500_HISTORICAL.length);
+                    simContext.histSequence = [];
+                    // Populate up to 100 years of sequence, wrapping around if needed
+                    for (let y = 0; y < 100; y++) {
+                        simContext.histSequence.push(this.SP500_HISTORICAL[(startIdx + y) % this.SP500_HISTORICAL.length]);
+                    }
+                } else {
+                    simContext.volatility = volatility;
+                }
+
+                const trajectory = this.generateProjectionTable(true, simContext); 
                 allTrajectories.push(trajectory);
             }
             
@@ -1251,12 +1281,23 @@ class RetirementPlanner {
         
         if(stress) { ['tfsa','rrsp','nreg','cash','lirf','lif','rrif_acct'].forEach(k=>{ g1[k]=-0.15; g2[k]=-0.15; }); g1.cryp=-0.40; g2.cryp=-0.40; }
 
-        if (simContext && simContext.volatility) {
-            const shock = this.randn_bm() * simContext.volatility;
-            ['tfsa','rrsp','nreg','cryp','lirf','lif','rrif_acct'].forEach(k => {
-                g1[k] += shock;
-                g2[k] += shock;
-            });
+        if (simContext) {
+            let shock = 0;
+            if (simContext.method === 'historical' && simContext.histSequence) {
+                // S&P 500 Historical average is ~ 10% (0.10). 
+                // Shock represents the difference between actual year and the average.
+                shock = simContext.histSequence[i] - 0.10;
+            } else if (simContext.volatility) {
+                // Random Normal Distribution
+                shock = this.randn_bm() * simContext.volatility;
+            }
+
+            if (shock !== 0) {
+                ['tfsa','rrsp','nreg','cryp','lirf','lif','rrif_acct'].forEach(k => {
+                    g1[k] += shock;
+                    g2[k] += shock;
+                });
+            }
         }
 
         const grow = (p, rates) => {
