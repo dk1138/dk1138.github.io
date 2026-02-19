@@ -236,7 +236,7 @@ class FinanceEngine {
         return r;
     }
 
-    calcOutflows(yr, i, age, bInf, isRet1, isRet2) {
+    calcOutflows(yr, i, age, bInf, isRet1, isRet2, simContext) {
         let expTotals = { curr:0, ret:0, trans:0, gogo:0, slow:0, nogo:0 };
         Object.values(this.expensesByCategory).forEach(c => c.items.forEach(item => { 
             const f = item.freq; 
@@ -249,16 +249,18 @@ class FinanceEngine {
         }));
         
         let exp = 0;
-        const fullyRetired = isRet1 && isRet2;
+        const fullyRetired = isRet1 && (this.mode === 'Single' || isRet2);
         const gLim = parseInt(this.getRaw('exp_gogo_age')) || 75, sLim = parseInt(this.getRaw('exp_slow_age')) || 85;
+        const multiplier = simContext?.expenseMultiplier || 1.0;
 
         if(this.expenseMode === 'Simple') {
-            exp = fullyRetired ? expTotals.ret : expTotals.curr;
+            // Apply multiplier only to retirement spending to find "Die with Zero" budget
+            exp = fullyRetired ? (expTotals.ret * multiplier) : expTotals.curr;
         } else {
             if(!fullyRetired) exp = expTotals.curr;
-            else if(age < gLim) exp = expTotals.gogo;
-            else if(age < sLim) exp = expTotals.slow;
-            else exp = expTotals.nogo;
+            else if(age < gLim) exp = expTotals.gogo * multiplier;
+            else if(age < sLim) exp = expTotals.slow * multiplier;
+            else exp = expTotals.nogo * multiplier;
         }
         return exp * bInf;
     }
@@ -436,7 +438,7 @@ class FinanceEngine {
     /**
      * Main Simulation loop used by both the UI and Worker.
      * @param {boolean} detailed - If true, returns detailed projection rows (UI). If false, returns just Net Worth trajectory (Worker).
-     * @param {object} simContext - Historical/Shock contexts for Monte Carlo.
+     * @param {object} simContext - Historical/Shock contexts for Monte Carlo or overrides for Optimizers (e.g. expenseMultiplier).
      * @param {number} totalDebtInitial - Starting total debt.
      */
     runSimulation(detailed = false, simContext = null, totalDebtInitial = 0) {
@@ -484,7 +486,7 @@ class FinanceEngine {
 
             const inflows = this.calcInflows(yr, i, person1, person2, age1, age2, alive1, alive2, isRet1, isRet2, consts, bInf, detailed ? trackedEvents : null);
             const rrifMin = this.calcRRIFMin(person1, person2, age1, age2, alive1, alive2);
-            const expenses = this.calcOutflows(yr, i, age1, bInf, isRet1, isRet2);
+            const expenses = this.calcOutflows(yr, i, age1, bInf, isRet1, isRet2, simContext);
 
             let mortgagePayment = 0;
             
