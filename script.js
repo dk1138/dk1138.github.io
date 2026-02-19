@@ -1,14 +1,14 @@
 /**
- * Retirement Planner Pro - Logic v10.9.1
+ * Retirement Planner Pro - Logic v10.9.2
  * * Changelog:
- * - v10.9.1: BUGFIX: "Clear All" button now properly wipes all dynamically added fields, blanks standard inputs, and resets Quick Adjust sidebar to a true blank slate.
+ * - v10.9.2: FEATURE: "Clear All" now defaults users to Age 30, 2.5% Inflation, 6% Returns, and disables OAS/CPP/DB by default.
+ * - v10.9.1: BUGFIX: "Clear All" button now properly wipes all dynamically added fields and blanks standard inputs.
  * - v10.9: ARCHITECTURE: Moved financial calculations to shared FinanceEngine to eliminate code duplication.
- * - v10.8: PERFORMANCE: Offloaded Monte Carlo Simulation to Web Worker (worker.js) for lag-free UI.
  */
 
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.9.1.1";
+        this.APP_VERSION = "10.9.2";
         this.state = {
             inputs: {},
             debt: [],
@@ -471,11 +471,14 @@ class RetirementPlanner {
         });
 
         // Set essential defaults so the engine doesn't break
+        const currentYear = new Date().getFullYear();
+        const age30Dob = `${currentYear - 30}-01`;
+
         const safeDefaults = {
             'tax_province': 'ON',
-            'inflation_rate': '2.1',
-            'p1_dob': '1988-09',
-            'p2_dob': '1992-07',
+            'inflation_rate': '2.5', // Set to 2.5%
+            'p1_dob': age30Dob, // Set age to 30
+            'p2_dob': age30Dob, // Set age to 30
             'p1_retireAge': '60',
             'p2_retireAge': '60',
             'p1_lifeExp': '90',
@@ -484,14 +487,14 @@ class RetirementPlanner {
             'exp_slow_age': '85',
             'cfg_tfsa_limit': '7,000',
             'cfg_rrsp_limit': '32,960',
-            'p1_tfsa_ret': '6.0',
+            'p1_tfsa_ret': '6.0', // Market return 6%
             'p2_tfsa_ret': '6.0',
             'p1_rrsp_ret': '6.0',
             'p2_rrsp_ret': '6.0',
-            'p1_nonreg_ret': '5.0',
-            'p2_nonreg_ret': '5.0',
-            'p1_crypto_ret': '8.0',
-            'p2_crypto_ret': '8.0',
+            'p1_nonreg_ret': '6.0', // Standardize to 6%
+            'p2_nonreg_ret': '6.0',
+            'p1_crypto_ret': '6.0', // Standardize to 6%
+            'p2_crypto_ret': '6.0',
             'p1_cash_ret': '2.0',
             'p2_cash_ret': '2.0',
             'p1_income_growth': '2.0',
@@ -513,10 +516,12 @@ class RetirementPlanner {
         }
 
         const safeDefaultsCheckboxes = {
-            'p1_cpp_enabled': true,
-            'p1_oas_enabled': true,
-            'p2_cpp_enabled': true,
-            'p2_oas_enabled': true
+            'p1_cpp_enabled': false, // Turn off
+            'p1_oas_enabled': false, // Turn off
+            'p1_db_enabled': false,  // Turn off
+            'p2_cpp_enabled': false, // Turn off
+            'p2_oas_enabled': false, // Turn off
+            'p2_db_enabled': false   // Turn off
         };
 
         for (const [id, val] of Object.entries(safeDefaultsCheckboxes)) {
@@ -535,8 +540,8 @@ class RetirementPlanner {
         // Update Quick Adjust Sidebar
         this.updateSidebarSync('p1_retireAge', '60');
         this.updateSidebarSync('p2_retireAge', '60');
-        this.updateSidebarSync('inflation_rate', '2.1');
-        this.updateSidebarSync('p1_tfsa_ret', '6.0');
+        this.updateSidebarSync('inflation_rate', '2.5'); // Set to 2.5%
+        this.updateSidebarSync('p1_tfsa_ret', '6.0'); // Set to 6%
 
         // Reset specific labels
         if(document.getElementById('exp_gogo_val')) document.getElementById('exp_gogo_val').innerText = '75';
