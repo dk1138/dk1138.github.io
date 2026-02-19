@@ -9,7 +9,7 @@
 
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.9";
+        this.APP_VERSION = "10.9.1";
         this.state = {
             inputs: {},
             debt: [],
