@@ -1,15 +1,14 @@
 /**
- * Retirement Planner Pro - Logic v10.9
+ * Retirement Planner Pro - Logic v10.9.1
  * * Changelog:
+ * - v10.9.1: BUGFIX: "Clear All" button now properly wipes all dynamically added fields, blanks standard inputs, and resets Quick Adjust sidebar to a true blank slate.
  * - v10.9: ARCHITECTURE: Moved financial calculations to shared FinanceEngine to eliminate code duplication.
- * - v10.8.1: BUGFIX: "Clear All" modal now properly closes and triggers UI refresh to blank state.
  * - v10.8: PERFORMANCE: Offloaded Monte Carlo Simulation to Web Worker (worker.js) for lag-free UI.
- * - v10.7: NEW: Monte Carlo Simulation now supports Historical Data (S&P 500 Bootstrap).
  */
 
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.9.1";
+        this.APP_VERSION = "10.9.1.1";
         this.state = {
             inputs: {},
             debt: [],
@@ -441,77 +440,130 @@ class RetirementPlanner {
     }
 
     resetAllData() {
-        const defs = { 
-            p1_dob: '1990-01', p2_dob: '1990-01', p1_retireAge: '65', p2_retireAge: '65', p1_lifeExp: '90', p2_lifeExp: '90', inflation_rate: '2.0', tax_province: 'ON', 
-            p1_cash_ret: '2.0', p1_cash_ret_retire: '2.0', p2_cash_ret: '2.0', p2_cash_ret_retire: '2.0', 
-            p1_tfsa_ret: '6.0', p1_tfsa_ret_retire: '6.0', p2_tfsa_ret: '6.0', p2_tfsa_ret_retire: '6.0', 
-            p1_rrsp_ret: '6.0', p1_rrsp_ret_retire: '6.0', p2_rrsp_ret: '6.0', p2_rrsp_ret_retire: '6.0', 
-            p1_nonreg_ret: '5.0', p1_nonreg_ret_retire: '5.0', p2_nonreg_ret: '5.0', p2_nonreg_ret_retire: '5.0', 
-            p1_nonreg_yield: '2.0', p2_nonreg_yield: '2.0', 
-            p1_crypto_ret: '8.0', p1_crypto_ret_retire: '8.0', p2_crypto_ret: '8.0', p2_crypto_ret_retire: '8.0',
-            p1_lirf_ret: '6.0', p1_lirf_ret_retire: '6.0', p2_lirf_ret: '6.0', p2_lirf_ret_retire: '6.0',
-            p1_lif_ret: '5.0', p1_lif_ret_retire: '5.0', p2_lif_ret: '5.0', p2_lif_ret_retire: '5.0',
-            p1_rrif_acct_ret: '5.0', p1_rrif_acct_ret_retire: '5.0', p2_rrif_acct_ret: '5.0', p2_rrif_acct_ret_retire: '5.0',
-            
-            p1_cpp_est_base: '10,000', p2_cpp_est_base: '10,000',
-            p1_oas_years: '40', p2_oas_years: '40',
-            
-            p1_income_growth: '2.0', p2_income_growth: '2.0', 
-            p1_db_lifetime: '0', p2_db_lifetime: '0', 
-            p1_db_lifetime_start: '60', p2_db_lifetime_start: '60', 
-            p1_db_bridge: '0', p2_db_bridge: '0', 
-            p1_db_bridge_start: '60', p2_db_bridge_start: '60', 
-            p1_cpp_enabled: true, p1_oas_enabled: true, p1_db_enabled: false,
-            p2_cpp_enabled: true, p2_oas_enabled: true, p2_db_enabled: false,
-            pension_split_enabled: false,
-            cfg_tfsa_limit: '7,000', cfg_rrsp_limit: '32,960',
-            exp_gogo_age: '75', exp_slow_age: '85'
-        };
-        
+        // Clear complex arrays and objects
+        this.state.properties = [];
+        this.state.windfalls = [];
+        this.state.additionalIncome = [];
+        this.state.debt = [];
+        for (const cat in this.expensesByCategory) this.expensesByCategory[cat].items = [];
+
+        // Revert to Couple mode by default
+        this.state.mode = 'Couple';
+        if(document.getElementById('modeCouple')) document.getElementById('modeCouple').checked = true;
+        if(document.getElementById('modeSingle')) document.getElementById('modeSingle').checked = false;
+
+        // Reset inputs to clean defaults or empty
         document.querySelectorAll('input, select').forEach(el => {
-            if(el.id && !el.id.startsWith('comp_') && !el.className.includes('-update') && !el.classList.contains('debt-amount')) {
-                if(defs[el.id] !== undefined) {
-                    if (el.type === 'checkbox') el.checked = defs[el.id];
-                    else el.value = defs[el.id];
+            if(el.id && !el.id.startsWith('comp_') && !el.classList.contains('property-update') && !el.classList.contains('windfall-update') && !el.classList.contains('income-stream-update') && !el.classList.contains('expense-update') && !el.classList.contains('debt-amount')) {
+                
+                if (el.type === 'checkbox' || el.type === 'radio') {
+                    if (el.name !== 'planMode') el.checked = false;
+                } else if (el.type === 'range') {
+                    el.value = el.defaultValue || el.min || 0;
+                } else if (el.tagName === 'SELECT') {
+                    el.selectedIndex = 0;
+                } else {
+                    el.value = ''; // Blank out standard fields
                 }
-                else if (el.type === 'checkbox' || el.type === 'radio') { 
-                    if(el.name !== 'planMode') el.checked = false; 
-                } 
-                else {
-                    el.value = '0';
-                }
+                
                 this.state.inputs[el.id] = el.type === 'checkbox' ? el.checked : el.value;
             }
         });
 
-        this.state.properties = [{ name: "Primary Home", value: 0, mortgage: 0, growth: 3.0, rate: 3.5, payment: 0, manual: false, includeInNW: false, sellEnabled: false, sellAge: 65, replacementValue: 0 }];
-        this.state.windfalls = []; this.state.additionalIncome = []; 
-        for (const cat in this.expensesByCategory) this.expensesByCategory[cat].items = [];
-        this.renderProperties(); this.renderWindfalls(); this.renderAdditionalIncome(); this.renderExpenseRows(); this.calcExpenses();
-        document.getElementById('debt-container').innerHTML = ''; this.state.debt = [];
-        
-        this.updateSidebarSync('p1_retireAge', 65); this.updateSidebarSync('p2_retireAge', 65); this.updateSidebarSync('inflation_rate', 2.0); this.updateSidebarSync('p1_tfsa_ret', 6.0);
-        document.getElementById('exp_gogo_val').innerText = '75'; document.getElementById('exp_slow_val').innerText = '85'; 
-        
-        if(document.getElementById('p1_db_lifetime_start_val')) document.getElementById('p1_db_lifetime_start_val').innerText = '60';
-        if(document.getElementById('p1_db_bridge_start_val')) document.getElementById('p1_db_bridge_start_val').innerText = '60';
-        if(document.getElementById('p2_db_lifetime_start_val')) document.getElementById('p2_db_lifetime_start_val').innerText = '60';
-        if(document.getElementById('p2_db_bridge_start_val')) document.getElementById('p2_db_bridge_start_val').innerText = '60';
-        
-        if(document.getElementById('p1_oas_years_val')) document.getElementById('p1_oas_years_val').innerText = '40';
-        if(document.getElementById('p2_oas_years_val')) document.getElementById('p2_oas_years_val').innerText = '40';
-        if(document.getElementById('p1_cpp_start_val')) document.getElementById('p1_cpp_start_val').innerText = this.getRaw('p1_cpp_start')||'65';
-        if(document.getElementById('p1_oas_start_val')) document.getElementById('p1_oas_start_val').innerText = this.getRaw('p1_oas_start')||'65';
-        if(document.getElementById('p2_cpp_start_val')) document.getElementById('p2_cpp_start_val').innerText = this.getRaw('p2_cpp_start')||'65';
-        if(document.getElementById('p2_oas_start_val')) document.getElementById('p2_oas_start_val').innerText = this.getRaw('p2_oas_start')||'65';
-        
-        if(document.getElementById('cfg_tfsa_limit')) document.getElementById('cfg_tfsa_limit').value = (this.getVal('cfg_tfsa_limit') || 7000).toLocaleString();
-        if(document.getElementById('cfg_rrsp_limit')) document.getElementById('cfg_rrsp_limit').value = (this.getVal('cfg_rrsp_limit') || 32960).toLocaleString();
+        // Set essential defaults so the engine doesn't break
+        const safeDefaults = {
+            'tax_province': 'ON',
+            'inflation_rate': '2.1',
+            'p1_dob': '1988-09',
+            'p2_dob': '1992-07',
+            'p1_retireAge': '60',
+            'p2_retireAge': '60',
+            'p1_lifeExp': '90',
+            'p2_lifeExp': '95',
+            'exp_gogo_age': '75',
+            'exp_slow_age': '85',
+            'cfg_tfsa_limit': '7,000',
+            'cfg_rrsp_limit': '32,960',
+            'p1_tfsa_ret': '6.0',
+            'p2_tfsa_ret': '6.0',
+            'p1_rrsp_ret': '6.0',
+            'p2_rrsp_ret': '6.0',
+            'p1_nonreg_ret': '5.0',
+            'p2_nonreg_ret': '5.0',
+            'p1_crypto_ret': '8.0',
+            'p2_crypto_ret': '8.0',
+            'p1_cash_ret': '2.0',
+            'p2_cash_ret': '2.0',
+            'p1_income_growth': '2.0',
+            'p2_income_growth': '2.0',
+            'p1_cpp_start': '65',
+            'p2_cpp_start': '65',
+            'p1_oas_start': '65',
+            'p2_oas_start': '65',
+            'p1_oas_years': '40',
+            'p2_oas_years': '40'
+        };
 
+        for (const [id, val] of Object.entries(safeDefaults)) {
+            const el = document.getElementById(id);
+            if (el) {
+                el.value = val;
+                this.state.inputs[id] = val;
+            }
+        }
+
+        const safeDefaultsCheckboxes = {
+            'p1_cpp_enabled': true,
+            'p1_oas_enabled': true,
+            'p2_cpp_enabled': true,
+            'p2_oas_enabled': true
+        };
+
+        for (const [id, val] of Object.entries(safeDefaultsCheckboxes)) {
+            const el = document.getElementById(id);
+            if (el) {
+                el.checked = val;
+                this.state.inputs[id] = val;
+            }
+        }
+
+        // Clear dynamically added containers
+        ['real-estate-container', 'windfall-container', 'p1-additional-income-container', 'p2-additional-income-container', 'debt-container'].forEach(id => {
+            if(document.getElementById(id)) document.getElementById(id).innerHTML = '';
+        });
+
+        // Update Quick Adjust Sidebar
+        this.updateSidebarSync('p1_retireAge', '60');
+        this.updateSidebarSync('p2_retireAge', '60');
+        this.updateSidebarSync('inflation_rate', '2.1');
+        this.updateSidebarSync('p1_tfsa_ret', '6.0');
+
+        // Reset specific labels
+        if(document.getElementById('exp_gogo_val')) document.getElementById('exp_gogo_val').innerText = '75';
+        if(document.getElementById('exp_slow_val')) document.getElementById('exp_slow_val').innerText = '85';
+        
+        ['p1', 'p2'].forEach(pfx => {
+            ['cpp_start', 'oas_start', 'db_lifetime_start', 'db_bridge_start'].forEach(sfx => {
+                const el = document.getElementById(`${pfx}_${sfx}_val`);
+                if(el) el.innerText = document.getElementById(`${pfx}_${sfx}`)?.value || '65';
+            });
+            const oasY = document.getElementById(`${pfx}_oas_years_val`);
+            if(oasY) oasY.innerText = '40';
+        });
+
+        // Clear local storage save to fully reset
+        localStorage.removeItem(this.AUTO_SAVE_KEY);
+
+        // Update UI state
         this.updateBenefitVisibility();
         this.updateAgeDisplay('p1');
         this.updateAgeDisplay('p2');
-        this.run(); 
+        this.renderExpenseRows();
+        this.renderStrategy();
+        this.toggleModeDisplay();
+
+        // Rerun calculations with fresh state
+        this.run();
     }
 
     exportToCSV() {
