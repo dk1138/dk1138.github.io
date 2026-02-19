@@ -1,14 +1,14 @@
 /**
- * Retirement Planner Pro - Logic v10.8
+ * Retirement Planner Pro - Logic v10.9
  * * Changelog:
+ * - v10.9: UX Update: Added confirmation warning before Wizard overwrites current inputs.
  * - v10.8: UX Update: Wizard layout fixes, single/couple toggle bug fix, pre-wizard skip prompt.
  * - v10.7: NEW: Onboarding Wizard for first-time users.
- * - v10.6: NEW: Real Estate Downsizing logic.
  */
 
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.8";
+        this.APP_VERSION = "10.9";
         this.state = {
             inputs: {},
             debt: [],
@@ -402,7 +402,14 @@ class RetirementPlanner {
         if($('wiz_prop_toggle')) {
             $('wiz_prop_toggle').addEventListener('change', (e) => document.getElementById('wiz_prop_fields').style.display = e.target.checked ? 'flex' : 'none');
         }
-        if($('btnWizardFinish')) $('btnWizardFinish').addEventListener('click', () => this.finishWizard());
+        
+        if($('btnWizardFinish')) {
+            $('btnWizardFinish').addEventListener('click', () => {
+                this.showConfirm("Warning: Generating a new plan will overwrite all of your current inputs. Do you want to continue?", () => {
+                    this.finishWizard();
+                });
+            });
+        }
         if($('btnWizardSkip')) $('btnWizardSkip').addEventListener('click', () => this.skipWizard());
 
         document.body.addEventListener('input', e => {
@@ -1430,8 +1437,8 @@ class RetirementPlanner {
             if(yr>=sY && yr<=eY) {
                 let baseYear = s.startMode === 'ret_relative' ? sY : new Date(s.start+"-01").getFullYear();
                 let amt = s.amount * Math.pow(1+(s.growth/100), cY-baseYear) * (s.freq==='month'?12:1);
-                if (s.startMode === 'date' && cY===sY) a *= (12-new Date(s.start+"-01").getMonth())/12;
-                if (s.endMode === 'date' && s.end && cY===eY) a *= Math.min(1, (new Date(s.end+"-01").getMonth()+1)/12);
+                if (s.startMode === 'date' && cY===sY) amt *= (12-new Date(s.start+"-01").getMonth())/12;
+                if (s.endMode === 'date' && s.end && cY===eY) amt *= Math.min(1, (new Date(s.end+"-01").getMonth()+1)/12);
 
                 if(amt>0){ if(s.owner==='p1'){ s.taxable?add.p1T+=amt:add.p1N+=amt; } else { s.taxable?add.p2T+=amt:add.p2N+=amt; } }
             }
