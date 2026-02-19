@@ -892,12 +892,20 @@
                                 <option value="1000">1000 (Precise)</option>
                             </select>
                             
-                            <label class="form-label small fw-bold text-muted">Market Volatility</label>
-                            <select class="form-select mb-4" id="mc_volatility">
-                                <option value="0.08">Low (8% Std Dev)</option>
-                                <option value="0.12" selected>Medium (12% Std Dev)</option>
-                                <option value="0.16">High (16% Std Dev)</option>
+                            <label class="form-label small fw-bold text-muted">Simulation Method</label>
+                            <select class="form-select mb-3" id="mc_sim_method" onchange="document.getElementById('mc_vol_wrap').style.display = this.value === 'historical' ? 'none' : 'block'">
+                                <option value="random" selected>Standard (Normal Distribution)</option>
+                                <option value="historical">Historical Data (S&P 500 Bootstrap)</option>
                             </select>
+
+                            <div id="mc_vol_wrap">
+                                <label class="form-label small fw-bold text-muted">Market Volatility</label>
+                                <select class="form-select mb-4" id="mc_volatility">
+                                    <option value="0.08">Low (8% Std Dev)</option>
+                                    <option value="0.12" selected>Medium (12% Std Dev)</option>
+                                    <option value="0.16">High (16% Std Dev)</option>
+                                </select>
+                            </div>
                             
                             <button class="btn btn-danger w-100 fw-bold py-2" onclick="app.runMonteCarlo()">
                                 <i class="bi bi-play-circle-fill me-2"></i> Run Monte Carlo
