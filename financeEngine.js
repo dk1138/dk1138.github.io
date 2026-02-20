@@ -254,7 +254,6 @@ class FinanceEngine {
         const multiplier = simContext?.expenseMultiplier || 1.0;
 
         if(this.expenseMode === 'Simple') {
-            // Apply multiplier only to retirement spending to find "Die with Zero" budget
             exp = fullyRetired ? (expTotals.ret * multiplier) : expTotals.curr;
         } else {
             if(!fullyRetired) exp = expTotals.curr;
@@ -367,8 +366,8 @@ class FinanceEngine {
                 if(breakdown) breakdown[pfx][logKey] = (breakdown[pfx][logKey] || 0) + tk;
             }
             
-            if (isTaxable && onWithdrawal) {
-                 onWithdrawal(pfx, 0, tk);
+            if (onWithdrawal) {
+                 onWithdrawal(pfx, isTaxable, tk);
             }
 
             if (isTaxable) {
@@ -579,7 +578,7 @@ class FinanceEngine {
             if (surplus > 0) {
                 this.handleSurplus(surplus, person1, person2, alive1, alive2, flowLog, i, consts.tfsaLimit * bInf, rrspRoom1, rrspRoom2);
             } else {
-                let addedToTaxableIncome = 0; 
+                let cashFromNonTaxableWd = 0; 
                 for(let pass = 0; pass < 5; pass++) {
                     let dynTax1 = this.calculateTaxDetailed(taxableIncome1, this.getRaw('tax_province'), taxBrackets);
                     let dynTax2 = this.calculateTaxDetailed(taxableIncome2, this.getRaw('tax_province'), taxBrackets);
@@ -591,17 +590,17 @@ class FinanceEngine {
                     let dynNet2 = alive2 ? taxableIncome2 - dynTax2.totalTax + inflows.p2.windfallNonTax : 0;
                     let dynTotalNet = dynNet1 + dynNet2;
                     
-                    let currentWithdrawals = detailed ? Object.values(flowLog.withdrawals).reduce((a,b) => a + b, 0) : 0;
-                    let cashFromNonTaxableWd = Math.max(0, currentWithdrawals - addedToTaxableIncome);
-
                     let currentDeficit = totalOutflows - (dynTotalNet + cashFromNonTaxableWd);
                     
                     if (currentDeficit < 1) break; 
                     
-                    this.handleDeficit(currentDeficit, person1, person2, taxableIncome1, taxableIncome2, alive1, alive2, flowLog, wdBreakdown, taxBrackets, (pfx, taxAmt, grossAmt) => {
-                        if (pfx === 'p1') taxableIncome1 += grossAmt;
-                        if (pfx === 'p2') taxableIncome2 += grossAmt;
-                        addedToTaxableIncome += grossAmt; 
+                    this.handleDeficit(currentDeficit, person1, person2, taxableIncome1, taxableIncome2, alive1, alive2, flowLog, wdBreakdown, taxBrackets, (pfx, isTaxable, grossAmt) => {
+                        if (isTaxable) {
+                            if (pfx === 'p1') taxableIncome1 += grossAmt;
+                            if (pfx === 'p2') taxableIncome2 += grossAmt;
+                        } else {
+                            cashFromNonTaxableWd += grossAmt;
+                        }
                     }, age1, age2);
                 }
                 
