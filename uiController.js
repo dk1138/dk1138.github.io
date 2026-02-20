@@ -316,7 +316,8 @@ class UIController {
                 debtFreeYear = d.year;
             }
 
-            if (d.liquidNW < 0 && !isBankrupt) {
+            // If there's an unfulfilled cash deficit, you've officially run out of money
+            if (d.surplus < -10 && !isBankrupt) {
                 isBankrupt = true;
                 bankruptAge = d.p1Age;
             }
@@ -342,7 +343,7 @@ class UIController {
         const healthEl = document.getElementById('dash_plan_health');
         if (healthEl) {
             if (isBankrupt) {
-                healthEl.innerText = `Ran out of cash at Age ${bankruptAge}`;
+                healthEl.innerText = `Bankrupt at Age ${bankruptAge}`;
                 healthEl.className = "fw-bold text-danger";
             } else {
                 healthEl.innerText = "SUCCESS (Fully Funded)";
