@@ -350,22 +350,6 @@ class DataController {
         this.renderList('strat-accum-list', this.app.state.strategies.accum, 'accum', document.getElementById('strat-accum-container'));
         const d = document.getElementById('strat-decumulation'); d.innerHTML = ''; 
         this.renderList('strat-decum-list', this.app.state.strategies.decum, 'decum', d);
-        if (!document.getElementById('strat_rrsp_topup')) {
-            const settingsDiv = document.createElement('div');
-            settingsDiv.className = 'mt-4 pt-3 border-top border-secondary';
-            settingsDiv.innerHTML = `
-                <div class="form-check form-switch">
-                    <input class="form-check-input live-calc" type="checkbox" role="switch" id="strat_rrsp_topup" ${this.app.state.inputs['strat_rrsp_topup']?'checked':''}>
-                    <label class="form-check-label small fw-bold" for="strat_rrsp_topup">
-                        RRSP Low-Income Top-Up
-                        <div class="text-muted fw-normal mt-1" style="font-size:0.75rem; line-height:1.2;">
-                            Withdraws RRSP to fill the lowest tax bracket (~$55k) in years with low income.
-                        </div>
-                    </label>
-                </div>
-            `;
-            d.appendChild(settingsDiv);
-        }
     }
 
     renderList(id, arr, type, cont) {
