@@ -316,8 +316,9 @@ class UIController {
                 debtFreeYear = d.year;
             }
 
-            // If there's an unfulfilled cash deficit, you've officially run out of money
-            if (d.surplus < -10 && !isBankrupt) {
+            // A tiny deficit can happen from tax bracket math rounding. 
+            // We only declare bankruptcy if they ALSO have $0 liquid assets left.
+            if (d.surplus < -10 && d.liquidNW <= 10 && !isBankrupt) {
                 isBankrupt = true;
                 bankruptAge = d.p1Age;
             }
