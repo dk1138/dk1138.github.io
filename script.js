@@ -1,68 +1,91 @@
 /**
  * Retirement Planner Pro - Core Application Controller
- * Version 10.9.9 (Modular Architecture - Global Fixes)
+ * Version 10.9.11 (Crash Proofing)
  */
 
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.9.9";
-        this.state = {
-            inputs: {},
-            debt: [],
-            properties: [{ name: "Primary Home", value: 1000000, mortgage: 430000, growth: 3.0, rate: 3.29, payment: 0, manual: false, includeInNW: false, sellEnabled: false, sellAge: 65, replacementValue: 0 }],
-            windfalls: [],
-            additionalIncome: [],
-            strategies: { 
-                accum: ['tfsa', 'rrsp', 'nreg', 'cash', 'crypto'], 
-                decum: ['rrsp', 'crypto', 'nreg', 'tfsa', 'cash'] 
-            },
-            mode: 'Couple',
-            projectionData: [],
-            expenseMode: 'Simple'
-        };
+        try {
+            this.APP_VERSION = "10.9.11";
+            this.state = {
+                inputs: {},
+                debt: [],
+                properties: [{ name: "Primary Home", value: 1000000, mortgage: 430000, growth: 3.0, rate: 3.29, payment: 0, manual: false, includeInNW: false, sellEnabled: false, sellAge: 65, replacementValue: 0 }],
+                windfalls: [],
+                additionalIncome: [],
+                strategies: { 
+                    accum: ['tfsa', 'rrsp', 'nreg', 'cash', 'crypto'], 
+                    decum: ['rrsp', 'crypto', 'nreg', 'tfsa', 'cash'] 
+                },
+                mode: 'Couple',
+                projectionData: [],
+                expenseMode: 'Simple'
+            };
 
-        this.AUTO_SAVE_KEY = 'rp_autosave_v1';
-        this.THEME_KEY = 'rp_theme';
-        
-        if (typeof FINANCIAL_CONSTANTS === 'undefined') {
-            console.error("CRITICAL ERROR: config.js is not loaded.");
-            alert("Configuration file missing! Please ensure config.js is properly linked in index.html.");
-            this.CONSTANTS = { TAX_DATA: {}, MAX_OAS: 0, MAX_CPP: 0, RRIF_START_AGE: 72 };
-            this.SP500_HISTORICAL = [0.1];
-        } else {
-            this.CONSTANTS = FINANCIAL_CONSTANTS;
-            this.SP500_HISTORICAL = FINANCIAL_CONSTANTS.SP500_HISTORICAL;
+            this.AUTO_SAVE_KEY = 'rp_autosave_v1';
+            this.THEME_KEY = 'rp_theme';
+            
+            if (typeof FINANCIAL_CONSTANTS === 'undefined') {
+                console.error("CRITICAL ERROR: config.js is not loaded.");
+                this.CONSTANTS = { TAX_DATA: {}, MAX_OAS: 0, MAX_CPP: 0, RRIF_START_AGE: 72 };
+                this.SP500_HISTORICAL = [0.1];
+            } else {
+                this.CONSTANTS = FINANCIAL_CONSTANTS;
+                this.SP500_HISTORICAL = FINANCIAL_CONSTANTS.SP500_HISTORICAL;
+            }
+
+            this.charts = { nw: null, sankey: null, mc: null }; 
+            this.confirmModal = null; 
+            this.saveModalInstance = null;
+            this.sliderTimeout = null;
+
+            this.expensesByCategory = {
+                "Housing": { items: [ { name: "Property Tax", curr: 6000, ret: 6000, trans: 6000, gogo: 6000, slow: 6000, nogo: 6000, freq: 1 }, { name: "Enbridge (Gas)", curr: 120, ret: 120, trans: 120, gogo: 120, slow: 120, nogo: 120, freq: 12 }, { name: "Enercare (HWT)", curr: 45, ret: 45, trans: 45, gogo: 45, slow: 45, nogo: 45, freq: 12 }, { name: "Alectra (Hydro)", curr: 150, ret: 150, trans: 150, gogo: 150, slow: 150, nogo: 150, freq: 12 }, { name: "RH Water", curr: 80, ret: 80, trans: 80, gogo: 80, slow: 80, nogo: 80, freq: 12 } ] },
+                "Living": { items: [ { name: "Grocery", curr: 800, ret: 800, trans: 800, gogo: 800, slow: 700, nogo: 600, freq: 12 }, { name: "Costco", curr: 400, ret: 400, trans: 400, gogo: 400, slow: 350, nogo: 300, freq: 12 }, { name: "Restaurants", curr: 400, ret: 300, trans: 350, gogo: 350, slow: 200, nogo: 100, freq: 12 }, { name: "Cellphone", curr: 120, ret: 120, trans: 120, gogo: 120, slow: 120, nogo: 120, freq: 12 }, { name: "Internet", curr: 90, ret: 90, trans: 90, gogo: 90, slow: 90, nogo: 90, freq: 12 } ] },
+                "Kids": { items: [ { name: "Daycare", curr: 1200, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 }, { name: "Activities", curr: 200, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 }, { name: "RESP Contribution", curr: 208, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 }, { name: "Clothing/Toys", curr: 100, ret: 50, trans: 50, gogo: 50, slow: 0, nogo: 0, freq: 12 } ] },
+                "Lifestyle": { items: [ { name: "Travel", curr: 5000, ret: 15000, trans: 10000, gogo: 15000, slow: 5000, nogo: 0, freq: 1 }, { name: "Electronic", curr: 500, ret: 500, trans: 500, gogo: 500, slow: 500, nogo: 200, freq: 1 }, { name: "Health Insurance", curr: 50, ret: 300, trans: 150, gogo: 300, slow: 500, nogo: 1000, freq: 12 }, { name: "Other", curr: 300, ret: 300, trans: 300, gogo: 300, slow: 200, nogo: 100, freq: 12 } ] }
+            };
+            
+            this.optimalAges = { p1_cpp: 65, p1_oas: 65, p2_cpp: 65, p2_oas: 65 };
+            this.strategyLabels = { 'tfsa': 'TFSA', 'rrsp': 'RRSP', 'nreg': 'Non-Reg', 'cash': 'Cash', 'crypto': 'Crypto', 'rrif': 'RRIF' };
+
+            // Verifying sub-controllers loaded
+            if (typeof UIController === 'undefined') throw new Error("UIController is missing! Make sure uiController.js is saved in the exact same folder.");
+            if (typeof DataController === 'undefined') throw new Error("DataController is missing! Make sure dataController.js is saved in the exact same folder.");
+            if (typeof Optimizers === 'undefined') throw new Error("Optimizers module is missing! Make sure optimizers.js is saved in the exact same folder.");
+
+            this.ui = new UIController(this);
+            this.data = new DataController(this);
+            this.optimizers = new Optimizers(this);
+
+            if(typeof google !== 'undefined' && google.charts) google.charts.load('current', {'packages':['sankey']});
+            
+            this.debouncedRun = this.debounce(() => this.run(), 300);
+            this.debouncedPayoffUpdate = this.debounce((idx) => {
+                 this.data.updatePropPayoffDisplay(idx);
+                 this.run(); 
+            }, 500);
+
+            this.init();
+        } catch (e) {
+            this.displayCrash(e);
         }
+    }
 
-        this.charts = { nw: null, sankey: null, mc: null }; 
-        this.confirmModal = null; 
-        this.saveModalInstance = null;
-        this.sliderTimeout = null;
-
-        this.expensesByCategory = {
-            "Housing": { items: [ { name: "Property Tax", curr: 6000, ret: 6000, trans: 6000, gogo: 6000, slow: 6000, nogo: 6000, freq: 1 }, { name: "Enbridge (Gas)", curr: 120, ret: 120, trans: 120, gogo: 120, slow: 120, nogo: 120, freq: 12 }, { name: "Enercare (HWT)", curr: 45, ret: 45, trans: 45, gogo: 45, slow: 45, nogo: 45, freq: 12 }, { name: "Alectra (Hydro)", curr: 150, ret: 150, trans: 150, gogo: 150, slow: 150, nogo: 150, freq: 12 }, { name: "RH Water", curr: 80, ret: 80, trans: 80, gogo: 80, slow: 80, nogo: 80, freq: 12 } ] },
-            "Living": { items: [ { name: "Grocery", curr: 800, ret: 800, trans: 800, gogo: 800, slow: 700, nogo: 600, freq: 12 }, { name: "Costco", curr: 400, ret: 400, trans: 400, gogo: 400, slow: 350, nogo: 300, freq: 12 }, { name: "Restaurants", curr: 400, ret: 300, trans: 350, gogo: 350, slow: 200, nogo: 100, freq: 12 }, { name: "Cellphone", curr: 120, ret: 120, trans: 120, gogo: 120, slow: 120, nogo: 120, freq: 12 }, { name: "Internet", curr: 90, ret: 90, trans: 90, gogo: 90, slow: 90, nogo: 90, freq: 12 } ] },
-            "Kids": { items: [ { name: "Daycare", curr: 1200, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 }, { name: "Activities", curr: 200, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 }, { name: "RESP Contribution", curr: 208, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 }, { name: "Clothing/Toys", curr: 100, ret: 50, trans: 50, gogo: 50, slow: 0, nogo: 0, freq: 12 } ] },
-            "Lifestyle": { items: [ { name: "Travel", curr: 5000, ret: 15000, trans: 10000, gogo: 15000, slow: 5000, nogo: 0, freq: 1 }, { name: "Electronic", curr: 500, ret: 500, trans: 500, gogo: 500, slow: 500, nogo: 200, freq: 1 }, { name: "Health Insurance", curr: 50, ret: 300, trans: 150, gogo: 300, slow: 500, nogo: 1000, freq: 12 }, { name: "Other", curr: 300, ret: 300, trans: 300, gogo: 300, slow: 200, nogo: 100, freq: 12 } ] }
-        };
-        
-        this.optimalAges = { p1_cpp: 65, p1_oas: 65, p2_cpp: 65, p2_oas: 65 };
-        this.strategyLabels = { 'tfsa': 'TFSA', 'rrsp': 'RRSP', 'nreg': 'Non-Reg', 'cash': 'Cash', 'crypto': 'Crypto', 'rrif': 'RRIF' };
-
-        // Sub-Controllers
-        this.ui = new UIController(this);
-        this.data = new DataController(this);
-        this.optimizers = new Optimizers(this);
-
-        if(typeof google !== 'undefined' && google.charts) google.charts.load('current', {'packages':['sankey']});
-        
-        this.debouncedRun = this.debounce(() => this.run(), 300);
-        this.debouncedPayoffUpdate = this.debounce((idx) => {
-             this.data.updatePropPayoffDisplay(idx);
-             this.run(); 
-        }, 500);
-
-        this.init();
+    displayCrash(e) {
+        console.error("FATAL ERROR ON INIT:", e);
+        document.body.innerHTML = `
+            <div style="padding:40px; font-family:sans-serif;">
+                <div style="background-color:#ffebe9; border:2px solid #dc3545; border-radius:8px; padding:20px; color:#842029; max-width:800px; margin:auto; box-shadow: 0 10px 20px rgba(0,0,0,0.2);">
+                    <h2 style="margin-top:0; font-weight:bold;">⚠️ Application Failed to Load</h2>
+                    <p style="font-size:16px;">The application crashed during startup. This is almost always caused by a missing file, a file naming typo, or corrupted auto-save data.</p>
+                    <div style="background-color:#212529; color:#f8f9fa; padding:15px; border-radius:5px; font-family:monospace; overflow-x:auto; margin-bottom:20px;">
+                        ${e.stack || e.message || e}
+                    </div>
+                    <button style="background-color:#dc3545; color:white; border:none; padding:10px 20px; font-size:16px; border-radius:5px; cursor:pointer; font-weight:bold;" onclick="localStorage.removeItem('rp_autosave_v1'); location.reload();">Clear Save Data & Reload</button>
+                </div>
+            </div>
+        `;
     }
 
     debounce(func, wait) {
@@ -80,8 +103,8 @@ class RetirementPlanner {
             windfalls: JSON.parse(JSON.stringify(this.state.windfalls || [])),
             additionalIncome: JSON.parse(JSON.stringify(this.state.additionalIncome || [])),
             strategies: { 
-                accum: [...(this.state.strategies?.accum || [])], 
-                decum: [...(this.state.strategies?.decum || [])] 
+                accum: [...(this.state.strategies?.accum || ['tfsa', 'rrsp', 'nreg', 'cash', 'crypto'])], 
+                decum: [...(this.state.strategies?.decum || ['rrsp', 'crypto', 'nreg', 'tfsa', 'cash'])] 
             },
             mode: this.state.mode || 'Couple',
             expenseMode: this.state.expenseMode || 'Simple',
@@ -93,50 +116,65 @@ class RetirementPlanner {
 
     init() {
         const setup = () => {
-            const selectors = ['#app-title', '.navbar-brand', 'h1', '.h1', 'h2', 'h4'];
-            let headerEl = null;
-            for (const sel of selectors) {
-                headerEl = document.querySelector(sel);
-                if (headerEl) break;
+            try {
+                const selectors = ['#app-title', '.navbar-brand', 'h1', '.h1', 'h2', 'h4'];
+                let headerEl = null;
+                for (const sel of selectors) {
+                    headerEl = document.querySelector(sel);
+                    if (headerEl) break;
+                }
+
+                if(headerEl && !document.getElementById('rp_version_badge')) {
+                    const vSpan = document.createElement('span');
+                    vSpan.id = 'rp_version_badge';
+                    vSpan.className = 'badge bg-warning text-dark ms-2 small';
+                    vSpan.style.fontSize = '0.65rem';
+                    vSpan.style.verticalAlign = 'middle';
+                    vSpan.innerText = `v${this.APP_VERSION}`;
+                    headerEl.appendChild(vSpan);
+                }
+
+                if(document.getElementById('confirmationModal')) {
+                    this.confirmModal = new bootstrap.Modal(document.getElementById('confirmationModal'));
+                }
+                if(document.getElementById('saveScenarioModal')) {
+                    this.saveModalInstance = new bootstrap.Modal(document.getElementById('saveScenarioModal'));
+                }
+                
+                this.ui.populateAgeSelects();
+                const savedData = localStorage.getItem(this.AUTO_SAVE_KEY);
+                if (savedData) {
+                    try { 
+                        const parsed = JSON.parse(savedData);
+                        this.loadStateToDOM(parsed); 
+                    } catch(e) { 
+                        console.error("Corrupted Save Found, resetting...", e); 
+                        localStorage.removeItem(this.AUTO_SAVE_KEY);
+                        this.renderDefaults(); 
+                    }
+                } else {
+                    this.renderDefaults();
+                }
+
+                this.ui.initTheme(); 
+                this.loadScenariosList(); 
+                this.syncStateFromDOM(); 
+                this.ui.toggleModeDisplay(); 
+                this.ui.updateBenefitVisibility();
+                this.ui.updateAgeDisplay('p1'); 
+                this.ui.updateAgeDisplay('p2');
+                this.data.updateAllMortgages(); 
+                this.findOptimal(); 
+                this.bindEvents(); 
+                this.ui.initSidebar();
+                try { this.ui.initPopovers(); } catch(e) { console.warn("Popover init skip", e); }
+
+                setTimeout(() => { this.syncStateFromDOM(); this.run(); }, 300); 
+            } catch (e) {
+                this.displayCrash(e);
             }
-
-            if(headerEl && !document.getElementById('rp_version_badge')) {
-                const vSpan = document.createElement('span');
-                vSpan.id = 'rp_version_badge';
-                vSpan.className = 'badge bg-warning text-dark ms-2 small';
-                vSpan.style.fontSize = '0.65rem';
-                vSpan.style.verticalAlign = 'middle';
-                vSpan.innerText = `v${this.APP_VERSION}`;
-                headerEl.appendChild(vSpan);
-            }
-
-            this.confirmModal = new bootstrap.Modal(document.getElementById('confirmationModal'));
-            if(document.getElementById('saveScenarioModal')) {
-                this.saveModalInstance = new bootstrap.Modal(document.getElementById('saveScenarioModal'));
-            }
-            
-            this.ui.populateAgeSelects();
-            const savedData = localStorage.getItem(this.AUTO_SAVE_KEY);
-            if (savedData) {
-                try { this.loadStateToDOM(JSON.parse(savedData)); } 
-                catch(e) { console.error("Failed load, falling back to defaults", e); this.renderDefaults(); }
-            } else this.renderDefaults();
-
-            this.ui.initTheme(); 
-            this.loadScenariosList(); 
-            this.syncStateFromDOM(); 
-            this.ui.toggleModeDisplay(); 
-            this.ui.updateBenefitVisibility();
-            this.ui.updateAgeDisplay('p1'); 
-            this.ui.updateAgeDisplay('p2');
-            this.data.updateAllMortgages(); 
-            this.findOptimal(); 
-            this.bindEvents(); 
-            this.ui.initSidebar();
-            this.ui.initPopovers(); 
-
-            setTimeout(() => { this.syncStateFromDOM(); this.run(); }, 500); 
         };
+        
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup);
         else setup(); 
     }
@@ -152,19 +190,20 @@ class RetirementPlanner {
 
     showConfirm(message, onConfirm) {
         const modalEl = document.getElementById('confirmationModal');
+        if(!modalEl) return onConfirm(); 
+
         modalEl.querySelector('.modal-body').textContent = message;
-        
         const btn = document.getElementById('btnConfirmAction');
         const newBtn = btn.cloneNode(true);
         btn.parentNode.replaceChild(newBtn, btn);
         
         newBtn.addEventListener('click', () => { 
             try { onConfirm(); } 
-            catch (e) { console.error("Error executing confirmation action:", e); } 
-            finally { this.confirmModal.hide(); }
+            catch (e) { console.error("Error executing confirmation:", e); } 
+            finally { if(this.confirmModal) this.confirmModal.hide(); }
         });
         
-        this.confirmModal.show();
+        if(this.confirmModal) this.confirmModal.show();
     }
 
     syncStateFromDOM() {
@@ -187,11 +226,12 @@ class RetirementPlanner {
     }
 
     getDiscountFactor(y) { 
-        return !document.getElementById('useRealDollars').checked ? 1 : Math.pow(1 + this.getVal('inflation_rate')/100, y); 
+        const ud = document.getElementById('useRealDollars');
+        return (!ud || !ud.checked) ? 1 : Math.pow(1 + this.getVal('inflation_rate')/100, y); 
     }
 
     formatInput(el) { 
-        const v = el.value.replace(/,/g, ''); 
+        const v = String(el.value).replace(/,/g, ''); 
         if(!isNaN(v) && v!=='') el.value = Number(v).toLocaleString('en-US'); 
     }
 
@@ -237,14 +277,14 @@ class RetirementPlanner {
         if (gogoS && slowS) {
             gogoS.addEventListener('input', e => {
                 let v = parseInt(e.target.value), sV = parseInt(slowS.value);
-                $('exp_gogo_val').innerText = v; this.state.inputs['exp_gogo_age'] = v;
-                if(v > sV) { slowS.value = v; $('exp_slow_val').innerText = v; this.state.inputs['exp_slow_age'] = v; }
+                if($('exp_gogo_val')) $('exp_gogo_val').innerText = v; this.state.inputs['exp_gogo_age'] = v;
+                if(v > sV) { slowS.value = v; if($('exp_slow_val')) $('exp_slow_val').innerText = v; this.state.inputs['exp_slow_age'] = v; }
                 this.data.renderExpenseRows(); this.data.calcExpenses(); this.debouncedRun();
             });
             slowS.addEventListener('input', e => {
                 let v = parseInt(e.target.value), gV = parseInt(gogoS.value);
-                $('exp_slow_val').innerText = v; this.state.inputs['exp_slow_age'] = v;
-                if(v < gV) { gogoS.value = v; $('exp_gogo_val').innerText = v; this.state.inputs['exp_gogo_age'] = v; }
+                if($('exp_slow_val')) $('exp_slow_val').innerText = v; this.state.inputs['exp_slow_age'] = v;
+                if(v < gV) { gogoS.value = v; if($('exp_gogo_val')) $('exp_gogo_val').innerText = v; this.state.inputs['exp_gogo_age'] = v; }
                 this.data.renderExpenseRows(); this.data.calcExpenses(); this.debouncedRun();
             });
         }
@@ -319,7 +359,7 @@ class RetirementPlanner {
 
         if($('yearSlider')) $('yearSlider').addEventListener('input', e => {
             const index = parseInt(e.target.value);
-            if (this.state.projectionData[index]) {
+            if (this.state.projectionData && this.state.projectionData[index]) {
                 const d = this.state.projectionData[index];
                 if($('sliderYearDisplay')) $('sliderYearDisplay').innerText = d.year;
                 if($('cfAgeDisplay')) $('cfAgeDisplay').innerText = this.state.mode === 'Couple' ? `(P1: ${d.p1Age} / P2: ${d.p2Age})` : `(Age: ${d.p1Age})`;
@@ -334,7 +374,9 @@ class RetirementPlanner {
         });
 
         if(document.querySelector('button[data-bs-target="#cashflow-pane"]')) {
-            document.querySelector('button[data-bs-target="#cashflow-pane"]').addEventListener('shown.bs.tab', () => this.ui.drawSankey(parseInt($('yearSlider').value)));
+            document.querySelector('button[data-bs-target="#cashflow-pane"]').addEventListener('shown.bs.tab', () => {
+                if($('yearSlider')) this.ui.drawSankey(parseInt($('yearSlider').value));
+            });
         }
         
         const compareTabBtn = document.querySelector('button[data-bs-target="#compare-pane"]');
@@ -399,7 +441,7 @@ class RetirementPlanner {
             this.state.projectionData = engine.runSimulation(true, null, this.data.getTotalDebt());
 
             const slider = document.getElementById('yearSlider');
-            if (this.state.projectionData.length && slider) {
+            if (this.state.projectionData && this.state.projectionData.length && slider) {
                 let cur = parseInt(slider.value), max = this.state.projectionData.length - 1;
                 slider.max = max; if(cur > max) { slider.value = 0; cur = 0; }
                 const d = this.state.projectionData[cur];
@@ -413,7 +455,11 @@ class RetirementPlanner {
         } catch (e) { console.error("Error running calculation loop:", e); }
     }
 
-    saveToLocalStorage() { localStorage.setItem(this.AUTO_SAVE_KEY, JSON.stringify(this.getCurrentSnapshot())); }
+    saveToLocalStorage() { 
+        try {
+            localStorage.setItem(this.AUTO_SAVE_KEY, JSON.stringify(this.getCurrentSnapshot())); 
+        } catch(e) { console.warn("Save failed", e); }
+    }
 
     handleFileUpload(e) {
         const file = e.target.files[0];
@@ -669,14 +715,15 @@ class RetirementPlanner {
             expensesData: JSON.parse(JSON.stringify(this.expensesByCategory || {})), 
             windfalls: JSON.parse(JSON.stringify(this.state.windfalls || [])), 
             additionalIncome: JSON.parse(JSON.stringify(this.state.additionalIncome || [])),
-            nwTrajectory: this.state.projectionData.map(d => Math.round(d.debugNW)),
-            years: this.state.projectionData.map(d => d.year)
+            nwTrajectory: (this.state.projectionData || []).map(d => Math.round(d.debugNW)),
+            years: (this.state.projectionData || []).map(d => d.year)
         }; 
         document.querySelectorAll('.debt-amount').forEach(el=>s.debt.push(el.value)); 
         return s; 
     }
 }
 
-// THIS IS THE MOST IMPORTANT LINE - It attaches 'app' to the global window
-// so that all the HTML onclick="app.data..." events can find it!
+// ---------------------------------------------------------
+// Safely boot the app and attach it to the window
+// ---------------------------------------------------------
 window.app = new RetirementPlanner();
