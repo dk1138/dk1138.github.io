@@ -235,7 +235,6 @@ class FinanceEngine {
         if(alive1 && p1.rrsp > 0 && age1 >= this.CONSTANTS.RRIF_START_AGE){ 
             let factor = this.getRrifFactor(age1);
             r.p1 = rrspBase1 * factor; 
-            // Cap at actual available balance if the base * factor exceeds current balance (e.g. negative growth)
             r.p1 = Math.min(r.p1, p1.rrsp); 
             r.details.p1 = { factor, bal: rrspBase1, min: r.p1 };
             p1.rrsp -= r.p1; 
@@ -336,12 +335,15 @@ class FinanceEngine {
             }
             else if(t === 'nreg'){
                 if(alive1){ p1.nreg += r; p1.acb += r; if(log) log.contributions.p1.nreg += r; r = 0; }
+                else if(alive2){ p2.nreg += r; p2.acb += r; if(log) log.contributions.p2.nreg += r; r = 0; }
             } 
             else if(t === 'cash'){
                 if(alive1){ p1.cash += r; if(log) log.contributions.p1.cash += r; r = 0; }
+                else if(alive2){ p2.cash += r; if(log) log.contributions.p2.cash += r; r = 0; }
             } 
             else if(t === 'crypto'){
-                if(alive1){ p1.crypto += r; if(log) log.contributions.p1.crypto += r; r = 0; }
+                if(alive1){ p1.crypto += r; p1.crypto_acb += r; if(log) log.contributions.p1.crypto += r; r = 0; }
+                else if(alive2){ p2.crypto += r; p2.crypto_acb += r; if(log) log.contributions.p2.crypto += r; r = 0; }
             }
         });
     }
@@ -360,11 +362,19 @@ class FinanceEngine {
         const wd = (p, t, a, pfx, mRate) => { 
             if(a <= 0 || p[t] <= 0) return 0;
             
-            let isTaxable = ['rrsp', 'rrif_acct', 'lif', 'lirf'].includes(t);
+            let isFullyTaxable = ['rrsp', 'rrif_acct', 'lif', 'lirf'].includes(t);
+            let isCapGain = ['nreg', 'crypto'].includes(t);
             let grossNeeded = a;
+            let effRate = 0;
 
-            if (isTaxable) {
-                let effRate = Math.min(mRate || 0, 0.54); 
+            let acbKey = t === 'crypto' ? 'crypto_acb' : 'acb';
+
+            if (isFullyTaxable) {
+                effRate = Math.min(mRate || 0, 0.54); 
+                grossNeeded = a / (1 - effRate);
+            } else if (isCapGain) {
+                let gainRatio = Math.max(0, 1 - (p[acbKey] / p[t]));
+                effRate = Math.min(mRate || 0, 0.54) * 0.5 * gainRatio;
                 grossNeeded = a / (1 - effRate);
             }
             
@@ -376,6 +386,17 @@ class FinanceEngine {
 
             p[t] -= tk;
             
+            let taxableAmtForOnWithdrawal = 0;
+            if (isCapGain) {
+                let proportionSold = tk / (p[t] + tk); 
+                let acbSold = p[acbKey] * proportionSold;
+                p[acbKey] = Math.max(0, p[acbKey] - acbSold);
+                let capGain = tk - acbSold;
+                taxableAmtForOnWithdrawal = Math.max(0, capGain * 0.5); // 50% inclusion rate
+            } else if (isFullyTaxable) {
+                taxableAmtForOnWithdrawal = tk;
+            }
+
             if (log) {
                 let k = (pfx.toUpperCase()) + " " + logKey;
                 log.withdrawals[k] = (log.withdrawals[k] || 0) + tk;
@@ -383,14 +404,27 @@ class FinanceEngine {
             }
             
             if (onWithdrawal) {
-                 onWithdrawal(pfx, isTaxable, tk);
+                 if (isFullyTaxable) {
+                     onWithdrawal(pfx, tk, 0); // All goes to taxable income
+                 } else if (isCapGain) {
+                     // Split cash generation between taxable income (50% of cap gain) and non-taxable cash return
+                     onWithdrawal(pfx, taxableAmtForOnWithdrawal, tk - taxableAmtForOnWithdrawal);
+                 } else {
+                     onWithdrawal(pfx, 0, tk); // All goes to non-taxable cash
+                 }
             }
 
-            if (isTaxable) {
-                let effRate = Math.min(mRate || 0, 0.54);
-                return tk * (1 - effRate);
-            }
-            return tk;
+            return tk * (1 - effRate);
+        };
+
+        const updateRunInc = (type, got, mR, p) => {
+             if(['rrsp','rrif_acct','lif','lirf'].includes(type)) return got / (1 - Math.min(mR, 0.54));
+             if(['nreg', 'crypto'].includes(type)) {
+                 let acbKey = type === 'crypto' ? 'crypto_acb' : 'acb';
+                 let gainRatio = Math.max(0, 1 - (p[acbKey] / (p[type] + got)));
+                 return got * gainRatio * 0.5;
+             }
+             return 0;
         };
         
         while(df > 1 && (p1StratIdx < strats.length || p2StratIdx < strats.length)) {
@@ -422,8 +456,8 @@ class FinanceEngine {
                 
                 df = df - (gotP1 + gotP2);
                 
-                if(['rrsp','rrif_acct','lif','lirf'].includes(p1Type)) runInc1 += (gotP1 / (1 - Math.min(mR1, 0.54)));
-                if(['rrsp','rrif_acct','lif','lirf'].includes(p2Type)) runInc2 += (gotP2 / (1 - Math.min(mR2, 0.54)));
+                runInc1 += updateRunInc(p1Type, gotP1, mR1, p1);
+                runInc2 += updateRunInc(p2Type, gotP2, mR2, p2);
 
             } else {
                 let toTake = df;
@@ -439,11 +473,11 @@ class FinanceEngine {
 
                 if (target === 'p1') {
                     let got = wd(p1, p1Type, toTake, 'p1', mR1);
-                    if(['rrsp','rrif_acct','lif','lirf'].includes(p1Type)) runInc1 += (got / (1 - Math.min(mR1, 0.54)));
+                    runInc1 += updateRunInc(p1Type, got, mR1, p1);
                     df -= got;
                 } else {
                     let got = wd(p2, p2Type, toTake, 'p2', mR2);
-                    if(['rrsp','rrif_acct','lif','lirf'].includes(p2Type)) runInc2 += (got / (1 - Math.min(mR2, 0.54)));
+                    runInc2 += updateRunInc(p2Type, got, mR2, p2);
                     df -= got;
                 }
             }
@@ -461,8 +495,8 @@ class FinanceEngine {
         let nwArray = [];
         let projectionData = [];
 
-        let person1 = { tfsa: this.getVal('p1_tfsa'), rrsp: this.getVal('p1_rrsp'), cash: this.getVal('p1_cash'), nreg: this.getVal('p1_nonreg'), crypto: this.getVal('p1_crypto'), lirf: this.getVal('p1_lirf'), lif: this.getVal('p1_lif'), rrif_acct: this.getVal('p1_rrif_acct'), inc: this.getVal('p1_income'), dob: new Date(this.getRaw('p1_dob') || "1990-01"), retAge: this.getVal('p1_retireAge'), lifeExp: this.getVal('p1_lifeExp'), nreg_yield: this.getVal('p1_nonreg_yield')/100, acb: this.getVal('p1_nonreg') };
-        let person2 = { tfsa: this.getVal('p2_tfsa'), rrsp: this.getVal('p2_rrsp'), cash: this.getVal('p2_cash'), nreg: this.getVal('p2_nonreg'), crypto: this.getVal('p2_crypto'), lirf: this.getVal('p2_lirf'), lif: this.getVal('p2_rrif_acct'), rrif_acct: this.getVal('p2_rrif_acct'), inc: this.getVal('p2_income'), dob: new Date(this.getRaw('p2_dob') || "1990-01"), retAge: this.getVal('p2_retireAge'), lifeExp: this.getVal('p2_lifeExp'), nreg_yield: this.getVal('p2_nonreg_yield')/100, acb: this.getVal('p2_nonreg') };
+        let person1 = { tfsa: this.getVal('p1_tfsa'), rrsp: this.getVal('p1_rrsp'), cash: this.getVal('p1_cash'), nreg: this.getVal('p1_nonreg'), crypto: this.getVal('p1_crypto'), lirf: this.getVal('p1_lirf'), lif: this.getVal('p1_lif'), rrif_acct: this.getVal('p1_rrif_acct'), inc: this.getVal('p1_income'), dob: new Date(this.getRaw('p1_dob') || "1990-01"), retAge: this.getVal('p1_retireAge'), lifeExp: this.getVal('p1_lifeExp'), nreg_yield: this.getVal('p1_nonreg_yield')/100, acb: this.getVal('p1_nonreg'), crypto_acb: this.getVal('p1_crypto') };
+        let person2 = { tfsa: this.getVal('p2_tfsa'), rrsp: this.getVal('p2_rrsp'), cash: this.getVal('p2_cash'), nreg: this.getVal('p2_nonreg'), crypto: this.getVal('p2_crypto'), lirf: this.getVal('p2_lirf'), lif: this.getVal('p2_lif'), rrif_acct: this.getVal('p2_rrif_acct'), inc: this.getVal('p2_income'), dob: new Date(this.getRaw('p2_dob') || "1990-01"), retAge: this.getVal('p2_retireAge'), lifeExp: this.getVal('p2_lifeExp'), nreg_yield: this.getVal('p2_nonreg_yield')/100, acb: this.getVal('p2_nonreg'), crypto_acb: this.getVal('p2_crypto') };
 
         let simProperties = JSON.parse(JSON.stringify(this.properties));
         let totalDebt = totalDebtInitial;
@@ -564,16 +598,6 @@ class FinanceEngine {
             let rrspDed = { p1: 0, p2: 0 };
             const taxBrackets = this.getInflatedTaxData(bInf);
             
-            const lowBracket = taxBrackets.FED.brackets[0];
-            if(alive1 && person1.rrsp > 0 && taxableIncome1 < lowBracket) {
-                 let d = Math.min(lowBracket - taxableIncome1, person1.rrsp);
-                 if(d > 0) { person1.rrsp -= d; taxableIncome1 += d; rrspDed.p1 = d; }
-            }
-            if(alive2 && person2.rrsp > 0 && taxableIncome2 < lowBracket) {
-                 let d = Math.min(lowBracket - taxableIncome2, person2.rrsp);
-                 if(d > 0) { person2.rrsp -= d; taxableIncome2 += d; rrspDed.p2 = d; }
-            }
-
             let tax1 = alive1 ? this.calculateTaxDetailed(taxableIncome1, this.getRaw('tax_province'), taxBrackets) : {totalTax: 0, margRate: 0};
             let tax2 = alive2 ? this.calculateTaxDetailed(taxableIncome2, this.getRaw('tax_province'), taxBrackets) : {totalTax: 0, margRate: 0};
 
@@ -624,13 +648,10 @@ class FinanceEngine {
                     
                     if (currentDeficit < 1) break; 
                     
-                    this.handleDeficit(currentDeficit, person1, person2, taxableIncome1, taxableIncome2, alive1, alive2, flowLog, wdBreakdown, taxBrackets, (pfx, isTaxable, grossAmt) => {
-                        if (isTaxable) {
-                            if (pfx === 'p1') taxableIncome1 += grossAmt;
-                            if (pfx === 'p2') taxableIncome2 += grossAmt;
-                        } else {
-                            cashFromNonTaxableWd += grossAmt;
-                        }
+                    this.handleDeficit(currentDeficit, person1, person2, taxableIncome1, taxableIncome2, alive1, alive2, flowLog, wdBreakdown, taxBrackets, (pfx, taxAmt, nonTaxAmt) => {
+                        if (pfx === 'p1') taxableIncome1 += taxAmt;
+                        if (pfx === 'p2') taxableIncome2 += taxAmt;
+                        cashFromNonTaxableWd += nonTaxAmt;
                     }, age1, age2);
                 }
                 
