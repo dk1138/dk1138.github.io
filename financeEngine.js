@@ -381,7 +381,6 @@ class FinanceEngine {
         const prov = this.getRaw('tax_province');
         const TOLERANCE = 50; 
         const strats = this.strategies.decum;
-        const lowestBracket = taxBrackets.FED.brackets[0]; 
 
         // Helper to check if a specific bucket has funds
         let hasBal = (p, t) => {
@@ -485,7 +484,7 @@ class FinanceEngine {
             return {net: totalNetGot, tax: totalTaxGot};
         };
 
-        const executeWithdrawalStrategy = (enforceCeiling) => {
+        const executeWithdrawalStrategy = (ceiling1, ceiling2) => {
             let p1Idx = 0;
             let p2Idx = 0;
 
@@ -496,9 +495,9 @@ class FinanceEngine {
                 while(p1Idx < strats.length) {
                     let type = strats[p1Idx];
                     if (!alive1 || !hasBal(p1, type)) { p1Idx++; continue; }
-                    let isTaxableAtAll = ['rrsp', 'nreg', 'crypto'].includes(type); // rrsp covers the whole registered taxable bucket
-                    if (enforceCeiling && isTaxableAtAll) {
-                        if (lowestBracket - runInc1 <= 1) { p1Idx++; continue; }
+                    let isTaxableAtAll = ['rrsp', 'nreg', 'crypto'].includes(type);
+                    if (ceiling1 !== Infinity && isTaxableAtAll) {
+                        if (ceiling1 - runInc1 <= 1) { p1Idx++; continue; }
                     }
                     break;
                 }
@@ -508,8 +507,8 @@ class FinanceEngine {
                     let type = strats[p2Idx];
                     if (!alive2 || !hasBal(p2, type)) { p2Idx++; continue; }
                     let isTaxableAtAll = ['rrsp', 'nreg', 'crypto'].includes(type);
-                    if (enforceCeiling && isTaxableAtAll) {
-                        if (lowestBracket - runInc2 <= 1) { p2Idx++; continue; }
+                    if (ceiling2 !== Infinity && isTaxableAtAll) {
+                        if (ceiling2 - runInc2 <= 1) { p2Idx++; continue; }
                     }
                     break;
                 }
@@ -537,16 +536,16 @@ class FinanceEngine {
                     else target = 'p2';
                 }
 
-                let getNetRoom = (type, inc, mR, pObj) => {
-                    if (!enforceCeiling) return Infinity;
+                let getNetRoom = (type, inc, mR, pObj, ceil) => {
+                    if (ceil === Infinity) return Infinity;
                     let isFullyTaxable = type === 'rrsp'; // applies to the whole bundle
                     let isCapGain = ['nreg', 'crypto'].includes(type);
                     
                     if (isFullyTaxable) {
-                        let grossRoom = Math.max(0, lowestBracket - inc);
+                        let grossRoom = Math.max(0, ceil - inc);
                         return grossRoom * (1 - Math.min(mR || 0, 0.54));
                     } else if (isCapGain) {
-                        let grossRoom = Math.max(0, lowestBracket - inc);
+                        let grossRoom = Math.max(0, ceil - inc);
                         let acbKey = type === 'crypto' ? 'crypto_acb' : 'acb';
                         let bal = pObj[type];
                         let gainRatio = bal > 0 ? Math.max(0, 1 - (pObj[acbKey] / bal)) : 0;
@@ -562,8 +561,8 @@ class FinanceEngine {
                 };
 
                 if (target === 'split') {
-                    let netRoom1 = getNetRoom(p1Type, runInc1, mR1, p1);
-                    let netRoom2 = getNetRoom(p2Type, runInc2, mR2, p2);
+                    let netRoom1 = getNetRoom(p1Type, runInc1, mR1, p1, ceiling1);
+                    let netRoom2 = getNetRoom(p2Type, runInc2, mR2, p2, ceiling2);
                     
                     let half = df / 2;
                     let req1 = Math.min(half, netRoom1);
@@ -594,7 +593,8 @@ class FinanceEngine {
                     let tType = target === 'p1' ? p1Type : p2Type;
                     let mR = target === 'p1' ? mR1 : mR2;
                     let inc = target === 'p1' ? runInc1 : runInc2;
-                    let netRoom = getNetRoom(tType, inc, mR, pObj);
+                    let ceil = target === 'p1' ? ceiling1 : ceiling2;
+                    let netRoom = getNetRoom(tType, inc, mR, pObj, ceil);
 
                     if (p1Type && p2Type && p1Idx === p2Idx && !['tfsa','cash'].includes(tType)) {
                         let gap = Math.abs(runInc1 - runInc2);
@@ -627,12 +627,27 @@ class FinanceEngine {
             }
         };
 
+        const lowestBracket = taxBrackets.FED.brackets[0]; 
+        const optimizeOAS = this.inputs['oas_clawback_optimize'];
+        // Estimate inflation multiplier from the lowest tax bracket
+        const bInf = taxBrackets.FED.brackets[0] / this.CONSTANTS.TAX_DATA.FED.brackets[0];
+        const oasClawbackLimit = this.CONSTANTS.OAS_CLAWBACK_THRESHOLD * bInf;
+
         // Pass 1: Try to withdraw while enforcing the lowest tax bracket ceiling on all taxable accounts
-        executeWithdrawalStrategy(true);
+        executeWithdrawalStrategy(lowestBracket, lowestBracket);
         
-        // Pass 2: If we STILL have a deficit, drop the ceiling rules and take what we need to survive
+        // Pass 2: Enforce OAS Clawback Threshold ceiling (if enabled and applicable)
+        if (df > 1 && optimizeOAS) {
+            let p1Ceil = age1 >= 65 ? oasClawbackLimit : Infinity;
+            let p2Ceil = age2 >= 65 ? oasClawbackLimit : Infinity;
+            if (p1Ceil !== Infinity || p2Ceil !== Infinity) {
+                executeWithdrawalStrategy(p1Ceil, p2Ceil);
+            }
+        }
+        
+        // Pass 3: If we STILL have a deficit, drop the ceiling rules and take what we need to survive
         if (df > 1) {
-            executeWithdrawalStrategy(false);
+            executeWithdrawalStrategy(Infinity, Infinity);
         }
     }
 
