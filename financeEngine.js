@@ -69,8 +69,8 @@ class FinanceEngine {
         return { tax: t + (i - p) * r[r.length - 1], marg: r[r.length - 1] };
     }
 
-    calculateTaxDetailed(inc, prov, tDat) {
-        if(inc <= 0) return { fed: 0, prov: 0, cpp_ei: 0, totalTax: 0, margRate: 0 };
+    calculateTaxDetailed(inc, prov, tDat, oasReceived = 0, oasThreshold = 0) {
+        if(inc <= 0) return { fed: 0, prov: 0, cpp_ei: 0, oas_clawback: 0, totalTax: 0, margRate: 0 };
         const D = tDat;
         const fC = this.calculateProgressiveTax(inc, D.FED.brackets, D.FED.rates);
         const pC = this.calculateProgressiveTax(inc, D[prov]?.brackets || [999999999], D[prov]?.rates || [0.10]);
@@ -92,8 +92,19 @@ class FinanceEngine {
         if(inc > 3500) cpp += (Math.min(inc, 74600) - 3500) * 0.0595; 
         if(inc > 74600) cpp += (Math.min(inc, 85000) - 74600) * 0.04;
         const ei = Math.min(inc, 68900) * 0.0164;
+
+        let oasClawback = 0;
+        let oasMarg = 0;
+        if (oasReceived > 0 && oasThreshold > 0 && inc > oasThreshold) {
+            oasClawback = (inc - oasThreshold) * 0.15;
+            if (oasClawback < oasReceived) {
+                oasMarg = 0.15; // Within clawback zone, marginal rate increases by 15%
+            } else {
+                oasClawback = oasReceived; // Fully clawed back
+            }
+        }
         
-        return { fed, prov: provT, cpp_ei: cpp + ei, totalTax: fed + provT + cpp + ei, margRate: mF + mP };
+        return { fed, prov: provT, cpp_ei: cpp + ei, oas_clawback: oasClawback, totalTax: fed + provT + cpp + ei + oasClawback, margRate: mF + mP + oasMarg };
     }
 
     applyGrowth(p1, p2, isRet1, isRet2, isAdv, inf, i, simContext) {
@@ -314,7 +325,7 @@ class FinanceEngine {
                     r -= take;
                 } 
             }
-            else if(t === 'rrsp'){ // During accum, 'rrsp' means standard RRSP contributions only
+            else if(t === 'rrsp'){ 
                 let priority = [];
                 const p1HasRoom = (!this.inputs['skip_first_rrsp_p1'] || i > 0) && alive1;
                 const p2HasRoom = (!this.inputs['skip_first_rrsp_p2'] || i > 0) && alive2;
@@ -374,7 +385,7 @@ class FinanceEngine {
         });
     }
 
-    handleDeficit(amount, p1, p2, curInc1, curInc2, alive1, alive2, log, breakdown, taxBrackets, onWithdrawal, age1, age2) {
+    handleDeficit(amount, p1, p2, curInc1, curInc2, alive1, alive2, log, breakdown, taxBrackets, onWithdrawal, age1, age2, oasRec1 = 0, oasRec2 = 0, oasThresholdInf = 0) {
         let df = amount;
         let runInc1 = curInc1;
         let runInc2 = curInc2;
@@ -518,8 +529,8 @@ class FinanceEngine {
 
                 if (!p1Type && !p2Type) break;
 
-                const mR1 = this.calculateTaxDetailed(runInc1, prov, taxBrackets).margRate;
-                const mR2 = this.calculateTaxDetailed(runInc2, prov, taxBrackets).margRate;
+                const mR1 = this.calculateTaxDetailed(runInc1, prov, taxBrackets, oasRec1, oasThresholdInf).margRate;
+                const mR2 = this.calculateTaxDetailed(runInc2, prov, taxBrackets, oasRec2, oasThresholdInf).margRate;
 
                 let target = null;
                 
@@ -629,17 +640,14 @@ class FinanceEngine {
 
         const lowestBracket = taxBrackets.FED.brackets[0]; 
         const optimizeOAS = this.inputs['oas_clawback_optimize'];
-        // Estimate inflation multiplier from the lowest tax bracket
-        const bInf = taxBrackets.FED.brackets[0] / this.CONSTANTS.TAX_DATA.FED.brackets[0];
-        const oasClawbackLimit = this.CONSTANTS.OAS_CLAWBACK_THRESHOLD * bInf;
 
         // Pass 1: Try to withdraw while enforcing the lowest tax bracket ceiling on all taxable accounts
         executeWithdrawalStrategy(lowestBracket, lowestBracket);
         
         // Pass 2: Enforce OAS Clawback Threshold ceiling (if enabled and applicable)
         if (df > 1 && optimizeOAS) {
-            let p1Ceil = age1 >= 65 ? oasClawbackLimit : Infinity;
-            let p2Ceil = age2 >= 65 ? oasClawbackLimit : Infinity;
+            let p1Ceil = age1 >= 65 ? oasThresholdInf : Infinity;
+            let p2Ceil = age2 >= 65 ? oasThresholdInf : Infinity;
             if (p1Ceil !== Infinity || p2Ceil !== Infinity) {
                 executeWithdrawalStrategy(p1Ceil, p2Ceil);
             }
@@ -696,6 +704,8 @@ class FinanceEngine {
             if (!alive1 && !alive2) break;
 
             const bInf = Math.pow(1 + consts.inflation, i);
+            const oasThresholdInf = this.CONSTANTS.OAS_CLAWBACK_THRESHOLD * bInf;
+            
             const isRet1 = age1 >= person1.retAge;
             const isRet2 = this.mode === 'Couple' ? age2 >= person2.retAge : true;
             
@@ -766,8 +776,8 @@ class FinanceEngine {
             let rrspDed = { p1: 0, p2: 0 };
             const taxBrackets = this.getInflatedTaxData(bInf);
             
-            let tax1 = alive1 ? this.calculateTaxDetailed(taxableIncome1, this.getRaw('tax_province'), taxBrackets) : {totalTax: 0, margRate: 0};
-            let tax2 = alive2 ? this.calculateTaxDetailed(taxableIncome2, this.getRaw('tax_province'), taxBrackets) : {totalTax: 0, margRate: 0};
+            let tax1 = alive1 ? this.calculateTaxDetailed(taxableIncome1, this.getRaw('tax_province'), taxBrackets, inflows.p1.oas, oasThresholdInf) : {totalTax: 0, margRate: 0};
+            let tax2 = alive2 ? this.calculateTaxDetailed(taxableIncome2, this.getRaw('tax_province'), taxBrackets, inflows.p2.oas, oasThresholdInf) : {totalTax: 0, margRate: 0};
 
             let netIncome1 = taxableIncome1 - tax1.totalTax + inflows.p1.windfallNonTax;
             let netIncome2 = alive2 ? taxableIncome2 - tax2.totalTax + inflows.p2.windfallNonTax : 0;
@@ -802,8 +812,8 @@ class FinanceEngine {
             } else {
                 let cashFromNonTaxableWd = 0; 
                 for(let pass = 0; pass < 5; pass++) {
-                    let dynTax1 = this.calculateTaxDetailed(taxableIncome1, this.getRaw('tax_province'), taxBrackets);
-                    let dynTax2 = this.calculateTaxDetailed(taxableIncome2, this.getRaw('tax_province'), taxBrackets);
+                    let dynTax1 = this.calculateTaxDetailed(taxableIncome1, this.getRaw('tax_province'), taxBrackets, inflows.p1.oas, oasThresholdInf);
+                    let dynTax2 = this.calculateTaxDetailed(taxableIncome2, this.getRaw('tax_province'), taxBrackets, inflows.p2.oas, oasThresholdInf);
                     
                     tax1 = dynTax1; 
                     tax2 = dynTax2;
@@ -820,11 +830,11 @@ class FinanceEngine {
                         if (pfx === 'p1') taxableIncome1 += taxAmt;
                         if (pfx === 'p2') taxableIncome2 += taxAmt;
                         cashFromNonTaxableWd += nonTaxAmt;
-                    }, age1, age2);
+                    }, age1, age2, inflows.p1.oas, inflows.p2.oas, oasThresholdInf);
                 }
                 
-                tax1 = this.calculateTaxDetailed(taxableIncome1, this.getRaw('tax_province'), taxBrackets);
-                tax2 = this.calculateTaxDetailed(taxableIncome2, this.getRaw('tax_province'), taxBrackets);
+                tax1 = this.calculateTaxDetailed(taxableIncome1, this.getRaw('tax_province'), taxBrackets, inflows.p1.oas, oasThresholdInf);
+                tax2 = this.calculateTaxDetailed(taxableIncome2, this.getRaw('tax_province'), taxBrackets, inflows.p2.oas, oasThresholdInf);
                 netIncome1 = taxableIncome1 - tax1.totalTax + inflows.p1.windfallNonTax;
                 netIncome2 = alive2 ? taxableIncome2 - tax2.totalTax + inflows.p2.windfallNonTax : 0;
                 surplus = (netIncome1 + netIncome2) - totalOutflows;
