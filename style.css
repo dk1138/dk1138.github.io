@@ -107,30 +107,19 @@ body {
 }
 
 /* --- STICKY SIDEBAR LOGIC --- */
-/* FIX: Added Sidebar Column logic for smooth collapse */
 #sidebarCol {
   transition: width 0.3s ease;
-  overflow-x: hidden; /* Prevents horizontal scrollbar when collapsing */
-  min-width: 60px; /* FIX: Wide enough for button */
-  padding-left: 0;
-  padding-right: 0;
+  overflow-x: hidden; 
+  min-width: 60px; 
 }
 
 .sticky-sidebar {
   position: -webkit-sticky;
   position: sticky;
-  top: 20px; /* Offset from top of viewport */
+  top: 24px; /* Flawless offset from the top of the browser when scrolling */
   z-index: 1020;
   transition: all 0.3s ease;
-  max-height: calc(100vh - 40px); /* Prevent sidebar from exceeding viewport */
-  overflow-y: auto; /* Allow internal scrolling */
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
-}
-
-/* Hide scrollbar for sidebar */
-.sticky-sidebar::-webkit-scrollbar {
-  display: none;
+  height: max-content !important; /* CRITICAL FIX: Stops the card from stretching to match the tall tabs, restoring sticky functionality */
 }
 
 /* Make Sidebar slightly more compact */
@@ -149,11 +138,11 @@ body {
   margin-bottom: 1rem !important;
 }
 
-/* FIX: Centered button logic */
+/* Centered button logic */
 .sidebar-collapsed-btn {
   width: 40px;
   height: 40px;
-  margin: 0 auto; /* Centers the button in the collapsed column */
+  margin: 0 auto;
   border-radius: 8px;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
@@ -397,7 +386,7 @@ body:not(.is-couple) .p2-column:not(td):not(th) { display: none; }
   grid-template-columns: 110px 100px 1fr 1fr 1fr 1.2fr 30px;
   position: sticky;
   top: 0;
-  z-index: 1020; /* FIX: Increased from 1000 */
+  z-index: 1020; 
   background: var(--bg-card);
   padding: 8px;
   border-bottom: 2px solid var(--border-color);
@@ -411,7 +400,6 @@ body:not(.is-couple) .p2-column:not(td):not(th) { display: none; }
   box-shadow: 0 2px 5px rgba(0,0,0,0.3);
 }
 
-/* FIX: Dark Mode Opaque Header for readability */
 [data-bs-theme="dark"] .grid-header {
   background-color: var(--bg-card) !important;
   opacity: 1;
