@@ -837,7 +837,7 @@
                             <h6 class="text-muted fw-bold mb-2 fs-5"><i class="bi bi-infinity me-2"></i>Die With Zero (Maintenance)</h6>
                             <p class="small text-muted mb-4">Calculates how much more you can spend, or how much earlier you can retire, to end up with exactly $0 at the end of your life expectancy.</p>
                             <div class="d-grid mb-3 mt-auto">
-                                <button class="btn btn-outline-secondary fw-bold py-2" id="btnRunDwZ" onclick="app.runDieWithZero()" disabled>
+                                <button class="btn btn-outline-secondary fw-bold py-2" id="btnRunDwZ" onclick="app.optimizers.runDieWithZero()" disabled>
                                     <i class="bi bi-play-circle-fill me-2"></i>Currently Unavailable
                                 </button>
                             </div>
@@ -887,7 +887,7 @@
                                 </select>
                             </div>
                             
-                            <button class="btn btn-danger w-100 fw-bold py-2" onclick="app.runMonteCarlo()">
+                            <button class="btn btn-danger w-100 fw-bold py-2" onclick="app.optimizers.runMonteCarlo()">
                                 <i class="bi bi-play-circle-fill me-2"></i> Run Monte Carlo
                             </button>
                         </div>
@@ -1012,6 +1012,7 @@
       </button>
 
     </div>
+
     <div class="modal fade" id="saveScenarioModal" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content shadow-lg border-secondary rounded-4">
@@ -1051,8 +1052,14 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  
   <script src="config.js"></script>
   <script src="financeEngine.js"></script>
+  
+  <script src="uiController.js"></script>
+  <script src="dataController.js"></script>
+  <script src="optimizers.js"></script>
+  
   <script src="script.js"></script>
 </body>
 </html>
