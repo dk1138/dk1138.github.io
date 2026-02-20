@@ -219,7 +219,11 @@ class UIController {
                     let m = d.wdBreakdown.p1.RRIF_math;
                     let balStr = Math.round(m.bal / df).toLocaleString();
                     let minStr = Math.round(m.min / df).toLocaleString();
-                    label += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="RRIF Withdrawal Math" data-bs-content="<b>Balance:</b> $${balStr}<br><b>Min Factor:</b> ${(m.factor*100).toFixed(2)}%<br><b>Required Min:</b> $${minStr}"></i>`;
+                    
+                    let extraWd = Math.max(0, a - m.min);
+                    let extraStr = extraWd > 5 ? `<hr class='my-1'><b>Extra (Deficit) Wd:</b> $${Math.round(extraWd / df).toLocaleString()}` : '';
+                    
+                    label += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="RRIF Withdrawal Math" data-bs-content="<b>Jan 1st Balance:</b> $${balStr}<br><b>Min Factor:</b> ${(m.factor*100).toFixed(2)}%<br><b>Required Min:</b> $${minStr}${extraStr}"></i>`;
                 } else if ((t === 'Non-Reg' || t === 'Crypto') && d.wdBreakdown.p1[t + '_math']) {
                     let m = d.wdBreakdown.p1[t + '_math'];
                     let wdStr = Math.round(m.wd / df).toLocaleString();
@@ -257,7 +261,11 @@ class UIController {
                         let m = d.wdBreakdown.p2.RRIF_math;
                         let balStr = Math.round(m.bal / df).toLocaleString();
                         let minStr = Math.round(m.min / df).toLocaleString();
-                        label += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="RRIF Withdrawal Math" data-bs-content="<b>Balance:</b> $${balStr}<br><b>Min Factor:</b> ${(m.factor*100).toFixed(2)}%<br><b>Required Min:</b> $${minStr}"></i>`;
+                        
+                        let extraWd = Math.max(0, a - m.min);
+                        let extraStr = extraWd > 5 ? `<hr class='my-1'><b>Extra (Deficit) Wd:</b> $${Math.round(extraWd / df).toLocaleString()}` : '';
+                        
+                        label += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="RRIF Withdrawal Math" data-bs-content="<b>Jan 1st Balance:</b> $${balStr}<br><b>Min Factor:</b> ${(m.factor*100).toFixed(2)}%<br><b>Required Min:</b> $${minStr}${extraStr}"></i>`;
                     } else if ((t === 'Non-Reg' || t === 'Crypto') && d.wdBreakdown.p2[t + '_math']) {
                         let m = d.wdBreakdown.p2[t + '_math'];
                         let wdStr = Math.round(m.wd / df).toLocaleString();
