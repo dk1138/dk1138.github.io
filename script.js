@@ -1,6 +1,7 @@
 /**
- * Retirement Planner Pro - Logic v10.9.2
+ * Retirement Planner Pro - Logic v10.9.3
  * * Changelog:
+ * - v10.9.3: NEW: Added "Die with Zero" Optimizer. Uses headless binary/linear searches to recommend spending increases or earlier retirement ages.
  * - v10.9.2: FEATURE: "Clear All" now defaults users to Age 30, 2.5% Inflation, 6% Returns, and disables OAS/CPP/DB by default.
  * - v10.9.1: BUGFIX: "Clear All" button now properly wipes all dynamically added fields and blanks standard inputs.
  * - v10.9: ARCHITECTURE: Moved financial calculations to shared FinanceEngine to eliminate code duplication.
@@ -8,7 +9,7 @@
 
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.9.2";
+        this.APP_VERSION = "10.9.3";
         this.state = {
             inputs: {},
             debt: [],
@@ -840,6 +841,154 @@ class RetirementPlanner {
             this.saveToLocalStorage();
         } catch (e) { console.error("Error running calculation loop:", e); }
     }
+
+    // ---------------- SMART OPTIMIZERS START ---------------- //
+    runDieWithZero() {
+        const btn = document.getElementById('btnRunDwZ');
+        if(btn) { btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Calculating...'; btn.disabled = true; }
+
+        setTimeout(() => {
+            const engine = new FinanceEngine(this.getEngineData());
+            const baseResult = engine.runSimulation(false, null, this.getTotalDebt());
+            const baseFinalNW = baseResult[baseResult.length - 1];
+            
+            const resultsDiv = document.getElementById('dwz_results');
+            
+            if (baseFinalNW <= 0) {
+                resultsDiv.innerHTML = `<div class="alert alert-warning small mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Your current plan already projects a shortfall. To utilize this optimizer, you need a projected surplus at the end of your plan. Try saving more or lowering your retirement spending first.</div>`;
+                resultsDiv.style.display = 'block';
+                if(btn) { btn.innerHTML = '<i class="bi bi-play-circle-fill me-2"></i>Run Optimizer'; btn.disabled = false; }
+                return;
+            }
+
+            // --- Path 1: Spend More (Binary Search) ---
+            let minMult = 1.0, maxMult = 10.0, bestMult = 1.0;
+            for(let i=0; i<15; i++) {
+                let mid = (minMult + maxMult) / 2;
+                let testEngine = new FinanceEngine(this.getEngineData());
+                let res = testEngine.runSimulation(false, { expenseMultiplier: mid }, this.getTotalDebt());
+                let finalNW = res[res.length - 1];
+                if (finalNW > 0) {
+                    minMult = mid;
+                    bestMult = mid;
+                } else {
+                    maxMult = mid;
+                }
+            }
+
+            // Calculate actual spend difference
+            let baseRetSpend = 0;
+            if(this.state.expenseMode === 'Simple') {
+                Object.values(this.expensesByCategory).forEach(c => c.items.forEach(i => baseRetSpend += (i.ret || 0) * (i.freq || 12)));
+            } else {
+                Object.values(this.expensesByCategory).forEach(c => c.items.forEach(i => baseRetSpend += (i.gogo || 0) * (i.freq || 12)));
+            }
+            let extraSpend = baseRetSpend * (bestMult - 1);
+            
+            // --- Path 2: Retire Earlier (Linear Search) ---
+            let testP1Age = this.getVal('p1_retireAge');
+            let testP2Age = this.state.mode === 'Couple' ? this.getVal('p2_retireAge') : testP1Age;
+            let currentP1Age = Math.abs(new Date(Date.now() - new Date(this.getRaw('p1_dob')+"-01").getTime()).getUTCFullYear() - 1970);
+            let currentP2Age = this.state.mode === 'Couple' ? Math.abs(new Date(Date.now() - new Date(this.getRaw('p2_dob')+"-01").getTime()).getUTCFullYear() - 1970) : currentP1Age;
+            
+            let bestP1Age = testP1Age, bestP2Age = testP2Age;
+            let possibleToRetireEarlier = false;
+
+            while (testP1Age > currentP1Age || (this.state.mode === 'Couple' && testP2Age > currentP2Age)) {
+                if (testP1Age > currentP1Age) testP1Age--;
+                if (this.state.mode === 'Couple' && testP2Age > currentP2Age) testP2Age--;
+                
+                let testData = this.getEngineData();
+                testData.inputs['p1_retireAge'] = testP1Age;
+                if(this.state.mode === 'Couple') testData.inputs['p2_retireAge'] = testP2Age;
+                
+                let testEngine = new FinanceEngine(testData);
+                let res = testEngine.runSimulation(false, null, this.getTotalDebt());
+                let finalNW = res[res.length - 1];
+                
+                if (finalNW >= 0) {
+                    bestP1Age = testP1Age;
+                    bestP2Age = testP2Age;
+                    possibleToRetireEarlier = true;
+                } else {
+                    break;
+                }
+            }
+
+            // --- Path 3: Legacy/Giveaway ---
+            let presentValueLegacy = baseFinalNW / Math.pow(1 + this.getVal('inflation_rate')/100, baseResult.length - 1);
+
+            let html = `
+                <div class="mb-3">
+                    <h6 class="text-success fw-bold small text-uppercase ls-1"><i class="bi bi-arrow-up-circle me-1"></i> Option 1: Upgrade Lifestyle</h6>
+                    <div class="p-3 bg-black bg-opacity-25 border border-secondary rounded-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div>You can spend approximately <strong class="text-success">$${Math.round(extraSpend).toLocaleString()} more per year</strong> in retirement without running out of money.</div>
+                        <button class="btn btn-sm btn-outline-success fw-bold text-nowrap" onclick="app.applyDwZSpend(${bestMult})">Apply</button>
+                    </div>
+                </div>
+            `;
+
+            if (possibleToRetireEarlier) {
+                let ageStr = this.state.mode === 'Couple' ? `P1 to age <strong class="text-info">${bestP1Age}</strong> & P2 to <strong class="text-info">${bestP2Age}</strong>` : `age <strong class="text-info">${bestP1Age}</strong>`;
+                html += `
+                    <div class="mb-3">
+                        <h6 class="text-info fw-bold small text-uppercase ls-1"><i class="bi bi-calendar-minus me-1"></i> Option 2: Retire Earlier</h6>
+                        <div class="p-3 bg-black bg-opacity-25 border border-secondary rounded-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <div>You can move your retirement up to ${ageStr} on your current budget.</div>
+                            <button class="btn btn-sm btn-outline-info fw-bold text-nowrap" onclick="app.applyDwZAge(${bestP1Age}, ${bestP2Age})">Apply</button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            html += `
+                <div>
+                    <h6 class="text-purple fw-bold small text-uppercase ls-1" style="color:var(--purple);"><i class="bi bi-gift me-1"></i> Option 3: Leave a Legacy</h6>
+                    <div class="p-3 bg-black bg-opacity-25 border border-secondary rounded-3">
+                        If you change nothing, you are on track to leave behind <strong style="color:var(--purple);">$${Math.round(presentValueLegacy).toLocaleString()}</strong> in today's dollars to your estate or charity.
+                    </div>
+                </div>
+            `;
+
+            resultsDiv.innerHTML = html;
+            resultsDiv.style.display = 'block';
+            
+            if(btn) { btn.innerHTML = '<i class="bi bi-play-circle-fill me-2"></i>Run Optimizer'; btn.disabled = false; }
+        }, 50);
+    }
+
+    applyDwZSpend(multiplier) {
+        if(this.state.expenseMode === 'Simple') {
+            Object.values(this.expensesByCategory).forEach(c => c.items.forEach(i => i.ret = Math.round((i.ret || 0) * multiplier)));
+        } else {
+            Object.values(this.expensesByCategory).forEach(c => c.items.forEach(i => {
+                i.gogo = Math.round((i.gogo || 0) * multiplier);
+                i.slow = Math.round((i.slow || 0) * multiplier);
+                i.nogo = Math.round((i.nogo || 0) * multiplier);
+            }));
+        }
+        this.renderExpenseRows();
+        this.calcExpenses();
+        this.run();
+        document.querySelector('button[data-bs-target="#plan-pane"]')?.click();
+        alert("Retirement spending has been upgraded!");
+    }
+
+    applyDwZAge(p1Age, p2Age) {
+        document.getElementById('p1_retireAge').value = p1Age;
+        this.state.inputs['p1_retireAge'] = p1Age;
+        this.updateSidebarSync('p1_retireAge', p1Age);
+        
+        if (this.state.mode === 'Couple') {
+            document.getElementById('p2_retireAge').value = p2Age;
+            this.state.inputs['p2_retireAge'] = p2Age;
+            this.updateSidebarSync('p2_retireAge', p2Age);
+        }
+        this.run();
+        document.querySelector('button[data-bs-target="#plan-pane"]')?.click();
+        alert("Retirement ages have been updated!");
+    }
+    // ---------------- SMART OPTIMIZERS END ---------------- //
 
     // ---------------- MONTE CARLO ENGINE START ---------------- //
     runMonteCarlo() {
