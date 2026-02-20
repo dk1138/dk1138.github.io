@@ -230,9 +230,22 @@ class FinanceEngine {
     }
 
     calcRRIFMin(p1, p2, age1, age2, alive1, alive2) {
-        let r = { p1: 0, p2: 0 };
-        if(alive1 && p1.rrsp > 0 && age1 >= this.CONSTANTS.RRIF_START_AGE){ r.p1 = p1.rrsp * this.getRrifFactor(age1); p1.rrsp -= r.p1; }
-        if(alive2 && p2.rrsp > 0 && age2 >= this.CONSTANTS.RRIF_START_AGE){ r.p2 = p2.rrsp * this.getRrifFactor(age2); p2.rrsp -= r.p2; }
+        let r = { p1: 0, p2: 0, details: { p1: null, p2: null } };
+        
+        if(alive1 && p1.rrsp > 0 && age1 >= this.CONSTANTS.RRIF_START_AGE){ 
+            let factor = this.getRrifFactor(age1);
+            r.p1 = p1.rrsp * factor; 
+            r.details.p1 = { factor, bal: p1.rrsp, min: r.p1 };
+            p1.rrsp -= r.p1; 
+        }
+        
+        if(alive2 && p2.rrsp > 0 && age2 >= this.CONSTANTS.RRIF_START_AGE){ 
+            let factor = this.getRrifFactor(age2);
+            r.p2 = p2.rrsp * factor; 
+            r.details.p2 = { factor, bal: p2.rrsp, min: r.p2 };
+            p2.rrsp -= r.p2; 
+        }
+        
         return r;
     }
 
@@ -566,8 +579,16 @@ class FinanceEngine {
             let wdBreakdown = detailed ? { p1: {}, p2: {} } : null;
 
             if(detailed) {
-                if(rrifMin.p1 > 0) { flowLog.withdrawals['P1 RRIF'] = (flowLog.withdrawals['P1 RRIF'] || 0) + rrifMin.p1; wdBreakdown.p1.RRIF = rrifMin.p1; }
-                if(rrifMin.p2 > 0) { flowLog.withdrawals['P2 RRIF'] = (flowLog.withdrawals['P2 RRIF'] || 0) + rrifMin.p2; wdBreakdown.p2.RRIF = rrifMin.p2; }
+                if(rrifMin.p1 > 0) { 
+                    flowLog.withdrawals['P1 RRIF'] = (flowLog.withdrawals['P1 RRIF'] || 0) + rrifMin.p1; 
+                    wdBreakdown.p1.RRIF = rrifMin.p1; 
+                    wdBreakdown.p1.RRIF_math = rrifMin.details.p1;
+                }
+                if(rrifMin.p2 > 0) { 
+                    flowLog.withdrawals['P2 RRIF'] = (flowLog.withdrawals['P2 RRIF'] || 0) + rrifMin.p2; 
+                    wdBreakdown.p2.RRIF = rrifMin.p2; 
+                    wdBreakdown.p2.RRIF_math = rrifMin.details.p2;
+                }
                 if(rrspDed.p1 > 0) { flowLog.withdrawals['P1 RRSP Top-Up'] = (flowLog.withdrawals['P1 RRSP Top-Up'] || 0) + rrspDed.p1; wdBreakdown.p1.RRSP = rrspDed.p1; }
                 if(rrspDed.p2 > 0) { flowLog.withdrawals['P2 RRSP Top-Up'] = (flowLog.withdrawals['P2 RRSP Top-Up'] || 0) + rrspDed.p2; wdBreakdown.p2.RRSP = rrspDed.p2; }
             }
