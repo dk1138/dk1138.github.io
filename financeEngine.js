@@ -354,13 +354,10 @@ class FinanceEngine {
         let runInc2 = curInc2;
         const prov = this.getRaw('tax_province');
         const TOLERANCE = 50; 
-        
-        let p1StratIdx = 0;
-        let p2StratIdx = 0;
         const strats = this.strategies.decum;
 
         const wd = (p, t, a, pfx, mRate) => { 
-            if(a <= 0 || p[t] <= 0) return 0;
+            if(a <= 0 || p[t] <= 0) return {net: 0, tax: 0};
             
             let isFullyTaxable = ['rrsp', 'rrif_acct', 'lif', 'lirf'].includes(t);
             let isCapGain = ['nreg', 'crypto'].includes(t);
@@ -395,7 +392,7 @@ class FinanceEngine {
                 acbSold = p[acbKey] * proportionSold;
                 p[acbKey] = Math.max(0, p[acbKey] - acbSold);
                 capGain = tk - acbSold;
-                taxableAmtForOnWithdrawal = Math.max(0, capGain * 0.5); // 50% inclusion rate
+                taxableAmtForOnWithdrawal = Math.max(0, capGain * 0.5); // 50% inclusion
             } else if (isFullyTaxable) {
                 taxableAmtForOnWithdrawal = tk;
             }
@@ -406,7 +403,6 @@ class FinanceEngine {
                 if(breakdown) {
                     breakdown[pfx][logKey] = (breakdown[pfx][logKey] || 0) + tk;
                     
-                    // Log math specifics for the new tooltips
                     if (isCapGain) {
                         if (!breakdown[pfx][logKey + '_math']) breakdown[pfx][logKey + '_math'] = { wd: 0, acb: 0, gain: 0, tax: 0 };
                         breakdown[pfx][logKey + '_math'].wd += tk;
@@ -419,80 +415,92 @@ class FinanceEngine {
             
             if (onWithdrawal) {
                  if (isFullyTaxable) {
-                     onWithdrawal(pfx, tk, 0); // All goes to taxable income
+                     onWithdrawal(pfx, tk, 0); 
                  } else if (isCapGain) {
-                     // Split cash generation between taxable income (50% of cap gain) and non-taxable cash return
                      onWithdrawal(pfx, taxableAmtForOnWithdrawal, tk - taxableAmtForOnWithdrawal);
                  } else {
-                     onWithdrawal(pfx, 0, tk); // All goes to non-taxable cash
+                     onWithdrawal(pfx, 0, tk); 
                  }
             }
 
-            return tk * (1 - effRate);
+            return {net: tk * (1 - effRate), tax: taxableAmtForOnWithdrawal};
         };
 
-        const updateRunInc = (type, got, mR, p) => {
-             if(['rrsp','rrif_acct','lif','lirf'].includes(type)) return got / (1 - Math.min(mR, 0.54));
-             if(['nreg', 'crypto'].includes(type)) {
-                 let acbKey = type === 'crypto' ? 'crypto_acb' : 'acb';
-                 let gainRatio = Math.max(0, 1 - (p[acbKey] / (p[type] + got)));
-                 return got * gainRatio * 0.5;
-             }
-             return 0;
-        };
-        
-        while(df > 1 && (p1StratIdx < strats.length || p2StratIdx < strats.length)) {
-            while(p1StratIdx < strats.length && (p1[strats[p1StratIdx]] <= 0 || !alive1)) { p1StratIdx++; }
-            while(p2StratIdx < strats.length && (p2[strats[p2StratIdx]] <= 0 || !alive2)) { p2StratIdx++; }
-
-            const p1Type = p1StratIdx < strats.length ? strats[p1StratIdx] : null;
-            const p2Type = p2StratIdx < strats.length ? strats[p2StratIdx] : null;
-
-            if(!p1Type && !p2Type) break; 
-
-            const mR1 = this.calculateTaxDetailed(runInc1, prov, taxBrackets).margRate;
-            const mR2 = this.calculateTaxDetailed(runInc2, prov, taxBrackets).margRate;
-
-            let target = null;
+        // Process withdrawals strictly by the global strategy order across both people
+        for (let stratIdx = 0; stratIdx < strats.length; stratIdx++) {
+            if (df <= 1) break;
             
-            if (!p1Type) target = 'p2';
-            else if (!p2Type) target = 'p1';
-            else {
-                if (Math.abs(runInc1 - runInc2) < TOLERANCE) target = 'split';
-                else if (runInc1 < runInc2) target = 'p1';
-                else target = 'p2';
-            }
+            const type = strats[stratIdx];
+            let isFullyTaxable = ['rrsp', 'rrif_acct', 'lif', 'lirf'].includes(type);
+            let isCapGain = ['nreg', 'crypto'].includes(type);
+            let isTaxFree = !isFullyTaxable && !isCapGain;
 
-            if (target === 'split') {
-                let half = df / 2;
-                let gotP1 = wd(p1, p1Type, half, 'p1', mR1);
-                let gotP2 = wd(p2, p2Type, half, 'p2', mR2);
-                
-                df = df - (gotP1 + gotP2);
-                
-                runInc1 += updateRunInc(p1Type, gotP1, mR1, p1);
-                runInc2 += updateRunInc(p2Type, gotP2, mR2, p2);
+            while (df > 1) {
+                let p1Has = alive1 && p1[type] > 0;
+                let p2Has = alive2 && p2[type] > 0;
 
-            } else {
-                let toTake = df;
-                if (p1Type && p2Type) {
-                    let gap = Math.abs(runInc1 - runInc2);
-                    let mR = (target === 'p1' ? mR1 : mR2);
-                    let effRate = Math.min(mR || 0, 0.54);
-                    let netGap = gap * (1 - effRate);
-                    if (netGap > 0) toTake = Math.min(df, netGap);
+                // Move to the next account type in the strategy list if both are empty
+                if (!p1Has && !p2Has) break; 
+
+                const mR1 = this.calculateTaxDetailed(runInc1, prov, taxBrackets).margRate;
+                const mR2 = this.calculateTaxDetailed(runInc2, prov, taxBrackets).margRate;
+
+                let target = null;
+                
+                if (!p1Has) target = 'p2';
+                else if (!p2Has) target = 'p1';
+                else {
+                    if (isTaxFree) {
+                        // Force 50/50 split for tax-free accounts since marginal tax rates don't matter
+                        target = 'split';
+                    } else {
+                        // Balance taxable withdrawals based on who has the lowest marginal tax rate
+                        if (Math.abs(runInc1 - runInc2) < TOLERANCE) target = 'split';
+                        else if (runInc1 < runInc2) target = 'p1';
+                        else target = 'p2';
+                    }
                 }
-                
-                if (toTake < 10) toTake = Math.min(df, 500);
 
-                if (target === 'p1') {
-                    let got = wd(p1, p1Type, toTake, 'p1', mR1);
-                    runInc1 += updateRunInc(p1Type, got, mR1, p1);
-                    df -= got;
+                if (target === 'split') {
+                    let half = df / 2;
+                    let gotP1 = wd(p1, type, half, 'p1', mR1);
+                    let gotP2 = wd(p2, type, half, 'p2', mR2);
+                    
+                    df = df - (gotP1.net + gotP2.net);
+                    
+                    runInc1 += gotP1.tax;
+                    runInc2 += gotP2.tax;
+
                 } else {
-                    let got = wd(p2, p2Type, toTake, 'p2', mR2);
-                    runInc2 += updateRunInc(p2Type, got, mR2, p2);
-                    df -= got;
+                    let toTake = df;
+                    if (p1Has && p2Has && !isTaxFree) {
+                        let gap = Math.abs(runInc1 - runInc2);
+                        let mR = (target === 'p1' ? mR1 : mR2);
+                        let effRate = 0;
+                        
+                        if (isFullyTaxable) effRate = Math.min(mR || 0, 0.54);
+                        if (isCapGain) {
+                            let pObj = target === 'p1' ? p1 : p2;
+                            let acbKey = type === 'crypto' ? 'crypto_acb' : 'acb';
+                            let gainRatio = Math.max(0, 1 - (pObj[acbKey] / pObj[type]));
+                            effRate = Math.min(mR || 0, 0.54) * 0.5 * gainRatio;
+                        }
+                        
+                        let netGap = gap * (1 - effRate);
+                        if (netGap > 0) toTake = Math.min(df, netGap);
+                    }
+                    
+                    if (toTake < 10) toTake = Math.min(df, 500);
+
+                    if (target === 'p1') {
+                        let got = wd(p1, type, toTake, 'p1', mR1);
+                        runInc1 += got.tax;
+                        df -= got.net;
+                    } else {
+                        let got = wd(p2, type, toTake, 'p2', mR2);
+                        runInc2 += got.tax;
+                        df -= got.net;
+                    }
                 }
             }
         }
