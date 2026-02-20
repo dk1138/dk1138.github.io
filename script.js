@@ -542,7 +542,8 @@ class RetirementPlanner {
 
         const safeDefaultsCheckboxes = {
             'p1_cpp_enabled': false, 'p1_oas_enabled': false, 'p1_db_enabled': false,  
-            'p2_cpp_enabled': false, 'p2_oas_enabled': false, 'p2_db_enabled': false   
+            'p2_cpp_enabled': false, 'p2_oas_enabled': false, 'p2_db_enabled': false,
+            'oas_clawback_optimize': false
         };
 
         for (const [id, val] of Object.entries(safeDefaultsCheckboxes)) {
