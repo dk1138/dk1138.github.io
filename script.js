@@ -1,11 +1,11 @@
 /**
  * Retirement Planner Pro - Core Application Controller
- * Version 10.9.8 (Modular Architecture)
+ * Version 10.9.9 (Modular Architecture - Global Fixes)
  */
 
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.9.8";
+        this.APP_VERSION = "10.9.9";
         this.state = {
             inputs: {},
             debt: [],
@@ -24,7 +24,6 @@ class RetirementPlanner {
         this.AUTO_SAVE_KEY = 'rp_autosave_v1';
         this.THEME_KEY = 'rp_theme';
         
-        // Connect to external config.js
         if (typeof FINANCIAL_CONSTANTS === 'undefined') {
             console.error("CRITICAL ERROR: config.js is not loaded.");
             alert("Configuration file missing! Please ensure config.js is properly linked in index.html.");
@@ -77,16 +76,16 @@ class RetirementPlanner {
     getEngineData() {
         return {
             inputs: { ...this.state.inputs },
-            properties: JSON.parse(JSON.stringify(this.state.properties)),
-            windfalls: JSON.parse(JSON.stringify(this.state.windfalls)),
-            additionalIncome: JSON.parse(JSON.stringify(this.state.additionalIncome)),
+            properties: JSON.parse(JSON.stringify(this.state.properties || [])),
+            windfalls: JSON.parse(JSON.stringify(this.state.windfalls || [])),
+            additionalIncome: JSON.parse(JSON.stringify(this.state.additionalIncome || [])),
             strategies: { 
-                accum: [...this.state.strategies.accum], 
-                decum: [...this.state.strategies.decum] 
+                accum: [...(this.state.strategies?.accum || [])], 
+                decum: [...(this.state.strategies?.decum || [])] 
             },
-            mode: this.state.mode,
-            expenseMode: this.state.expenseMode,
-            expensesByCategory: JSON.parse(JSON.stringify(this.expensesByCategory)),
+            mode: this.state.mode || 'Couple',
+            expenseMode: this.state.expenseMode || 'Simple',
+            expensesByCategory: JSON.parse(JSON.stringify(this.expensesByCategory || {})),
             constants: this.CONSTANTS,
             strategyLabels: this.strategyLabels
         };
@@ -202,7 +201,6 @@ class RetirementPlanner {
         if($('btnThemeToggle')) $('btnThemeToggle').addEventListener('click', () => this.ui.toggleTheme());
         if($('useRealDollars')) $('useRealDollars').addEventListener('change', () => { this.data.calcExpenses(); this.run(); });
 
-        // Floating Action Button Quick Adjust Toggle
         const fabBtn = $('fabQuickAdjust');
         const widgetCard = $('quickAdjustWidget');
         const closeWidgetBtn = $('closeWidgetBtn');
@@ -251,14 +249,14 @@ class RetirementPlanner {
             });
         }
 
-        $('btnClearAll').addEventListener('click', () => this.showConfirm("Clear all data? This will wipe your current unsaved plan.", () => this.resetAllData()));
-        $('btnAddProperty').addEventListener('click', () => this.data.addProperty());
-        $('btnAddWindfall').addEventListener('click', () => this.data.addWindfall());
+        if($('btnClearAll')) $('btnClearAll').addEventListener('click', () => this.showConfirm("Clear all data? This will wipe your current unsaved plan.", () => this.resetAllData()));
+        if($('btnAddProperty')) $('btnAddProperty').addEventListener('click', () => this.data.addProperty());
+        if($('btnAddWindfall')) $('btnAddWindfall').addEventListener('click', () => this.data.addWindfall());
         if ($('btnAddIncomeP1')) $('btnAddIncomeP1').addEventListener('click', () => this.data.addAdditionalIncome('p1'));
         if ($('btnAddIncomeP2')) $('btnAddIncomeP2').addEventListener('click', () => this.data.addAdditionalIncome('p2'));
-        $('btnExportCSV').addEventListener('click', () => this.exportToCSV());
-        $('fileUpload').addEventListener('change', e => this.handleFileUpload(e));
-        $('btnClearStorage').addEventListener('click', () => this.clearStorage());
+        if($('btnExportCSV')) $('btnExportCSV').addEventListener('click', () => this.exportToCSV());
+        if($('fileUpload')) $('fileUpload').addEventListener('change', e => this.handleFileUpload(e));
+        if($('btnClearStorage')) $('btnClearStorage').addEventListener('click', () => this.clearStorage());
         
         document.body.addEventListener('input', e => {
             const cl = e.target.classList;
@@ -312,19 +310,19 @@ class RetirementPlanner {
             }
         });
 
-        $('p1_dob').addEventListener('change', () => this.ui.updateAgeDisplay('p1'));
-        $('p2_dob').addEventListener('change', () => this.ui.updateAgeDisplay('p2'));
+        if($('p1_dob')) $('p1_dob').addEventListener('change', () => this.ui.updateAgeDisplay('p1'));
+        if($('p2_dob')) $('p2_dob').addEventListener('change', () => this.ui.updateAgeDisplay('p2'));
         document.getElementsByName('planMode').forEach(r => r.addEventListener('change', () => { 
             if($('modeCouple')) this.state.mode = $('modeCouple').checked ? 'Couple' : 'Single';
             this.ui.toggleModeDisplay(); this.run(); this.data.calcExpenses();
         }));
 
-        $('yearSlider').addEventListener('input', e => {
+        if($('yearSlider')) $('yearSlider').addEventListener('input', e => {
             const index = parseInt(e.target.value);
             if (this.state.projectionData[index]) {
                 const d = this.state.projectionData[index];
-                $('sliderYearDisplay').innerText = d.year;
-                $('cfAgeDisplay').innerText = this.state.mode === 'Couple' ? `(P1: ${d.p1Age} / P2: ${d.p2Age})` : `(Age: ${d.p1Age})`;
+                if($('sliderYearDisplay')) $('sliderYearDisplay').innerText = d.year;
+                if($('cfAgeDisplay')) $('cfAgeDisplay').innerText = this.state.mode === 'Couple' ? `(P1: ${d.p1Age} / P2: ${d.p2Age})` : `(Age: ${d.p1Age})`;
                 document.querySelectorAll('.grid-row-group').forEach(r => r.style.backgroundColor = ''); 
                 if(document.querySelectorAll('.grid-row-group')[index]) {
                     document.querySelectorAll('.grid-row-group')[index].style.backgroundColor = 'rgba(255,193,7,0.1)';
@@ -348,7 +346,7 @@ class RetirementPlanner {
             $('compareSelectionArea').addEventListener('change', () => this.ui.renderComparisonChart());
         }
 
-        $('btnAddDebt').addEventListener('click', () => this.data.addDebtRow());
+        if($('btnAddDebt')) $('btnAddDebt').addEventListener('click', () => this.data.addDebtRow());
         
         if($('btnModalSaveScenario')) {
             $('btnModalSaveScenario').addEventListener('click', () => this.saveScenarioFromModal());
@@ -364,7 +362,7 @@ class RetirementPlanner {
         const findFor = (pfx) => {
             const cppOn=this.state.inputs[`${pfx}_cpp_enabled`], oasOn=this.state.inputs[`${pfx}_oas_enabled`];
             if(cppOn||oasOn) {
-                const oC=document.getElementById(`${pfx}_cpp_start`).value, oO=document.getElementById(`${pfx}_oas_start`).value;
+                const oC=document.getElementById(`${pfx}_cpp_start`)?.value, oO=document.getElementById(`${pfx}_oas_start`)?.value;
                 let mx=-Infinity, bC=65, bO=65;
                 const engine = new FinanceEngine(this.getEngineData());
                 for(let c=60; c<=70; c++){ 
@@ -378,8 +376,8 @@ class RetirementPlanner {
                 if(cppOn) this.optimalAges[`${pfx}_cpp`]=bC; 
                 if(oasOn) this.optimalAges[`${pfx}_oas`]=bO;
             }
-            document.getElementById(`${pfx}_cpp_opt`).innerHTML = cppOn ? `Optimal: Age ${this.optimalAges[`${pfx}_cpp`]} (<a href="javascript:void(0)" class="text-success text-decoration-none fw-bold opt-apply" data-target="${pfx}_cpp">Apply</a>)` : `Optimization Disabled`;
-            document.getElementById(`${pfx}_oas_opt`).innerHTML = oasOn ? `Optimal: Age ${this.optimalAges[`${pfx}_oas`]} (<a href="javascript:void(0)" class="text-success text-decoration-none fw-bold opt-apply" data-target="${pfx}_oas">Apply</a>)` : `Optimization Disabled`;
+            if(document.getElementById(`${pfx}_cpp_opt`)) document.getElementById(`${pfx}_cpp_opt`).innerHTML = cppOn ? `Optimal: Age ${this.optimalAges[`${pfx}_cpp`]} (<a href="javascript:void(0)" class="text-success text-decoration-none fw-bold opt-apply" data-target="${pfx}_cpp">Apply</a>)` : `Optimization Disabled`;
+            if(document.getElementById(`${pfx}_oas_opt`)) document.getElementById(`${pfx}_oas_opt`).innerHTML = oasOn ? `Optimal: Age ${this.optimalAges[`${pfx}_oas`]} (<a href="javascript:void(0)" class="text-success text-decoration-none fw-bold opt-apply" data-target="${pfx}_oas">Apply</a>)` : `Optimization Disabled`;
         };
         findFor('p1'); if(this.state.mode==='Couple') findFor('p2');
     }
@@ -401,12 +399,12 @@ class RetirementPlanner {
             this.state.projectionData = engine.runSimulation(true, null, this.data.getTotalDebt());
 
             const slider = document.getElementById('yearSlider');
-            if (this.state.projectionData.length) {
+            if (this.state.projectionData.length && slider) {
                 let cur = parseInt(slider.value), max = this.state.projectionData.length - 1;
                 slider.max = max; if(cur > max) { slider.value = 0; cur = 0; }
                 const d = this.state.projectionData[cur];
-                document.getElementById('sliderYearDisplay').innerText = d.year;
-                document.getElementById('cfAgeDisplay').innerText = this.state.mode === 'Couple' ? `(P1: ${d.p1Age} / P2: ${d.p2Age})` : `(Age: ${d.p1Age})`;
+                if(document.getElementById('sliderYearDisplay')) document.getElementById('sliderYearDisplay').innerText = d.year;
+                if(document.getElementById('cfAgeDisplay')) document.getElementById('cfAgeDisplay').innerText = this.state.mode === 'Couple' ? `(P1: ${d.p1Age} / P2: ${d.p2Age})` : `(Age: ${d.p1Age})`;
                 clearTimeout(this.sliderTimeout); this.sliderTimeout = setTimeout(() => this.ui.drawSankey(cur), 50);
             }
             this.ui.renderProjectionGrid();
@@ -617,7 +615,13 @@ class RetirementPlanner {
     loadStateToDOM(d) {
         if(!d) return;
         if(d.version !== this.APP_VERSION) console.warn(`Updating save data from v${d.version||'old'} to v${this.APP_VERSION}`);
-        this.state.inputs = {...(d.inputs||{})}; this.state.strategies = {...(d.strategies||{ accum: ['tfsa', 'rrsp', 'nreg', 'cash', 'crypto'], decum: ['rrsp', 'crypto', 'nreg', 'tfsa', 'cash'] })};
+        this.state.inputs = {...(d.inputs||{})}; 
+        
+        this.state.strategies = {
+            accum: d.strategies?.accum || ['tfsa', 'rrsp', 'nreg', 'cash', 'crypto'],
+            decum: d.strategies?.decum || ['rrsp', 'crypto', 'nreg', 'tfsa', 'cash']
+        };
+
         Object.entries(this.state.inputs).forEach(([id, val]) => { if(id.startsWith('comp_')) return; const el=document.getElementById(id); if(el) el.type==='checkbox'||el.type==='radio'?el.checked=val:el.value=val; });
         ['p1_retireAge','p2_retireAge','inflation_rate'].forEach(k => { if(this.state.inputs[k]) this.ui.updateSidebarSync(k, this.state.inputs[k]); });
         if(this.state.inputs['p1_tfsa_ret']) this.ui.updateSidebarSync('p1_tfsa_ret', this.state.inputs['p1_tfsa_ret']);
@@ -661,10 +665,10 @@ class RetirementPlanner {
     getCurrentSnapshot() { 
         const s = { 
             version: this.APP_VERSION, inputs: {...this.state.inputs}, strategies: {...this.state.strategies}, 
-            debt: [], properties: JSON.parse(JSON.stringify(this.state.properties)), 
-            expensesData: JSON.parse(JSON.stringify(this.expensesByCategory)), 
-            windfalls: JSON.parse(JSON.stringify(this.state.windfalls)), 
-            additionalIncome: JSON.parse(JSON.stringify(this.state.additionalIncome)),
+            debt: [], properties: JSON.parse(JSON.stringify(this.state.properties || [])), 
+            expensesData: JSON.parse(JSON.stringify(this.expensesByCategory || {})), 
+            windfalls: JSON.parse(JSON.stringify(this.state.windfalls || [])), 
+            additionalIncome: JSON.parse(JSON.stringify(this.state.additionalIncome || [])),
             nwTrajectory: this.state.projectionData.map(d => Math.round(d.debugNW)),
             years: this.state.projectionData.map(d => d.year)
         }; 
@@ -673,4 +677,6 @@ class RetirementPlanner {
     }
 }
 
-const app = new RetirementPlanner();
+// THIS IS THE MOST IMPORTANT LINE - It attaches 'app' to the global window
+// so that all the HTML onclick="app.data..." events can find it!
+window.app = new RetirementPlanner();
