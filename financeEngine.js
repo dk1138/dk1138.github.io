@@ -229,20 +229,23 @@ class FinanceEngine {
         return res;
     }
 
-    calcRRIFMin(p1, p2, age1, age2, alive1, alive2) {
+    calcRRIFMin(p1, p2, age1, age2, alive1, alive2, rrspBase1, rrspBase2) {
         let r = { p1: 0, p2: 0, details: { p1: null, p2: null } };
         
         if(alive1 && p1.rrsp > 0 && age1 >= this.CONSTANTS.RRIF_START_AGE){ 
             let factor = this.getRrifFactor(age1);
-            r.p1 = p1.rrsp * factor; 
-            r.details.p1 = { factor, bal: p1.rrsp, min: r.p1 };
+            r.p1 = rrspBase1 * factor; 
+            // Cap at actual available balance if the base * factor exceeds current balance (e.g. negative growth)
+            r.p1 = Math.min(r.p1, p1.rrsp); 
+            r.details.p1 = { factor, bal: rrspBase1, min: r.p1 };
             p1.rrsp -= r.p1; 
         }
         
         if(alive2 && p2.rrsp > 0 && age2 >= this.CONSTANTS.RRIF_START_AGE){ 
             let factor = this.getRrifFactor(age2);
-            r.p2 = p2.rrsp * factor; 
-            r.details.p2 = { factor, bal: p2.rrsp, min: r.p2 };
+            r.p2 = rrspBase2 * factor; 
+            r.p2 = Math.min(r.p2, p2.rrsp);
+            r.details.p2 = { factor, bal: rrspBase2, min: r.p2 };
             p2.rrsp -= r.p2; 
         }
         
@@ -494,10 +497,17 @@ class FinanceEngine {
             const isRet1 = age1 >= person1.retAge;
             const isRet2 = this.mode === 'Couple' ? age2 >= person2.retAge : true;
             
+            // Capture balances BEFORE growth for accurate RRIF math
+            const preGrowthRrsp1 = person1.rrsp;
+            const preGrowthRrsp2 = person2.rrsp;
+
             this.applyGrowth(person1, person2, isRet1, isRet2, this.inputs['asset_mode_advanced'], consts.inflation, i, simContext);
 
             const inflows = this.calcInflows(yr, i, person1, person2, age1, age2, alive1, alive2, isRet1, isRet2, consts, bInf, detailed ? trackedEvents : null);
-            const rrifMin = this.calcRRIFMin(person1, person2, age1, age2, alive1, alive2);
+            
+            // Pass the pre-growth balances to the RRIF calculator
+            const rrifMin = this.calcRRIFMin(person1, person2, age1, age2, alive1, alive2, preGrowthRrsp1, preGrowthRrsp2);
+            
             const expenses = this.calcOutflows(yr, i, age1, bInf, isRet1, isRet2, simContext);
 
             let mortgagePayment = 0;
