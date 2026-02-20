@@ -698,6 +698,15 @@ body:not(.is-couple) .p2-column:not(td):not(th) { display: none; }
     bottom: 20px;
     right: 20px;
   }
+
+  .fab-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .fab-btn i {
+    font-size: 1.2rem !important;
+  }
 }
 
 /* Info Button Styling */
