@@ -37,6 +37,7 @@ class RetirementPlanner {
             this.charts = { nw: null, sankey: null, mc: null }; 
             this.confirmModal = null; 
             this.saveModalInstance = null;
+            this.loadModalInstance = null;
             this.sliderTimeout = null;
 
             this.expensesByCategory = {
@@ -139,6 +140,9 @@ class RetirementPlanner {
                 }
                 if(document.getElementById('saveScenarioModal')) {
                     this.saveModalInstance = new bootstrap.Modal(document.getElementById('saveScenarioModal'));
+                }
+                if(document.getElementById('loadScenarioModal')) {
+                    this.loadModalInstance = new bootstrap.Modal(document.getElementById('loadScenarioModal'));
                 }
                 
                 this.ui.populateAgeSelects();
@@ -295,8 +299,8 @@ class RetirementPlanner {
         if ($('btnAddIncomeP1')) $('btnAddIncomeP1').addEventListener('click', () => this.data.addAdditionalIncome('p1'));
         if ($('btnAddIncomeP2')) $('btnAddIncomeP2').addEventListener('click', () => this.data.addAdditionalIncome('p2'));
         if($('btnExportCSV')) $('btnExportCSV').addEventListener('click', () => this.exportToCSV());
+        if($('btnExportJSON')) $('btnExportJSON').addEventListener('click', () => this.exportCurrentToJSON());
         if($('fileUpload')) $('fileUpload').addEventListener('change', e => this.handleFileUpload(e));
-        if($('btnClearStorage')) $('btnClearStorage').addEventListener('click', () => this.clearStorage());
         
         document.body.addEventListener('input', e => {
             const cl = e.target.classList;
@@ -470,19 +474,23 @@ class RetirementPlanner {
                 this.loadStateToDOM(JSON.parse(event.target.result)); 
                 this.run(); 
                 this.ui.updateScenarioBadge(file.name.replace('.json',''));
-                alert('Configuration loaded successfully.'); 
+                alert('Plan loaded successfully.'); 
             } 
             catch(err) { alert('Error parsing JSON.'); console.error(err); }
         };
         reader.readAsText(file); e.target.value = '';
     }
 
-    clearStorage() {
-        if(confirm("Delete auto-saved data and reset everything to defaults?")) { 
-            localStorage.removeItem(this.AUTO_SAVE_KEY); 
-            this.ui.updateScenarioBadge(null);
-            location.reload(); 
-        }
+    exportCurrentToJSON() {
+        const data = this.getCurrentSnapshot();
+        const a = document.createElement('a');
+        a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
+        const planNameEl = document.getElementById('currentScenarioName');
+        const planName = planNameEl && planNameEl.innerText ? planNameEl.innerText : 'retirement_plan_export';
+        a.download = planName.replace(/\s+/g, '_').toLowerCase() + ".json";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
     }
 
     resetAllData() {
@@ -563,6 +571,7 @@ class RetirementPlanner {
 
         localStorage.removeItem(this.AUTO_SAVE_KEY);
 
+        this.ui.updateScenarioBadge(null);
         this.ui.updateBenefitVisibility();
         this.ui.updateAgeDisplay('p1');
         this.ui.updateAgeDisplay('p2');
@@ -603,24 +612,18 @@ class RetirementPlanner {
     loadScenariosList() {
         const lst = document.getElementById('scenarioList');
         const cmp = document.getElementById('compareSelectionArea');
-        const headerLst = document.getElementById('headerScenarioList');
         const sc = JSON.parse(localStorage.getItem('rp_scenarios')||'[]');
         
         if(lst) lst.innerHTML = ''; 
-        if(headerLst) headerLst.innerHTML = '';
 
         let cH = `<div class="d-flex align-items-center mb-2 p-2 rounded surface-card border border-secondary"><div class="form-check form-switch mb-0"><input class="form-check-input mt-1" type="checkbox" role="switch" value="current" id="comp_current" checked><label class="form-check-label fw-medium ms-2" for="comp_current">Current Unsaved Plan</label></div></div>`;
         
         if (sc.length === 0) {
-            if(headerLst) headerLst.innerHTML = `<li><span class="dropdown-item-text text-muted small">No saved plans</span></li>`;
-            if(lst) lst.innerHTML = `<li class="list-group-item bg-transparent text-muted small border-0">No saved scenarios yet.</li>`;
+            if(lst) lst.innerHTML = `<li class="list-group-item bg-transparent text-muted small border-0 py-4 text-center">No saved plans found in local storage.</li>`;
         } else {
             sc.forEach((s, idx) => {
                 if(lst) {
-                    lst.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center surface-card border-secondary mb-2 rounded-3">${s.name}<div><button class="btn btn-sm btn-outline-success me-2" onclick="app.loadScenario(${idx})" title="Load"><i class="bi bi-arrow-clockwise"></i></button><button class="btn btn-sm btn-outline-info me-2" onclick="app.exportScenario(${idx})" title="Export"><i class="bi bi-download"></i></button><button class="btn btn-sm btn-outline-danger" onclick="app.deleteScenario(${idx})"><i class="bi bi-trash"></i></button></div></li>`;
-                }
-                if(headerLst) {
-                    headerLst.innerHTML += `<li><a class="dropdown-item" href="javascript:void(0)" onclick="app.loadScenario(${idx})"><i class="bi bi-file-earmark-check me-2 text-success"></i>${s.name}</a></li>`;
+                    lst.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center bg-transparent border-secondary mb-2 rounded-3">${s.name}<div><button class="btn btn-sm btn-outline-success me-2" onclick="app.loadScenario(${idx})" title="Load"><i class="bi bi-arrow-clockwise"></i> Load</button><button class="btn btn-sm btn-outline-info me-2" onclick="app.exportScenario(${idx})" title="Export"><i class="bi bi-download"></i></button><button class="btn btn-sm btn-outline-danger" onclick="app.deleteScenario(${idx})"><i class="bi bi-trash"></i></button></div></li>`;
                 }
                 cH += `<div class="d-flex align-items-center mb-2 p-2 rounded surface-card border border-secondary"><div class="form-check form-switch mb-0"><input class="form-check-input mt-1" type="checkbox" role="switch" value="${idx}" id="comp_${idx}"><label class="form-check-label fw-medium ms-2" for="comp_${idx}">${s.name}</label></div></div>`;
             });
@@ -635,6 +638,7 @@ class RetirementPlanner {
         this.loadStateToDOM(s.data); 
         this.run(); 
         this.ui.updateScenarioBadge(s.name);
+        if (this.loadModalInstance) this.loadModalInstance.hide();
         alert(`Loaded plan: "${s.name}"`); 
     }
 
