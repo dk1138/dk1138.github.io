@@ -298,7 +298,7 @@ class FinanceEngine {
         }
     }
 
-    handleSurplus(amount, p1, p2, alive1, alive2, log, i, tfsaLim, rrspLim1, rrspLim2) {
+    handleSurplus(amount, p1, p2, alive1, alive2, log, i, tfsaLim, rrspLim1, rrspLim2, cryptoLim) {
         let r = amount;
         this.strategies.accum.forEach(t => { 
             if(r <= 0) return;
@@ -333,18 +333,44 @@ class FinanceEngine {
                     }
                 });
             }
+            else if(t === 'crypto'){
+                if (alive1 && r > 0) {
+                    let take = Math.min(r, cryptoLim);
+                    p1.crypto += take; p1.crypto_acb += take;
+                    if(log) log.contributions.p1.crypto += take;
+                    r -= take;
+                }
+                if (alive2 && r > 0) {
+                    let take = Math.min(r, cryptoLim);
+                    p2.crypto += take; p2.crypto_acb += take;
+                    if(log) log.contributions.p2.crypto += take;
+                    r -= take;
+                }
+            }
             else if(t === 'nreg'){
-                if(alive1){ p1.nreg += r; p1.acb += r; if(log) log.contributions.p1.nreg += r; r = 0; }
-                else if(alive2){ p2.nreg += r; p2.acb += r; if(log) log.contributions.p2.nreg += r; r = 0; }
+                if (alive1 && alive2) {
+                    let half = r / 2;
+                    p1.nreg += half; p1.acb += half; if(log) log.contributions.p1.nreg += half;
+                    p2.nreg += half; p2.acb += half; if(log) log.contributions.p2.nreg += half;
+                    r = 0;
+                } else if(alive1) { 
+                    p1.nreg += r; p1.acb += r; if(log) log.contributions.p1.nreg += r; r = 0; 
+                } else if(alive2) { 
+                    p2.nreg += r; p2.acb += r; if(log) log.contributions.p2.nreg += r; r = 0; 
+                }
             } 
             else if(t === 'cash'){
-                if(alive1){ p1.cash += r; if(log) log.contributions.p1.cash += r; r = 0; }
-                else if(alive2){ p2.cash += r; if(log) log.contributions.p2.cash += r; r = 0; }
+                if (alive1 && alive2) {
+                    let half = r / 2;
+                    p1.cash += half; if(log) log.contributions.p1.cash += half;
+                    p2.cash += half; if(log) log.contributions.p2.cash += half;
+                    r = 0;
+                } else if(alive1) { 
+                    p1.cash += r; if(log) log.contributions.p1.cash += r; r = 0; 
+                } else if(alive2) { 
+                    p2.cash += r; if(log) log.contributions.p2.cash += r; r = 0; 
+                }
             } 
-            else if(t === 'crypto'){
-                if(alive1){ p1.crypto += r; p1.crypto_acb += r; if(log) log.contributions.p1.crypto += r; r = 0; }
-                else if(alive2){ p2.crypto += r; p2.crypto_acb += r; if(log) log.contributions.p2.crypto += r; r = 0; }
-            }
         });
     }
 
@@ -641,6 +667,7 @@ class FinanceEngine {
             oasMax2: this.CONSTANTS.MAX_OAS * (Math.max(0, Math.min(40, this.getVal('p2_oas_years'))) / 40),
             tfsaLimit: this.getVal('cfg_tfsa_limit') || 7000,
             rrspMax: this.getVal('cfg_rrsp_limit') || 32960,
+            cryptoLimit: this.inputs['cfg_crypto_limit'] !== undefined ? this.getVal('cfg_crypto_limit') : 5000,
             inflation: this.getVal('inflation_rate') / 100
         };
 
@@ -756,7 +783,7 @@ class FinanceEngine {
             const rrspRoom2 = Math.min(inflows.p2.earned * 0.18, consts.rrspMax * bInf);
 
             if (surplus > 0) {
-                this.handleSurplus(surplus, person1, person2, alive1, alive2, flowLog, i, consts.tfsaLimit * bInf, rrspRoom1, rrspRoom2);
+                this.handleSurplus(surplus, person1, person2, alive1, alive2, flowLog, i, consts.tfsaLimit * bInf, rrspRoom1, rrspRoom2, consts.cryptoLimit * bInf);
             } else {
                 let cashFromNonTaxableWd = 0; 
                 for(let pass = 0; pass < 5; pass++) {
