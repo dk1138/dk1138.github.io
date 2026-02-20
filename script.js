@@ -1,6 +1,7 @@
 /**
- * Retirement Planner Pro - Logic v10.9.6
+ * Retirement Planner Pro - Logic v10.9.7
  * * Changelog:
+ * - v10.9.7: UI REFACTOR: Replaced sticky sidebar with an Offcanvas Quick Adjust drawer. Cleaned up old sidebar toggle logic.
  * - v10.9.6: BUGFIX: RRIF tooltip math now correctly applies the discount factor when "Use Today's Dollars" is checked.
  * - v10.9.5: FEATURE: Added info icon to RRIF withdrawals in projection grid to show calculation math.
  * - v10.9.4: BUGFIX: Deep cloned state in getEngineData() to prevent headless optimizers from corrupting global application state.
@@ -12,7 +13,7 @@
 
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.9.6";
+        this.APP_VERSION = "10.9.7";
         this.state = {
             inputs: {},
             debt: [],
@@ -349,9 +350,6 @@ class RetirementPlanner {
             if($('modeCouple')) this.state.mode = $('modeCouple').checked ? 'Couple' : 'Single';
             this.toggleModeDisplay(); this.run(); this.calcExpenses();
         }));
-
-        $('btnCollapseSidebar').addEventListener('click', () => this.toggleSidebar());
-        $('btnExpandSidebar').addEventListener('click', () => this.toggleSidebar());
 
         $('yearSlider').addEventListener('input', e => {
             const index = parseInt(e.target.value);
@@ -1343,12 +1341,6 @@ class RetirementPlanner {
         }
     }
 
-    toggleSidebar() {
-        const ex = document.getElementById('sidebarExpanded'), co = document.getElementById('sidebarCollapsed'), col = document.getElementById('sidebarCol');
-        if(ex.style.display==='none'){ ex.style.display='block'; co.style.display='none'; col.style.width='320px'; } else { ex.style.display='none'; co.style.display='block'; col.style.width='50px'; }
-        setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
-    }
-
     renderExpenseRows() {
         const tb = document.getElementById('expenseTableBody'), th = document.getElementById('expenseTableHeader'), t = document.documentElement.getAttribute('data-bs-theme')||'dark', rB=t==='light'?'bg-white':'bg-body-tertiary', rT=t==='light'?'text-dark':'text-white', rBd=t==='light'?'border-dark-subtle':'border-secondary', ab=t==='light'?'text-secondary':'text-white', ic=t==='light'?'bg-white text-dark':'bg-transparent text-white', hc=t==='light'?'bg-white text-dark border-bottom border-dark-subtle':'bg-transparent text-muted border-secondary';
         const gLim=parseInt(this.getRaw('exp_gogo_age'))||75, sLim=parseInt(this.getRaw('exp_slow_age'))||85;
@@ -1543,8 +1535,28 @@ class RetirementPlanner {
     }
 
     initSidebar() {
-        const b = (sId, iId, lId, sfx='') => { const s=document.getElementById(sId); if(s) { s.value=this.getRaw(iId)||s.value; if(document.getElementById(lId)) document.getElementById(lId).innerText=s.value+sfx; s.addEventListener('input', e => { const i=document.getElementById(iId); if(i){ i.value=e.target.value; this.state.inputs[iId]=e.target.value; if(lId) document.getElementById(lId).innerText=e.target.value+sfx; this.debouncedRun(); } }); } };
-        b('qa_p1_retireAge_range', 'p1_retireAge', 'qa_p1_retireAge_val'); b('qa_p2_retireAge_range', 'p2_retireAge', 'qa_p2_retireAge_val'); b('qa_inflation_range', 'inflation_rate', 'qa_inflation_val', '%'); b('qa_return_range', 'p1_tfsa_ret', 'qa_return_val', '%');
+        // We kept the function name initSidebar but it actually connects the exact same IDs
+        // in the new Offcanvas drawer to the main engine logic seamlessly!
+        const b = (sId, iId, lId, sfx='') => { 
+            const s=document.getElementById(sId); 
+            if(s) { 
+                s.value=this.getRaw(iId)||s.value; 
+                if(document.getElementById(lId)) document.getElementById(lId).innerText=s.value+sfx; 
+                s.addEventListener('input', e => { 
+                    const i=document.getElementById(iId); 
+                    if(i){ 
+                        i.value=e.target.value; 
+                        this.state.inputs[iId]=e.target.value; 
+                        if(lId) document.getElementById(lId).innerText=e.target.value+sfx; 
+                        this.debouncedRun(); 
+                    } 
+                }); 
+            } 
+        };
+        b('qa_p1_retireAge_range', 'p1_retireAge', 'qa_p1_retireAge_val'); 
+        b('qa_p2_retireAge_range', 'p2_retireAge', 'qa_p2_retireAge_val'); 
+        b('qa_inflation_range', 'inflation_rate', 'qa_inflation_val', '%'); 
+        b('qa_return_range', 'p1_tfsa_ret', 'qa_return_val', '%');
     }
 
     populateAgeSelects() {
