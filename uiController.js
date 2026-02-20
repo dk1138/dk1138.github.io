@@ -23,7 +23,7 @@ class UIController {
     }
 
     initPopovers() {
-        const popoverTriggerList = document.querySelectorAll('[data-bs-toggle="popover"]');
+        const popoverTriggerList = document.querySelectorAll('[data-bs-toggle="popover"], .info-btn');
         [...popoverTriggerList].map(popoverTriggerEl => new bootstrap.Popover(popoverTriggerEl, { trigger: 'focus', html: true }));
     }
 
@@ -200,13 +200,21 @@ class UIController {
             if(d.invIncP1 > 0) groupP1 += ln("Inv. Yield (Taxable)", d.invIncP1, "text-muted");
             
             Object.entries(d.wdBreakdown.p1).forEach(([t,a]) => {
-                if(t === 'RRIF_math') return;
+                if(t.endsWith('_math')) return; // Ignore raw math objects
+                
                 let label = `${t} Withdrawals`;
                 if(t === 'RRIF' && d.wdBreakdown.p1.RRIF_math) {
                     let m = d.wdBreakdown.p1.RRIF_math;
                     let balStr = Math.round(m.bal / df).toLocaleString();
                     let minStr = Math.round(m.min / df).toLocaleString();
-                    label += ` <i class="bi bi-info-circle text-muted ms-1" style="font-size: 0.75rem; cursor: help;" title="Math: $${balStr} balance &times; ${(m.factor*100).toFixed(2)}% minimum = $${minStr}"></i>`;
+                    label += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="RRIF Withdrawal Math" data-bs-content="<b>Balance:</b> $${balStr}<br><b>Min Factor:</b> ${(m.factor*100).toFixed(2)}%<br><b>Required Min:</b> $${minStr}"></i>`;
+                } else if ((t === 'Non-Reg' || t === 'Crypto') && d.wdBreakdown.p1[t + '_math']) {
+                    let m = d.wdBreakdown.p1[t + '_math'];
+                    let wdStr = Math.round(m.wd / df).toLocaleString();
+                    let acbStr = Math.round(m.acb / df).toLocaleString();
+                    let gainStr = Math.round(m.gain / df).toLocaleString();
+                    let taxStr = Math.round(m.tax / df).toLocaleString();
+                    label += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="Capital Gains Math" data-bs-content="<b>Total Withdrawn:</b> $${wdStr}<br><b>Adjusted Cost Base (ACB):</b> -$${acbStr}<br><b>Capital Gain:</b> $${gainStr}<hr class='my-1'><b>Added to Taxable Income (50% Inclusion):</b> $${taxStr}"></i>`;
                 }
                 groupP1 += sL(label, a);
             });
@@ -219,13 +227,21 @@ class UIController {
                 if(d.dbP2 > 0) groupP2 += sL("DB Pension", d.dbP2);
                 if(d.invIncP2 > 0) groupP2 += ln("Inv. Yield (Taxable)", d.invIncP2, "text-muted");
                 Object.entries(d.wdBreakdown.p2).forEach(([t,a]) => {
-                    if(t === 'RRIF_math') return;
+                    if(t.endsWith('_math')) return; // Ignore raw math objects
+                    
                     let label = `${t} Withdrawals`;
                     if(t === 'RRIF' && d.wdBreakdown.p2.RRIF_math) {
                         let m = d.wdBreakdown.p2.RRIF_math;
                         let balStr = Math.round(m.bal / df).toLocaleString();
                         let minStr = Math.round(m.min / df).toLocaleString();
-                        label += ` <i class="bi bi-info-circle text-muted ms-1" style="font-size: 0.75rem; cursor: help;" title="Math: $${balStr} balance &times; ${(m.factor*100).toFixed(2)}% minimum = $${minStr}"></i>`;
+                        label += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="RRIF Withdrawal Math" data-bs-content="<b>Balance:</b> $${balStr}<br><b>Min Factor:</b> ${(m.factor*100).toFixed(2)}%<br><b>Required Min:</b> $${minStr}"></i>`;
+                    } else if ((t === 'Non-Reg' || t === 'Crypto') && d.wdBreakdown.p2[t + '_math']) {
+                        let m = d.wdBreakdown.p2[t + '_math'];
+                        let wdStr = Math.round(m.wd / df).toLocaleString();
+                        let acbStr = Math.round(m.acb / df).toLocaleString();
+                        let gainStr = Math.round(m.gain / df).toLocaleString();
+                        let taxStr = Math.round(m.tax / df).toLocaleString();
+                        label += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="Capital Gains Math" data-bs-content="<b>Total Withdrawn:</b> $${wdStr}<br><b>Adjusted Cost Base (ACB):</b> -$${acbStr}<br><b>Capital Gain:</b> $${gainStr}<hr class='my-1'><b>Added to Taxable Income (50% Inclusion):</b> $${taxStr}"></i>`;
                     }
                     groupP2 += sL(label, a);
                 });
@@ -245,14 +261,14 @@ class UIController {
             // RRSP P1 With Limit Info
             let r1Label = d.p1Age >= 72 ? 'RRIF' : 'RRSP';
             let r1Wd = (d.wdBreakdown.p1['RRSP']||0) + (d.wdBreakdown.p1['RRIF']||0);
-            let r1Info = d.p1Age < 72 ? ` <i class="bi bi-info-circle text-muted ms-1" style="font-size: 0.75rem; cursor: help;" title="Max CRA Deposit: $${Math.round((d.rrspRoomP1||0) / df).toLocaleString()}"></i>` : '';
+            let r1Info = d.p1Age < 72 ? ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="Contribution Limit" data-bs-content="Max CRA Deposit this year: $${Math.round((d.rrspRoomP1||0) / df).toLocaleString()}"></i>` : '';
             aL += ln(`${r1Label} P1${r1Info}${fmtFlow(d.flows.contributions.p1.rrsp, r1Wd)}`, d.assetsP1.rrsp);
             
             // RRSP P2 With Limit Info
             if(this.app.state.mode === 'Couple') {
                 let r2Label = d.p2Age >= 72 ? 'RRIF' : 'RRSP';
                 let r2Wd = (d.wdBreakdown.p2['RRSP']||0) + (d.wdBreakdown.p2['RRIF']||0);
-                let r2Info = d.p2Age < 72 ? ` <i class="bi bi-info-circle text-muted ms-1" style="font-size: 0.75rem; cursor: help;" title="Max CRA Deposit: $${Math.round((d.rrspRoomP2||0) / df).toLocaleString()}"></i>` : '';
+                let r2Info = d.p2Age < 72 ? ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="Contribution Limit" data-bs-content="Max CRA Deposit this year: $${Math.round((d.rrspRoomP2||0) / df).toLocaleString()}"></i>` : '';
                 aL += ln(`${r2Label} P2${r2Info}${fmtFlow(d.flows.contributions.p2.rrsp, r2Wd)}`, d.assetsP2.rrsp);
             }
 
@@ -268,6 +284,9 @@ class UIController {
             html += `<div class="grid-row-group" style="${th==='light'?'border-bottom:1px solid #ddd;':''}"><div class="grid-summary-row ${rB}" onclick="app.ui.toggleRow(this)"><div class="col-start col-timeline"><div class="d-flex align-items-center"><span class="fw-bold fs-6 me-1 ${rT}">${d.year}</span><span class="event-icons-inline">${d.events.map(k=>this.getIconHTML(k,th)).join('')}</span></div><span class="age-text ${rT}">${p1A} ${this.app.state.mode==='Couple'?'/ '+p2A:''}</span></div><div class="col-start">${stat}</div><div class="val-positive">${fmtK(d.grossInflow)}</div><div class="val-neutral text-danger">${fmtK(d.visualExpenses)}</div><div class="${d.surplus<0?'val-negative':'val-positive'}">${d.surplus>0?'+':''}${fmtK(d.surplus)}</div><div class="fw-bold ${rT}">${fmtK(d.debugNW)}</div><div class="text-center toggle-icon ${rT}"><i class="bi bi-chevron-down"></i></div></div><div class="grid-detail-wrapper"><div class="detail-container"><div class="detail-box surface-card"><div class="detail-title">Income Sources</div>${iL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total Gross Inflow</span> <span class="text-success fw-bold">${fmtK(d.grossInflow)}</span></div></div><div class="detail-box surface-card"><div class="detail-title">Outflows & Taxes</div>${eL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total Out</span> <span class="text-danger fw-bold">${fmtK(d.visualExpenses)}</span></div></div><div class="detail-box surface-card"><div class="detail-title">Assets (End of Year)</div>${aL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total NW</span> <span class="text-info fw-bold">${fmtK(d.debugNW)}</span></div></div></div></div></div>`;
         });
         const grid = document.getElementById('projectionGrid'); if(grid) grid.innerHTML = html;
+        
+        // Re-initialize Bootstrap popovers for the newly added dynamic content
+        try { this.initPopovers(); } catch(e) {}
     }
 
     drawSankey(idx) {
