@@ -687,7 +687,8 @@ class FinanceEngine {
                     windfall: inflows.p1.windfallTaxable + inflows.p1.windfallNonTax + inflows.p2.windfallTaxable + inflows.p2.windfallNonTax,
                     postRetP1: inflows.p1.postRet, postRetP2: inflows.p2.postRet,
                     invIncP1: (person1.nreg * person1.nreg_yield), invIncP2: (person2.nreg * person2.nreg_yield),
-                    debugTotalInflow: grossInflow
+                    debugTotalInflow: grossInflow,
+                    rrspRoomP1: rrspRoom1, rrspRoomP2: rrspRoom2
                 });
             }
 
