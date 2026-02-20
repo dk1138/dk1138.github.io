@@ -48,7 +48,9 @@ class RetirementPlanner {
             };
             
             this.optimalAges = { p1_cpp: 65, p1_oas: 65, p2_cpp: 65, p2_oas: 65 };
-            this.strategyLabels = { 'tfsa': 'TFSA', 'rrsp': 'RRSP', 'nreg': 'Non-Reg', 'cash': 'Cash', 'crypto': 'Crypto', 'rrif': 'RRIF' };
+            
+            // Renamed RRSP to cover the entire registered bundle
+            this.strategyLabels = { 'tfsa': 'TFSA', 'rrsp': 'Reg. (RRSP/LIF/RRIF)', 'nreg': 'Non-Reg', 'cash': 'Cash', 'crypto': 'Crypto' };
 
             // Verifying sub-controllers loaded
             if (typeof UIController === 'undefined') throw new Error("UIController is missing! Make sure uiController.js is saved in the exact same folder.");
