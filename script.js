@@ -1,6 +1,7 @@
 /**
- * Retirement Planner Pro - Logic v10.9.5
+ * Retirement Planner Pro - Logic v10.9.6
  * * Changelog:
+ * - v10.9.6: BUGFIX: RRIF tooltip math now correctly applies the discount factor when "Use Today's Dollars" is checked.
  * - v10.9.5: FEATURE: Added info icon to RRIF withdrawals in projection grid to show calculation math.
  * - v10.9.4: BUGFIX: Deep cloned state in getEngineData() to prevent headless optimizers from corrupting global application state.
  * - v10.9.3: NEW: Added "Die with Zero" Optimizer. Uses headless binary/linear searches to recommend spending increases or earlier retirement ages.
@@ -11,7 +12,7 @@
 
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.9.5";
+        this.APP_VERSION = "10.9.6";
         this.state = {
             inputs: {},
             debt: [],
@@ -1218,7 +1219,7 @@ class RetirementPlanner {
     renderProjectionGrid() {
         const th = document.documentElement.getAttribute('data-bs-theme')||'dark';
         const hC = th==='light'?'bg-white text-dark border-bottom border-dark-subtle':'bg-transparent text-white border-secondary';
-        const tT = th==='light'?'text-dark':'text-body';
+        const tT = th==='light'?'text-dark':'text-white';
         let html = `<div class="grid-header ${hC}"><div class="col-start col-timeline ${tT}">Timeline</div><div class="col-start">Status</div><div class="text-body ${tT}">Cash Inflow</div><div class="text-danger">Expenses</div><div class="${tT}">Surplus</div><div class="${tT}">Net Worth</div><div class="text-center ${tT}"><i class="bi bi-chevron-bar-down"></i></div></div>`;
         
         this.state.projectionData.forEach((d) => {
@@ -1254,7 +1255,9 @@ class RetirementPlanner {
                 let label = `${t} Withdrawals`;
                 if(t === 'RRIF' && d.wdBreakdown.p1.RRIF_math) {
                     let m = d.wdBreakdown.p1.RRIF_math;
-                    label += ` <i class="bi bi-info-circle text-muted ms-1" style="font-size: 0.75rem; cursor: help;" title="Math: $${Math.round(m.bal).toLocaleString()} balance &times; ${(m.factor*100).toFixed(2)}% minimum = $${Math.round(m.min).toLocaleString()}"></i>`;
+                    let balStr = Math.round(m.bal / df).toLocaleString();
+                    let minStr = Math.round(m.min / df).toLocaleString();
+                    label += ` <i class="bi bi-info-circle text-muted ms-1" style="font-size: 0.75rem; cursor: help;" title="Math: $${balStr} balance &times; ${(m.factor*100).toFixed(2)}% minimum = $${minStr}"></i>`;
                 }
                 groupP1 += sL(label, a);
             });
@@ -1271,7 +1274,9 @@ class RetirementPlanner {
                     let label = `${t} Withdrawals`;
                     if(t === 'RRIF' && d.wdBreakdown.p2.RRIF_math) {
                         let m = d.wdBreakdown.p2.RRIF_math;
-                        label += ` <i class="bi bi-info-circle text-muted ms-1" style="font-size: 0.75rem; cursor: help;" title="Math: $${Math.round(m.bal).toLocaleString()} balance &times; ${(m.factor*100).toFixed(2)}% minimum = $${Math.round(m.min).toLocaleString()}"></i>`;
+                        let balStr = Math.round(m.bal / df).toLocaleString();
+                        let minStr = Math.round(m.min / df).toLocaleString();
+                        label += ` <i class="bi bi-info-circle text-muted ms-1" style="font-size: 0.75rem; cursor: help;" title="Math: $${balStr} balance &times; ${(m.factor*100).toFixed(2)}% minimum = $${minStr}"></i>`;
                     }
                     groupP2 += sL(label, a);
                 });
