@@ -355,7 +355,7 @@ class FinanceEngine {
         const prov = this.getRaw('tax_province');
         const TOLERANCE = 50; 
         const strats = this.strategies.decum;
-        const lowestBracket = taxBrackets.FED.brackets[0]; // Top of the lowest tax bracket
+        const lowestBracket = taxBrackets.FED.brackets[0]; 
 
         const wd = (p, t, a, pfx, mRate) => { 
             if(a <= 0 || p[t] <= 0) return {net: 0, tax: 0};
@@ -393,7 +393,7 @@ class FinanceEngine {
                 acbSold = p[acbKey] * proportionSold;
                 p[acbKey] = Math.max(0, p[acbKey] - acbSold);
                 capGain = tk - acbSold;
-                taxableAmtForOnWithdrawal = Math.max(0, capGain * 0.5); // 50% inclusion rate
+                taxableAmtForOnWithdrawal = Math.max(0, capGain * 0.5); // 50% inclusion
             } else if (isFullyTaxable) {
                 taxableAmtForOnWithdrawal = tk;
             }
@@ -431,13 +431,15 @@ class FinanceEngine {
             let p1Idx = 0;
             let p2Idx = 0;
 
-            while (df > 1 && (p1Idx < strats.length || p2Idx < strats.length)) {
+            let sanityLimit = 200; // Hard cap to prevent infinite loops
+            while (df > 1 && (p1Idx < strats.length || p2Idx < strats.length) && sanityLimit-- > 0) {
                 
                 // Find next available account for P1
                 while(p1Idx < strats.length) {
                     if (!alive1 || p1[strats[p1Idx]] <= 0) { p1Idx++; continue; }
-                    // If enforcing the lowest tax bracket ceiling on taxable accounts:
-                    if (enforceCeiling && ['rrsp', 'rrif_acct', 'lif', 'lirf'].includes(strats[p1Idx])) {
+                    let type = strats[p1Idx];
+                    let isTaxableAtAll = ['rrsp', 'rrif_acct', 'lif', 'lirf', 'nreg', 'crypto'].includes(type);
+                    if (enforceCeiling && isTaxableAtAll) {
                         if (lowestBracket - runInc1 <= 1) { p1Idx++; continue; }
                     }
                     break;
@@ -446,8 +448,9 @@ class FinanceEngine {
                 // Find next available account for P2
                 while(p2Idx < strats.length) {
                     if (!alive2 || p2[strats[p2Idx]] <= 0) { p2Idx++; continue; }
-                    // If enforcing the lowest tax bracket ceiling on taxable accounts:
-                    if (enforceCeiling && ['rrsp', 'rrif_acct', 'lif', 'lirf'].includes(strats[p2Idx])) {
+                    let type = strats[p2Idx];
+                    let isTaxableAtAll = ['rrsp', 'rrif_acct', 'lif', 'lirf', 'nreg', 'crypto'].includes(type);
+                    if (enforceCeiling && isTaxableAtAll) {
                         if (lowestBracket - runInc2 <= 1) { p2Idx++; continue; }
                     }
                     break;
@@ -462,30 +465,48 @@ class FinanceEngine {
                 const mR2 = this.calculateTaxDetailed(runInc2, prov, taxBrackets).margRate;
 
                 let target = null;
+                
+                // --- STRICT STRATEGY ORDER ENFORCEMENT ---
                 if (!p1Type) target = 'p2';
                 else if (!p2Type) target = 'p1';
+                else if (p1Idx < p2Idx) target = 'p1'; // P1 is on a higher priority step
+                else if (p2Idx < p1Idx) target = 'p2'; // P2 is on a higher priority step
                 else {
-                    let isTaxFree1 = !['rrsp', 'rrif_acct', 'lif', 'lirf', 'nreg', 'crypto'].includes(p1Type);
-                    let isTaxFree2 = !['rrsp', 'rrif_acct', 'lif', 'lirf', 'nreg', 'crypto'].includes(p2Type);
-                    
-                    // Force 50/50 split on Tax Free, otherwise balance based on marginal tax rate
-                    if (isTaxFree1 && isTaxFree2) target = 'split';
+                    // Only apply tax balancing if both people are on the EXACT SAME strategy step!
+                    let isTaxFree = !['rrsp', 'rrif_acct', 'lif', 'lirf', 'nreg', 'crypto'].includes(p1Type);
+                    if (isTaxFree) target = 'split'; // Perfect 50/50 split for TFSA/Cash
                     else if (Math.abs(runInc1 - runInc2) < TOLERANCE) target = 'split';
                     else if (runInc1 < runInc2) target = 'p1';
                     else target = 'p2';
                 }
 
-                let getNetRoom = (type, inc, mR) => {
-                    if (enforceCeiling && ['rrsp', 'rrif_acct', 'lif', 'lirf'].includes(type)) {
+                let getNetRoom = (type, inc, mR, pObj) => {
+                    if (!enforceCeiling) return Infinity;
+                    let isFullyTaxable = ['rrsp', 'rrif_acct', 'lif', 'lirf'].includes(type);
+                    let isCapGain = ['nreg', 'crypto'].includes(type);
+                    
+                    if (isFullyTaxable) {
                         let grossRoom = Math.max(0, lowestBracket - inc);
                         return grossRoom * (1 - Math.min(mR || 0, 0.54));
+                    } else if (isCapGain) {
+                        let grossRoom = Math.max(0, lowestBracket - inc);
+                        let acbKey = type === 'crypto' ? 'crypto_acb' : 'acb';
+                        let bal = pObj[type];
+                        let gainRatio = bal > 0 ? Math.max(0, 1 - (pObj[acbKey] / bal)) : 0;
+                        
+                        if (gainRatio > 0) {
+                            let cashRoom = grossRoom / (0.5 * gainRatio);
+                            return cashRoom * (1 - (Math.min(mR || 0, 0.54) * 0.5 * gainRatio));
+                        } else {
+                            return Infinity; // If there are no gains to trigger tax, there is no ceiling
+                        }
                     }
                     return Infinity;
                 };
 
                 if (target === 'split') {
-                    let netRoom1 = getNetRoom(p1Type, runInc1, mR1);
-                    let netRoom2 = getNetRoom(p2Type, runInc2, mR2);
+                    let netRoom1 = getNetRoom(p1Type, runInc1, mR1, p1);
+                    let netRoom2 = getNetRoom(p2Type, runInc2, mR2, p2);
                     
                     let half = df / 2;
                     let req1 = Math.min(half, netRoom1);
@@ -495,12 +516,15 @@ class FinanceEngine {
                     if (req1 < half) req2 = Math.min(df - req1, netRoom2);
                     if (req2 < half) req1 = Math.min(df - req2, netRoom1);
 
-                    // Ensure minimums to prevent micro-looping, unless bounded by tax room
                     if (req1 > 0 && req1 < 10) req1 = Math.min(df, netRoom1);
                     if (req2 > 0 && req2 < 10) req2 = Math.min(df, netRoom2);
 
                     let gotP1 = req1 > 0 ? wd(p1, p1Type, req1, 'p1', mR1) : {net: 0, tax: 0};
                     let gotP2 = req2 > 0 ? wd(p2, p2Type, req2, 'p2', mR2) : {net: 0, tax: 0};
+
+                    // Prevent micro-balance loops near zero
+                    if (gotP1.net <= 0.01 && gotP1.tax <= 0.01 && req1 > 0) p1[p1Type] = 0;
+                    if (gotP2.net <= 0.01 && gotP2.tax <= 0.01 && req2 > 0) p2[p2Type] = 0;
 
                     df -= (gotP1.net + gotP2.net);
                     runInc1 += gotP1.tax;
@@ -511,12 +535,21 @@ class FinanceEngine {
                     let tType = target === 'p1' ? p1Type : p2Type;
                     let mR = target === 'p1' ? mR1 : mR2;
                     let inc = target === 'p1' ? runInc1 : runInc2;
-                    let netRoom = getNetRoom(tType, inc, mR);
+                    let netRoom = getNetRoom(tType, inc, mR, pObj);
 
-                    // Balance gap for taxable accounts
-                    if (p1Type && p2Type && !['tfsa','cash'].includes(p1Type) && !['tfsa','cash'].includes(p2Type)) {
+                    // Only tax-balance the gap if they are pulling from the EXACT same level
+                    if (p1Type && p2Type && p1Idx === p2Idx && !['tfsa','cash'].includes(tType)) {
                         let gap = Math.abs(runInc1 - runInc2);
-                        let netGap = gap * (1 - Math.min(mR || 0, 0.54));
+                        let effRate = Math.min(mR || 0, 0.54);
+                        
+                        if (['nreg', 'crypto'].includes(tType)) {
+                            let acbKey = tType === 'crypto' ? 'crypto_acb' : 'acb';
+                            let bal = pObj[tType];
+                            let gainRatio = bal > 0 ? Math.max(0, 1 - (pObj[acbKey] / bal)) : 0;
+                            effRate = effRate * 0.5 * gainRatio;
+                        }
+                        
+                        let netGap = gap * (1 - effRate);
                         if (netGap > 0) toTake = Math.min(toTake, netGap);
                     }
 
@@ -524,6 +557,10 @@ class FinanceEngine {
                     if (toTake < 10 && toTake < netRoom) toTake = Math.min(df, netRoom, 500);
 
                     let got = wd(pObj, tType, toTake, target, mR);
+                    
+                    // Prevent micro-balance loops near zero
+                    if (got.net <= 0.01 && got.tax <= 0.01) pObj[tType] = 0;
+                    
                     df -= got.net;
                     if (target === 'p1') runInc1 += got.tax;
                     else runInc2 += got.tax;
@@ -531,10 +568,10 @@ class FinanceEngine {
             }
         };
 
-        // Pass 1: Try to withdraw while enforcing the lowest tax bracket ceiling on taxable accounts
+        // Pass 1: Try to withdraw while enforcing the lowest tax bracket ceiling on all taxable accounts
         executeWithdrawalStrategy(true);
         
-        // Pass 2: If we STILL have a deficit, we have no choice but to pierce the tax ceiling to pay the bills
+        // Pass 2: If we STILL have a deficit, drop the ceiling rules and take what we need to survive
         if (df > 1) {
             executeWithdrawalStrategy(false);
         }
