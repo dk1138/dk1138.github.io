@@ -314,7 +314,7 @@ class FinanceEngine {
                     r -= take;
                 } 
             }
-            else if(t === 'rrsp'){
+            else if(t === 'rrsp'){ // During accum, 'rrsp' means standard RRSP contributions only
                 let priority = [];
                 const p1HasRoom = (!this.inputs['skip_first_rrsp_p1'] || i > 0) && alive1;
                 const p2HasRoom = (!this.inputs['skip_first_rrsp_p2'] || i > 0) && alive2;
@@ -357,74 +357,106 @@ class FinanceEngine {
         const strats = this.strategies.decum;
         const lowestBracket = taxBrackets.FED.brackets[0]; 
 
+        // Helper to check if a specific bucket has funds
+        let hasBal = (p, t) => {
+            if (t === 'rrsp') return (p.rrif_acct + p.lif + p.lirf + p.rrsp) > 0;
+            return p[t] > 0;
+        };
+
         const wd = (p, t, a, pfx, mRate) => { 
-            if(a <= 0 || p[t] <= 0) return {net: 0, tax: 0};
+            if(a <= 0) return {net: 0, tax: 0};
             
-            let isFullyTaxable = ['rrsp', 'rrif_acct', 'lif', 'lirf'].includes(t);
-            let isCapGain = ['nreg', 'crypto'].includes(t);
-            let grossNeeded = a;
-            let effRate = 0;
+            // Treat 'rrsp' as a smart bucket: Drain RRIF -> LIF -> LIRF -> RRSP sequentially
+            let accountsToPull = t === 'rrsp' ? ['rrif_acct', 'lif', 'lirf', 'rrsp'] : [t];
+            let totalNetGot = 0;
+            let totalTaxGot = 0;
+            let remainingNeed = a;
 
-            let acbKey = t === 'crypto' ? 'crypto_acb' : 'acb';
+            for (let act of accountsToPull) {
+                if (remainingNeed <= 0.01) break;
+                if (p[act] <= 0) continue;
 
-            if (isFullyTaxable) {
-                effRate = Math.min(mRate || 0, 0.54); 
-                grossNeeded = a / (1 - effRate);
-            } else if (isCapGain) {
-                let gainRatio = Math.max(0, 1 - (p[acbKey] / p[t]));
-                effRate = Math.min(mRate || 0, 0.54) * 0.5 * gainRatio;
-                grossNeeded = a / (1 - effRate);
-            }
-            
-            let tk = Math.min(p[t], grossNeeded);
-            
-            let currentAge = (pfx === 'p1') ? age1 : age2;
-            let logKey = this.strategyLabels[t] || t;
-            if (t === 'rrsp' && currentAge >= this.CONSTANTS.RRIF_START_AGE) logKey = 'RRIF';
+                let isFullyTaxable = ['rrsp', 'rrif_acct', 'lif', 'lirf'].includes(act);
+                let isCapGain = ['nreg', 'crypto'].includes(act);
+                let grossNeeded = remainingNeed;
+                let effRate = 0;
 
-            p[t] -= tk;
-            
-            let taxableAmtForOnWithdrawal = 0;
-            let acbSold = 0;
-            let capGain = 0;
-            
-            if (isCapGain) {
-                let proportionSold = tk / (p[t] + tk); 
-                acbSold = p[acbKey] * proportionSold;
-                p[acbKey] = Math.max(0, p[acbKey] - acbSold);
-                capGain = tk - acbSold;
-                taxableAmtForOnWithdrawal = Math.max(0, capGain * 0.5); // 50% inclusion
-            } else if (isFullyTaxable) {
-                taxableAmtForOnWithdrawal = tk;
-            }
+                let acbKey = act === 'crypto' ? 'crypto_acb' : 'acb';
 
-            if (log) {
-                let k = (pfx.toUpperCase()) + " " + logKey;
-                log.withdrawals[k] = (log.withdrawals[k] || 0) + tk;
-                if(breakdown) {
-                    breakdown[pfx][logKey] = (breakdown[pfx][logKey] || 0) + tk;
-                    
-                    if (isCapGain) {
-                        if (!breakdown[pfx][logKey + '_math']) breakdown[pfx][logKey + '_math'] = { wd: 0, acb: 0, gain: 0, tax: 0 };
-                        breakdown[pfx][logKey + '_math'].wd += tk;
-                        breakdown[pfx][logKey + '_math'].acb += acbSold;
-                        breakdown[pfx][logKey + '_math'].gain += capGain;
-                        breakdown[pfx][logKey + '_math'].tax += taxableAmtForOnWithdrawal;
+                if (isFullyTaxable) {
+                    effRate = Math.min(mRate || 0, 0.54); 
+                    grossNeeded = remainingNeed / (1 - effRate);
+                } else if (isCapGain) {
+                    let gainRatio = Math.max(0, 1 - (p[acbKey] / p[act]));
+                    effRate = Math.min(mRate || 0, 0.54) * 0.5 * gainRatio;
+                    grossNeeded = remainingNeed / (1 - effRate);
+                }
+                
+                let tk = Math.min(p[act], grossNeeded);
+                
+                let currentAge = (pfx === 'p1') ? age1 : age2;
+                
+                // Detailed Breakdown Labels
+                let logKey = act;
+                if (act === 'rrsp' && currentAge >= this.CONSTANTS.RRIF_START_AGE) logKey = 'RRIF';
+                else if (act === 'rrsp') logKey = 'RRSP';
+                else if (act === 'rrif_acct') logKey = 'Manual RRIF';
+                else if (act === 'lif') logKey = 'LIF';
+                else if (act === 'lirf') logKey = 'LIRF';
+                else if (act === 'tfsa') logKey = 'TFSA';
+                else if (act === 'nreg') logKey = 'Non-Reg';
+                else if (act === 'cash') logKey = 'Cash';
+                else if (act === 'crypto') logKey = 'Crypto';
+
+                p[act] -= tk;
+                
+                let taxableAmtForOnWithdrawal = 0;
+                let acbSold = 0;
+                let capGain = 0;
+                
+                if (isCapGain) {
+                    let proportionSold = tk / (p[act] + tk); 
+                    acbSold = p[acbKey] * proportionSold;
+                    p[acbKey] = Math.max(0, p[acbKey] - acbSold);
+                    capGain = tk - acbSold;
+                    taxableAmtForOnWithdrawal = Math.max(0, capGain * 0.5); // 50% inclusion
+                } else if (isFullyTaxable) {
+                    taxableAmtForOnWithdrawal = tk;
+                }
+
+                if (log) {
+                    let k = (pfx.toUpperCase()) + " " + logKey;
+                    log.withdrawals[k] = (log.withdrawals[k] || 0) + tk;
+                    if(breakdown) {
+                        breakdown[pfx][logKey] = (breakdown[pfx][logKey] || 0) + tk;
+                        
+                        if (isCapGain) {
+                            if (!breakdown[pfx][logKey + '_math']) breakdown[pfx][logKey + '_math'] = { wd: 0, acb: 0, gain: 0, tax: 0 };
+                            breakdown[pfx][logKey + '_math'].wd += tk;
+                            breakdown[pfx][logKey + '_math'].acb += acbSold;
+                            breakdown[pfx][logKey + '_math'].gain += capGain;
+                            breakdown[pfx][logKey + '_math'].tax += taxableAmtForOnWithdrawal;
+                        }
                     }
                 }
-            }
-            
-            if (onWithdrawal) {
-                 if (isFullyTaxable) {
-                     onWithdrawal(pfx, tk, 0); 
-                 } else if (isCapGain) {
-                     onWithdrawal(pfx, taxableAmtForOnWithdrawal, tk - taxableAmtForOnWithdrawal);
-                 } else {
-                     onWithdrawal(pfx, 0, tk); 
-                 }
+                
+                if (onWithdrawal) {
+                     if (isFullyTaxable) {
+                         onWithdrawal(pfx, tk, 0); 
+                     } else if (isCapGain) {
+                         onWithdrawal(pfx, taxableAmtForOnWithdrawal, tk - taxableAmtForOnWithdrawal);
+                     } else {
+                         onWithdrawal(pfx, 0, tk); 
+                     }
+                }
+
+                let netGot = tk * (1 - effRate);
+                totalNetGot += netGot;
+                totalTaxGot += taxableAmtForOnWithdrawal;
+                remainingNeed -= netGot;
             }
 
-            return {net: tk * (1 - effRate), tax: taxableAmtForOnWithdrawal};
+            return {net: totalNetGot, tax: totalTaxGot};
         };
 
         const executeWithdrawalStrategy = (enforceCeiling) => {
@@ -436,9 +468,9 @@ class FinanceEngine {
                 
                 // Find next available account for P1
                 while(p1Idx < strats.length) {
-                    if (!alive1 || p1[strats[p1Idx]] <= 0) { p1Idx++; continue; }
                     let type = strats[p1Idx];
-                    let isTaxableAtAll = ['rrsp', 'rrif_acct', 'lif', 'lirf', 'nreg', 'crypto'].includes(type);
+                    if (!alive1 || !hasBal(p1, type)) { p1Idx++; continue; }
+                    let isTaxableAtAll = ['rrsp', 'nreg', 'crypto'].includes(type); // rrsp covers the whole registered taxable bucket
                     if (enforceCeiling && isTaxableAtAll) {
                         if (lowestBracket - runInc1 <= 1) { p1Idx++; continue; }
                     }
@@ -447,9 +479,9 @@ class FinanceEngine {
                 
                 // Find next available account for P2
                 while(p2Idx < strats.length) {
-                    if (!alive2 || p2[strats[p2Idx]] <= 0) { p2Idx++; continue; }
                     let type = strats[p2Idx];
-                    let isTaxableAtAll = ['rrsp', 'rrif_acct', 'lif', 'lirf', 'nreg', 'crypto'].includes(type);
+                    if (!alive2 || !hasBal(p2, type)) { p2Idx++; continue; }
+                    let isTaxableAtAll = ['rrsp', 'nreg', 'crypto'].includes(type);
                     if (enforceCeiling && isTaxableAtAll) {
                         if (lowestBracket - runInc2 <= 1) { p2Idx++; continue; }
                     }
@@ -469,12 +501,11 @@ class FinanceEngine {
                 // --- STRICT STRATEGY ORDER ENFORCEMENT ---
                 if (!p1Type) target = 'p2';
                 else if (!p2Type) target = 'p1';
-                else if (p1Idx < p2Idx) target = 'p1'; // P1 is on a higher priority step
-                else if (p2Idx < p1Idx) target = 'p2'; // P2 is on a higher priority step
+                else if (p1Idx < p2Idx) target = 'p1'; 
+                else if (p2Idx < p1Idx) target = 'p2'; 
                 else {
-                    // Only apply tax balancing if both people are on the EXACT SAME strategy step!
-                    let isTaxFree = !['rrsp', 'rrif_acct', 'lif', 'lirf', 'nreg', 'crypto'].includes(p1Type);
-                    if (isTaxFree) target = 'split'; // Perfect 50/50 split for TFSA/Cash
+                    let isTaxFree = !['rrsp', 'nreg', 'crypto'].includes(p1Type);
+                    if (isTaxFree) target = 'split'; 
                     else if (Math.abs(runInc1 - runInc2) < TOLERANCE) target = 'split';
                     else if (runInc1 < runInc2) target = 'p1';
                     else target = 'p2';
@@ -482,7 +513,7 @@ class FinanceEngine {
 
                 let getNetRoom = (type, inc, mR, pObj) => {
                     if (!enforceCeiling) return Infinity;
-                    let isFullyTaxable = ['rrsp', 'rrif_acct', 'lif', 'lirf'].includes(type);
+                    let isFullyTaxable = type === 'rrsp'; // applies to the whole bundle
                     let isCapGain = ['nreg', 'crypto'].includes(type);
                     
                     if (isFullyTaxable) {
@@ -498,7 +529,7 @@ class FinanceEngine {
                             let cashRoom = grossRoom / (0.5 * gainRatio);
                             return cashRoom * (1 - (Math.min(mR || 0, 0.54) * 0.5 * gainRatio));
                         } else {
-                            return Infinity; // If there are no gains to trigger tax, there is no ceiling
+                            return Infinity; 
                         }
                     }
                     return Infinity;
@@ -512,7 +543,6 @@ class FinanceEngine {
                     let req1 = Math.min(half, netRoom1);
                     let req2 = Math.min(half, netRoom2);
 
-                    // If one hits their limit, shift the burden to the other person
                     if (req1 < half) req2 = Math.min(df - req1, netRoom2);
                     if (req2 < half) req1 = Math.min(df - req2, netRoom1);
 
@@ -522,9 +552,12 @@ class FinanceEngine {
                     let gotP1 = req1 > 0 ? wd(p1, p1Type, req1, 'p1', mR1) : {net: 0, tax: 0};
                     let gotP2 = req2 > 0 ? wd(p2, p2Type, req2, 'p2', mR2) : {net: 0, tax: 0};
 
-                    // Prevent micro-balance loops near zero
-                    if (gotP1.net <= 0.01 && gotP1.tax <= 0.01 && req1 > 0) p1[p1Type] = 0;
-                    if (gotP2.net <= 0.01 && gotP2.tax <= 0.01 && req2 > 0) p2[p2Type] = 0;
+                    if (gotP1.net <= 0.01 && gotP1.tax <= 0.01 && req1 > 0) {
+                        if (p1Type === 'rrsp') { p1.rrsp = 0; p1.rrif_acct = 0; p1.lif = 0; p1.lirf = 0; } else p1[p1Type] = 0;
+                    }
+                    if (gotP2.net <= 0.01 && gotP2.tax <= 0.01 && req2 > 0) {
+                        if (p2Type === 'rrsp') { p2.rrsp = 0; p2.rrif_acct = 0; p2.lif = 0; p2.lirf = 0; } else p2[p2Type] = 0;
+                    }
 
                     df -= (gotP1.net + gotP2.net);
                     runInc1 += gotP1.tax;
@@ -537,7 +570,6 @@ class FinanceEngine {
                     let inc = target === 'p1' ? runInc1 : runInc2;
                     let netRoom = getNetRoom(tType, inc, mR, pObj);
 
-                    // Only tax-balance the gap if they are pulling from the EXACT same level
                     if (p1Type && p2Type && p1Idx === p2Idx && !['tfsa','cash'].includes(tType)) {
                         let gap = Math.abs(runInc1 - runInc2);
                         let effRate = Math.min(mR || 0, 0.54);
@@ -558,8 +590,9 @@ class FinanceEngine {
 
                     let got = wd(pObj, tType, toTake, target, mR);
                     
-                    // Prevent micro-balance loops near zero
-                    if (got.net <= 0.01 && got.tax <= 0.01) pObj[tType] = 0;
+                    if (got.net <= 0.01 && got.tax <= 0.01) {
+                        if (tType === 'rrsp') { pObj.rrsp = 0; pObj.rrif_acct = 0; pObj.lif = 0; pObj.lirf = 0; } else pObj[tType] = 0;
+                    }
                     
                     df -= got.net;
                     if (target === 'p1') runInc1 += got.tax;
