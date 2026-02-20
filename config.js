@@ -8,6 +8,7 @@ const FINANCIAL_CONSTANTS = {
     // 2026 Maximums
     MAX_CPP: 18092, 
     MAX_OAS: 8908, 
+    OAS_CLAWBACK_THRESHOLD: 90997, // 2026 Estimated threshold for OAS recovery tax
     
     // Core Rules
     RRIF_START_AGE: 72, 
