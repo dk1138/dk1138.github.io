@@ -96,6 +96,7 @@ class UIController {
         document.body.classList.toggle('is-couple', c);
         document.querySelectorAll('.p2-column').forEach(el => { if(!['TH','TD'].includes(el.tagName)) el.style.display = c ? '' : 'none'; });
         if(this.app.charts.nw) this.app.charts.nw.resize();
+        if(this.app.charts.donut) this.app.charts.donut.resize();
     }
 
     updateScenarioBadge(name) {
@@ -254,7 +255,7 @@ class UIController {
             if(groupP2) iL += `<div class="mb-2"><span class="text-purple fw-bold small text-uppercase" style="font-size:0.7rem; border-bottom:1px solid #334155; display:block; margin-bottom:4px;">Player 2</span>${groupP2}</div>`;
             if(groupOther) iL += `<div>${groupOther}</div>`;
             
-            let eL = ln("Living Exp",d.expenses)+ln("Mortgage",d.mortgagePay)+ln("Debt Repayment",d.debtPay)+ln("Tax Paid P1",d.taxP1,"val-negative")+(this.app.state.mode==='Couple'?ln("Tax Paid P2",d.taxP2,"val-negative"):'');
+            let eL = ln("Living Exp",d.expenses)+ln("Mortgage",d.mortgagePay)+ln("Debt Repayment",d.debtRepayment)+ln("Tax Paid P1",d.taxP1,"val-negative")+(this.app.state.mode==='Couple'?ln("Tax Paid P2",d.taxP2,"val-negative"):'');
             
             let aL = ln(`TFSA P1${fmtFlow(d.flows.contributions.p1.tfsa, d.wdBreakdown.p1['TFSA'])}`, d.assetsP1.tfsa) + (this.app.state.mode==='Couple'?ln(`TFSA P2${fmtFlow(d.flows.contributions.p2.tfsa, d.wdBreakdown.p2['TFSA'])}`, d.assetsP2.tfsa):'');
             
@@ -283,7 +284,113 @@ class UIController {
         });
         const grid = document.getElementById('projectionGrid'); if(grid) grid.innerHTML = html;
         
+        this.renderDashboard();
         try { this.initPopovers(); } catch(e) {}
+    }
+
+    renderDashboard() {
+        if (!this.app.state.projectionData || !this.app.state.projectionData.length) return;
+        
+        let totalTax = 0, totalInflow = 0, totalExp = 0, totalDebt = 0;
+        let peakNW = -Infinity, peakAge = 0;
+        let debtFreeYear = "--";
+        let isBankrupt = false;
+        let bankruptAge = null;
+        let hasDebtAtStart = false;
+
+        this.app.state.projectionData.forEach((d, i) => {
+            const df = this.app.getDiscountFactor(d.year - new Date().getFullYear());
+            totalTax += (d.taxP1 + (d.taxP2 || 0)) / df;
+            totalInflow += d.grossInflow / df;
+            totalExp += d.expenses / df; 
+            totalDebt += (d.mortgagePay + d.debtRepayment) / df;
+
+            const adjNW = d.debugNW / df;
+            if (adjNW > peakNW) {
+                peakNW = adjNW;
+                peakAge = d.p1Age;
+            }
+            
+            if (i === 0 && (d.mortgage > 0 || d.debtRepayment > 0)) hasDebtAtStart = true;
+            if (hasDebtAtStart && debtFreeYear === "--" && d.mortgage <= 0 && d.debtRepayment <= 0) {
+                debtFreeYear = d.year;
+            }
+
+            if (d.liquidNW < 0 && !isBankrupt) {
+                isBankrupt = true;
+                bankruptAge = d.p1Age;
+            }
+        });
+
+        if (!hasDebtAtStart) debtFreeYear = "Already Debt-Free";
+
+        const finalYear = this.app.state.projectionData[this.app.state.projectionData.length - 1];
+        const finalDf = this.app.getDiscountFactor(finalYear.year - new Date().getFullYear());
+        const finalEstate = finalYear.debugNW / finalDf;
+
+        const effRate = totalInflow > 0 ? ((totalTax / totalInflow) * 100).toFixed(1) : 0;
+        const fmtK = n => n >= 1000000 ? '$' + (n / 1000000).toFixed(2) + 'M' : '$' + Math.round(n).toLocaleString();
+
+        if (document.getElementById('dash_tax_paid')) document.getElementById('dash_tax_paid').innerText = fmtK(totalTax);
+        if (document.getElementById('dash_eff_tax_rate')) document.getElementById('dash_eff_tax_rate').innerText = `Effective Rate: ${effRate}%`;
+        if (document.getElementById('dash_total_inflow')) document.getElementById('dash_total_inflow').innerText = fmtK(totalInflow);
+        if (document.getElementById('dash_total_expenses')) document.getElementById('dash_total_expenses').innerText = fmtK(totalExp);
+        if (document.getElementById('dash_final_estate')) document.getElementById('dash_final_estate').innerText = fmtK(finalEstate);
+        if (document.getElementById('dash_peak_nw')) document.getElementById('dash_peak_nw').innerText = `${fmtK(peakNW)} (Age ${peakAge})`;
+        if (document.getElementById('dash_debt_free')) document.getElementById('dash_debt_free').innerText = debtFreeYear;
+        
+        const healthEl = document.getElementById('dash_plan_health');
+        if (healthEl) {
+            if (isBankrupt) {
+                healthEl.innerText = `Ran out of cash at Age ${bankruptAge}`;
+                healthEl.className = "fw-bold text-danger";
+            } else {
+                healthEl.innerText = "SUCCESS (Fully Funded)";
+                healthEl.className = "fw-bold text-success";
+            }
+        }
+
+        if (!document.getElementById('chartLifetimeDonut') || typeof Chart === 'undefined') return;
+        if (this.app.charts.donut) this.app.charts.donut.destroy();
+        
+        const ctx = document.getElementById('chartLifetimeDonut').getContext('2d');
+        const isDark = document.documentElement.getAttribute('data-bs-theme') !== 'light';
+
+        this.app.charts.donut = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Taxes Paid', 'Living Expenses', 'Debt & Mortgages', 'Final Estate Value'],
+                datasets: [{
+                    data: [Math.round(totalTax), Math.round(totalExp), Math.round(totalDebt), Math.max(0, Math.round(finalEstate))],
+                    backgroundColor: ['#ef4444', '#f59e0b', '#8b5cf6', '#10b981'],
+                    borderWidth: 0,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '65%',
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: { color: isDark ? '#cbd5e1' : '#475569', font: { family: 'Inter', size: 12 }, padding: 15 }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.label || '';
+                                if (label) label += ': ';
+                                if (context.parsed !== null) {
+                                    label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(context.parsed);
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                }
+            }
+        });
     }
 
     drawSankey(idx) {
@@ -322,7 +429,7 @@ class UIController {
 
         if(d.flows?.withdrawals) Object.entries(d.flows.withdrawals).forEach(([s,a]) => addRow(`${s}\n${fmt(v(a))}`, potName, a));
         
-        const tTax = d.taxP1 + d.taxP2, tDebt = d.mortgagePay + d.debtPay;
+        const tTax = d.taxP1 + d.taxP2, tDebt = d.mortgagePay + d.debtRepayment;
         
         if(tTax>0) addRow(potName, `Taxes\n${fmt(v(tTax))}`, tTax);
         if(d.expenses>0) addRow(potName, `Living Exp.\n${fmt(v(d.expenses))}`, d.expenses);
