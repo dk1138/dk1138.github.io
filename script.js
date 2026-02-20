@@ -1,7 +1,7 @@
 /**
- * Retirement Planner Pro - Logic v10.9.7
+ * Retirement Planner Pro - Logic v10.9.8
  * * Changelog:
- * - v10.9.7: UI REFACTOR: Replaced sticky sidebar with an Offcanvas Quick Adjust drawer. Cleaned up old sidebar toggle logic.
+ * - v10.9.8: UI REFACTOR: Replaced offcanvas drawer with a sleek Floating Action Button (FAB) widget for Quick Adjustments.
  * - v10.9.6: BUGFIX: RRIF tooltip math now correctly applies the discount factor when "Use Today's Dollars" is checked.
  * - v10.9.5: FEATURE: Added info icon to RRIF withdrawals in projection grid to show calculation math.
  * - v10.9.4: BUGFIX: Deep cloned state in getEngineData() to prevent headless optimizers from corrupting global application state.
@@ -13,7 +13,7 @@
 
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.9.7";
+        this.APP_VERSION = "10.9.8";
         this.state = {
             inputs: {},
             debt: [],
@@ -245,6 +245,22 @@ class RetirementPlanner {
         const $ = id => document.getElementById(id);
         if($('btnThemeToggle')) $('btnThemeToggle').addEventListener('click', () => this.toggleTheme());
         if($('useRealDollars')) $('useRealDollars').addEventListener('change', () => { this.calcExpenses(); this.run(); });
+
+        // Floating Action Button Quick Adjust Toggle
+        const fabBtn = $('fabQuickAdjust');
+        const widgetCard = $('quickAdjustWidget');
+        const closeWidgetBtn = $('closeWidgetBtn');
+        
+        if (fabBtn && widgetCard) {
+            fabBtn.addEventListener('click', () => {
+                widgetCard.classList.toggle('active');
+            });
+        }
+        if (closeWidgetBtn && widgetCard) {
+            closeWidgetBtn.addEventListener('click', () => {
+                widgetCard.classList.remove('active');
+            });
+        }
 
         document.body.addEventListener('change', (e) => {
             if (e.target.id === 'expense_mode_advanced') {
@@ -1535,8 +1551,7 @@ class RetirementPlanner {
     }
 
     initSidebar() {
-        // We kept the function name initSidebar but it actually connects the exact same IDs
-        // in the new Offcanvas drawer to the main engine logic seamlessly!
+        // Connected to the exact same IDs now housed in the floating widget
         const b = (sId, iId, lId, sfx='') => { 
             const s=document.getElementById(sId); 
             if(s) { 
