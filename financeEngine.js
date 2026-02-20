@@ -355,6 +355,7 @@ class FinanceEngine {
         const prov = this.getRaw('tax_province');
         const TOLERANCE = 50; 
         const strats = this.strategies.decum;
+        const lowestBracket = taxBrackets.FED.brackets[0]; // Top of the lowest tax bracket
 
         const wd = (p, t, a, pfx, mRate) => { 
             if(a <= 0 || p[t] <= 0) return {net: 0, tax: 0};
@@ -392,7 +393,7 @@ class FinanceEngine {
                 acbSold = p[acbKey] * proportionSold;
                 p[acbKey] = Math.max(0, p[acbKey] - acbSold);
                 capGain = tk - acbSold;
-                taxableAmtForOnWithdrawal = Math.max(0, capGain * 0.5); // 50% inclusion
+                taxableAmtForOnWithdrawal = Math.max(0, capGain * 0.5); // 50% inclusion rate
             } else if (isFullyTaxable) {
                 taxableAmtForOnWithdrawal = tk;
             }
@@ -426,83 +427,116 @@ class FinanceEngine {
             return {net: tk * (1 - effRate), tax: taxableAmtForOnWithdrawal};
         };
 
-        // Process withdrawals strictly by the global strategy order across both people
-        for (let stratIdx = 0; stratIdx < strats.length; stratIdx++) {
-            if (df <= 1) break;
-            
-            const type = strats[stratIdx];
-            let isFullyTaxable = ['rrsp', 'rrif_acct', 'lif', 'lirf'].includes(type);
-            let isCapGain = ['nreg', 'crypto'].includes(type);
-            let isTaxFree = !isFullyTaxable && !isCapGain;
+        const executeWithdrawalStrategy = (enforceCeiling) => {
+            let p1Idx = 0;
+            let p2Idx = 0;
 
-            while (df > 1) {
-                let p1Has = alive1 && p1[type] > 0;
-                let p2Has = alive2 && p2[type] > 0;
+            while (df > 1 && (p1Idx < strats.length || p2Idx < strats.length)) {
+                
+                // Find next available account for P1
+                while(p1Idx < strats.length) {
+                    if (!alive1 || p1[strats[p1Idx]] <= 0) { p1Idx++; continue; }
+                    // If enforcing the lowest tax bracket ceiling on taxable accounts:
+                    if (enforceCeiling && ['rrsp', 'rrif_acct', 'lif', 'lirf'].includes(strats[p1Idx])) {
+                        if (lowestBracket - runInc1 <= 1) { p1Idx++; continue; }
+                    }
+                    break;
+                }
+                
+                // Find next available account for P2
+                while(p2Idx < strats.length) {
+                    if (!alive2 || p2[strats[p2Idx]] <= 0) { p2Idx++; continue; }
+                    // If enforcing the lowest tax bracket ceiling on taxable accounts:
+                    if (enforceCeiling && ['rrsp', 'rrif_acct', 'lif', 'lirf'].includes(strats[p2Idx])) {
+                        if (lowestBracket - runInc2 <= 1) { p2Idx++; continue; }
+                    }
+                    break;
+                }
 
-                // Move to the next account type in the strategy list if both are empty
-                if (!p1Has && !p2Has) break; 
+                const p1Type = p1Idx < strats.length ? strats[p1Idx] : null;
+                const p2Type = p2Idx < strats.length ? strats[p2Idx] : null;
+
+                if (!p1Type && !p2Type) break;
 
                 const mR1 = this.calculateTaxDetailed(runInc1, prov, taxBrackets).margRate;
                 const mR2 = this.calculateTaxDetailed(runInc2, prov, taxBrackets).margRate;
 
                 let target = null;
-                
-                if (!p1Has) target = 'p2';
-                else if (!p2Has) target = 'p1';
+                if (!p1Type) target = 'p2';
+                else if (!p2Type) target = 'p1';
                 else {
-                    if (isTaxFree) {
-                        // Force 50/50 split for tax-free accounts since marginal tax rates don't matter
-                        target = 'split';
-                    } else {
-                        // Balance taxable withdrawals based on who has the lowest marginal tax rate
-                        if (Math.abs(runInc1 - runInc2) < TOLERANCE) target = 'split';
-                        else if (runInc1 < runInc2) target = 'p1';
-                        else target = 'p2';
-                    }
+                    let isTaxFree1 = !['rrsp', 'rrif_acct', 'lif', 'lirf', 'nreg', 'crypto'].includes(p1Type);
+                    let isTaxFree2 = !['rrsp', 'rrif_acct', 'lif', 'lirf', 'nreg', 'crypto'].includes(p2Type);
+                    
+                    // Force 50/50 split on Tax Free, otherwise balance based on marginal tax rate
+                    if (isTaxFree1 && isTaxFree2) target = 'split';
+                    else if (Math.abs(runInc1 - runInc2) < TOLERANCE) target = 'split';
+                    else if (runInc1 < runInc2) target = 'p1';
+                    else target = 'p2';
                 }
+
+                let getNetRoom = (type, inc, mR) => {
+                    if (enforceCeiling && ['rrsp', 'rrif_acct', 'lif', 'lirf'].includes(type)) {
+                        let grossRoom = Math.max(0, lowestBracket - inc);
+                        return grossRoom * (1 - Math.min(mR || 0, 0.54));
+                    }
+                    return Infinity;
+                };
 
                 if (target === 'split') {
+                    let netRoom1 = getNetRoom(p1Type, runInc1, mR1);
+                    let netRoom2 = getNetRoom(p2Type, runInc2, mR2);
+                    
                     let half = df / 2;
-                    let gotP1 = wd(p1, type, half, 'p1', mR1);
-                    let gotP2 = wd(p2, type, half, 'p2', mR2);
-                    
-                    df = df - (gotP1.net + gotP2.net);
-                    
+                    let req1 = Math.min(half, netRoom1);
+                    let req2 = Math.min(half, netRoom2);
+
+                    // If one hits their limit, shift the burden to the other person
+                    if (req1 < half) req2 = Math.min(df - req1, netRoom2);
+                    if (req2 < half) req1 = Math.min(df - req2, netRoom1);
+
+                    // Ensure minimums to prevent micro-looping, unless bounded by tax room
+                    if (req1 > 0 && req1 < 10) req1 = Math.min(df, netRoom1);
+                    if (req2 > 0 && req2 < 10) req2 = Math.min(df, netRoom2);
+
+                    let gotP1 = req1 > 0 ? wd(p1, p1Type, req1, 'p1', mR1) : {net: 0, tax: 0};
+                    let gotP2 = req2 > 0 ? wd(p2, p2Type, req2, 'p2', mR2) : {net: 0, tax: 0};
+
+                    df -= (gotP1.net + gotP2.net);
                     runInc1 += gotP1.tax;
                     runInc2 += gotP2.tax;
-
                 } else {
                     let toTake = df;
-                    if (p1Has && p2Has && !isTaxFree) {
-                        let gap = Math.abs(runInc1 - runInc2);
-                        let mR = (target === 'p1' ? mR1 : mR2);
-                        let effRate = 0;
-                        
-                        if (isFullyTaxable) effRate = Math.min(mR || 0, 0.54);
-                        if (isCapGain) {
-                            let pObj = target === 'p1' ? p1 : p2;
-                            let acbKey = type === 'crypto' ? 'crypto_acb' : 'acb';
-                            let gainRatio = Math.max(0, 1 - (pObj[acbKey] / pObj[type]));
-                            effRate = Math.min(mR || 0, 0.54) * 0.5 * gainRatio;
-                        }
-                        
-                        let netGap = gap * (1 - effRate);
-                        if (netGap > 0) toTake = Math.min(df, netGap);
-                    }
-                    
-                    if (toTake < 10) toTake = Math.min(df, 500);
+                    let pObj = target === 'p1' ? p1 : p2;
+                    let tType = target === 'p1' ? p1Type : p2Type;
+                    let mR = target === 'p1' ? mR1 : mR2;
+                    let inc = target === 'p1' ? runInc1 : runInc2;
+                    let netRoom = getNetRoom(tType, inc, mR);
 
-                    if (target === 'p1') {
-                        let got = wd(p1, type, toTake, 'p1', mR1);
-                        runInc1 += got.tax;
-                        df -= got.net;
-                    } else {
-                        let got = wd(p2, type, toTake, 'p2', mR2);
-                        runInc2 += got.tax;
-                        df -= got.net;
+                    // Balance gap for taxable accounts
+                    if (p1Type && p2Type && !['tfsa','cash'].includes(p1Type) && !['tfsa','cash'].includes(p2Type)) {
+                        let gap = Math.abs(runInc1 - runInc2);
+                        let netGap = gap * (1 - Math.min(mR || 0, 0.54));
+                        if (netGap > 0) toTake = Math.min(toTake, netGap);
                     }
+
+                    toTake = Math.min(toTake, netRoom);
+                    if (toTake < 10 && toTake < netRoom) toTake = Math.min(df, netRoom, 500);
+
+                    let got = wd(pObj, tType, toTake, target, mR);
+                    df -= got.net;
+                    if (target === 'p1') runInc1 += got.tax;
+                    else runInc2 += got.tax;
                 }
             }
+        };
+
+        // Pass 1: Try to withdraw while enforcing the lowest tax bracket ceiling on taxable accounts
+        executeWithdrawalStrategy(true);
+        
+        // Pass 2: If we STILL have a deficit, we have no choice but to pierce the tax ceiling to pay the bills
+        if (df > 1) {
+            executeWithdrawalStrategy(false);
         }
     }
 
