@@ -1,6 +1,7 @@
 /**
- * Retirement Planner Pro - Logic v10.9.4
+ * Retirement Planner Pro - Logic v10.9.5
  * * Changelog:
+ * - v10.9.5: FEATURE: Added info icon to RRIF withdrawals in projection grid to show calculation math.
  * - v10.9.4: BUGFIX: Deep cloned state in getEngineData() to prevent headless optimizers from corrupting global application state.
  * - v10.9.3: NEW: Added "Die with Zero" Optimizer. Uses headless binary/linear searches to recommend spending increases or earlier retirement ages.
  * - v10.9.2: FEATURE: "Clear All" now defaults users to Age 30, 2.5% Inflation, 6% Returns, and disables OAS/CPP/DB by default.
@@ -10,7 +11,7 @@
 
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.9.4";
+        this.APP_VERSION = "10.9.5";
         this.state = {
             inputs: {},
             debt: [],
@@ -1248,7 +1249,15 @@ class RetirementPlanner {
             if(d.dbP1 > 0) groupP1 += sL("DB Pension", d.dbP1);
             if(d.invIncP1 > 0) groupP1 += ln("Inv. Yield (Taxable)", d.invIncP1, "text-muted");
             
-            Object.entries(d.wdBreakdown.p1).forEach(([t,a]) => groupP1 += sL(`${t} Withdrawals`, a));
+            Object.entries(d.wdBreakdown.p1).forEach(([t,a]) => {
+                if(t === 'RRIF_math') return;
+                let label = `${t} Withdrawals`;
+                if(t === 'RRIF' && d.wdBreakdown.p1.RRIF_math) {
+                    let m = d.wdBreakdown.p1.RRIF_math;
+                    label += ` <i class="bi bi-info-circle text-muted ms-1" style="font-size: 0.75rem; cursor: help;" title="Math: $${Math.round(m.bal).toLocaleString()} balance &times; ${(m.factor*100).toFixed(2)}% minimum = $${Math.round(m.min).toLocaleString()}"></i>`;
+                }
+                groupP1 += sL(label, a);
+            });
 
             if(this.state.mode==='Couple') {
                 if(d.incomeP2 > 0) groupP2 += ln("Employment", d.incomeP2);
@@ -1257,7 +1266,15 @@ class RetirementPlanner {
                 if(d.oasP2 > 0) groupP2 += sL("OAS", d.oasP2);
                 if(d.dbP2 > 0) groupP2 += sL("DB Pension", d.dbP2);
                 if(d.invIncP2 > 0) groupP2 += ln("Inv. Yield (Taxable)", d.invIncP2, "text-muted");
-                Object.entries(d.wdBreakdown.p2).forEach(([t,a]) => groupP2 += sL(`${t} Withdrawals`, a));
+                Object.entries(d.wdBreakdown.p2).forEach(([t,a]) => {
+                    if(t === 'RRIF_math') return;
+                    let label = `${t} Withdrawals`;
+                    if(t === 'RRIF' && d.wdBreakdown.p2.RRIF_math) {
+                        let m = d.wdBreakdown.p2.RRIF_math;
+                        label += ` <i class="bi bi-info-circle text-muted ms-1" style="font-size: 0.75rem; cursor: help;" title="Math: $${Math.round(m.bal).toLocaleString()} balance &times; ${(m.factor*100).toFixed(2)}% minimum = $${Math.round(m.min).toLocaleString()}"></i>`;
+                    }
+                    groupP2 += sL(label, a);
+                });
             }
 
             if(d.windfall > 0) groupOther += ln("Inheritance/Bonus", d.windfall, "text-success fw-bold");
