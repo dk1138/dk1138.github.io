@@ -387,11 +387,14 @@ class FinanceEngine {
             p[t] -= tk;
             
             let taxableAmtForOnWithdrawal = 0;
+            let acbSold = 0;
+            let capGain = 0;
+            
             if (isCapGain) {
                 let proportionSold = tk / (p[t] + tk); 
-                let acbSold = p[acbKey] * proportionSold;
+                acbSold = p[acbKey] * proportionSold;
                 p[acbKey] = Math.max(0, p[acbKey] - acbSold);
-                let capGain = tk - acbSold;
+                capGain = tk - acbSold;
                 taxableAmtForOnWithdrawal = Math.max(0, capGain * 0.5); // 50% inclusion rate
             } else if (isFullyTaxable) {
                 taxableAmtForOnWithdrawal = tk;
@@ -400,7 +403,18 @@ class FinanceEngine {
             if (log) {
                 let k = (pfx.toUpperCase()) + " " + logKey;
                 log.withdrawals[k] = (log.withdrawals[k] || 0) + tk;
-                if(breakdown) breakdown[pfx][logKey] = (breakdown[pfx][logKey] || 0) + tk;
+                if(breakdown) {
+                    breakdown[pfx][logKey] = (breakdown[pfx][logKey] || 0) + tk;
+                    
+                    // Log math specifics for the new tooltips
+                    if (isCapGain) {
+                        if (!breakdown[pfx][logKey + '_math']) breakdown[pfx][logKey + '_math'] = { wd: 0, acb: 0, gain: 0, tax: 0 };
+                        breakdown[pfx][logKey + '_math'].wd += tk;
+                        breakdown[pfx][logKey + '_math'].acb += acbSold;
+                        breakdown[pfx][logKey + '_math'].gain += capGain;
+                        breakdown[pfx][logKey + '_math'].tax += taxableAmtForOnWithdrawal;
+                    }
+                }
             }
             
             if (onWithdrawal) {
@@ -622,8 +636,8 @@ class FinanceEngine {
                     wdBreakdown.p2.RRIF = rrifMin.p2; 
                     wdBreakdown.p2.RRIF_math = rrifMin.details.p2;
                 }
-                if(rrspDed.p1 > 0) { flowLog.withdrawals['P1 RRSP Top-Up'] = (flowLog.withdrawals['P1 RRSP Top-Up'] || 0) + rrspDed.p1; wdBreakdown.p1.RRSP = rrspDed.p1; }
-                if(rrspDed.p2 > 0) { flowLog.withdrawals['P2 RRSP Top-Up'] = (flowLog.withdrawals['P2 RRSP Top-Up'] || 0) + rrspDed.p2; wdBreakdown.p2.RRSP = rrspDed.p2; }
+                if(rrspDed.p1 > 0) { flowLog.withdrawals['P1 RRSP Top-Up'] = (flowLog.withdrawals['P1 RRSP Top-Up'] || 0) + rrspDed.p1; wdBreakdown.p1.RRSP = (wdBreakdown.p1.RRSP || 0) + rrspDed.p1; }
+                if(rrspDed.p2 > 0) { flowLog.withdrawals['P2 RRSP Top-Up'] = (flowLog.withdrawals['P2 RRSP Top-Up'] || 0) + rrspDed.p2; wdBreakdown.p2.RRSP = (wdBreakdown.p2.RRSP || 0) + rrspDed.p2; }
             }
 
             const rrspRoom1 = Math.min(inflows.p1.earned * 0.18, consts.rrspMax * bInf);
