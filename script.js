@@ -1,6 +1,6 @@
 /**
  * Retirement Planner Pro - Core Application Controller
- * Version 10.9.11 (Crash Proofing)
+ * Version 10.9.11 (Crash Proofing & Save Sanitizing)
  */
 
 class RetirementPlanner {
@@ -634,36 +634,6 @@ class RetirementPlanner {
         this.ui.renderComparisonChart();
     }
 
-    loadScenario(idx) { 
-        const s = JSON.parse(localStorage.getItem('rp_scenarios')||'[]')[idx]; 
-        if(!s) return; 
-        this.loadStateToDOM(s.data); 
-        this.run(); 
-        this.ui.updateScenarioBadge(s.name);
-        if (this.loadModalInstance) this.loadModalInstance.hide();
-        alert(`Loaded plan: "${s.name}"`); 
-    }
-
-    exportScenario(idx) { 
-        const s = JSON.parse(localStorage.getItem('rp_scenarios')||'[]')[idx]; 
-        if(!s) return; 
-        const a = document.createElement('a'); 
-        a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(s.data, null, 2)); 
-        a.download = s.name.replace(/\s+/g, '_').toLowerCase() + ".json"; 
-        document.body.appendChild(a); 
-        a.click(); 
-        a.remove(); 
-    }
-
-    deleteScenario(idx) { 
-        this.showConfirm("Delete this scenario?", () => { 
-            let sc=JSON.parse(localStorage.getItem('rp_scenarios')||'[]'); 
-            sc.splice(idx, 1); 
-            localStorage.setItem('rp_scenarios', JSON.stringify(sc)); 
-            this.loadScenariosList(); 
-        }); 
-    }
-
     loadStateToDOM(d) {
         if(!d) return;
         if(d.version !== this.APP_VERSION) console.warn(`Updating save data from v${d.version||'old'} to v${this.APP_VERSION}`);
@@ -673,6 +643,15 @@ class RetirementPlanner {
             accum: d.strategies?.accum || ['tfsa', 'rrsp', 'nreg', 'cash', 'crypto'],
             decum: d.strategies?.decum || ['rrsp', 'crypto', 'nreg', 'tfsa', 'cash']
         };
+
+        // SANITIZER: Remove old unbundled items if a user loads an old save file
+        const obsoleteItems = ['lif', 'lirf', 'rrif', 'rrif_acct'];
+        this.state.strategies.accum = this.state.strategies.accum.filter(s => !obsoleteItems.includes(s));
+        this.state.strategies.decum = this.state.strategies.decum.filter(s => !obsoleteItems.includes(s));
+        
+        // Failsafe: Make sure 'rrsp' (our master bundle) is present
+        if(!this.state.strategies.accum.includes('rrsp')) this.state.strategies.accum.push('rrsp');
+        if(!this.state.strategies.decum.includes('rrsp')) this.state.strategies.decum.push('rrsp');
 
         Object.entries(this.state.inputs).forEach(([id, val]) => { if(id.startsWith('comp_')) return; const el=document.getElementById(id); if(el) el.type==='checkbox'||el.type==='radio'?el.checked=val:el.value=val; });
         ['p1_retireAge','p2_retireAge','inflation_rate'].forEach(k => { if(this.state.inputs[k]) this.ui.updateSidebarSync(k, this.state.inputs[k]); });
