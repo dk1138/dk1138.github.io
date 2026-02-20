@@ -106,57 +106,64 @@ body {
   color: var(--text-main);
 }
 
-/* --- STICKY SIDEBAR LOGIC --- */
-#sidebarCol {
-  transition: width 0.3s ease;
-  overflow-x: hidden; 
-  min-width: 60px; 
+/* --- FLOATING QUICK ADJUST WIDGET --- */
+.floating-widget-container {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  z-index: 1050;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
 }
 
-.sticky-sidebar {
-  position: -webkit-sticky;
-  position: sticky;
-  top: 24px; /* Flawless offset from the top of the browser when scrolling */
-  z-index: 1020;
-  transition: all 0.3s ease;
-  height: max-content !important; /* CRITICAL FIX: Stops the card from stretching to match the tall tabs, restoring sticky functionality */
-}
-
-/* Make Sidebar slightly more compact */
-#sidebarExpanded .card-body {
-  padding: 1.25rem !important;
-}
-#sidebarExpanded .mb-4 {
-  margin-bottom: 1rem !important;
-}
-#sidebarExpanded p.mb-4 {
-  margin-bottom: 0.75rem !important;
-  line-height: 1.3;
-}
-#sidebarExpanded hr.my-4 {
-  margin-top: 1rem !important;
-  margin-bottom: 1rem !important;
-}
-
-/* Centered button logic */
-.sidebar-collapsed-btn {
-  width: 40px;
-  height: 40px;
-  margin: 0 auto;
-  border-radius: 8px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
+.fab-btn {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  color: var(--info);
-  transition: all 0.2s;
+  background-color: var(--info);
+  border: none;
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
 }
 
-.sidebar-collapsed-btn:hover {
-  background: var(--info);
-  color: #000;
+.fab-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 8px 15px rgba(0,0,0,0.4);
+}
+
+[data-bs-theme="light"] .fab-btn {
+  background-color: var(--primary);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+}
+
+[data-bs-theme="light"] .fab-btn i {
+  color: #fff !important;
+}
+
+.quick-adjust-card {
+  width: 320px;
+  margin-bottom: 15px;
+  opacity: 0;
+  transform: translateY(20px) scale(0.95);
+  transform-origin: bottom right;
+  pointer-events: none;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  border-radius: var(--radius);
+  box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+}
+
+[data-bs-theme="light"] .quick-adjust-card {
+  box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+}
+
+.quick-adjust-card.active {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
 }
 
 .strategy-opt-box {
@@ -682,8 +689,11 @@ body:not(.is-couple) .p2-column:not(td):not(th) { display: none; }
   }
   .nav-item { min-width: 100px; }
   .household-row { text-align: center; margin-bottom: 1rem; }
-  #sidebarCol {
-    min-width: 0;
+  
+  /* Widget stays attached to screen on mobile */
+  .floating-widget-container {
+    bottom: 20px;
+    right: 20px;
   }
 }
 
