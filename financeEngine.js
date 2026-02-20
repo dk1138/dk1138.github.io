@@ -462,7 +462,7 @@ class FinanceEngine {
         let projectionData = [];
 
         let person1 = { tfsa: this.getVal('p1_tfsa'), rrsp: this.getVal('p1_rrsp'), cash: this.getVal('p1_cash'), nreg: this.getVal('p1_nonreg'), crypto: this.getVal('p1_crypto'), lirf: this.getVal('p1_lirf'), lif: this.getVal('p1_lif'), rrif_acct: this.getVal('p1_rrif_acct'), inc: this.getVal('p1_income'), dob: new Date(this.getRaw('p1_dob') || "1990-01"), retAge: this.getVal('p1_retireAge'), lifeExp: this.getVal('p1_lifeExp'), nreg_yield: this.getVal('p1_nonreg_yield')/100, acb: this.getVal('p1_nonreg') };
-        let person2 = { tfsa: this.getVal('p2_tfsa'), rrsp: this.getVal('p2_rrsp'), cash: this.getVal('p2_cash'), nreg: this.getVal('p2_nonreg'), crypto: this.getVal('p2_crypto'), lirf: this.getVal('p2_lirf'), lif: this.getVal('p2_lif'), rrif_acct: this.getVal('p2_rrif_acct'), inc: this.getVal('p2_income'), dob: new Date(this.getRaw('p2_dob') || "1990-01"), retAge: this.getVal('p2_retireAge'), lifeExp: this.getVal('p2_lifeExp'), nreg_yield: this.getVal('p2_nonreg_yield')/100, acb: this.getVal('p2_nonreg') };
+        let person2 = { tfsa: this.getVal('p2_tfsa'), rrsp: this.getVal('p2_rrsp'), cash: this.getVal('p2_cash'), nreg: this.getVal('p2_nonreg'), crypto: this.getVal('p2_crypto'), lirf: this.getVal('p2_lirf'), lif: this.getVal('p2_rrif_acct'), rrif_acct: this.getVal('p2_rrif_acct'), inc: this.getVal('p2_income'), dob: new Date(this.getRaw('p2_dob') || "1990-01"), retAge: this.getVal('p2_retireAge'), lifeExp: this.getVal('p2_lifeExp'), nreg_yield: this.getVal('p2_nonreg_yield')/100, acb: this.getVal('p2_nonreg') };
 
         let simProperties = JSON.parse(JSON.stringify(this.properties));
         let totalDebt = totalDebtInitial;
@@ -563,16 +563,15 @@ class FinanceEngine {
 
             let rrspDed = { p1: 0, p2: 0 };
             const taxBrackets = this.getInflatedTaxData(bInf);
-            if(this.inputs['strat_rrsp_topup']) {
-                 const lowBracket = taxBrackets.FED.brackets[0];
-                 if(alive1 && person1.rrsp > 0 && taxableIncome1 < lowBracket) {
-                     let d = Math.min(lowBracket - taxableIncome1, person1.rrsp);
-                     if(d > 0) { person1.rrsp -= d; taxableIncome1 += d; rrspDed.p1 = d; }
-                 }
-                 if(alive2 && person2.rrsp > 0 && taxableIncome2 < lowBracket) {
-                     let d = Math.min(lowBracket - taxableIncome2, person2.rrsp);
-                     if(d > 0) { person2.rrsp -= d; taxableIncome2 += d; rrspDed.p2 = d; }
-                 }
+            
+            const lowBracket = taxBrackets.FED.brackets[0];
+            if(alive1 && person1.rrsp > 0 && taxableIncome1 < lowBracket) {
+                 let d = Math.min(lowBracket - taxableIncome1, person1.rrsp);
+                 if(d > 0) { person1.rrsp -= d; taxableIncome1 += d; rrspDed.p1 = d; }
+            }
+            if(alive2 && person2.rrsp > 0 && taxableIncome2 < lowBracket) {
+                 let d = Math.min(lowBracket - taxableIncome2, person2.rrsp);
+                 if(d > 0) { person2.rrsp -= d; taxableIncome2 += d; rrspDed.p2 = d; }
             }
 
             let tax1 = alive1 ? this.calculateTaxDetailed(taxableIncome1, this.getRaw('tax_province'), taxBrackets) : {totalTax: 0, margRate: 0};
