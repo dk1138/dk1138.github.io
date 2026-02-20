@@ -731,3 +731,13 @@ body:not(.is-couple) .p2-column:not(td):not(th) { display: none; }
 [data-bs-theme="dark"] .bs-popover-bottom > .popover-arrow::after {
     border-bottom-color: #1e293b; /* Match card bg */
 }
+
+/* Projection Tab Info Popovers - Prevents Text Wrapping */
+.projection-popover {
+    max-width: none !important;
+    width: max-content;
+}
+
+.projection-popover .popover-body {
+    white-space: nowrap;
+}
