@@ -200,21 +200,21 @@ class UIController {
             if(d.invIncP1 > 0) groupP1 += ln("Inv. Yield (Taxable)", d.invIncP1, "text-muted");
             
             Object.entries(d.wdBreakdown.p1).forEach(([t,a]) => {
-                if(t.endsWith('_math')) return; // Ignore raw math objects
+                if(t.endsWith('_math')) return; 
                 
                 let label = `${t} Withdrawals`;
                 if(t === 'RRIF' && d.wdBreakdown.p1.RRIF_math) {
                     let m = d.wdBreakdown.p1.RRIF_math;
                     let balStr = Math.round(m.bal / df).toLocaleString();
                     let minStr = Math.round(m.min / df).toLocaleString();
-                    label += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="RRIF Withdrawal Math" data-bs-content="<b>Balance:</b> $${balStr}<br><b>Min Factor:</b> ${(m.factor*100).toFixed(2)}%<br><b>Required Min:</b> $${minStr}"></i>`;
+                    label += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="RRIF Withdrawal Math" data-bs-content="<b>Balance:</b> $${balStr}<br><b>Min Factor:</b> ${(m.factor*100).toFixed(2)}%<br><b>Required Min:</b> $${minStr}"></i>`;
                 } else if ((t === 'Non-Reg' || t === 'Crypto') && d.wdBreakdown.p1[t + '_math']) {
                     let m = d.wdBreakdown.p1[t + '_math'];
                     let wdStr = Math.round(m.wd / df).toLocaleString();
                     let acbStr = Math.round(m.acb / df).toLocaleString();
                     let gainStr = Math.round(m.gain / df).toLocaleString();
                     let taxStr = Math.round(m.tax / df).toLocaleString();
-                    label += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="Capital Gains Math" data-bs-content="<b>Total Withdrawn:</b> $${wdStr}<br><b>Adjusted Cost Base (ACB):</b> -$${acbStr}<br><b>Capital Gain:</b> $${gainStr}<hr class='my-1'><b>Added to Taxable Income (50% Inclusion):</b> $${taxStr}"></i>`;
+                    label += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="Capital Gains Math" data-bs-content="<b>Total Withdrawn:</b> $${wdStr}<br><b>Adjusted Cost Base (ACB):</b> -$${acbStr}<br><b>Capital Gain:</b> $${gainStr}<hr class='my-1'><b>Added to Taxable Income (50% Inclusion):</b> $${taxStr}"></i>`;
                 }
                 groupP1 += sL(label, a);
             });
@@ -227,21 +227,21 @@ class UIController {
                 if(d.dbP2 > 0) groupP2 += sL("DB Pension", d.dbP2);
                 if(d.invIncP2 > 0) groupP2 += ln("Inv. Yield (Taxable)", d.invIncP2, "text-muted");
                 Object.entries(d.wdBreakdown.p2).forEach(([t,a]) => {
-                    if(t.endsWith('_math')) return; // Ignore raw math objects
+                    if(t.endsWith('_math')) return; 
                     
                     let label = `${t} Withdrawals`;
                     if(t === 'RRIF' && d.wdBreakdown.p2.RRIF_math) {
                         let m = d.wdBreakdown.p2.RRIF_math;
                         let balStr = Math.round(m.bal / df).toLocaleString();
                         let minStr = Math.round(m.min / df).toLocaleString();
-                        label += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="RRIF Withdrawal Math" data-bs-content="<b>Balance:</b> $${balStr}<br><b>Min Factor:</b> ${(m.factor*100).toFixed(2)}%<br><b>Required Min:</b> $${minStr}"></i>`;
+                        label += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="RRIF Withdrawal Math" data-bs-content="<b>Balance:</b> $${balStr}<br><b>Min Factor:</b> ${(m.factor*100).toFixed(2)}%<br><b>Required Min:</b> $${minStr}"></i>`;
                     } else if ((t === 'Non-Reg' || t === 'Crypto') && d.wdBreakdown.p2[t + '_math']) {
                         let m = d.wdBreakdown.p2[t + '_math'];
                         let wdStr = Math.round(m.wd / df).toLocaleString();
                         let acbStr = Math.round(m.acb / df).toLocaleString();
                         let gainStr = Math.round(m.gain / df).toLocaleString();
                         let taxStr = Math.round(m.tax / df).toLocaleString();
-                        label += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="Capital Gains Math" data-bs-content="<b>Total Withdrawn:</b> $${wdStr}<br><b>Adjusted Cost Base (ACB):</b> -$${acbStr}<br><b>Capital Gain:</b> $${gainStr}<hr class='my-1'><b>Added to Taxable Income (50% Inclusion):</b> $${taxStr}"></i>`;
+                        label += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="Capital Gains Math" data-bs-content="<b>Total Withdrawn:</b> $${wdStr}<br><b>Adjusted Cost Base (ACB):</b> -$${acbStr}<br><b>Capital Gain:</b> $${gainStr}<hr class='my-1'><b>Added to Taxable Income (50% Inclusion):</b> $${taxStr}"></i>`;
                     }
                     groupP2 += sL(label, a);
                 });
@@ -258,17 +258,15 @@ class UIController {
             
             let aL = ln(`TFSA P1${fmtFlow(d.flows.contributions.p1.tfsa, d.wdBreakdown.p1['TFSA'])}`, d.assetsP1.tfsa) + (this.app.state.mode==='Couple'?ln(`TFSA P2${fmtFlow(d.flows.contributions.p2.tfsa, d.wdBreakdown.p2['TFSA'])}`, d.assetsP2.tfsa):'');
             
-            // RRSP P1 With Limit Info
             let r1Label = d.p1Age >= 72 ? 'RRIF' : 'RRSP';
             let r1Wd = (d.wdBreakdown.p1['RRSP']||0) + (d.wdBreakdown.p1['RRIF']||0);
-            let r1Info = d.p1Age < 72 ? ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="Contribution Limit" data-bs-content="Max CRA Deposit this year: $${Math.round((d.rrspRoomP1||0) / df).toLocaleString()}"></i>` : '';
+            let r1Info = d.p1Age < 72 ? ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="Contribution Limit" data-bs-content="Max CRA Deposit this year: $${Math.round((d.rrspRoomP1||0) / df).toLocaleString()}"></i>` : '';
             aL += ln(`${r1Label} P1${r1Info}${fmtFlow(d.flows.contributions.p1.rrsp, r1Wd)}`, d.assetsP1.rrsp);
             
-            // RRSP P2 With Limit Info
             if(this.app.state.mode === 'Couple') {
                 let r2Label = d.p2Age >= 72 ? 'RRIF' : 'RRSP';
                 let r2Wd = (d.wdBreakdown.p2['RRSP']||0) + (d.wdBreakdown.p2['RRIF']||0);
-                let r2Info = d.p2Age < 72 ? ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="Contribution Limit" data-bs-content="Max CRA Deposit this year: $${Math.round((d.rrspRoomP2||0) / df).toLocaleString()}"></i>` : '';
+                let r2Info = d.p2Age < 72 ? ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="Contribution Limit" data-bs-content="Max CRA Deposit this year: $${Math.round((d.rrspRoomP2||0) / df).toLocaleString()}"></i>` : '';
                 aL += ln(`${r2Label} P2${r2Info}${fmtFlow(d.flows.contributions.p2.rrsp, r2Wd)}`, d.assetsP2.rrsp);
             }
 
@@ -285,7 +283,6 @@ class UIController {
         });
         const grid = document.getElementById('projectionGrid'); if(grid) grid.innerHTML = html;
         
-        // Re-initialize Bootstrap popovers for the newly added dynamic content
         try { this.initPopovers(); } catch(e) {}
     }
 
