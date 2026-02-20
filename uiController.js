@@ -128,6 +128,7 @@ class UIController {
         if(!dI){ el.innerHTML="--"; return; }
         
         const age = Math.abs(new Date(Date.now() - new Date(dI+"-01").getTime()).getUTCFullYear() - 1970);
+        if (isNaN(age)) return;
         el.innerHTML = age + " years old";
 
         const slider = document.getElementById(`qa_${pfx}_retireAge_range`);
@@ -173,7 +174,7 @@ class UIController {
         
         this.app.state.projectionData.forEach((d) => {
             const df = this.app.getDiscountFactor(d.year - new Date().getFullYear());
-            const fmtK = n => { const v=n/df, a=Math.abs(v); if(Math.round(a)===0)return''; const s=v<0?'-':''; return a>=1000000?s+(a/1000000).toFixed(1)+'M':(a>=1000?s+Math.round(a/1000)+'k':s+a.toFixed(0)); };
+            const fmtK = n => { if(n == null || isNaN(n)) return ''; const v=n/df, a=Math.abs(v); if(Math.round(a)===0)return''; const s=v<0?'-':''; return a>=1000000?s+(a/1000000).toFixed(1)+'M':(a>=1000?s+Math.round(a/1000)+'k':s+a.toFixed(0)); };
             const fmtFlow = (c, w) => {
                 if(c > 0) return ` <span class="text-success small fw-bold">(+${fmtK(c)})</span>`;
                 if(w > 0) return ` <span class="text-danger small fw-bold">(-${fmtK(w)})</span>`;
@@ -182,7 +183,7 @@ class UIController {
             const p1A=d.p1Alive?d.p1Age:'†', p2A=this.app.state.mode==='Couple'?(d.p2Alive?d.p2Age:'†'):'';
             
             const p1R = this.app.getVal('p1_retireAge') <= d.p1Age, p2R = this.app.getVal('p2_retireAge') <= (d.p2Age||0);
-            const gLim = parseInt(this.app.getRaw('exp_gogo_age'))||75, sLim = parseInt(this.app.getRaw('exp_slow_age'));
+            const gLim = parseInt(this.app.getRaw('exp_gogo_age'))||75, sLim = parseInt(this.app.getRaw('exp_slow_age'))||85;
             let stat = `<span class="status-pill status-working">Working</span>`;
             if(this.app.state.mode==='Couple') { if(p1R&&p2R) stat = d.p1Age<gLim?`<span class="status-pill status-gogo">Go-go Phase</span>`:d.p1Age<sLim?`<span class="status-pill status-slow">Slow-go Phase</span>`:`<span class="status-pill status-nogo">No-go Phase</span>`; else if(p1R||p2R) stat = `<span class="status-pill status-semi">Transition</span>`; }
             else if(p1R) stat = d.p1Age<gLim?`<span class="status-pill status-gogo">Go-go Phase</span>`:d.p1Age<sLim?`<span class="status-pill status-slow">Slow-go Phase</span>`:`<span class="status-pill status-nogo">No-go Phase</span>`;
@@ -241,14 +242,18 @@ class UIController {
             
             let aL = ln(`TFSA P1${fmtFlow(d.flows.contributions.p1.tfsa, d.wdBreakdown.p1['TFSA'])}`, d.assetsP1.tfsa) + (this.app.state.mode==='Couple'?ln(`TFSA P2${fmtFlow(d.flows.contributions.p2.tfsa, d.wdBreakdown.p2['TFSA'])}`, d.assetsP2.tfsa):'');
             
+            // RRSP P1 With Limit Info
             let r1Label = d.p1Age >= 72 ? 'RRIF' : 'RRSP';
             let r1Wd = (d.wdBreakdown.p1['RRSP']||0) + (d.wdBreakdown.p1['RRIF']||0);
-            aL += ln(`${r1Label} P1${fmtFlow(d.flows.contributions.p1.rrsp, r1Wd)}`, d.assetsP1.rrsp);
+            let r1Info = d.p1Age < 72 ? ` <i class="bi bi-info-circle text-muted ms-1" style="font-size: 0.75rem; cursor: help;" title="Max CRA Deposit: $${Math.round((d.rrspRoomP1||0) / df).toLocaleString()}"></i>` : '';
+            aL += ln(`${r1Label} P1${r1Info}${fmtFlow(d.flows.contributions.p1.rrsp, r1Wd)}`, d.assetsP1.rrsp);
             
+            // RRSP P2 With Limit Info
             if(this.app.state.mode === 'Couple') {
                 let r2Label = d.p2Age >= 72 ? 'RRIF' : 'RRSP';
                 let r2Wd = (d.wdBreakdown.p2['RRSP']||0) + (d.wdBreakdown.p2['RRIF']||0);
-                aL += ln(`${r2Label} P2${fmtFlow(d.flows.contributions.p2.rrsp, r2Wd)}`, d.assetsP2.rrsp);
+                let r2Info = d.p2Age < 72 ? ` <i class="bi bi-info-circle text-muted ms-1" style="font-size: 0.75rem; cursor: help;" title="Max CRA Deposit: $${Math.round((d.rrspRoomP2||0) / df).toLocaleString()}"></i>` : '';
+                aL += ln(`${r2Label} P2${r2Info}${fmtFlow(d.flows.contributions.p2.rrsp, r2Wd)}`, d.assetsP2.rrsp);
             }
 
             aL += ln("LIRF P1",d.assetsP1.lirf) + (this.app.state.mode==='Couple'?ln("LIRF P2",d.assetsP2.lirf):'');
