@@ -176,8 +176,8 @@ class UIController {
             const df = this.app.getDiscountFactor(d.year - new Date().getFullYear());
             const fmtK = n => { if(n == null || isNaN(n)) return ''; const v=n/df, a=Math.abs(v); if(Math.round(a)===0)return''; const s=v<0?'-':''; return a>=1000000?s+(a/1000000).toFixed(1)+'M':(a>=1000?s+Math.round(a/1000)+'k':s+a.toFixed(0)); };
             const fmtFlow = (c, w) => {
-                if(c > 0) return ` <span class="text-success small fw-bold">(+${fmtK(c)})</span>`;
-                if(w > 0) return ` <span class="text-danger small fw-bold">(-${fmtK(w)})</span>`;
+                if(c > 0) return ` <span class="text-success small fw-bold">(+${fmtK(c * df)})</span>`;
+                if(w > 0) return ` <span class="text-danger small fw-bold">(-${fmtK(w * df)})</span>`;
                 return '';
             };
             const p1A=d.p1Alive?d.p1Age:'†', p2A=this.app.state.mode==='Couple'?(d.p2Alive?d.p2Age:'†'):'';
@@ -188,8 +188,8 @@ class UIController {
             if(this.app.state.mode==='Couple') { if(p1R&&p2R) stat = d.p1Age<gLim?`<span class="status-pill status-gogo">Go-go Phase</span>`:d.p1Age<sLim?`<span class="status-pill status-slow">Slow-go Phase</span>`:`<span class="status-pill status-nogo">No-go Phase</span>`; else if(p1R||p2R) stat = `<span class="status-pill status-semi">Transition</span>`; }
             else if(p1R) stat = d.p1Age<gLim?`<span class="status-pill status-gogo">Go-go Phase</span>`:d.p1Age<sLim?`<span class="status-pill status-slow">Slow-go Phase</span>`:`<span class="status-pill status-nogo">No-go Phase</span>`;
             
-            const ln = (l,v,c='') => (!v||Math.round(v)===0)?'':`<div class="detail-item"><span>${l}</span> <span class="${c}">${fmtK(v)}</span></div>`;
-            const sL = (l,v) => (!v||Math.round(v)===0)?'':`<div class="detail-item sub"><span>${l}</span> <span>${fmtK(v)}</span></div>`;
+            const ln = (l,v,c='') => (!v||Math.round(v)===0)?'':`<div class="detail-item"><span>${l}</span> <span class="${c}">${fmtK(v * df)}</span></div>`;
+            const sL = (l,v) => (!v||Math.round(v)===0)?'':`<div class="detail-item sub"><span>${l}</span> <span>${fmtK(v * df)}</span></div>`;
             
             let groupP1 = '', groupP2 = '', groupOther = '';
             if(d.incomeP1 > 0) groupP1 += ln("Employment", d.incomeP1);
@@ -279,7 +279,7 @@ class UIController {
             aL += ln("Liquid Net Worth",d.liquidNW,"text-info fw-bold")+ln("Total Real Estate Eq.",d.homeValue-d.mortgage);
             
             const rB = th==='light'?'bg-white border-bottom border-dark-subtle':'', rT = th==='light'?'text-dark':'text-white';
-            html += `<div class="grid-row-group" style="${th==='light'?'border-bottom:1px solid #ddd;':''}"><div class="grid-summary-row ${rB}" onclick="app.ui.toggleRow(this)"><div class="col-start col-timeline"><div class="d-flex align-items-center"><span class="fw-bold fs-6 me-1 ${rT}">${d.year}</span><span class="event-icons-inline">${d.events.map(k=>this.getIconHTML(k,th)).join('')}</span></div><span class="age-text ${rT}">${p1A} ${this.app.state.mode==='Couple'?'/ '+p2A:''}</span></div><div class="col-start">${stat}</div><div class="val-positive">${fmtK(d.grossInflow)}</div><div class="val-neutral text-danger">${fmtK(d.visualExpenses)}</div><div class="${d.surplus<0?'val-negative':'val-positive'}">${d.surplus>0?'+':''}${fmtK(d.surplus)}</div><div class="fw-bold ${rT}">${fmtK(d.debugNW)}</div><div class="text-center toggle-icon ${rT}"><i class="bi bi-chevron-down"></i></div></div><div class="grid-detail-wrapper"><div class="detail-container"><div class="detail-box surface-card"><div class="detail-title">Income Sources</div>${iL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total Gross Inflow</span> <span class="text-success fw-bold">${fmtK(d.grossInflow)}</span></div></div><div class="detail-box surface-card"><div class="detail-title">Outflows & Taxes</div>${eL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total Out</span> <span class="text-danger fw-bold">${fmtK(d.visualExpenses)}</span></div></div><div class="detail-box surface-card"><div class="detail-title">Assets (End of Year)</div>${aL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total NW</span> <span class="text-info fw-bold">${fmtK(d.debugNW)}</span></div></div></div></div></div>`;
+            html += `<div class="grid-row-group" style="${th==='light'?'border-bottom:1px solid #ddd;':''}"><div class="grid-summary-row ${rB}" onclick="app.ui.toggleRow(this)"><div class="col-start col-timeline"><div class="d-flex align-items-center"><span class="fw-bold fs-6 me-1 ${rT}">${d.year}</span><span class="event-icons-inline">${d.events.map(k=>this.getIconHTML(k,th)).join('')}</span></div><span class="age-text ${rT}">${p1A} ${this.app.state.mode==='Couple'?'/ '+p2A:''}</span></div><div class="col-start">${stat}</div><div class="val-positive">${fmtK(d.grossInflow * df)}</div><div class="val-neutral text-danger">${fmtK(d.visualExpenses * df)}</div><div class="${d.surplus<0?'val-negative':'val-positive'}">${d.surplus>0?'+':''}${fmtK(d.surplus * df)}</div><div class="fw-bold ${rT}">${fmtK(d.debugNW * df)}</div><div class="text-center toggle-icon ${rT}"><i class="bi bi-chevron-down"></i></div></div><div class="grid-detail-wrapper"><div class="detail-container"><div class="detail-box surface-card"><div class="detail-title">Income Sources</div>${iL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total Gross Inflow</span> <span class="text-success fw-bold">${fmtK(d.grossInflow * df)}</span></div></div><div class="detail-box surface-card"><div class="detail-title">Outflows & Taxes</div>${eL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total Out</span> <span class="text-danger fw-bold">${fmtK(d.visualExpenses * df)}</span></div></div><div class="detail-box surface-card"><div class="detail-title">Assets (End of Year)</div>${aL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total NW</span> <span class="text-info fw-bold">${fmtK(d.debugNW * df)}</span></div></div></div></div></div>`;
         });
         const grid = document.getElementById('projectionGrid'); if(grid) grid.innerHTML = html;
         
@@ -288,45 +288,49 @@ class UIController {
 
     drawSankey(idx) {
         if (!this.app.state.projectionData[idx] || !google?.visualization || !google.visualization.Sankey) return;
-        const d = this.app.state.projectionData[idx], rows = [], fmt = n => n>=1000000 ? '$'+(n/1000000).toFixed(1)+'M' : (n>=1000 ? '$'+Math.round(n/1000)+'k' : '$'+Math.round(n));
+        const d = this.app.state.projectionData[idx], rows = [];
+        const df = this.app.getDiscountFactor(d.year - new Date().getFullYear());
+        const fmt = n => n>=1000000 ? '$'+(n/1000000).toFixed(1)+'M' : (n>=1000 ? '$'+Math.round(n/1000)+'k' : '$'+Math.round(n));
+        const v = n => n / df;
         
         let totalIn = 0;
-        const addRow = (from, to, val) => {
-            if(Math.round(val) > 0) {
-                rows.push([from, to, Math.round(val)]);
-                if(to.includes('Available Cash')) totalIn += val;
+        const addRow = (from, to, valNum) => {
+            const adj = v(valNum);
+            if(Math.round(adj) > 0) {
+                rows.push([from, to, Math.round(adj)]);
+                if(to.includes('Available Cash')) totalIn += adj;
             }
         };
 
-        const potName = `Available Cash\n${fmt(d.householdNet)}`; 
+        const potName = `Available Cash\n${fmt(v(d.householdNet))}`; 
         
-        if(d.incomeP1>0) addRow(`Employment P1\n${fmt(d.incomeP1)}`, potName, d.incomeP1);
-        if(d.postRetP1>0) addRow(`Post-Ret Work P1\n${fmt(d.postRetP1)}`, potName, d.postRetP1);
-        if(d.cppP1>0) addRow(`CPP P1\n${fmt(d.cppP1)}`, potName, d.cppP1);
-        if(d.oasP1>0) addRow(`OAS P1\n${fmt(d.oasP1)}`, potName, d.oasP1);
-        if(d.dbP1>0) addRow(`DB Pension P1\n${fmt(d.dbP1)}`, potName, d.dbP1);
-        if(d.invIncP1>0) addRow(`Inv. Yield P1\n${fmt(d.invIncP1)}`, potName, d.invIncP1);
+        if(d.incomeP1>0) addRow(`Employment P1\n${fmt(v(d.incomeP1))}`, potName, d.incomeP1);
+        if(d.postRetP1>0) addRow(`Post-Ret Work P1\n${fmt(v(d.postRetP1))}`, potName, d.postRetP1);
+        if(d.cppP1>0) addRow(`CPP P1\n${fmt(v(d.cppP1))}`, potName, d.cppP1);
+        if(d.oasP1>0) addRow(`OAS P1\n${fmt(v(d.oasP1))}`, potName, d.oasP1);
+        if(d.dbP1>0) addRow(`DB Pension P1\n${fmt(v(d.dbP1))}`, potName, d.dbP1);
+        if(d.invIncP1>0) addRow(`Inv. Yield P1\n${fmt(v(d.invIncP1))}`, potName, d.invIncP1);
 
-        if(d.incomeP2>0) addRow(`Employment P2\n${fmt(d.incomeP2)}`, potName, d.incomeP2);
-        if(d.postRetP2>0) addRow(`Post-Ret Work P2\n${fmt(d.postRetP2)}`, potName, d.postRetP2);
-        if(d.cppP2>0) addRow(`CPP P2\n${fmt(d.cppP2)}`, potName, d.cppP2);
-        if(d.oasP2>0) addRow(`OAS P2\n${fmt(d.oasP2)}`, potName, d.oasP2);
-        if(d.dbP2>0) addRow(`DB Pension P2\n${fmt(d.dbP2)}`, potName, d.dbP2);
-        if(d.invIncP2>0) addRow(`Inv. Yield P2\n${fmt(d.invIncP2)}`, potName, d.invIncP2);
+        if(d.incomeP2>0) addRow(`Employment P2\n${fmt(v(d.incomeP2))}`, potName, d.incomeP2);
+        if(d.postRetP2>0) addRow(`Post-Ret Work P2\n${fmt(v(d.postRetP2))}`, potName, d.postRetP2);
+        if(d.cppP2>0) addRow(`CPP P2\n${fmt(v(d.cppP2))}`, potName, d.cppP2);
+        if(d.oasP2>0) addRow(`OAS P2\n${fmt(v(d.oasP2))}`, potName, d.oasP2);
+        if(d.dbP2>0) addRow(`DB Pension P2\n${fmt(v(d.dbP2))}`, potName, d.dbP2);
+        if(d.invIncP2>0) addRow(`Inv. Yield P2\n${fmt(v(d.invIncP2))}`, potName, d.invIncP2);
 
-        if(d.windfall>0) addRow(`Inheritance/Bonus\n${fmt(d.windfall)}`, potName, d.windfall);
+        if(d.windfall>0) addRow(`Inheritance/Bonus\n${fmt(v(d.windfall))}`, potName, d.windfall);
 
-        if(d.flows?.withdrawals) Object.entries(d.flows.withdrawals).forEach(([s,a]) => addRow(`${s}\n${fmt(a)}`, potName, a));
+        if(d.flows?.withdrawals) Object.entries(d.flows.withdrawals).forEach(([s,a]) => addRow(`${s}\n${fmt(v(a))}`, potName, a));
         
         const tTax = d.taxP1 + d.taxP2, tDebt = d.mortgagePay + d.debtPay;
         
-        if(tTax>0) addRow(potName, `Taxes\n${fmt(tTax)}`, tTax);
-        if(d.expenses>0) addRow(potName, `Living Exp.\n${fmt(d.expenses)}`, d.expenses);
-        if(tDebt>0) addRow(potName, `Mortgage/Debt\n${fmt(tDebt)}`, tDebt);
+        if(tTax>0) addRow(potName, `Taxes\n${fmt(v(tTax))}`, tTax);
+        if(d.expenses>0) addRow(potName, `Living Exp.\n${fmt(v(d.expenses))}`, d.expenses);
+        if(tDebt>0) addRow(potName, `Mortgage/Debt\n${fmt(v(tDebt))}`, tDebt);
         
         if(d.flows?.contributions) {
-             Object.entries(d.flows.contributions.p1).forEach(([t,a]) => addRow(potName, `To P1 ${this.app.strategyLabels[t]||t}\n${fmt(a)}`, a));
-             Object.entries(d.flows.contributions.p2).forEach(([t,a]) => addRow(potName, `To P2 ${this.app.strategyLabels[t]||t}\n${fmt(a)}`, a));
+             Object.entries(d.flows.contributions.p1).forEach(([t,a]) => addRow(potName, `To P1 ${this.app.strategyLabels[t]||t}\n${fmt(v(a))}`, a));
+             Object.entries(d.flows.contributions.p2).forEach(([t,a]) => addRow(potName, `To P2 ${this.app.strategyLabels[t]||t}\n${fmt(v(a))}`, a));
         }
 
         if(rows.length === 0) return;
