@@ -28,12 +28,8 @@
       </div>
       
       <div class="d-flex align-items-center flex-wrap gap-2 gap-md-3">
-        
-        <button class="btn btn-outline-info shadow-sm d-flex align-items-center gap-2 px-3 fw-bold" type="button" data-bs-toggle="offcanvas" data-bs-target="#quickAdjustOffcanvas" aria-controls="quickAdjustOffcanvas" title="Open Quick Adjust Settings">
-          <i class="bi bi-sliders text-info"></i> <span class="d-none d-sm-inline text-info">Quick Adjust</span>
-        </button>
 
-        <div class="btn-group shadow-sm border-start border-secondary ps-3 ms-1">
+        <div class="btn-group shadow-sm">
             <button class="btn btn-primary d-flex align-items-center gap-2 px-3" data-bs-toggle="modal" data-bs-target="#saveScenarioModal" title="Save Plan">
                 <i class="bi bi-floppy"></i> <span class="d-none d-sm-inline">Save</span>
             </button>
@@ -225,7 +221,7 @@
                                     <div class="col-4 asset-ret-col">
                                         <div class="d-flex flex-column gap-1">
                                             <div class="input-group input-group-sm" title="Total Return"><span class="input-group-text border-secondary text-muted px-1" style="font-size:0.7rem;">Tot</span><input type="number" step="0.01" class="form-control live-calc px-1" id="p1_nonreg_ret" value="5.0"><span class="input-group-text px-1">%</span></div>
-                                            <div class="input-group input-group-sm" title="Yield (Dividends/Interest)"><span class="input-group-text border-secondary text-muted px-1" style="font-size:0.7rem;">Yld</span><input type="number" step="0.01" class="form-control live-calc px-1" id="p1_nonreg_yield" value="2.0"><span class="input-group-text px-1">%</span></div>
+                                            <div class="input-group input-group-sm" title="Yield (Dividends/Interest)"><span class="input-group-text border-secondary text-muted px-1" style="font-size:0.7rem;">Yld</span><input type="number" step="0.01" class="form-control live-calc px-1" id="p2_nonreg_yield" value="2.0"><span class="input-group-text px-1">%</span></div>
                                         </div>
                                     </div>
                                     <div class="col-3 adv-asset-col" style="display:none;">
@@ -974,39 +970,47 @@
       </div>
     </div>
 
-    <div class="offcanvas offcanvas-end surface-card border-start border-secondary shadow" tabindex="-1" id="quickAdjustOffcanvas" aria-labelledby="quickAdjustOffcanvasLabel">
-      <div class="offcanvas-header border-bottom border-secondary p-4">
-        <h5 class="offcanvas-title text-primary fw-bold text-uppercase ls-1 mb-0" id="quickAdjustOffcanvasLabel"><i class="bi bi-sliders me-2"></i>Quick Adjust</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    <div class="floating-widget-container">
+      
+      <div class="card shadow-lg border-secondary surface-card quick-adjust-card" id="quickAdjustWidget">
+        <div class="card-header border-bottom border-secondary p-3 d-flex justify-content-between align-items-center">
+          <h6 class="text-info fw-bold text-uppercase ls-1 mb-0"><i class="bi bi-sliders me-2"></i>Quick Adjust</h6>
+          <button type="button" class="btn-close btn-close-white" id="closeWidgetBtn" aria-label="Close"></button>
+        </div>
+        <div class="card-body p-4">
+          <p class="small text-muted mb-4 pb-2 border-bottom border-secondary">Tweak key variables here to instantly update your projections.</p>
+          
+          <div class="mb-4 pt-2">
+            <label class="form-label text-info fw-bold">P1 Retirement Age</label>
+            <input type="range" class="form-range" min="18" max="80" id="qa_p1_retireAge_range">
+            <div class="d-flex justify-content-between"><span class="small text-muted">Now</span><span class="fw-bold text-info" id="qa_p1_retireAge_val">60</span><span class="small text-muted">80</span></div>
+          </div>
+          
+          <div class="mb-4 p2-column pt-2">
+            <label class="form-label text-purple fw-bold">P2 Retirement Age</label>
+            <input type="range" class="form-range" min="18" max="80" id="qa_p2_retireAge_range">
+            <div class="d-flex justify-content-between"><span class="small text-muted">Now</span><span class="fw-bold text-purple" id="qa_p2_retireAge_val">60</span><span class="small text-muted">80</span></div>
+          </div>
+          
+          <div class="mb-4 pt-4 border-top border-secondary">
+            <label class="form-label text-warning fw-bold">Inflation Rate (%)</label>
+            <input type="range" class="form-range" min="1" max="8" step="0.1" id="qa_inflation_range">
+            <div class="d-flex justify-content-between"><span class="small text-muted">1%</span><span class="fw-bold text-warning" id="qa_inflation_val">2.5%</span><span class="small text-muted">8%</span></div>
+          </div>
+          
+          <div class="mb-4 pt-4 border-top border-secondary">
+            <label class="form-label text-success fw-bold">Market Return (%)</label>
+            <input type="range" class="form-range" min="1" max="12" step="0.1" id="qa_return_range">
+            <div class="d-flex justify-content-between"><span class="small text-muted">1%</span><span class="fw-bold text-success" id="qa_return_val">6.0%</span><span class="small text-muted">12%</span></div>
+            <p class="small text-muted mt-2 mb-0" style="font-size: 0.75rem;">*Updates P1 & P2 TFSA/RRSP base returns.</p>
+          </div>
+        </div>
       </div>
-      <div class="offcanvas-body p-4">
-        <p class="small text-muted mb-4 pb-2 border-bottom border-secondary">Tweak key variables here to instantly update your projections without navigating back to the Inputs tab.</p>
-        
-        <div class="mb-4 pt-2">
-          <label class="form-label text-info fw-bold">P1 Retirement Age</label>
-          <input type="range" class="form-range" min="18" max="80" id="qa_p1_retireAge_range">
-          <div class="d-flex justify-content-between"><span class="small text-muted">Now</span><span class="fw-bold text-info" id="qa_p1_retireAge_val">60</span><span class="small text-muted">80</span></div>
-        </div>
-        
-        <div class="mb-4 p2-column pt-2">
-          <label class="form-label text-purple fw-bold">P2 Retirement Age</label>
-          <input type="range" class="form-range" min="18" max="80" id="qa_p2_retireAge_range">
-          <div class="d-flex justify-content-between"><span class="small text-muted">Now</span><span class="fw-bold text-purple" id="qa_p2_retireAge_val">60</span><span class="small text-muted">80</span></div>
-        </div>
-        
-        <div class="mb-4 pt-4 border-top border-secondary">
-          <label class="form-label text-warning fw-bold">Inflation Rate (%)</label>
-          <input type="range" class="form-range" min="1" max="8" step="0.1" id="qa_inflation_range">
-          <div class="d-flex justify-content-between"><span class="small text-muted">1%</span><span class="fw-bold text-warning" id="qa_inflation_val">2.5%</span><span class="small text-muted">8%</span></div>
-        </div>
-        
-        <div class="mb-4 pt-4 border-top border-secondary">
-          <label class="form-label text-success fw-bold">Market Return (%)</label>
-          <input type="range" class="form-range" min="1" max="12" step="0.1" id="qa_return_range">
-          <div class="d-flex justify-content-between"><span class="small text-muted">1%</span><span class="fw-bold text-success" id="qa_return_val">6.0%</span><span class="small text-muted">12%</span></div>
-          <p class="small text-muted mt-2 mb-0" style="font-size: 0.75rem;">*Updates P1 & P2 TFSA/RRSP baseline returns.</p>
-        </div>
-      </div>
+      
+      <button class="btn btn-info rounded-circle shadow-lg fab-btn" id="fabQuickAdjust" title="Quick Adjust Settings">
+        <i class="bi bi-sliders fs-4 text-dark"></i>
+      </button>
+
     </div>
     <div class="modal fade" id="saveScenarioModal" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered">
