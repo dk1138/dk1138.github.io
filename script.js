@@ -1,6 +1,7 @@
 /**
- * Retirement Planner Pro - Logic v10.9.3
+ * Retirement Planner Pro - Logic v10.9.4
  * * Changelog:
+ * - v10.9.4: BUGFIX: Deep cloned state in getEngineData() to prevent headless optimizers from corrupting global application state.
  * - v10.9.3: NEW: Added "Die with Zero" Optimizer. Uses headless binary/linear searches to recommend spending increases or earlier retirement ages.
  * - v10.9.2: FEATURE: "Clear All" now defaults users to Age 30, 2.5% Inflation, 6% Returns, and disables OAS/CPP/DB by default.
  * - v10.9.1: BUGFIX: "Clear All" button now properly wipes all dynamically added fields and blanks standard inputs.
@@ -9,7 +10,7 @@
 
 class RetirementPlanner {
     constructor() {
-        this.APP_VERSION = "10.9.3";
+        this.APP_VERSION = "10.9.4";
         this.state = {
             inputs: {},
             debt: [],
@@ -84,17 +85,20 @@ class RetirementPlanner {
         };
     }
 
-    // Returns a bundle of current state ready for the FinanceEngine
+    // Returns a bundle of current state ready for the FinanceEngine (Deep Cloned to prevent headless mutation)
     getEngineData() {
         return {
-            inputs: this.state.inputs,
-            properties: this.state.properties,
-            windfalls: this.state.windfalls,
-            additionalIncome: this.state.additionalIncome,
-            strategies: this.state.strategies,
+            inputs: { ...this.state.inputs },
+            properties: JSON.parse(JSON.stringify(this.state.properties)),
+            windfalls: JSON.parse(JSON.stringify(this.state.windfalls)),
+            additionalIncome: JSON.parse(JSON.stringify(this.state.additionalIncome)),
+            strategies: { 
+                accum: [...this.state.strategies.accum], 
+                decum: [...this.state.strategies.decum] 
+            },
             mode: this.state.mode,
             expenseMode: this.state.expenseMode,
-            expensesByCategory: this.expensesByCategory,
+            expensesByCategory: JSON.parse(JSON.stringify(this.expensesByCategory)),
             constants: this.CONSTANTS,
             strategyLabels: this.strategyLabels
         };
@@ -898,7 +902,7 @@ class RetirementPlanner {
                 if (testP1Age > currentP1Age) testP1Age--;
                 if (this.state.mode === 'Couple' && testP2Age > currentP2Age) testP2Age--;
                 
-                let testData = this.getEngineData();
+                let testData = this.getEngineData(); // Uses safe deep-clone
                 testData.inputs['p1_retireAge'] = testP1Age;
                 if(this.state.mode === 'Couple') testData.inputs['p2_retireAge'] = testP2Age;
                 
