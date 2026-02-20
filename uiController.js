@@ -196,7 +196,18 @@ class UIController {
             if(d.incomeP1 > 0) groupP1 += ln("Employment", d.incomeP1);
             if(d.postRetP1 > 0) groupP1 += sL("Post-Ret Work", d.postRetP1);
             if(d.cppP1 > 0) groupP1 += sL("CPP", d.cppP1);
-            if(d.oasP1 > 0) groupP1 += sL("OAS", d.oasP1);
+            
+            if(d.oasP1 > 0) {
+                let label = "OAS";
+                if (d.oasClawbackP1 > 0) {
+                    let cbStr = Math.round(d.oasClawbackP1 / df).toLocaleString();
+                    let incStr = Math.round((d.taxIncP1 || 0) / df).toLocaleString();
+                    let threshStr = Math.round((d.oasThreshold || 0) / df).toLocaleString();
+                    label += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="OAS Clawback Math" data-bs-content="<b>Net Income:</b> $${incStr}<br><b>Threshold:</b> $${threshStr}<hr class='my-1'><b>Repayment (15% of excess):</b> $${cbStr}<br><span class='text-warning small' style='font-size:0.7rem;'>*Added to total taxes paid</span>"></i>`;
+                }
+                groupP1 += sL(label, d.oasP1);
+            }
+            
             if(d.dbP1 > 0) groupP1 += sL("DB Pension", d.dbP1);
             if(d.invIncP1 > 0) groupP1 += ln("Inv. Yield (Taxable)", d.invIncP1, "text-muted");
             
@@ -224,7 +235,18 @@ class UIController {
                 if(d.incomeP2 > 0) groupP2 += ln("Employment", d.incomeP2);
                 if(d.postRetP2 > 0) groupP2 += sL("Post-Ret Work", d.postRetP2);
                 if(d.cppP2 > 0) groupP2 += sL("CPP", d.cppP2);
-                if(d.oasP2 > 0) groupP2 += sL("OAS", d.oasP2);
+                
+                if(d.oasP2 > 0) {
+                    let label = "OAS";
+                    if (d.oasClawbackP2 > 0) {
+                        let cbStr = Math.round(d.oasClawbackP2 / df).toLocaleString();
+                        let incStr = Math.round((d.taxIncP2 || 0) / df).toLocaleString();
+                        let threshStr = Math.round((d.oasThreshold || 0) / df).toLocaleString();
+                        label += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="OAS Clawback Math" data-bs-content="<b>Net Income:</b> $${incStr}<br><b>Threshold:</b> $${threshStr}<hr class='my-1'><b>Repayment (15% of excess):</b> $${cbStr}<br><span class='text-warning small' style='font-size:0.7rem;'>*Added to total taxes paid</span>"></i>`;
+                    }
+                    groupP2 += sL(label, d.oasP2);
+                }
+                
                 if(d.dbP2 > 0) groupP2 += sL("DB Pension", d.dbP2);
                 if(d.invIncP2 > 0) groupP2 += ln("Inv. Yield (Taxable)", d.invIncP2, "text-muted");
                 Object.entries(d.wdBreakdown.p2).forEach(([t,a]) => {
