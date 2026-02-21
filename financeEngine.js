@@ -177,7 +177,11 @@ class FinanceEngine {
                 if(trackedEvents && age === parseInt(this.getRaw(`${pfx}_cpp_start`))) { trackedEvents.add(`${pfx.toUpperCase()} CPP`); }
             }
             if(this.inputs[`${pfx}_oas_enabled`] && age >= parseInt(this.getRaw(`${pfx}_oas_start`))) {
-                inf.oas = this.calcBen(maxOas, parseInt(this.getRaw(`${pfx}_oas_start`)), 1, 65, 'oas');
+                let baseOas = this.calcBen(maxOas, parseInt(this.getRaw(`${pfx}_oas_start`)), 1, 65, 'oas');
+                if (age >= 75) {
+                    baseOas *= 1.10; // CRA 10% structural boost for age 75+
+                }
+                inf.oas = baseOas;
                 if(trackedEvents && age === parseInt(this.getRaw(`${pfx}_oas_start`))) { trackedEvents.add(`${pfx.toUpperCase()} OAS`); }
             }
             return inf;
@@ -942,6 +946,7 @@ class FinanceEngine {
                     benefitsP1: inflows.p1.cpp + inflows.p1.oas, benefitsP2: inflows.p2.cpp + inflows.p2.oas,
                     dbP1: inflows.p1.pension, dbP2: inflows.p2.pension,
                     taxP1: tax1.totalTax, taxP2: tax2.totalTax,
+                    taxDetailsP1: tax1, taxDetailsP2: tax2,
                     p1Net: netIncome1, p2Net: netIncome2,
                     pensionSplit: pensionSplitTransfer,
                     expenses: expenses, mortgagePay: mortgagePayment, debtRepayment,
