@@ -203,7 +203,19 @@ class UIController {
                     let cbStr = Math.round(d.oasClawbackP1 / df).toLocaleString();
                     let incStr = Math.round((d.taxIncP1 || 0) / df).toLocaleString();
                     let threshStr = Math.round((d.oasThreshold || 0) / df).toLocaleString();
-                    label += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="OAS Clawback Math" data-bs-content="<b>Net Income:</b> $${incStr}<br><b>Threshold:</b> $${threshStr}<hr class='my-1'><b>Repayment (15% of excess):</b> $${cbStr}<br><span class='text-warning small' style='font-size:0.7rem;'>*Added to total taxes paid</span>"></i>`;
+                    
+                    let excess = Math.max(0, (d.taxIncP1 || 0) - (d.oasThreshold || 0));
+                    let excessStr = Math.round(excess / df).toLocaleString();
+                    
+                    let maxRecovery = d.oasP1;
+                    let maxIncome = (d.oasThreshold || 0) + (maxRecovery / 0.15);
+                    let maxIncStr = Math.round(maxIncome / df).toLocaleString();
+                    
+                    let repaymentText = (d.oasClawbackP1 >= maxRecovery - 0.01) ? 
+                        `<b>Repayment (100% Clawed Back):</b> $${cbStr}` : 
+                        `<b>Repayment (15% of excess):</b> $${cbStr}`;
+
+                    label += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="OAS Clawback Math" data-bs-content="<b>Net Income:</b> $${incStr}<br><b>Threshold:</b> $${threshStr}<br><b>Excess:</b> $${excessStr}<hr class='my-1'>${repaymentText}<br><span class='text-warning small' style='font-size:0.7rem;'>*Fully clawed back at $${maxIncStr}</span><br><span class='text-muted small' style='font-size:0.7rem;'>*Added to total taxes paid</span>"></i>`;
                 }
                 groupP1 += sL(label, d.oasP1);
             }
@@ -246,7 +258,19 @@ class UIController {
                         let cbStr = Math.round(d.oasClawbackP2 / df).toLocaleString();
                         let incStr = Math.round((d.taxIncP2 || 0) / df).toLocaleString();
                         let threshStr = Math.round((d.oasThreshold || 0) / df).toLocaleString();
-                        label += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="OAS Clawback Math" data-bs-content="<b>Net Income:</b> $${incStr}<br><b>Threshold:</b> $${threshStr}<hr class='my-1'><b>Repayment (15% of excess):</b> $${cbStr}<br><span class='text-warning small' style='font-size:0.7rem;'>*Added to total taxes paid</span>"></i>`;
+                        
+                        let excess = Math.max(0, (d.taxIncP2 || 0) - (d.oasThreshold || 0));
+                        let excessStr = Math.round(excess / df).toLocaleString();
+                        
+                        let maxRecovery = d.oasP2;
+                        let maxIncome = (d.oasThreshold || 0) + (maxRecovery / 0.15);
+                        let maxIncStr = Math.round(maxIncome / df).toLocaleString();
+                        
+                        let repaymentText = (d.oasClawbackP2 >= maxRecovery - 0.01) ? 
+                            `<b>Repayment (100% Clawed Back):</b> $${cbStr}` : 
+                            `<b>Repayment (15% of excess):</b> $${cbStr}`;
+
+                        label += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="OAS Clawback Math" data-bs-content="<b>Net Income:</b> $${incStr}<br><b>Threshold:</b> $${threshStr}<br><b>Excess:</b> $${excessStr}<hr class='my-1'>${repaymentText}<br><span class='text-warning small' style='font-size:0.7rem;'>*Fully clawed back at $${maxIncStr}</span><br><span class='text-muted small' style='font-size:0.7rem;'>*Added to total taxes paid</span>"></i>`;
                     }
                     groupP2 += sL(label, d.oasP2);
                 }
