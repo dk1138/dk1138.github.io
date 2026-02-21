@@ -7,16 +7,16 @@ class UIController {
         this.app = app;
         
         this.iconDefs = {
-            "P1 Retires": { icon: 'bi-cup-hot-fill', color: 'text-warning', title: "P1 Retires" }, 
-            "P2 Retires": { icon: 'bi-cup-hot', color: 'text-purple', title: "P2 Retires" },
+            "P1 Retires": { icon: 'bi-cup-hot-fill', color: 'text-warning', title: "Person 1 Retires" }, 
+            "P2 Retires": { icon: 'bi-cup-hot', color: 'text-purple', title: "Person 2 Retires" },
             "Mortgage Paid": { icon: 'bi-house-check-fill', color: 'text-success', title: "Mortgage Paid" }, 
             "Crash": { icon: 'bi-graph-down-arrow', color: 'text-danger', title: "Stress Test: Market Crash (-15%)" },
-            "P1 CPP": { icon: 'bi-file-earmark-text-fill', color: 'text-info', title: "P1 Starts CPP" }, 
-            "P1 OAS": { icon: 'bi-cash-stack', color: 'text-info', title: "P1 Starts OAS" },
-            "P2 CPP": { icon: 'bi-file-earmark-text', color: 'text-purple', title: "P2 Starts CPP" }, 
-            "P2 OAS": { icon: 'bi-cash', color: 'text-purple', title: "P2 Starts OAS" },
-            "P1 Dies": { icon: 'bi-heartbreak-fill', color: 'text-white', title: "P1 Deceased" }, 
-            "P2 Dies": { icon: 'bi-heartbreak', color: 'text-white', title: "P2 Deceased" },
+            "P1 CPP": { icon: 'bi-file-earmark-text-fill', color: 'text-info', title: "Person 1 Starts CPP" }, 
+            "P1 OAS": { icon: 'bi-cash-stack', color: 'text-info', title: "Person 1 Starts OAS" },
+            "P2 CPP": { icon: 'bi-file-earmark-text', color: 'text-purple', title: "Person 2 Starts CPP" }, 
+            "P2 OAS": { icon: 'bi-cash', color: 'text-purple', title: "Person 2 Starts OAS" },
+            "P1 Dies": { icon: 'bi-heartbreak-fill', color: 'text-white', title: "Person 1 Deceased" }, 
+            "P2 Dies": { icon: 'bi-heartbreak', color: 'text-white', title: "Person 2 Deceased" },
             "Windfall": { icon: 'bi-gift-fill', color: 'text-success', title: "Inheritance/Bonus Received" },
             "Downsize": { icon: 'bi-box-seam-fill', color: 'text-primary', title: "Real Estate Downsizing" }
         };
@@ -305,8 +305,8 @@ class UIController {
             if(d.windfall > 0) groupOther += ln("Inheritance/Bonus", d.windfall, "text-success fw-bold");
 
             let iL = '';
-            if(groupP1) iL += `<div class="mb-2"><span class="text-info fw-bold small text-uppercase" style="font-size:0.7rem; border-bottom:1px solid #334155; display:block; margin-bottom:4px;">Player 1</span>${groupP1}</div>`;
-            if(groupP2) iL += `<div class="mb-2"><span class="text-purple fw-bold small text-uppercase" style="font-size:0.7rem; border-bottom:1px solid #334155; display:block; margin-bottom:4px;">Player 2</span>${groupP2}</div>`;
+            if(groupP1) iL += `<div class="mb-2"><span class="text-info fw-bold small text-uppercase" style="font-size:0.7rem; border-bottom:1px solid #334155; display:block; margin-bottom:4px;">Person 1</span>${groupP1}</div>`;
+            if(groupP2) iL += `<div class="mb-2"><span class="text-purple fw-bold small text-uppercase" style="font-size:0.7rem; border-bottom:1px solid #334155; display:block; margin-bottom:4px;">Person 2</span>${groupP2}</div>`;
             if(groupOther) iL += `<div>${groupOther}</div>`;
             
             const buildTaxInfo = (tDetails, pName, taxIncObjStr) => {
@@ -333,6 +333,8 @@ class UIController {
             let eL = ln("Living Exp",d.expenses) + ln("Mortgage",d.mortgagePay) + ln("Debt Repayment",d.debtRepayment) + ln(p1TaxLabel, d.taxP1, "val-negative") + (this.app.state.mode === 'Couple' ? ln(p2TaxLabel, d.taxP2, "val-negative") : '');
             
             let aL = ln(`TFSA P1${fmtFlow(d.flows.contributions.p1.tfsa, d.wdBreakdown.p1['TFSA'])}`, d.assetsP1.tfsa) + (this.app.state.mode==='Couple'?ln(`TFSA P2${fmtFlow(d.flows.contributions.p2.tfsa, d.wdBreakdown.p2['TFSA'])}`, d.assetsP2.tfsa):'');
+            
+            aL += ln(`TFSA (Successor) P1${fmtFlow(0, d.wdBreakdown.p1['TFSA (Successor)'])}`, d.assetsP1.tfsa_successor) + (this.app.state.mode==='Couple'?ln(`TFSA (Successor) P2${fmtFlow(0, d.wdBreakdown.p2['TFSA (Successor)'])}`, d.assetsP2.tfsa_successor):'');
             
             let r1Label = d.p1Age >= 72 ? 'RRIF' : 'RRSP';
             let r1Wd = (d.wdBreakdown.p1['RRSP']||0) + (d.wdBreakdown.p1['RRIF']||0);
