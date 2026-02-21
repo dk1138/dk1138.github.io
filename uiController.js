@@ -309,7 +309,28 @@ class UIController {
             if(groupP2) iL += `<div class="mb-2"><span class="text-purple fw-bold small text-uppercase" style="font-size:0.7rem; border-bottom:1px solid #334155; display:block; margin-bottom:4px;">Player 2</span>${groupP2}</div>`;
             if(groupOther) iL += `<div>${groupOther}</div>`;
             
-            let eL = ln("Living Exp",d.expenses)+ln("Mortgage",d.mortgagePay)+ln("Debt Repayment",d.debtRepayment)+ln("Tax Paid P1",d.taxP1,"val-negative")+(this.app.state.mode==='Couple'?ln("Tax Paid P2",d.taxP2,"val-negative"):'');
+            const buildTaxInfo = (tDetails, pName, taxIncObjStr) => {
+                if (!tDetails || tDetails.totalTax <= 0) return `Tax Paid ${pName}`;
+                
+                let content = `<b>Federal Tax:</b> $${Math.round(tDetails.fed / df).toLocaleString()}<br><b>Provincial Tax:</b> $${Math.round(tDetails.prov / df).toLocaleString()}<br><b>CPP/EI:</b> $${Math.round(tDetails.cpp_ei / df).toLocaleString()}`;
+                
+                if (tDetails.oas_clawback > 0) {
+                    content += `<br><b>OAS Clawback:</b> $${Math.round(tDetails.oas_clawback / df).toLocaleString()}`;
+                }
+                
+                let taxInc = d[taxIncObjStr] || 1;
+                let avgRate = ((tDetails.totalTax / taxInc) * 100).toFixed(1);
+                let margRate = ((tDetails.margRate || 0) * 100).toFixed(1);
+                
+                content += `<hr class='my-1'><b>Taxable Income:</b> $${Math.round(taxInc / df).toLocaleString()}<br><b>Average Rate:</b> ${avgRate}%<br><b>Marginal Rate:</b> ${margRate}%`;
+                
+                return `Tax Paid ${pName} <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="${pName} Tax Breakdown" data-bs-content="${content}"></i>`;
+            };
+
+            let p1TaxLabel = buildTaxInfo(d.taxDetailsP1, 'P1', 'taxIncP1');
+            let p2TaxLabel = this.app.state.mode === 'Couple' ? buildTaxInfo(d.taxDetailsP2, 'P2', 'taxIncP2') : '';
+
+            let eL = ln("Living Exp",d.expenses) + ln("Mortgage",d.mortgagePay) + ln("Debt Repayment",d.debtRepayment) + ln(p1TaxLabel, d.taxP1, "val-negative") + (this.app.state.mode === 'Couple' ? ln(p2TaxLabel, d.taxP2, "val-negative") : '');
             
             let aL = ln(`TFSA P1${fmtFlow(d.flows.contributions.p1.tfsa, d.wdBreakdown.p1['TFSA'])}`, d.assetsP1.tfsa) + (this.app.state.mode==='Couple'?ln(`TFSA P2${fmtFlow(d.flows.contributions.p2.tfsa, d.wdBreakdown.p2['TFSA'])}`, d.assetsP2.tfsa):'');
             
@@ -370,8 +391,6 @@ class UIController {
                 debtFreeYear = d.year;
             }
 
-            // A tiny deficit can happen from tax bracket math rounding. 
-            // We only declare bankruptcy if they ALSO have $0 liquid assets left.
             if (d.surplus < -10 && d.liquidNW <= 10 && !isBankrupt) {
                 isBankrupt = true;
                 bankruptAge = d.p1Age;
