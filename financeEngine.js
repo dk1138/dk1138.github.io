@@ -71,28 +71,7 @@ class FinanceEngine {
 
     calculateTaxDetailed(inc, prov, tDat, oasReceived = 0, oasThreshold = 0) {
         if(inc <= 0) return { fed: 0, prov: 0, cpp_ei: 0, oas_clawback: 0, totalTax: 0, margRate: 0 };
-        const D = tDat;
-        const fC = this.calculateProgressiveTax(inc, D.FED.brackets, D.FED.rates);
-        const pC = this.calculateProgressiveTax(inc, D[prov]?.brackets || [999999999], D[prov]?.rates || [0.10]);
-        let fed = fC.tax, provT = pC.tax, mF = fC.marg, mP = pC.marg;
         
-        if(prov === 'ON'){ 
-            let s = 0; 
-            if(D.ON.surtax){ 
-                if(provT > D.ON.surtax.t1) s += (provT - D.ON.surtax.t1) * D.ON.surtax.r1; 
-                if(provT > D.ON.surtax.t2) s += (provT - D.ON.surtax.t2) * D.ON.surtax.r2; 
-            } 
-            if(s > 0) mP *= 1.56; 
-            provT += s + (inc > 20000 ? Math.min(900, (inc - 20000) * 0.06) : 0); 
-        }
-        if(prov === 'PE' && D.PE.surtax && provT > D.PE.surtax.t1) provT += (provT - D.PE.surtax.t1) * D.PE.surtax.r1;
-        if(prov === 'QC' && D.QC.abatement) fed -= fed * D.QC.abatement;
-        
-        let cpp = 0; 
-        if(inc > 3500) cpp += (Math.min(inc, 74600) - 3500) * 0.0595; 
-        if(inc > 74600) cpp += (Math.min(inc, 85000) - 74600) * 0.04;
-        const ei = Math.min(inc, 68900) * 0.0164;
-
         let oasClawback = 0;
         let oasMarg = 0;
         if (oasReceived > 0 && oasThreshold > 0 && inc > oasThreshold) {
@@ -103,8 +82,39 @@ class FinanceEngine {
                 oasClawback = oasReceived; // Fully clawed back
             }
         }
+
+        // CRA Rule: OAS Repayment is deducted from Net Income (Line 23200) to arrive at Taxable Income
+        let taxIncForFedProv = Math.max(0, inc - oasClawback);
         
-        return { fed, prov: provT, cpp_ei: cpp + ei, oas_clawback: oasClawback, totalTax: fed + provT + cpp + ei + oasClawback, margRate: mF + mP + oasMarg };
+        const D = tDat;
+        const fC = this.calculateProgressiveTax(taxIncForFedProv, D.FED.brackets, D.FED.rates);
+        const pC = this.calculateProgressiveTax(taxIncForFedProv, D[prov]?.brackets || [999999999], D[prov]?.rates || [0.10]);
+        let fed = fC.tax, provT = pC.tax, mF = fC.marg, mP = pC.marg;
+        
+        if(prov === 'ON'){ 
+            let s = 0; 
+            if(D.ON.surtax){ 
+                if(provT > D.ON.surtax.t1) s += (provT - D.ON.surtax.t1) * D.ON.surtax.r1; 
+                if(provT > D.ON.surtax.t2) s += (provT - D.ON.surtax.t2) * D.ON.surtax.r2; 
+            } 
+            if(s > 0) mP *= 1.56; 
+            provT += s + (taxIncForFedProv > 20000 ? Math.min(900, (taxIncForFedProv - 20000) * 0.06) : 0); 
+        }
+        if(prov === 'PE' && D.PE.surtax && provT > D.PE.surtax.t1) provT += (provT - D.PE.surtax.t1) * D.PE.surtax.r1;
+        if(prov === 'QC' && D.QC.abatement) fed -= fed * D.QC.abatement;
+        
+        let cpp = 0; 
+        if(inc > 3500) cpp += (Math.min(inc, 74600) - 3500) * 0.0595; 
+        if(inc > 74600) cpp += (Math.min(inc, 85000) - 74600) * 0.04;
+        const ei = Math.min(inc, 68900) * 0.0164;
+
+        // Effective Marginal Rate accounts for the OAS deduction mitigating Fed/Prov Taxes
+        let actualMargRate = mF + mP;
+        if (oasMarg > 0) {
+            actualMargRate = 0.15 + 0.85 * (mF + mP);
+        }
+        
+        return { fed, prov: provT, cpp_ei: cpp + ei, oas_clawback: oasClawback, totalTax: fed + provT + cpp + ei + oasClawback, margRate: actualMargRate };
     }
 
     applyGrowth(p1, p2, isRet1, isRet2, isAdv, inf, i, simContext) {
@@ -300,12 +310,12 @@ class FinanceEngine {
             let maxTransfer = eligibleP1 * 0.5;
             let diff = t1 - t2;
             let transfer = Math.min(maxTransfer, diff / 2);
-            setTaxes(t1 - transfer, t2 + transfer);
+            if (transfer > 0) setTaxes(t1 - transfer, t2 + transfer, transfer, 'p1_to_p2');
         } else if (t2 > t1 && eligibleP2 > 0) {
             let maxTransfer = eligibleP2 * 0.5;
             let diff = t2 - t1;
             let transfer = Math.min(maxTransfer, diff / 2);
-            setTaxes(t1 + transfer, t2 - transfer);
+            if (transfer > 0) setTaxes(t1 + transfer, t2 - transfer, transfer, 'p2_to_p1');
         }
     }
 
@@ -769,8 +779,13 @@ class FinanceEngine {
             let taxableIncome1 = inflows.p1.gross + inflows.p1.cpp + inflows.p1.oas + inflows.p1.pension + rrifMin.p1 + inflows.p1.windfallTaxable + (person1.nreg * person1.nreg_yield);
             let taxableIncome2 = inflows.p2.gross + inflows.p2.cpp + inflows.p2.oas + inflows.p2.pension + rrifMin.p2 + inflows.p2.windfallTaxable + (alive2 ? (person2.nreg * person2.nreg_yield) : 0);
 
+            let pensionSplitTransfer = { p1ToP2: 0, p2ToP1: 0 };
             if (this.mode === 'Couple' && this.inputs['pension_split_enabled']) {
-                this.applyPensionSplitting(taxableIncome1, taxableIncome2, inflows, rrifMin, person1, person2, age1, age2, (n1, n2) => { taxableIncome1 = n1; taxableIncome2 = n2; });
+                this.applyPensionSplitting(taxableIncome1, taxableIncome2, inflows, rrifMin, person1, person2, age1, age2, (n1, n2, tAmt, dir) => { 
+                    taxableIncome1 = n1; taxableIncome2 = n2; 
+                    if (dir === 'p1_to_p2') pensionSplitTransfer.p1ToP2 = tAmt;
+                    if (dir === 'p2_to_p1') pensionSplitTransfer.p2ToP1 = tAmt;
+                });
             }
 
             let rrspDed = { p1: 0, p2: 0 };
@@ -872,6 +887,7 @@ class FinanceEngine {
                     dbP1: inflows.p1.pension, dbP2: inflows.p2.pension,
                     taxP1: tax1.totalTax, taxP2: tax2.totalTax,
                     p1Net: netIncome1, p2Net: netIncome2,
+                    pensionSplit: pensionSplitTransfer,
                     expenses: expenses, mortgagePay: mortgagePayment, debtRepayment,
                     surplus: Math.abs(cashSurplus) < 5 ? 0 : cashSurplus,
                     debugNW: finalNetWorth,
