@@ -725,21 +725,45 @@ class FinanceEngine {
 
             let deathEvents = [];
             
-            // TFSA Successor Holder transfer logic
+            // FULL SPOUSAL ROLLOVER: If a spouse dies, all their assets transfer tax-free to the survivor.
             if (!alive1 && !trackedEvents.has('P1 Dies')) {
                 trackedEvents.add('P1 Dies');
                 if (detailed) deathEvents.push('P1 Dies');
                 if (alive2 && this.mode === 'Couple') {
-                    person2.tfsa_successor += (person1.tfsa + person1.tfsa_successor);
+                    person2.tfsa_successor += (person1.tfsa + (person1.tfsa_successor || 0));
+                    person2.rrsp += person1.rrsp;
+                    person2.rrif_acct += person1.rrif_acct;
+                    person2.lif += person1.lif;
+                    person2.lirf += person1.lirf;
+                    person2.nreg += person1.nreg;
+                    person2.acb += person1.acb;
+                    person2.cash += person1.cash;
+                    person2.crypto += person1.crypto;
+                    person2.crypto_acb += person1.crypto_acb;
+                    
                     person1.tfsa = 0; person1.tfsa_successor = 0;
+                    person1.rrsp = 0; person1.rrif_acct = 0; person1.lif = 0; person1.lirf = 0;
+                    person1.nreg = 0; person1.acb = 0; person1.cash = 0; person1.crypto = 0; person1.crypto_acb = 0;
                 }
             }
             if (this.mode === 'Couple' && !alive2 && !trackedEvents.has('P2 Dies')) {
                 trackedEvents.add('P2 Dies');
                 if (detailed) deathEvents.push('P2 Dies');
                 if (alive1) {
-                    person1.tfsa_successor += (person2.tfsa + person2.tfsa_successor);
+                    person1.tfsa_successor += (person2.tfsa + (person2.tfsa_successor || 0));
+                    person1.rrsp += person2.rrsp;
+                    person1.rrif_acct += person2.rrif_acct;
+                    person1.lif += person2.lif;
+                    person1.lirf += person2.lirf;
+                    person1.nreg += person2.nreg;
+                    person1.acb += person2.acb;
+                    person1.cash += person2.cash;
+                    person1.crypto += person2.crypto;
+                    person1.crypto_acb += person2.crypto_acb;
+                    
                     person2.tfsa = 0; person2.tfsa_successor = 0;
+                    person2.rrsp = 0; person2.rrif_acct = 0; person2.lif = 0; person2.lirf = 0;
+                    person2.nreg = 0; person2.acb = 0; person2.cash = 0; person2.crypto = 0; person2.crypto_acb = 0;
                 }
             }
 
@@ -887,7 +911,8 @@ class FinanceEngine {
             }
 
             const assets1 = person1.tfsa + person1.tfsa_successor + person1.rrsp + person1.crypto + person1.nreg + person1.cash + person1.lirf + person1.lif + person1.rrif_acct;
-            const assets2 = alive2 ? person2.tfsa + person2.tfsa_successor + person2.rrsp + person2.crypto + person2.nreg + person2.cash + person2.lirf + person2.lif + person2.rrif_acct : 0;
+            const assets2 = person2.tfsa + person2.tfsa_successor + person2.rrsp + person2.crypto + person2.nreg + person2.cash + person2.lirf + person2.lif + person2.rrif_acct;
+            
             const liquidNW = (assets1 + assets2) - totalDebt;
             
             let realEstateValue = 0, realEstateDebt = 0;
@@ -907,7 +932,7 @@ class FinanceEngine {
                 const cashSurplus = grossInflow - (totalOutflows + tax1.totalTax + tax2.totalTax);
 
                 projectionData.push({
-                    year: yr, p1Age: age1, p2Age: alive2 ? age2 : null, p1Alive: alive1, p2Alive: alive2,
+                    year: yr, p1Age: age1, p2Age: this.mode === 'Couple' ? age2 : null, p1Alive: alive1, p2Alive: alive2,
                     incomeP1: inflows.p1.gross, incomeP2: inflows.p2.gross,
                     cppP1: inflows.p1.cpp, cppP2: inflows.p2.cpp,
                     oasP1: inflows.p1.oas, oasP2: inflows.p2.oas,
