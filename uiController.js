@@ -332,7 +332,19 @@ class UIController {
 
             let eL = ln("Living Exp",d.expenses) + ln("Mortgage",d.mortgagePay) + ln("Debt Repayment",d.debtRepayment) + ln(p1TaxLabel, d.taxP1, "val-negative") + (this.app.state.mode === 'Couple' ? ln(p2TaxLabel, d.taxP2, "val-negative") : '');
             
-            let aL = ln(`TFSA P1${fmtFlow(d.flows.contributions.p1.tfsa, d.wdBreakdown.p1['TFSA'])}`, d.assetsP1.tfsa) + (this.app.state.mode==='Couple'?ln(`TFSA P2${fmtFlow(d.flows.contributions.p2.tfsa, d.wdBreakdown.p2['TFSA'])}`, d.assetsP2.tfsa):'');
+            let aL = '';
+            
+            // Highlight the Spousal Rollover mechanic explicitly in the year it occurs
+            if (this.app.state.mode === 'Couple') {
+                if (d.events.includes('P1 Dies') && d.p2Alive) {
+                    aL += `<div class="detail-item mb-2" style="border-bottom: 1px dashed #eab308; padding-bottom: 4px;"><span class="text-warning fw-bold small" style="font-size:0.75rem;"><i class="bi bi-shuffle me-1"></i> Spousal Rollover (P1 &rarr; P2) <i class="bi bi-info-circle text-white ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="Tax-Free Spousal Rollover" data-bs-content="Person 1 passed away this year. Under CRA rules, their registered accounts (RRSP/RRIF, TFSA) and non-registered investments are transferred directly to Person 2 <b>tax-free</b>. No deemed disposition tax is triggered on these assets at this time."></i></span><span></span></div>`;
+                }
+                if (d.events.includes('P2 Dies') && d.p1Alive) {
+                    aL += `<div class="detail-item mb-2" style="border-bottom: 1px dashed #a855f7; padding-bottom: 4px;"><span class="text-purple fw-bold small" style="font-size:0.75rem;"><i class="bi bi-shuffle me-1"></i> Spousal Rollover (P2 &rarr; P1) <i class="bi bi-info-circle text-white ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="Tax-Free Spousal Rollover" data-bs-content="Person 2 passed away this year. Under CRA rules, their registered accounts (RRSP/RRIF, TFSA) and non-registered investments are transferred directly to Person 1 <b>tax-free</b>. No deemed disposition tax is triggered on these assets at this time."></i></span><span></span></div>`;
+                }
+            }
+            
+            aL += ln(`TFSA P1${fmtFlow(d.flows.contributions.p1.tfsa, d.wdBreakdown.p1['TFSA'])}`, d.assetsP1.tfsa) + (this.app.state.mode==='Couple'?ln(`TFSA P2${fmtFlow(d.flows.contributions.p2.tfsa, d.wdBreakdown.p2['TFSA'])}`, d.assetsP2.tfsa):'');
             
             aL += ln(`TFSA (Successor) P1${fmtFlow(0, d.wdBreakdown.p1['TFSA (Successor)'])}`, d.assetsP1.tfsa_successor) + (this.app.state.mode==='Couple'?ln(`TFSA (Successor) P2${fmtFlow(0, d.wdBreakdown.p2['TFSA (Successor)'])}`, d.assetsP2.tfsa_successor):'');
             
