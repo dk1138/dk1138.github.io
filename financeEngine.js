@@ -145,7 +145,9 @@ class FinanceEngine {
         }
 
         const grow = (p, rates) => {
-            p.tfsa *= (1 + rates.tfsa); p.rrsp *= (1 + rates.rrsp); p.cash *= (1 + rates.cash); p.crypto *= (1 + rates.cryp);
+            p.tfsa *= (1 + rates.tfsa);
+            if (p.tfsa_successor !== undefined) p.tfsa_successor *= (1 + rates.tfsa); 
+            p.rrsp *= (1 + rates.rrsp); p.cash *= (1 + rates.cash); p.crypto *= (1 + rates.cryp);
             p.lirf *= (1 + rates.lirf); p.lif *= (1 + rates.lif); p.rrif_acct *= (1 + rates.rrif_acct);
             p.nreg *= (1 + (rates.nreg - p.nreg_yield));
             if(!isRet1) p.inc *= (1 + rates.inc); 
@@ -252,7 +254,6 @@ class FinanceEngine {
         let r = { p1: 0, p2: 0, details: { p1: null, p2: null } };
         
         const calcMin = (p, age, preRrsp, preRrif) => {
-            // CRA uses age at the beginning of the year for the factor
             let factor = this.getRrifFactor(age - 1);
             let baseBal = age >= this.CONSTANTS.RRIF_START_AGE ? (preRrsp + preRrif) : preRrif;
             
@@ -424,21 +425,26 @@ class FinanceEngine {
         // Helper to check if a specific bucket has funds
         let hasBal = (p, t) => {
             if (t === 'rrsp') return (p.rrif_acct + p.lif + p.lirf + p.rrsp) > 0;
+            if (t === 'tfsa') return (p.tfsa + (p.tfsa_successor || 0)) > 0;
             return p[t] > 0;
         };
 
         const wd = (p, t, a, pfx, mRate) => { 
             if(a <= 0) return {net: 0, tax: 0};
             
-            // Treat 'rrsp' as a smart bucket: Drain RRIF -> LIF -> LIRF -> RRSP sequentially
-            let accountsToPull = t === 'rrsp' ? ['rrif_acct', 'lif', 'lirf', 'rrsp'] : [t];
+            // Treat 'rrsp' and 'tfsa' as smart buckets that drain multiple sub-accounts
+            let accountsToPull;
+            if (t === 'rrsp') accountsToPull = ['rrif_acct', 'lif', 'lirf', 'rrsp'];
+            else if (t === 'tfsa') accountsToPull = ['tfsa', 'tfsa_successor'];
+            else accountsToPull = [t];
+
             let totalNetGot = 0;
             let totalTaxGot = 0;
             let remainingNeed = a;
 
             for (let act of accountsToPull) {
                 if (remainingNeed <= 0.01) break;
-                if (p[act] <= 0) continue;
+                if (!p[act] || p[act] <= 0) continue;
 
                 let isFullyTaxable = ['rrsp', 'rrif_acct', 'lif', 'lirf'].includes(act);
                 let isCapGain = ['nreg', 'crypto'].includes(act);
@@ -468,6 +474,7 @@ class FinanceEngine {
                 else if (act === 'lif') logKey = 'LIF';
                 else if (act === 'lirf') logKey = 'LIRF';
                 else if (act === 'tfsa') logKey = 'TFSA';
+                else if (act === 'tfsa_successor') logKey = 'TFSA (Successor)';
                 else if (act === 'nreg') logKey = 'Non-Reg';
                 else if (act === 'cash') logKey = 'Cash';
                 else if (act === 'crypto') logKey = 'Crypto';
@@ -698,8 +705,8 @@ class FinanceEngine {
         let nwArray = [];
         let projectionData = [];
 
-        let person1 = { tfsa: this.getVal('p1_tfsa'), rrsp: this.getVal('p1_rrsp'), cash: this.getVal('p1_cash'), nreg: this.getVal('p1_nonreg'), crypto: this.getVal('p1_crypto'), lirf: this.getVal('p1_lirf'), lif: this.getVal('p1_lif'), rrif_acct: this.getVal('p1_rrif_acct'), inc: this.getVal('p1_income'), dob: new Date(this.getRaw('p1_dob') || "1990-01"), retAge: this.getVal('p1_retireAge'), lifeExp: this.getVal('p1_lifeExp'), nreg_yield: this.getVal('p1_nonreg_yield')/100, acb: this.getVal('p1_nonreg'), crypto_acb: this.getVal('p1_crypto') };
-        let person2 = { tfsa: this.getVal('p2_tfsa'), rrsp: this.getVal('p2_rrsp'), cash: this.getVal('p2_cash'), nreg: this.getVal('p2_nonreg'), crypto: this.getVal('p2_crypto'), lirf: this.getVal('p2_lirf'), lif: this.getVal('p2_lif'), rrif_acct: this.getVal('p2_rrif_acct'), inc: this.getVal('p2_income'), dob: new Date(this.getRaw('p2_dob') || "1990-01"), retAge: this.getVal('p2_retireAge'), lifeExp: this.getVal('p2_lifeExp'), nreg_yield: this.getVal('p2_nonreg_yield')/100, acb: this.getVal('p2_nonreg'), crypto_acb: this.getVal('p2_crypto') };
+        let person1 = { tfsa: this.getVal('p1_tfsa'), tfsa_successor: 0, rrsp: this.getVal('p1_rrsp'), cash: this.getVal('p1_cash'), nreg: this.getVal('p1_nonreg'), crypto: this.getVal('p1_crypto'), lirf: this.getVal('p1_lirf'), lif: this.getVal('p1_lif'), rrif_acct: this.getVal('p1_rrif_acct'), inc: this.getVal('p1_income'), dob: new Date(this.getRaw('p1_dob') || "1990-01"), retAge: this.getVal('p1_retireAge'), lifeExp: this.getVal('p1_lifeExp'), nreg_yield: this.getVal('p1_nonreg_yield')/100, acb: this.getVal('p1_nonreg'), crypto_acb: this.getVal('p1_crypto') };
+        let person2 = { tfsa: this.getVal('p2_tfsa'), tfsa_successor: 0, rrsp: this.getVal('p2_rrsp'), cash: this.getVal('p2_cash'), nreg: this.getVal('p2_nonreg'), crypto: this.getVal('p2_crypto'), lirf: this.getVal('p2_lirf'), lif: this.getVal('p2_lif'), rrif_acct: this.getVal('p2_rrif_acct'), inc: this.getVal('p2_income'), dob: new Date(this.getRaw('p2_dob') || "1990-01"), retAge: this.getVal('p2_retireAge'), lifeExp: this.getVal('p2_lifeExp'), nreg_yield: this.getVal('p2_nonreg_yield')/100, acb: this.getVal('p2_nonreg'), crypto_acb: this.getVal('p2_crypto') };
 
         let simProperties = JSON.parse(JSON.stringify(this.properties));
         let totalDebt = totalDebtInitial;
@@ -731,6 +738,25 @@ class FinanceEngine {
             
             if (!alive1 && !alive2) break;
 
+            let deathEvents = [];
+            // Handle passing away and Successor Holder transfers
+            if (!alive1 && !trackedEvents.has('P1 Dies')) {
+                trackedEvents.add('P1 Dies');
+                if (detailed) deathEvents.push('P1 Dies');
+                if (alive2) {
+                    person2.tfsa_successor += person1.tfsa + person1.tfsa_successor;
+                    person1.tfsa = 0; person1.tfsa_successor = 0;
+                }
+            }
+            if (this.mode === 'Couple' && !alive2 && !trackedEvents.has('P2 Dies')) {
+                trackedEvents.add('P2 Dies');
+                if (detailed) deathEvents.push('P2 Dies');
+                if (alive1) {
+                    person1.tfsa_successor += person2.tfsa + person2.tfsa_successor;
+                    person2.tfsa = 0; person2.tfsa_successor = 0;
+                }
+            }
+
             const bInf = Math.pow(1 + consts.inflation, i);
             const oasThresholdInf = this.CONSTANTS.OAS_CLAWBACK_THRESHOLD * bInf;
             
@@ -746,7 +772,8 @@ class FinanceEngine {
             this.applyGrowth(person1, person2, isRet1, isRet2, this.inputs['asset_mode_advanced'], consts.inflation, i, simContext);
 
             const inflows = this.calcInflows(yr, i, person1, person2, age1, age2, alive1, alive2, isRet1, isRet2, consts, bInf, detailed ? trackedEvents : null);
-            
+            if (detailed && deathEvents.length > 0) inflows.events.push(...deathEvents);
+
             // Pass the pre-growth balances to the RRIF calculator (Calculated using the age-1 CRA rule)
             const rrifMin = this.calcRRIFMin(person1, person2, age1, age2, alive1, alive2, preGrowthRrsp1, preGrowthRrif1, preGrowthRrsp2, preGrowthRrif2);
             
@@ -875,8 +902,8 @@ class FinanceEngine {
                 surplus = (netIncome1 + netIncome2) - totalOutflows;
             }
 
-            const assets1 = person1.tfsa + person1.rrsp + person1.crypto + person1.nreg + person1.cash + person1.lirf + person1.lif + person1.rrif_acct;
-            const assets2 = alive2 ? person2.tfsa + person2.rrsp + person2.crypto + person2.nreg + person2.cash + person2.lirf + person2.lif + person2.rrif_acct : 0;
+            const assets1 = person1.tfsa + person1.tfsa_successor + person1.rrsp + person1.crypto + person1.nreg + person1.cash + person1.lirf + person1.lif + person1.rrif_acct;
+            const assets2 = alive2 ? person2.tfsa + person2.tfsa_successor + person2.rrsp + person2.crypto + person2.nreg + person2.cash + person2.lirf + person2.lif + person2.rrif_acct : 0;
             const liquidNW = (assets1 + assets2) - totalDebt;
             
             let realEstateValue = 0, realEstateDebt = 0;
