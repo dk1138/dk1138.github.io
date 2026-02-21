@@ -77,13 +77,12 @@ class FinanceEngine {
         if (oasReceived > 0 && oasThreshold > 0 && inc > oasThreshold) {
             oasClawback = (inc - oasThreshold) * 0.15;
             if (oasClawback < oasReceived) {
-                oasMarg = 0.15; // Within clawback zone, marginal rate increases by 15%
+                oasMarg = 0.15; 
             } else {
-                oasClawback = oasReceived; // Fully clawed back
+                oasClawback = oasReceived; 
             }
         }
 
-        // CRA Rule: OAS Repayment is deducted from Net Income (Line 23200) to arrive at Taxable Income
         let taxIncForFedProv = Math.max(0, inc - oasClawback);
         
         const D = tDat;
@@ -108,7 +107,6 @@ class FinanceEngine {
         if(inc > 74600) cpp += (Math.min(inc, 85000) - 74600) * 0.04;
         const ei = Math.min(inc, 68900) * 0.0164;
 
-        // Effective Marginal Rate accounts for the OAS deduction mitigating Fed/Prov Taxes
         let actualMargRate = mF + mP;
         if (oasMarg > 0) {
             actualMargRate = 0.15 + 0.85 * (mF + mP);
@@ -250,23 +248,43 @@ class FinanceEngine {
         return res;
     }
 
-    calcRRIFMin(p1, p2, age1, age2, alive1, alive2, rrspBase1, rrspBase2) {
+    calcRRIFMin(p1, p2, age1, age2, alive1, alive2, preRrsp1, preRrif1, preRrsp2, preRrif2) {
         let r = { p1: 0, p2: 0, details: { p1: null, p2: null } };
         
-        if(alive1 && p1.rrsp > 0 && age1 >= this.CONSTANTS.RRIF_START_AGE){ 
-            let factor = this.getRrifFactor(age1);
-            r.p1 = rrspBase1 * factor; 
-            r.p1 = Math.min(r.p1, p1.rrsp); 
-            r.details.p1 = { factor, bal: rrspBase1, min: r.p1 };
-            p1.rrsp -= r.p1; 
-        }
+        const calcMin = (p, age, preRrsp, preRrif) => {
+            // CRA uses age at the beginning of the year for the factor
+            let factor = this.getRrifFactor(age - 1);
+            let baseBal = age >= this.CONSTANTS.RRIF_START_AGE ? (preRrsp + preRrif) : preRrif;
+            
+            if (baseBal > 0) {
+                let minNeeded = baseBal * factor;
+                let actualTaken = 0;
+                
+                let tkRrif = Math.min(p.rrif_acct, minNeeded);
+                p.rrif_acct -= tkRrif;
+                actualTaken += tkRrif;
+                minNeeded -= tkRrif;
+                
+                if (minNeeded > 0 && age >= this.CONSTANTS.RRIF_START_AGE) {
+                    let tkRrsp = Math.min(p.rrsp, minNeeded);
+                    p.rrsp -= tkRrsp;
+                    actualTaken += tkRrsp;
+                }
+                
+                return { taken: actualTaken, details: { factor, bal: baseBal, min: actualTaken } };
+            }
+            return { taken: 0, details: null };
+        };
         
-        if(alive2 && p2.rrsp > 0 && age2 >= this.CONSTANTS.RRIF_START_AGE){ 
-            let factor = this.getRrifFactor(age2);
-            r.p2 = rrspBase2 * factor; 
-            r.p2 = Math.min(r.p2, p2.rrsp);
-            r.details.p2 = { factor, bal: rrspBase2, min: r.p2 };
-            p2.rrsp -= r.p2; 
+        if (alive1) { 
+            let res = calcMin(p1, age1, preRrsp1, preRrif1); 
+            r.p1 = res.taken; 
+            r.details.p1 = res.details; 
+        }
+        if (alive2) { 
+            let res = calcMin(p2, age2, preRrsp2, preRrif2); 
+            r.p2 = res.taken; 
+            r.details.p2 = res.details; 
         }
         
         return r;
@@ -721,14 +739,16 @@ class FinanceEngine {
             
             // Capture balances BEFORE growth for accurate RRIF math
             const preGrowthRrsp1 = person1.rrsp;
+            const preGrowthRrif1 = person1.rrif_acct;
             const preGrowthRrsp2 = person2.rrsp;
+            const preGrowthRrif2 = person2.rrif_acct;
 
             this.applyGrowth(person1, person2, isRet1, isRet2, this.inputs['asset_mode_advanced'], consts.inflation, i, simContext);
 
             const inflows = this.calcInflows(yr, i, person1, person2, age1, age2, alive1, alive2, isRet1, isRet2, consts, bInf, detailed ? trackedEvents : null);
             
-            // Pass the pre-growth balances to the RRIF calculator
-            const rrifMin = this.calcRRIFMin(person1, person2, age1, age2, alive1, alive2, preGrowthRrsp1, preGrowthRrsp2);
+            // Pass the pre-growth balances to the RRIF calculator (Calculated using the age-1 CRA rule)
+            const rrifMin = this.calcRRIFMin(person1, person2, age1, age2, alive1, alive2, preGrowthRrsp1, preGrowthRrif1, preGrowthRrsp2, preGrowthRrif2);
             
             const expenses = this.calcOutflows(yr, i, age1, bInf, isRet1, isRet2, simContext);
 
