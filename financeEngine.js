@@ -422,7 +422,6 @@ class FinanceEngine {
         const TOLERANCE = 50; 
         const strats = this.strategies.decum;
 
-        // Helper to check if a specific bucket has funds
         let hasBal = (p, t) => {
             if (t === 'rrsp') return (p.rrif_acct + p.lif + p.lirf + p.rrsp) > 0;
             if (t === 'tfsa') return (p.tfsa + (p.tfsa_successor || 0)) > 0;
@@ -432,7 +431,6 @@ class FinanceEngine {
         const wd = (p, t, a, pfx, mRate) => { 
             if(a <= 0) return {net: 0, tax: 0};
             
-            // Treat 'rrsp' and 'tfsa' as smart buckets that drain multiple sub-accounts
             let accountsToPull;
             if (t === 'rrsp') accountsToPull = ['rrif_acct', 'lif', 'lirf', 'rrsp'];
             else if (t === 'tfsa') accountsToPull = ['tfsa', 'tfsa_successor'];
@@ -466,7 +464,6 @@ class FinanceEngine {
                 
                 let currentAge = (pfx === 'p1') ? age1 : age2;
                 
-                // Detailed Breakdown Labels
                 let logKey = act;
                 if (act === 'rrsp' && currentAge >= this.CONSTANTS.RRIF_START_AGE) logKey = 'RRIF';
                 else if (act === 'rrsp') logKey = 'RRSP';
@@ -490,7 +487,7 @@ class FinanceEngine {
                     acbSold = p[acbKey] * proportionSold;
                     p[acbKey] = Math.max(0, p[acbKey] - acbSold);
                     capGain = tk - acbSold;
-                    taxableAmtForOnWithdrawal = Math.max(0, capGain * 0.5); // 50% inclusion
+                    taxableAmtForOnWithdrawal = Math.max(0, capGain * 0.5); 
                 } else if (isFullyTaxable) {
                     taxableAmtForOnWithdrawal = tk;
                 }
@@ -534,10 +531,9 @@ class FinanceEngine {
             let p1Idx = 0;
             let p2Idx = 0;
 
-            let sanityLimit = 200; // Hard cap to prevent infinite loops
+            let sanityLimit = 200; 
             while (df > 1 && (p1Idx < strats.length || p2Idx < strats.length) && sanityLimit-- > 0) {
                 
-                // Find next available account for P1
                 while(p1Idx < strats.length) {
                     let type = strats[p1Idx];
                     if (!alive1 || !hasBal(p1, type)) { p1Idx++; continue; }
@@ -548,7 +544,6 @@ class FinanceEngine {
                     break;
                 }
                 
-                // Find next available account for P2
                 while(p2Idx < strats.length) {
                     let type = strats[p2Idx];
                     if (!alive2 || !hasBal(p2, type)) { p2Idx++; continue; }
@@ -569,7 +564,6 @@ class FinanceEngine {
 
                 let target = null;
                 
-                // --- STRICT STRATEGY ORDER ENFORCEMENT ---
                 if (!p1Type) target = 'p2';
                 else if (!p2Type) target = 'p1';
                 else if (p1Idx < p2Idx) target = 'p1'; 
@@ -584,7 +578,7 @@ class FinanceEngine {
 
                 let getNetRoom = (type, inc, mR, pObj, ceil) => {
                     if (ceil === Infinity) return Infinity;
-                    let isFullyTaxable = type === 'rrsp'; // applies to the whole bundle
+                    let isFullyTaxable = type === 'rrsp'; 
                     let isCapGain = ['nreg', 'crypto'].includes(type);
                     
                     if (isFullyTaxable) {
@@ -676,10 +670,8 @@ class FinanceEngine {
         const lowestBracket = taxBrackets.FED.brackets[0]; 
         const optimizeOAS = this.inputs['oas_clawback_optimize'];
 
-        // Pass 1: Try to withdraw while enforcing the lowest tax bracket ceiling on all taxable accounts
         executeWithdrawalStrategy(lowestBracket, lowestBracket);
         
-        // Pass 2: Enforce OAS Clawback Threshold ceiling (if enabled and applicable)
         if (df > 1 && optimizeOAS) {
             let p1Ceil = age1 >= 65 ? oasThresholdInf : Infinity;
             let p2Ceil = age2 >= 65 ? oasThresholdInf : Infinity;
@@ -688,18 +680,11 @@ class FinanceEngine {
             }
         }
         
-        // Pass 3: If we STILL have a deficit, drop the ceiling rules and take what we need to survive
         if (df > 1) {
             executeWithdrawalStrategy(Infinity, Infinity);
         }
     }
 
-    /**
-     * Main Simulation loop used by both the UI and Worker.
-     * @param {boolean} detailed - If true, returns detailed projection rows (UI). If false, returns just Net Worth trajectory (Worker).
-     * @param {object} simContext - Historical/Shock contexts for Monte Carlo or overrides for Optimizers (e.g. expenseMultiplier).
-     * @param {number} totalDebtInitial - Starting total debt.
-     */
     runSimulation(detailed = false, simContext = null, totalDebtInitial = 0) {
         const curY = new Date().getFullYear();
         let nwArray = [];
@@ -739,12 +724,13 @@ class FinanceEngine {
             if (!alive1 && !alive2) break;
 
             let deathEvents = [];
-            // Handle passing away and Successor Holder transfers
+            
+            // TFSA Successor Holder transfer logic
             if (!alive1 && !trackedEvents.has('P1 Dies')) {
                 trackedEvents.add('P1 Dies');
                 if (detailed) deathEvents.push('P1 Dies');
-                if (alive2) {
-                    person2.tfsa_successor += person1.tfsa + person1.tfsa_successor;
+                if (alive2 && this.mode === 'Couple') {
+                    person2.tfsa_successor += (person1.tfsa + person1.tfsa_successor);
                     person1.tfsa = 0; person1.tfsa_successor = 0;
                 }
             }
@@ -752,7 +738,7 @@ class FinanceEngine {
                 trackedEvents.add('P2 Dies');
                 if (detailed) deathEvents.push('P2 Dies');
                 if (alive1) {
-                    person1.tfsa_successor += person2.tfsa + person2.tfsa_successor;
+                    person1.tfsa_successor += (person2.tfsa + person2.tfsa_successor);
                     person2.tfsa = 0; person2.tfsa_successor = 0;
                 }
             }
@@ -763,7 +749,6 @@ class FinanceEngine {
             const isRet1 = age1 >= person1.retAge;
             const isRet2 = this.mode === 'Couple' ? age2 >= person2.retAge : true;
             
-            // Capture balances BEFORE growth for accurate RRIF math
             const preGrowthRrsp1 = person1.rrsp;
             const preGrowthRrif1 = person1.rrif_acct;
             const preGrowthRrsp2 = person2.rrsp;
@@ -774,7 +759,6 @@ class FinanceEngine {
             const inflows = this.calcInflows(yr, i, person1, person2, age1, age2, alive1, alive2, isRet1, isRet2, consts, bInf, detailed ? trackedEvents : null);
             if (detailed && deathEvents.length > 0) inflows.events.push(...deathEvents);
 
-            // Pass the pre-growth balances to the RRIF calculator (Calculated using the age-1 CRA rule)
             const rrifMin = this.calcRRIFMin(person1, person2, age1, age2, alive1, alive2, preGrowthRrsp1, preGrowthRrif1, preGrowthRrsp2, preGrowthRrif2);
             
             const expenses = this.calcOutflows(yr, i, age1, bInf, isRet1, isRet2, simContext);
