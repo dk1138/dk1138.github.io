@@ -177,8 +177,8 @@ class UIController {
             const df = this.app.getDiscountFactor(d.year - new Date().getFullYear());
             const fmtK = n => { if(n == null || isNaN(n)) return ''; const v=n/df, a=Math.abs(v); if(Math.round(a)===0)return''; const s=v<0?'-':''; return a>=1000000?s+(a/1000000).toFixed(1)+'M':(a>=1000?s+Math.round(a/1000)+'k':s+a.toFixed(0)); };
             const fmtFlow = (c, w) => {
-                if(c > 0) return ` <span class="text-success small fw-bold">(+${fmtK(c * df)})</span>`;
-                if(w > 0) return ` <span class="text-danger small fw-bold">(-${fmtK(w * df)})</span>`;
+                if(c > 0) return ` <span class="text-success small fw-bold">(+${fmtK(c)})</span>`;
+                if(w > 0) return ` <span class="text-danger small fw-bold">(-${fmtK(w)})</span>`;
                 return '';
             };
             const p1A=d.p1Alive?d.p1Age:'†', p2A=this.app.state.mode==='Couple'?(d.p2Alive?d.p2Age:'†'):'';
@@ -189,8 +189,8 @@ class UIController {
             if(this.app.state.mode==='Couple') { if(p1R&&p2R) stat = d.p1Age<gLim?`<span class="status-pill status-gogo">Go-go Phase</span>`:d.p1Age<sLim?`<span class="status-pill status-slow">Slow-go Phase</span>`:`<span class="status-pill status-nogo">No-go Phase</span>`; else if(p1R||p2R) stat = `<span class="status-pill status-semi">Transition</span>`; }
             else if(p1R) stat = d.p1Age<gLim?`<span class="status-pill status-gogo">Go-go Phase</span>`:d.p1Age<sLim?`<span class="status-pill status-slow">Slow-go Phase</span>`:`<span class="status-pill status-nogo">No-go Phase</span>`;
             
-            const ln = (l,v,c='') => (!v||Math.round(v)===0)?'':`<div class="detail-item"><span>${l}</span> <span class="${c}">${fmtK(v * df)}</span></div>`;
-            const sL = (l,v) => (!v||Math.round(v)===0)?'':`<div class="detail-item sub"><span>${l}</span> <span>${fmtK(v * df)}</span></div>`;
+            const ln = (l,v,c='') => (!v||Math.round(v)===0)?'':`<div class="detail-item"><span>${l}</span> <span class="${c}">${fmtK(v)}</span></div>`;
+            const sL = (l,v) => (!v||Math.round(v)===0)?'':`<div class="detail-item sub"><span>${l}</span> <span>${fmtK(v)}</span></div>`;
             
             let groupP1 = '', groupP2 = '', groupOther = '';
             if(d.incomeP1 > 0) groupP1 += ln("Employment", d.incomeP1);
@@ -334,7 +334,6 @@ class UIController {
             
             let aL = '';
             
-            // Highlight the Spousal Rollover mechanic explicitly in the year it occurs
             if (this.app.state.mode === 'Couple') {
                 if (d.events.includes('P1 Dies') && d.p2Alive) {
                     aL += `<div class="detail-item mb-2" style="border-bottom: 1px dashed #eab308; padding-bottom: 4px;"><span class="text-warning fw-bold small" style="font-size:0.75rem;"><i class="bi bi-shuffle me-1"></i> Spousal Rollover (P1 &rarr; P2) <i class="bi bi-info-circle text-white ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="Tax-Free Spousal Rollover" data-bs-content="Person 1 passed away this year. Under CRA rules, their registered accounts (RRSP/RRIF, TFSA) and non-registered investments are transferred directly to Person 2 <b>tax-free</b>. No deemed disposition tax is triggered on these assets at this time."></i></span><span></span></div>`;
@@ -369,7 +368,7 @@ class UIController {
             aL += ln("Liquid Net Worth",d.liquidNW,"text-info fw-bold")+ln("Total Real Estate Eq.",d.homeValue-d.mortgage);
             
             const rB = th==='light'?'bg-white border-bottom border-dark-subtle':'', rT = th==='light'?'text-dark':'text-white';
-            html += `<div class="grid-row-group" style="${th==='light'?'border-bottom:1px solid #ddd;':''}"><div class="grid-summary-row ${rB}" onclick="app.ui.toggleRow(this)"><div class="col-start col-timeline"><div class="d-flex align-items-center"><span class="fw-bold fs-6 me-1 ${rT}">${d.year}</span><span class="event-icons-inline">${d.events.map(k=>this.getIconHTML(k,th)).join('')}</span></div><span class="age-text ${rT}">${p1A} ${this.app.state.mode==='Couple'?'/ '+p2A:''}</span></div><div class="col-start">${stat}</div><div class="val-positive">${fmtK(d.grossInflow * df)}</div><div class="val-neutral text-danger">${fmtK(d.visualExpenses * df)}</div><div class="${d.surplus<0?'val-negative':'val-positive'}">${d.surplus>0?'+':''}${fmtK(d.surplus * df)}</div><div class="fw-bold ${rT}">${fmtK(d.debugNW * df)}</div><div class="text-center toggle-icon ${rT}"><i class="bi bi-chevron-down"></i></div></div><div class="grid-detail-wrapper"><div class="detail-container"><div class="detail-box surface-card"><div class="detail-title">Income Sources</div>${iL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total Gross Inflow</span> <span class="text-success fw-bold">${fmtK(d.grossInflow * df)}</span></div></div><div class="detail-box surface-card"><div class="detail-title">Outflows & Taxes</div>${eL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total Out</span> <span class="text-danger fw-bold">${fmtK(d.visualExpenses * df)}</span></div></div><div class="detail-box surface-card"><div class="detail-title">Assets (End of Year)</div>${aL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total NW</span> <span class="text-info fw-bold">${fmtK(d.debugNW * df)}</span></div></div></div></div></div>`;
+            html += `<div class="grid-row-group" style="${th==='light'?'border-bottom:1px solid #ddd;':''}"><div class="grid-summary-row ${rB}" onclick="app.ui.toggleRow(this)"><div class="col-start col-timeline"><div class="d-flex align-items-center"><span class="fw-bold fs-6 me-1 ${rT}">${d.year}</span><span class="event-icons-inline">${d.events.map(k=>this.getIconHTML(k,th)).join('')}</span></div><span class="age-text ${rT}">${p1A} ${this.app.state.mode==='Couple'?'/ '+p2A:''}</span></div><div class="col-start">${stat}</div><div class="val-positive">${fmtK(d.grossInflow)}</div><div class="val-neutral text-danger">${fmtK(d.visualExpenses)}</div><div class="${d.surplus<0?'val-negative':'val-positive'}">${d.surplus>0?'+':''}${fmtK(d.surplus)}</div><div class="fw-bold ${rT}">${fmtK(d.debugNW)}</div><div class="text-center toggle-icon ${rT}"><i class="bi bi-chevron-down"></i></div></div><div class="grid-detail-wrapper"><div class="detail-container"><div class="detail-box surface-card"><div class="detail-title">Income Sources</div>${iL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total Gross Inflow</span> <span class="text-success fw-bold">${fmtK(d.grossInflow)}</span></div></div><div class="detail-box surface-card"><div class="detail-title">Outflows & Taxes</div>${eL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total Out</span> <span class="text-danger fw-bold">${fmtK(d.visualExpenses)}</span></div></div><div class="detail-box surface-card"><div class="detail-title">Assets (End of Year)</div>${aL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total NW</span> <span class="text-info fw-bold">${fmtK(d.debugNW)}</span></div></div></div></div></div>`;
         });
         const grid = document.getElementById('projectionGrid'); if(grid) grid.innerHTML = html;
         
@@ -559,6 +558,8 @@ class UIController {
         const datasets = [];
         let labels = [];
         const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
+        
+        const curYear = new Date().getFullYear();
 
         checkboxes.forEach((cb, i) => {
             const color = colors[i % colors.length];
@@ -567,7 +568,10 @@ class UIController {
                     if (labels.length === 0) labels = this.app.state.projectionData.map(d => d.year);
                     datasets.push({
                         label: 'Current Plan',
-                        data: this.app.state.projectionData.map(d => Math.round(d.debugNW)),
+                        data: this.app.state.projectionData.map(d => {
+                            const df = this.app.getDiscountFactor(d.year - curYear);
+                            return Math.round(d.debugNW / df);
+                        }),
                         borderColor: color,
                         backgroundColor: color + '33',
                         borderWidth: 3,
@@ -578,10 +582,13 @@ class UIController {
             } else {
                 const s = scenarios[parseInt(cb.value)];
                 if (s && s.data && s.data.nwTrajectory) {
-                    if (labels.length === 0) labels = s.data.years || s.data.nwTrajectory.map((_, idx) => new Date().getFullYear() + idx);
+                    if (labels.length === 0) labels = s.data.years || s.data.nwTrajectory.map((_, idx) => curYear + idx);
                     datasets.push({
                         label: s.name,
-                        data: s.data.nwTrajectory,
+                        data: s.data.nwTrajectory.map((val, idx) => {
+                            const df = this.app.getDiscountFactor(idx);
+                            return Math.round(val / df);
+                        }),
                         borderColor: color,
                         borderWidth: 2,
                         borderDash: [5, 5],
