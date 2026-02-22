@@ -824,20 +824,12 @@
                     </div>
                     <p class="small text-muted mb-4 px-2">Drag to prioritize withdrawal sources during retirement/deficits.</p>
                     <div id="strat-decumulation" class="mb-0 px-2"></div>
-
-                    <div class="mt-4 px-2">
-                        <div class="form-check form-switch d-flex align-items-center">
-                            <input class="form-check-input live-calc mt-0 fs-5" type="checkbox" id="oas_clawback_optimize" role="switch">
-                            <label class="form-check-label ms-2 small fw-bold text-info" for="oas_clawback_optimize">Optimize to Avoid OAS Clawback</label>
-                            <i class="bi bi-info-circle text-muted ms-2 info-btn" style="cursor: help; font-size: 0.85rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="OAS Clawback Optimization" data-bs-content="The tool will attempt to keep your net income below the recovery tax threshold to preserve your Old Age Security benefits."></i>
-                        </div>
-                    </div>
                   </div>
                 </div>
 
-                <div class="row g-5">
-                  <div class="col-md-6">
-                    <div class="card border-secondary surface-card shadow-sm h-100">
+                <div class="row g-4">
+                  <div class="col-md-6 d-flex flex-column gap-4">
+                    <div class="card border-secondary surface-card shadow-sm">
                         <div class="card-header border-secondary text-uppercase small fw-bold text-muted d-flex justify-content-between align-items-center">
                             <span>Annual Contribution Limits</span>
                             <a href="https://www.canada.ca/en/revenue-agency/services/tax/individuals/topics/rrsps-related-plans/contributing-a-rrsp-prpp/contributions-affect-your-rrsp-prpp-deduction-limit.html" target="_blank" class="text-muted" title="CRA Limits Info"><i class="bi bi-box-arrow-up-right"></i></a>
@@ -877,29 +869,47 @@
                             </div>
                         </div>
                     </div>
+                    
+                    <div class="card border-secondary surface-card shadow-sm">
+                        <div class="card-header border-secondary text-uppercase small fw-bold text-muted d-flex justify-content-between align-items-center">
+                            <span>Tax & Benefit Optimization</span>
+                            <i class="bi bi-info-circle text-muted info-btn" style="cursor: help; font-size: 0.85rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="OAS Clawback Optimization" data-bs-content="The tool will attempt to keep your net income below the recovery tax threshold to preserve your Old Age Security benefits."></i>
+                        </div>
+                        <div class="card-body p-3">
+                            <div class="form-check form-switch d-flex align-items-center mb-0">
+                                <input class="form-check-input live-calc mt-0 fs-5" type="checkbox" id="oas_clawback_optimize" role="switch">
+                                <label class="form-check-label ms-3 small fw-bold text-info" for="oas_clawback_optimize">Optimize to Avoid OAS Clawback</label>
+                            </div>
+                        </div>
+                    </div>
                   </div>
 
                   <div class="col-md-6">
-                    <div class="strategy-opt-box border-secondary surface-card shadow-sm h-100 p-3">
-                      <div class="strategy-opt-header mb-3 fw-bold text-uppercase small text-muted border-bottom border-secondary pb-2"><i class="bi bi-sliders text-info me-2"></i>Exceptions / Overrides</div>
-                      <div class="form-check mb-3">
-                        <input class="form-check-input live-calc mt-1" type="checkbox" id="skip_first_tfsa_p1">
-                        <label class="form-check-label small" for="skip_first_tfsa_p1">P1: Skip 1st Year TFSA Contrib.</label>
-                      </div>
-                      <div class="form-check mb-4 border-bottom border-secondary pb-3">
-                        <input class="form-check-input live-calc mt-1" type="checkbox" id="skip_first_rrsp_p1">
-                        <label class="form-check-label small" for="skip_first_rrsp_p1">P1: Skip 1st Year RRSP Contrib.</label>
-                      </div>
-                      <div class="p2-column">
-                        <div class="form-check mb-3">
-                          <input class="form-check-input live-calc mt-1" type="checkbox" id="skip_first_tfsa_p2">
-                          <label class="form-check-label small" for="skip_first_tfsa_p2">P2: Skip 1st Year TFSA Contrib.</label>
+                    <div class="card border-secondary surface-card shadow-sm h-100">
+                        <div class="card-header border-secondary text-uppercase small fw-bold text-muted d-flex justify-content-between align-items-center">
+                            <span>Exceptions & Overrides</span>
+                            <i class="bi bi-info-circle text-muted info-btn" style="cursor: help; font-size: 0.85rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="Exceptions & Overrides" data-bs-content="Specific rules to skip contributions during the first year, useful if you have recently made lump-sum deposits before starting the plan."></i>
                         </div>
-                        <div class="form-check mb-2">
-                          <input class="form-check-input live-calc mt-1" type="checkbox" id="skip_first_rrsp_p2">
-                          <label class="form-check-label small" for="skip_first_rrsp_p2">P2: Skip 1st Year RRSP Contrib.</label>
+                        <div class="card-body p-3">
+                          <div class="form-check mb-3">
+                            <input class="form-check-input live-calc mt-1" type="checkbox" id="skip_first_tfsa_p1">
+                            <label class="form-check-label small fw-medium" for="skip_first_tfsa_p1">Player 1: Skip 1st Year TFSA Contrib.</label>
+                          </div>
+                          <div class="form-check mb-4 pb-3 border-bottom border-secondary">
+                            <input class="form-check-input live-calc mt-1" type="checkbox" id="skip_first_rrsp_p1">
+                            <label class="form-check-label small fw-medium" for="skip_first_rrsp_p1">Player 1: Skip 1st Year RRSP Contrib.</label>
+                          </div>
+                          <div class="p2-column">
+                            <div class="form-check mb-3">
+                              <input class="form-check-input live-calc mt-1" type="checkbox" id="skip_first_tfsa_p2">
+                              <label class="form-check-label small fw-medium text-purple" style="color: var(--purple) !important;" for="skip_first_tfsa_p2">Player 2: Skip 1st Year TFSA Contrib.</label>
+                            </div>
+                            <div class="form-check mb-2">
+                              <input class="form-check-input live-calc mt-1" type="checkbox" id="skip_first_rrsp_p2">
+                              <label class="form-check-label small fw-medium text-purple" style="color: var(--purple) !important;" for="skip_first_rrsp_p2">Player 2: Skip 1st Year RRSP Contrib.</label>
+                            </div>
+                          </div>
                         </div>
-                      </div>
                     </div>
                   </div>
                 </div>
