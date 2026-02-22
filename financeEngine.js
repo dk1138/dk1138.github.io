@@ -11,6 +11,7 @@ class FinanceEngine {
         this.windfalls = data.windfalls || [];
         this.additionalIncome = data.additionalIncome || [];
         this.strategies = data.strategies || { accum: [], decum: [] };
+        this.dependents = data.dependents || []; 
         this.mode = data.mode || 'Couple';
         this.expenseMode = data.expenseMode || 'Simple';
         this.expensesByCategory = data.expensesByCategory || {};
@@ -40,12 +41,11 @@ class FinanceEngine {
         return {71:0.0528, 72:0.0540, 73:0.0553, 74:0.0567, 75:0.0582, 76:0.0598, 77:0.0617, 78:0.0636, 79:0.0658, 80:0.0682, 81:0.0708, 82:0.0738, 83:0.0771, 84:0.0808, 85:0.0851, 86:0.0899, 87:0.0955, 88:0.1021, 89:0.1099, 90:0.1192, 91:0.1306, 92:0.1449, 93:0.1634, 94:0.1879}[age] || 0.0528;
     }
 
-    // Dynamic LIF Maximums based on Province (Matches CRA/MoneySense table)
     getLifMaxFactor(age, prov) {
         const group1 = ['BC', 'AB', 'SK', 'ON', 'NB', 'NL'];
         const group2 = ['MB', 'QC', 'NS'];
         
-        let type = 'fed'; // PEI uses federal default as they lack provincial pension legislation
+        let type = 'fed'; 
         if (group1.includes(prov)) type = 'g1';
         else if (group2.includes(prov)) type = 'g2';
 
@@ -84,6 +84,43 @@ class FinanceEngine {
             if (d > 0) v *= (1 + (d * 0.006));
         }
         return v; 
+    }
+
+    calculateCCBForYear(currentYear, dependents, familyNetIncome, bInf) {
+        if (!dependents || dependents.length === 0) return 0;
+        const rules = this.CONSTANTS.CCB_RULES;
+        if (!rules) return 0;
+
+        let countUnder6 = 0;
+        let count6to17 = 0;
+
+        dependents.forEach(dep => {
+            let birthYear = parseInt(dep.split('-')[0]);
+            let age = currentYear - birthYear;
+            if (age >= 0 && age < 6) countUnder6++;
+            else if (age >= 6 && age < 18) count6to17++;
+        });
+
+        let totalKids = countUnder6 + count6to17;
+        if (totalKids === 0) return 0;
+
+        let maxUnder6 = rules.MAX_UNDER_6 * bInf;
+        let max6to17 = rules.MAX_6_TO_17 * bInf;
+        let thresh1 = rules.THRESHOLD_1 * bInf;
+        let thresh2 = rules.THRESHOLD_2 * bInf;
+
+        let maxBenefit = (countUnder6 * maxUnder6) + (count6to17 * max6to17);
+        let rateIndex = Math.min(totalKids - 1, 3);
+        let reduction = 0;
+
+        if (familyNetIncome > thresh2) {
+            let bracket1MaxReduction = (thresh2 - thresh1) * rules.RATE_1[rateIndex];
+            reduction = bracket1MaxReduction + ((familyNetIncome - thresh2) * rules.RATE_2[rateIndex]);
+        } else if (familyNetIncome > thresh1) {
+            reduction = (familyNetIncome - thresh1) * rules.RATE_1[rateIndex];
+        }
+
+        return Math.max(0, maxBenefit - reduction);
     }
 
     getInflatedTaxData(bInf) {
@@ -157,13 +194,17 @@ class FinanceEngine {
             return { 
                 tfsa: r('tfsa'), rrsp: r('rrsp'), cash: r('cash'), nreg: r('nonreg'), 
                 crypto: r('crypto'), lirf: r('lirf'), lif: r('lif'), rrif_acct: r('rrif_acct'), 
+                fhsa: r('fhsa'), resp: r('resp') || 0,
                 inc: this.getVal(`${p}_income_growth`) / 100 
             };
         };
         const g1 = getRates('p1', isRet1), g2 = getRates('p2', isRet2);
         
         if(stress) { 
-            ['tfsa','rrsp','nreg','cash','lirf','lif','rrif_acct','crypto'].forEach(k => { g1[k] = -0.15; g2[k] = -0.15; }); 
+            ['tfsa','rrsp','nreg','cash','lirf','lif','rrif_acct','crypto', 'fhsa', 'resp'].forEach(k => { 
+                if(g1[k] !== undefined) g1[k] = -0.15; 
+                if(g2[k] !== undefined) g2[k] = -0.15; 
+            }); 
             g1.crypto = -0.40; g2.crypto = -0.40; 
         }
 
@@ -175,7 +216,10 @@ class FinanceEngine {
                 shock = this.randn_bm() * simContext.volatility;
             }
             if (shock !== 0) {
-                ['tfsa','rrsp','nreg','crypto','lirf','lif','rrif_acct'].forEach(k => { g1[k] += shock; g2[k] += shock; });
+                ['tfsa','rrsp','nreg','crypto','lirf','lif','rrif_acct', 'fhsa', 'resp'].forEach(k => { 
+                    if(g1[k] !== undefined) g1[k] += shock; 
+                    if(g2[k] !== undefined) g2[k] += shock; 
+                });
             }
         }
 
@@ -185,6 +229,8 @@ class FinanceEngine {
             p.rrsp *= (1 + rates.rrsp); p.cash *= (1 + rates.cash); p.crypto *= (1 + rates.crypto);
             p.lirf *= (1 + rates.lirf); p.lif *= (1 + rates.lif); p.rrif_acct *= (1 + rates.rrif_acct);
             p.nreg *= (1 + (rates.nreg - p.nreg_yield));
+            if (p.fhsa !== undefined) p.fhsa *= (1 + rates.fhsa);
+            if (p.resp !== undefined) p.resp *= (1 + rates.resp);
             if(!isRet1) p.inc *= (1 + rates.inc); 
         };
         grow(p1, g1); grow(p2, g2);
@@ -192,8 +238,8 @@ class FinanceEngine {
 
     calcInflows(yr, i, p1, p2, age1, age2, alive1, alive2, isRet1, isRet2, c, bInf, trackedEvents = null) {
         let res = { 
-            p1: { gross:0, earned:0, cpp:0, oas:0, pension:0, windfallTaxable:0, windfallNonTax:0, postRet:0 }, 
-            p2: { gross:0, earned:0, cpp:0, oas:0, pension:0, windfallTaxable:0, windfallNonTax:0, postRet:0 },
+            p1: { gross:0, earned:0, cpp:0, oas:0, pension:0, windfallTaxable:0, windfallNonTax:0, postRet:0, ccb:0 }, 
+            p2: { gross:0, earned:0, cpp:0, oas:0, pension:0, windfallTaxable:0, windfallNonTax:0, postRet:0, ccb:0 },
             events: []
         };
         
@@ -214,7 +260,7 @@ class FinanceEngine {
             if(this.inputs[`${pfx}_oas_enabled`] && age >= parseInt(this.getRaw(`${pfx}_oas_start`))) {
                 let baseOas = this.calcBen(maxOas, parseInt(this.getRaw(`${pfx}_oas_start`)), 1, 65, 'oas');
                 if (age >= 75) {
-                    baseOas *= 1.10; // CRA 10% structural boost for age 75+
+                    baseOas *= 1.10; 
                 }
                 inf.oas = baseOas;
                 if(trackedEvents && age === parseInt(this.getRaw(`${pfx}_oas_start`))) { trackedEvents.add(`${pfx.toUpperCase()} OAS`); }
@@ -404,7 +450,7 @@ class FinanceEngine {
         }
     }
 
-    handleSurplus(amount, p1, p2, alive1, alive2, log, i, tfsaLim, rrspLim1, rrspLim2, cryptoLim) {
+    handleSurplus(amount, p1, p2, alive1, alive2, log, i, tfsaLim, rrspLim1, rrspLim2, cryptoLim, fhsaLim, respLim) {
         let r = amount;
         this.strategies.accum.forEach(t => { 
             if(r <= 0) return;
@@ -438,6 +484,28 @@ class FinanceEngine {
                         r -= take;
                     }
                 });
+            }
+            else if (t === 'fhsa') {
+                if(alive1 && r > 0 && p1.fhsa !== undefined) {
+                    let take = Math.min(r, fhsaLim); p1.fhsa += take;
+                    if(log) log.contributions.p1.fhsa += take;
+                    r -= take;
+                }
+                if(alive2 && r > 0 && p2.fhsa !== undefined) {
+                    let take = Math.min(r, fhsaLim); p2.fhsa += take;
+                    if(log) log.contributions.p2.fhsa += take;
+                    r -= take;
+                }
+            }
+            else if (t === 'resp') {
+                if(alive1 && r > 0 && p1.resp !== undefined) {
+                    let take = Math.min(r, respLim); 
+                    p1.resp += take;
+                    if(log) log.contributions.p1.resp += take;
+                    let cesgMatch = take * (this.CONSTANTS.RESP_CESG_MATCH_RATE || 0.20);
+                    p1.resp += cesgMatch;
+                    r -= take;
+                }
             }
             else if(t === 'crypto'){
                 if (alive1 && r > 0) {
@@ -490,6 +558,7 @@ class FinanceEngine {
 
         let hasBal = (p, t) => {
             if (t === 'tfsa') return (p.tfsa + (p.tfsa_successor || 0)) > 0;
+            if (p[t] === undefined) return false;
             return p[t] > 0;
         };
 
@@ -527,7 +596,6 @@ class FinanceEngine {
                 let currentAge = (pfx === 'p1') ? age1 : age2;
                 let availableActBal = p[act];
                 
-                // Enforce LIF Maximum Limits
                 if (act === 'lif' || act === 'lirf') {
                     let maxL = pfx === 'p1' ? lifLimits.lifMax1 : lifLimits.lifMax2;
                     availableActBal = Math.min(availableActBal, maxL);
@@ -549,6 +617,8 @@ class FinanceEngine {
                 else if (act === 'lirf') logKey = 'LIRF';
                 else if (act === 'tfsa') logKey = 'TFSA';
                 else if (act === 'tfsa_successor') logKey = 'TFSA (Successor)';
+                else if (act === 'fhsa') logKey = 'FHSA';
+                else if (act === 'resp') logKey = 'RESP';
                 else if (act === 'nreg') logKey = 'Non-Reg';
                 else if (act === 'cash') logKey = 'Cash';
                 else if (act === 'crypto') logKey = 'Crypto';
@@ -713,7 +783,7 @@ class FinanceEngine {
                     let ceil = target === 'p1' ? ceiling1 : ceiling2;
                     let netRoom = getNetRoom(tType, inc, mR, pObj, ceil);
 
-                    if (p1Type && p2Type && p1Idx === p2Idx && !['tfsa','cash'].includes(tType)) {
+                    if (p1Type && p2Type && p1Idx === p2Idx && !['tfsa','cash','fhsa','resp'].includes(tType)) {
                         let gap = Math.abs(runInc1 - runInc2);
                         let effRate = Math.min(mR || 0, 0.54);
                         
@@ -767,8 +837,8 @@ class FinanceEngine {
         let nwArray = [];
         let projectionData = [];
 
-        let person1 = { tfsa: this.getVal('p1_tfsa'), tfsa_successor: 0, rrsp: this.getVal('p1_rrsp'), cash: this.getVal('p1_cash'), nreg: this.getVal('p1_nonreg'), crypto: this.getVal('p1_crypto'), lirf: this.getVal('p1_lirf'), lif: this.getVal('p1_lif'), rrif_acct: this.getVal('p1_rrif_acct'), inc: this.getVal('p1_income'), dob: new Date(this.getRaw('p1_dob') || "1990-01"), retAge: this.getVal('p1_retireAge'), lifeExp: this.getVal('p1_lifeExp'), nreg_yield: this.getVal('p1_nonreg_yield')/100, acb: this.getVal('p1_nonreg'), crypto_acb: this.getVal('p1_crypto') };
-        let person2 = { tfsa: this.getVal('p2_tfsa'), tfsa_successor: 0, rrsp: this.getVal('p2_rrsp'), cash: this.getVal('p2_cash'), nreg: this.getVal('p2_nonreg'), crypto: this.getVal('p2_crypto'), lirf: this.getVal('p2_lirf'), lif: this.getVal('p2_lif'), rrif_acct: this.getVal('p2_rrif_acct'), inc: this.getVal('p2_income'), dob: new Date(this.getRaw('p2_dob') || "1990-01"), retAge: this.getVal('p2_retireAge'), lifeExp: this.getVal('p2_lifeExp'), nreg_yield: this.getVal('p2_nonreg_yield')/100, acb: this.getVal('p2_nonreg'), crypto_acb: this.getVal('p2_crypto') };
+        let person1 = { tfsa: this.getVal('p1_tfsa'), tfsa_successor: 0, fhsa: this.getVal('p1_fhsa'), resp: this.getVal('p1_resp'), rrsp: this.getVal('p1_rrsp'), cash: this.getVal('p1_cash'), nreg: this.getVal('p1_nonreg'), crypto: this.getVal('p1_crypto'), lirf: this.getVal('p1_lirf'), lif: this.getVal('p1_lif'), rrif_acct: this.getVal('p1_rrif_acct'), inc: this.getVal('p1_income'), dob: new Date(this.getRaw('p1_dob') || "1990-01"), retAge: this.getVal('p1_retireAge'), lifeExp: this.getVal('p1_lifeExp'), nreg_yield: this.getVal('p1_nonreg_yield')/100, acb: this.getVal('p1_nonreg'), crypto_acb: this.getVal('p1_crypto') };
+        let person2 = { tfsa: this.getVal('p2_tfsa'), tfsa_successor: 0, fhsa: this.getVal('p2_fhsa'), rrsp: this.getVal('p2_rrsp'), cash: this.getVal('p2_cash'), nreg: this.getVal('p2_nonreg'), crypto: this.getVal('p2_crypto'), lirf: this.getVal('p2_lirf'), lif: this.getVal('p2_lif'), rrif_acct: this.getVal('p2_rrif_acct'), inc: this.getVal('p2_income'), dob: new Date(this.getRaw('p2_dob') || "1990-01"), retAge: this.getVal('p2_retireAge'), lifeExp: this.getVal('p2_lifeExp'), nreg_yield: this.getVal('p2_nonreg_yield')/100, acb: this.getVal('p2_nonreg'), crypto_acb: this.getVal('p2_crypto') };
 
         let simProperties = JSON.parse(JSON.stringify(this.properties));
         let totalDebt = totalDebtInitial;
@@ -787,6 +857,8 @@ class FinanceEngine {
             oasMax2: this.CONSTANTS.MAX_OAS * (Math.max(0, Math.min(40, this.getVal('p2_oas_years'))) / 40),
             tfsaLimit: this.getVal('cfg_tfsa_limit') || 7000,
             rrspMax: this.getVal('cfg_rrsp_limit') || 32960,
+            fhsaLimit: this.getVal('cfg_fhsa_limit') || 8000,
+            respLimit: this.getVal('cfg_resp_limit') || 2500,
             cryptoLimit: this.inputs['cfg_crypto_limit'] !== undefined ? this.getVal('cfg_crypto_limit') : 5000,
             inflation: this.getVal('inflation_rate') / 100
         };
@@ -817,9 +889,12 @@ class FinanceEngine {
                     person2.crypto += person1.crypto;
                     person2.crypto_acb += person1.crypto_acb;
                     
+                    if (person1.fhsa) person2.fhsa = (person2.fhsa || 0) + person1.fhsa;
+
                     person1.tfsa = 0; person1.tfsa_successor = 0;
                     person1.rrsp = 0; person1.rrif_acct = 0; person1.lif = 0; person1.lirf = 0;
                     person1.nreg = 0; person1.acb = 0; person1.cash = 0; person1.crypto = 0; person1.crypto_acb = 0;
+                    person1.fhsa = 0;
                 }
             }
             if (this.mode === 'Couple' && !alive2 && !trackedEvents.has('P2 Dies')) {
@@ -837,9 +912,12 @@ class FinanceEngine {
                     person1.crypto += person2.crypto;
                     person1.crypto_acb += person2.crypto_acb;
                     
+                    if (person2.fhsa) person1.fhsa = (person1.fhsa || 0) + person2.fhsa;
+                    
                     person2.tfsa = 0; person2.tfsa_successor = 0;
                     person2.rrsp = 0; person2.rrif_acct = 0; person2.lif = 0; person2.lirf = 0;
                     person2.nreg = 0; person2.acb = 0; person2.cash = 0; person2.crypto = 0; person2.crypto_acb = 0;
+                    person2.fhsa = 0;
                 }
             }
 
@@ -863,6 +941,19 @@ class FinanceEngine {
 
             const inflows = this.calcInflows(yr, i, person1, person2, age1, age2, alive1, alive2, isRet1, isRet2, consts, bInf, detailed ? trackedEvents : null);
             if (detailed && deathEvents.length > 0) inflows.events.push(...deathEvents);
+
+            let taxableIncome1Raw = inflows.p1.gross + inflows.p1.cpp + inflows.p1.oas + inflows.p1.pension + inflows.p1.windfallTaxable + (person1.nreg * person1.nreg_yield);
+            let taxableIncome2Raw = inflows.p2.gross + inflows.p2.cpp + inflows.p2.oas + inflows.p2.pension + inflows.p2.windfallTaxable + (alive2 ? (person2.nreg * person2.nreg_yield) : 0);
+            
+            let familyNetIncomeForCCB = taxableIncome1Raw + taxableIncome2Raw;
+            let ccbPayout = this.calculateCCBForYear(yr, this.dependents, familyNetIncomeForCCB, bInf);
+            
+            if (ccbPayout > 0 && alive1) {
+                inflows.p1.windfallNonTax += ccbPayout;
+                if(detailed) {
+                    inflows.p1.ccb = ccbPayout;
+                }
+            }
 
             const regMins = this.calcRegMinimums(person1, person2, age1, age2, alive1, alive2, preGrowthRrsp1, preGrowthRrif1, preGrowthRrsp2, preGrowthRrif2, preGrowthLirf1, preGrowthLif1, preGrowthLirf2, preGrowthLif2);
             
@@ -942,7 +1033,7 @@ class FinanceEngine {
             const totalOutflows = expenses + mortgagePayment + debtRepayment;
             let surplus = totalNetIncome - totalOutflows;
 
-            let flowLog = detailed ? { contributions: { p1: {tfsa:0, rrsp:0, nreg:0, cash:0, crypto:0}, p2: {tfsa:0, rrsp:0, nreg:0, cash:0, crypto:0} }, withdrawals: {} } : null;
+            let flowLog = detailed ? { contributions: { p1: {tfsa:0, fhsa:0, resp:0, rrsp:0, nreg:0, cash:0, crypto:0}, p2: {tfsa:0, fhsa:0, rrsp:0, nreg:0, cash:0, crypto:0} }, withdrawals: {} } : null;
             let wdBreakdown = detailed ? { p1: {}, p2: {} } : null;
 
             if(detailed) {
@@ -972,7 +1063,7 @@ class FinanceEngine {
             const rrspRoom2 = Math.min(inflows.p2.earned * 0.18, consts.rrspMax * bInf);
 
             if (surplus > 0) {
-                this.handleSurplus(surplus, person1, person2, alive1, alive2, flowLog, i, consts.tfsaLimit * bInf, rrspRoom1, rrspRoom2, consts.cryptoLimit * bInf);
+                this.handleSurplus(surplus, person1, person2, alive1, alive2, flowLog, i, consts.tfsaLimit * bInf, rrspRoom1, rrspRoom2, consts.cryptoLimit * bInf, consts.fhsaLimit * bInf, consts.respLimit * bInf);
             } else {
                 let cashFromNonTaxableWd = 0; 
                 for(let pass = 0; pass < 5; pass++) {
@@ -1004,8 +1095,8 @@ class FinanceEngine {
                 surplus = (netIncome1 + netIncome2) - totalOutflows;
             }
 
-            const assets1 = person1.tfsa + person1.tfsa_successor + person1.rrsp + person1.crypto + person1.nreg + person1.cash + person1.lirf + person1.lif + person1.rrif_acct;
-            const assets2 = person2.tfsa + person2.tfsa_successor + person2.rrsp + person2.crypto + person2.nreg + person2.cash + person2.lirf + person2.lif + person2.rrif_acct;
+            const assets1 = person1.tfsa + person1.tfsa_successor + person1.rrsp + person1.crypto + person1.nreg + person1.cash + person1.lirf + person1.lif + person1.rrif_acct + (person1.fhsa || 0) + (person1.resp || 0);
+            const assets2 = person2.tfsa + person2.tfsa_successor + person2.rrsp + person2.crypto + person2.nreg + person2.cash + person2.lirf + person2.lif + person2.rrif_acct + (person2.fhsa || 0);
             
             const liquidNW = (assets1 + assets2) - totalDebt;
             
@@ -1030,6 +1121,7 @@ class FinanceEngine {
                     incomeP1: inflows.p1.gross, incomeP2: inflows.p2.gross,
                     cppP1: inflows.p1.cpp, cppP2: inflows.p2.cpp,
                     oasP1: inflows.p1.oas, oasP2: inflows.p2.oas,
+                    ccbP1: inflows.p1.ccb || 0,
                     oasClawbackP1: tax1.oas_clawback || 0, oasClawbackP2: tax2.oas_clawback || 0,
                     taxIncP1: taxableIncome1, taxIncP2: taxableIncome2,
                     oasThreshold: oasThresholdInf,
