@@ -718,11 +718,54 @@
                       <div class="col-12 col-md-4">
                           <div class="card p-4 border-secondary surface-card shadow-sm h-100 text-center">
                               <div class="text-muted small text-uppercase fw-bold mb-2 d-flex align-items-center justify-content-center">
+                                  <span class="me-2">Total Investment Growth</span>
+                                  <i class="bi bi-info-circle text-muted info-btn" style="cursor: help; font-size: 0.85rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="The Compounder" data-bs-content="The exact amount of wealth generated purely by your portfolio returns over your lifetime, excluding all cash deposits and withdrawals."></i>
+                              </div>
+                              <div class="fs-2 fw-bold text-success" id="dash_total_growth">$0</div>
+                              <div class="small text-muted mt-1">Pure market compounding</div>
+                          </div>
+                      </div>
+                      <div class="col-12 col-md-4">
+                          <div class="card p-4 border-secondary surface-card shadow-sm h-100 text-center">
+                              <div class="text-muted small text-uppercase fw-bold mb-2 d-flex align-items-center justify-content-center">
+                                  <span class="me-2">Govt Benefits Collected</span>
+                                  <i class="bi bi-info-circle text-muted info-btn" style="cursor: help; font-size: 0.85rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="Benefits Collected" data-bs-content="The combined total of all CPP and OAS collected over your lifetime, net of any OAS clawback penalties."></i>
+                              </div>
+                              <div class="fs-2 fw-bold text-info" id="dash_total_benefits">$0</div>
+                              <div class="small text-muted mt-1">Lifetime CPP & OAS</div>
+                          </div>
+                      </div>
+                      <div class="col-12 col-md-4">
+                          <div class="card p-4 border-secondary surface-card shadow-sm h-100 text-center">
+                              <div class="text-muted small text-uppercase fw-bold mb-2 d-flex align-items-center justify-content-center">
                                   <span class="me-2">Total Lifetime Tax Paid</span>
                                   <i class="bi bi-info-circle text-muted info-btn" style="cursor: help; font-size: 0.85rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="Total Lifetime Tax" data-bs-content="The combined Federal and Provincial income taxes paid over the entire simulation."></i>
                               </div>
                               <div class="fs-2 fw-bold text-danger" id="dash_tax_paid">$0</div>
                               <div class="small text-muted mt-1" id="dash_eff_tax_rate">Effective Rate: 0%</div>
+                          </div>
+                      </div>
+                  </div>
+
+                  <div class="row g-4 mb-4">
+                      <div class="col-12 col-md-4">
+                          <div class="card p-4 border-secondary surface-card shadow-sm h-100 text-center">
+                              <div class="text-muted small text-uppercase fw-bold mb-2 d-flex align-items-center justify-content-center">
+                                  <span class="me-2">Avg. Retirement Spending</span>
+                                  <i class="bi bi-info-circle text-muted info-btn" style="cursor: help; font-size: 0.85rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="Retirement Lifestyle" data-bs-content="Your average annual living expenses during retirement. Excludes taxes and debt repayments."></i>
+                              </div>
+                              <div class="fs-2 fw-bold text-primary" id="dash_avg_ret_spend">$0/yr</div>
+                              <div class="small text-muted mt-1">Average after-tax lifestyle budget</div>
+                          </div>
+                      </div>
+                      <div class="col-12 col-md-4">
+                          <div class="card p-4 border-secondary surface-card shadow-sm h-100 text-center">
+                              <div class="text-muted small text-uppercase fw-bold mb-2 d-flex align-items-center justify-content-center">
+                                  <span class="me-2">Total Living Expenses</span>
+                                  <i class="bi bi-info-circle text-muted info-btn" style="cursor: help; font-size: 0.85rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="Total Living Expenses" data-bs-content="The total amount of cash spent on the lifestyle budgets defined in the Expenses section over the entire simulation."></i>
+                              </div>
+                              <div class="fs-2 fw-bold text-warning" id="dash_total_expenses">$0</div>
+                              <div class="small text-muted mt-1">Excludes taxes and debt payments</div>
                           </div>
                       </div>
                       <div class="col-12 col-md-4">
@@ -731,23 +774,13 @@
                                   <span class="me-2">Total Gross Inflow</span>
                                   <i class="bi bi-info-circle text-muted info-btn" style="cursor: help; font-size: 0.85rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="Total Gross Inflow" data-bs-content="Every dollar that flows into your accounts, including employment income, pensions, government benefits, investment yields, and asset sales."></i>
                               </div>
-                              <div class="fs-2 fw-bold text-success" id="dash_total_inflow">$0</div>
+                              <div class="fs-2 fw-bold text-secondary" id="dash_total_inflow">$0</div>
                               <div class="small text-muted mt-1">From income, pensions & yields</div>
-                          </div>
-                      </div>
-                      <div class="col-12 col-md-4">
-                          <div class="card p-4 border-secondary surface-card shadow-sm h-100 text-center">
-                              <div class="text-muted small text-uppercase fw-bold mb-2 d-flex align-items-center justify-content-center">
-                                  <span class="me-2">Total Living Expenses</span>
-                                  <i class="bi bi-info-circle text-muted info-btn" style="cursor: help; font-size: 0.85rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="Total Living Expenses" data-bs-content="The total amount of cash spent on the lifestyle budgets defined in the Expenses section. This excludes taxes and debt repayments."></i>
-                              </div>
-                              <div class="fs-2 fw-bold text-warning" id="dash_total_expenses">$0</div>
-                              <div class="small text-muted mt-1">Excludes taxes and debt payments</div>
                           </div>
                       </div>
                   </div>
                   
-                  <div class="row g-4">
+                  <div class="row g-4 mb-4">
                       <div class="col-12 col-md-6">
                           <div class="card p-4 border-secondary surface-card shadow-sm h-100">
                               <h6 class="text-info fw-bold text-uppercase ls-1 mb-3 pb-2 border-bottom border-secondary d-flex align-items-center">
@@ -755,8 +788,8 @@
                                   <i class="bi bi-info-circle text-muted info-btn" style="cursor: help; font-size: 0.85rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="Milestones & Estate" data-bs-content="Key timeline events and the final value of your assets (liquid cash + real estate equity) passed on to your estate at the end of the simulation."></i>
                               </h6>
                               <div class="d-flex justify-content-between align-items-center mb-3 mt-3">
-                                  <span class="text-muted fw-bold">Final Estate Value</span>
-                                  <span class="fw-bold text-white fs-5" id="dash_final_estate">$0</span>
+                                  <span class="text-muted fw-bold">Retirement Day Snapshot (Age <span id="dash_ret_age">--</span>)</span>
+                                  <span class="fw-bold text-info" id="dash_ret_day_nw">$0</span>
                               </div>
                               <div class="d-flex justify-content-between mb-3">
                                   <span class="text-muted fw-bold">Peak Net Worth</span>
@@ -765,6 +798,10 @@
                               <div class="d-flex justify-content-between mb-3">
                                   <span class="text-muted fw-bold">Debt-Free Year</span>
                                   <span class="fw-bold text-white" id="dash_debt_free">--</span>
+                              </div>
+                              <div class="d-flex justify-content-between mb-3">
+                                  <span class="text-muted fw-bold">Final Estate Value</span>
+                                  <span class="fw-bold text-white fs-5" id="dash_final_estate">$0</span>
                               </div>
                               <div class="d-flex justify-content-between pt-3 border-top border-secondary mt-auto">
                                   <span class="text-muted fw-bold">Plan Health</span>
@@ -780,6 +817,20 @@
                               </h6>
                               <div style="height: 250px; position: relative; width: 100%;">
                                   <canvas id="chartLifetimeDonut"></canvas>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+
+                  <div class="row g-4">
+                      <div class="col-12">
+                          <div class="card p-4 border-secondary surface-card shadow-sm h-100">
+                              <h6 class="text-success fw-bold text-uppercase ls-1 mb-3 pb-2 border-bottom border-secondary d-flex align-items-center">
+                                  <span class="me-2">Net Worth Composition Over Time</span>
+                                  <i class="bi bi-info-circle text-muted info-btn" style="cursor: help; font-size: 0.85rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="Asset Transition" data-bs-content="A stacked area chart showing exactly how your wealth transitions between different account types (like RRSP to TFSA) throughout your life."></i>
+                              </h6>
+                              <div style="height: 400px; position: relative; width: 100%;">
+                                  <canvas id="chartComposition"></canvas>
                               </div>
                           </div>
                       </div>
@@ -1104,7 +1155,6 @@
     </div>
 
     <div class="floating-widget-container">
-      
       <div class="card shadow-lg border-secondary quick-adjust-card" id="quickAdjustWidget">
         <div class="card-header border-bottom border-secondary p-3 d-flex justify-content-between align-items-center">
           <h6 class="text-info fw-bold text-uppercase ls-1 mb-0"><i class="bi bi-sliders me-2"></i>Quick Adjust</h6>
@@ -1139,11 +1189,9 @@
           </div>
         </div>
       </div>
-      
       <button class="btn btn-info rounded-circle shadow-lg fab-btn" id="fabQuickAdjust" title="Quick Adjust Settings">
         <i class="bi bi-sliders fs-4 text-dark"></i>
       </button>
-
     </div>
 
     <div class="modal fade" id="loadScenarioModal" tabindex="-1" aria-hidden="true">
