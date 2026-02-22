@@ -347,28 +347,98 @@ class DataController {
 
     // --- STRATEGY Drag & Drop ---
     renderStrategy() {
-        this.renderList('strat-accum-list', this.app.state.strategies.accum, 'accum', document.getElementById('strat-accum-container'));
-        const d = document.getElementById('strat-decumulation'); d.innerHTML = ''; 
-        this.renderList('strat-decum-list', this.app.state.strategies.decum, 'decum', d);
+        const getBal = (k) => {
+            const map = {'nreg':'nonreg', 'rrif_acct':'rrif_acct'};
+            const inputKey = map[k] || k;
+            let bal = this.app.getVal(`p1_${inputKey}`);
+            if(this.app.state.mode === 'Couple') bal += this.app.getVal(`p2_${inputKey}`);
+            return bal;
+        };
+
+        const visibleAccum = this.app.state.strategies.accum;
+        const visibleDecum = this.app.state.strategies.decum.filter(k => getBal(k) > 0);
+
+        this.renderList('strat-accum-list', visibleAccum, 'accum', document.getElementById('strat-accum-container'));
+        
+        const decumContainer = document.getElementById('strat-decumulation'); 
+        decumContainer.innerHTML = ''; 
+        
+        if (visibleDecum.length === 0) {
+            decumContainer.innerHTML = '<div class="text-muted small p-3 text-center border border-secondary rounded-3 border-dashed mb-4" style="border-style: dashed !important;">No funded accounts to prioritize.</div>';
+        } else {
+            this.renderList('strat-decum-list', visibleDecum, 'decum', decumContainer);
+        }
+
+        setTimeout(() => { try { this.app.ui.initPopovers(); } catch(e) {} }, 50);
     }
 
     renderList(id, arr, type, cont) {
-        let ul = document.getElementById(id); if(!ul) { ul = document.createElement('ul'); ul.id=id; ul.className='strategy-list p-0 m-0'; ul.style.listStyle='none'; cont.appendChild(ul); } else ul.innerHTML='';
+        let ul = document.getElementById(id); 
+        if(!ul) { 
+            ul = document.createElement('ul'); 
+            ul.id = id; 
+            ul.className = type === 'decum' ? 'strategy-list p-0 m-0 mb-4' : 'strategy-list p-0 m-0'; 
+            ul.style.listStyle = 'none'; 
+            cont.appendChild(ul); 
+        } else {
+            ul.innerHTML = '';
+        }
+
+        const taxDescriptions = {
+            'tfsa': '<b>TFSA</b><br>Tax-Free Savings Account. Withdrawals are completely tax-free and do not affect government benefits.',
+            'rrsp': '<b>RRSP</b><br>Registered Retirement Savings Plan. Withdrawals are 100% fully taxable as ordinary income.',
+            'rrif_acct': '<b>RRIF</b><br>Registered Retirement Income Fund. Subject to mandatory minimum annual withdrawals. 100% fully taxable.',
+            'lif': '<b>LIF</b><br>Life Income Fund. Has both minimum AND maximum annual withdrawal limits. 100% fully taxable.',
+            'lirf': '<b>LIRF / LIRA</b><br>Locked-In Retirement Account. Must be converted to a LIF before you can withdraw. Tax-deferred.',
+            'nreg': '<b>Non-Registered</b><br>Taxable investment account. Capital gains are taxed favorably at a 50% inclusion rate.',
+            'cash': '<b>Cash</b><br>Standard savings. No tax sheltering, but withdrawals of the principal are not taxed as new income.',
+            'crypto': '<b>Crypto</b><br>Digital assets. Treated as property, meaning gains are taxed at the 50% capital gains inclusion rate.'
+        };
+
         arr.forEach((k, i) => {
-            const li = document.createElement('li'); li.className='strat-item shadow-sm'; li.draggable=true; li.setAttribute('data-key', k);
-            li.innerHTML = `<span class="fw-bold small"><span class="badge bg-secondary me-2 rounded-circle">${i+1}</span> ${this.app.strategyLabels[k] || k.toUpperCase()}</span> <i class="bi bi-grip-vertical grip-icon fs-5"></i>`;
-            li.addEventListener('dragstart', () => { li.classList.add('dragging'); li.style.opacity='0.5'; });
-            li.addEventListener('dragend', () => { li.classList.remove('dragging'); li.style.opacity='1'; this.updateArrayOrder(id, type); this.app.run(); }); ul.appendChild(li);
+            const li = document.createElement('li'); 
+            li.className = 'strat-item shadow-sm'; 
+            li.draggable = true; 
+            li.setAttribute('data-key', k);
+            
+            li.innerHTML = `
+                <span class="fw-bold small d-flex align-items-center">
+                    <span class="badge bg-secondary me-2 rounded-circle">${i+1}</span> 
+                    ${this.app.strategyLabels[k] || k.toUpperCase()}
+                    <i class="bi bi-info-circle text-muted ms-2 info-btn" style="cursor: help; font-size: 0.85rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-html="true" data-bs-content="${taxDescriptions[k]}"></i>
+                </span> 
+                <i class="bi bi-grip-vertical grip-icon fs-5"></i>
+            `;
+            
+            li.addEventListener('dragstart', () => { li.classList.add('dragging'); li.style.opacity = '0.5'; });
+            li.addEventListener('dragend', () => { li.classList.remove('dragging'); li.style.opacity = '1'; this.updateArrayOrder(id, type); this.app.run(); }); 
+            ul.appendChild(li);
         });
+
         ul.addEventListener('dragover', e => {
-            e.preventDefault(); const aE = [...ul.querySelectorAll('.strat-item:not(.dragging)')].reduce((c, ch) => { const b=ch.getBoundingClientRect(), o=e.clientY-b.top-b.height/2; return o<0&&o>c.offset ? {offset:o, e:ch} : c; }, {offset:Number.NEGATIVE_INFINITY}).e, drg=document.querySelector('.dragging');
-            aE==null ? ul.appendChild(drg) : ul.insertBefore(drg, aE);
+            e.preventDefault(); 
+            const aE = [...ul.querySelectorAll('.strat-item:not(.dragging)')].reduce((c, ch) => { 
+                const b = ch.getBoundingClientRect(), o = e.clientY - b.top - b.height / 2; 
+                return o < 0 && o > c.offset ? {offset: o, e: ch} : c; 
+            }, {offset: Number.NEGATIVE_INFINITY}).e;
+            const drg = document.querySelector('.dragging');
+            aE == null ? ul.appendChild(drg) : ul.insertBefore(drg, aE);
         });
     }
 
     updateArrayOrder(id, type) {
-        const o = []; document.getElementById(id).querySelectorAll('.strat-item').forEach(i => o.push(i.getAttribute('data-key')));
-        type==='accum' ? this.app.state.strategies.accum=o : this.app.state.strategies.decum=o; this.renderStrategy();
+        const o = []; 
+        document.getElementById(id).querySelectorAll('.strat-item').forEach(i => o.push(i.getAttribute('data-key')));
+        
+        const orig = type === 'accum' ? this.app.state.strategies.accum : this.app.state.strategies.decum;
+        orig.forEach(k => {
+            if (!o.includes(k)) o.push(k);
+        });
+
+        if (type === 'accum') this.app.state.strategies.accum = o; 
+        else this.app.state.strategies.decum = o; 
+        
+        this.renderStrategy();
     }
 
     // --- CPP / OAS ESTIMATOR ---
