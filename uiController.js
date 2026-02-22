@@ -196,6 +196,7 @@ class UIController {
             let groupP1 = '', groupP2 = '', groupOther = '';
             if(d.incomeP1 > 0) groupP1 += ln("Employment", d.incomeP1);
             if(d.postRetP1 > 0) groupP1 += sL("Post-Ret Work", d.postRetP1);
+            if(d.ccbP1 > 0) groupP1 += sL("Canada Child Benefit (CCB)", d.ccbP1);
             if(d.cppP1 > 0) groupP1 += sL("CPP", d.cppP1);
             
             if(d.oasP1 > 0) {
@@ -315,16 +316,19 @@ class UIController {
             
             if (this.app.state.mode === 'Couple') {
                 if (d.events.includes('P1 Dies') && d.p2Alive) {
-                    assetTitle += ` <i class="bi bi-info-circle text-warning ms-1 info-btn" style="font-size: 0.85rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="Spousal Rollover (P1 &rarr; P2)" data-bs-content="<div style='max-width: 250px; white-space: normal; line-height: 1.4;'>Person 1 passed away this year. Under CRA rules, their registered accounts (RRSP/RRIF, TFSA) and non-registered investments are transferred directly to Person 2 <b>tax-free</b>. No deemed disposition tax is triggered on these assets at this time.</div>"></i>`;
+                    assetTitle += ` <i class="bi bi-info-circle text-warning ms-1 info-btn" style="font-size: 0.85rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="Spousal Rollover (P1 &rarr; P2)" data-bs-content="<div style='max-width: 250px; white-space: normal; line-height: 1.4;'>Person 1 passed away this year. Under CRA rules, their registered accounts (RRSP/RRIF, TFSA, FHSA) and non-registered investments are transferred directly to Person 2 <b>tax-free</b>. No deemed disposition tax is triggered on these assets at this time.</div>"></i>`;
                 }
                 if (d.events.includes('P2 Dies') && d.p1Alive) {
-                    assetTitle += ` <i class="bi bi-info-circle text-purple ms-1 info-btn" style="font-size: 0.85rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="Spousal Rollover (P2 &rarr; P1)" data-bs-content="<div style='max-width: 250px; white-space: normal; line-height: 1.4;'>Person 2 passed away this year. Under CRA rules, their registered accounts (RRSP/RRIF, TFSA) and non-registered investments are transferred directly to Person 1 <b>tax-free</b>. No deemed disposition tax is triggered on these assets at this time.</div>"></i>`;
+                    assetTitle += ` <i class="bi bi-info-circle text-purple ms-1 info-btn" style="font-size: 0.85rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="Spousal Rollover (P2 &rarr; P1)" data-bs-content="<div style='max-width: 250px; white-space: normal; line-height: 1.4;'>Person 2 passed away this year. Under CRA rules, their registered accounts (RRSP/RRIF, TFSA, FHSA) and non-registered investments are transferred directly to Person 1 <b>tax-free</b>. No deemed disposition tax is triggered on these assets at this time.</div>"></i>`;
                 }
             }
             
             aL += ln(`TFSA P1${fmtFlow(d.flows.contributions.p1.tfsa, d.wdBreakdown.p1['TFSA'])}`, d.assetsP1.tfsa) + (this.app.state.mode==='Couple'?ln(`TFSA P2${fmtFlow(d.flows.contributions.p2.tfsa, d.wdBreakdown.p2['TFSA'])}`, d.assetsP2.tfsa):'');
             aL += ln(`TFSA (Successor) P1${fmtFlow(0, d.wdBreakdown.p1['TFSA (Successor)'])}`, d.assetsP1.tfsa_successor) + (this.app.state.mode==='Couple'?ln(`TFSA (Successor) P2${fmtFlow(0, d.wdBreakdown.p2['TFSA (Successor)'])}`, d.assetsP2.tfsa_successor):'');
             
+            aL += ln(`FHSA P1${fmtFlow(d.flows.contributions.p1.fhsa, d.wdBreakdown.p1['FHSA'])}`, d.assetsP1.fhsa) + (this.app.state.mode==='Couple'?ln(`FHSA P2${fmtFlow(d.flows.contributions.p2.fhsa, d.wdBreakdown.p2['FHSA'])}`, d.assetsP2.fhsa):'');
+            aL += ln(`RESP P1${fmtFlow(d.flows.contributions.p1.resp, d.wdBreakdown.p1['RESP'])}`, d.assetsP1.resp);
+
             let r1Label = d.p1Age >= 72 ? 'RRIF' : 'RRSP';
             let r1Wd = (d.wdBreakdown.p1['RRSP']||0) + (d.wdBreakdown.p1['RRIF']||0);
             let r1Info = d.p1Age < 72 ? ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="Contribution Limit" data-bs-content="Max CRA Deposit this year: $${Math.round((d.rrspRoomP1||0) / df).toLocaleString()}"></i>` : '';
@@ -374,8 +378,8 @@ class UIController {
 
         let getLiquidAssets = (d) => {
             let a1 = d.assetsP1, a2 = d.assetsP2 || {};
-            return (a1.tfsa||0) + (a1.tfsa_successor||0) + (a1.rrsp||0) + (a1.rrif_acct||0) + (a1.lif||0) + (a1.lirf||0) + (a1.nreg||0) + (a1.cash||0) + (a1.crypto||0) +
-                   (a2.tfsa||0) + (a2.tfsa_successor||0) + (a2.rrsp||0) + (a2.rrif_acct||0) + (a2.lif||0) + (a2.lirf||0) + (a2.nreg||0) + (a2.cash||0) + (a2.crypto||0);
+            return (a1.tfsa||0) + (a1.tfsa_successor||0) + (a1.fhsa||0) + (a1.resp||0) + (a1.rrsp||0) + (a1.rrif_acct||0) + (a1.lif||0) + (a1.lirf||0) + (a1.nreg||0) + (a1.cash||0) + (a1.crypto||0) +
+                   (a2.tfsa||0) + (a2.tfsa_successor||0) + (a2.fhsa||0) + (a2.rrsp||0) + (a2.rrif_acct||0) + (a2.lif||0) + (a2.lirf||0) + (a2.nreg||0) + (a2.cash||0) + (a2.crypto||0);
         };
 
         const initialLiquid = getLiquidAssets(this.app.state.projectionData[0]) / this.app.getDiscountFactor(0);
@@ -398,7 +402,7 @@ class UIController {
             totalExp += d.expenses / df; 
             totalDebt += debt / df;
 
-            const benefits = d.benefitsP1 + (d.benefitsP2 || 0);
+            const benefits = d.benefitsP1 + (d.benefitsP2 || 0) + (d.ccbP1 || 0);
             totalBenefits += benefits / df;
 
             const externalInflow = d.incomeP1 + (d.incomeP2 || 0) + (d.postRetP1 || 0) + (d.postRetP2 || 0) + benefits + d.dbP1 + (d.dbP2 || 0) + d.windfall;
@@ -437,8 +441,8 @@ class UIController {
             compLabels.push(d.p1Age);
             let a1 = d.assetsP1, a2 = d.assetsP2 || {};
             
-            let tfsa = (a1.tfsa||0) + (a1.tfsa_successor||0) + (a2.tfsa||0) + (a2.tfsa_successor||0);
-            let reg = (a1.rrsp||0) + (a1.rrif_acct||0) + (a1.lif||0) + (a1.lirf||0) + 
+            let tfsa = (a1.tfsa||0) + (a1.tfsa_successor||0) + (a1.fhsa||0) + (a2.tfsa||0) + (a2.tfsa_successor||0) + (a2.fhsa||0);
+            let reg = (a1.rrsp||0) + (a1.rrif_acct||0) + (a1.lif||0) + (a1.lirf||0) + (a1.resp||0) + 
                       (a2.rrsp||0) + (a2.rrif_acct||0) + (a2.lif||0) + (a2.lirf||0);
             let taxable = (a1.nreg||0) + (a1.cash||0) + (a2.nreg||0) + (a2.cash||0);
             let crypt = (a1.crypto||0) + (a2.crypto||0);
@@ -533,8 +537,8 @@ class UIController {
                     labels: compLabels,
                     datasets: [
                         { label: 'Real Estate Equity', data: compRE, backgroundColor: 'rgba(16, 185, 129, 0.2)', borderColor: '#10b981', fill: true, tension: 0.4, pointRadius: 0 },
-                        { label: 'Tax-Free (TFSA)', data: compTaxFree, backgroundColor: 'rgba(59, 130, 246, 0.2)', borderColor: '#3b82f6', fill: true, tension: 0.4, pointRadius: 0 },
-                        { label: 'Registered (RRSP/RRIF/LIF)', data: compReg, backgroundColor: 'rgba(139, 92, 246, 0.2)', borderColor: '#8b5cf6', fill: true, tension: 0.4, pointRadius: 0 },
+                        { label: 'Tax-Free (TFSA/FHSA)', data: compTaxFree, backgroundColor: 'rgba(59, 130, 246, 0.2)', borderColor: '#3b82f6', fill: true, tension: 0.4, pointRadius: 0 },
+                        { label: 'Registered (RRSP/RRIF/LIF/RESP)', data: compReg, backgroundColor: 'rgba(139, 92, 246, 0.2)', borderColor: '#8b5cf6', fill: true, tension: 0.4, pointRadius: 0 },
                         { label: 'Taxable (Cash/Non-Reg)', data: compTaxable, backgroundColor: 'rgba(245, 158, 11, 0.2)', borderColor: '#f59e0b', fill: true, tension: 0.4, pointRadius: 0 },
                         { label: 'Crypto', data: compCrypto, backgroundColor: 'rgba(236, 72, 153, 0.2)', borderColor: '#ec4899', fill: true, tension: 0.4, pointRadius: 0 }
                     ]
@@ -576,6 +580,7 @@ class UIController {
         
         if(d.incomeP1>0) addRow(`Employment P1\n${fmt(v(d.incomeP1))}`, potName, d.incomeP1);
         if(d.postRetP1>0) addRow(`Post-Ret Work P1\n${fmt(v(d.postRetP1))}`, potName, d.postRetP1);
+        if(d.ccbP1>0) addRow(`CCB P1\n${fmt(v(d.ccbP1))}`, potName, d.ccbP1);
         if(d.cppP1>0) addRow(`CPP P1\n${fmt(v(d.cppP1))}`, potName, d.cppP1);
         if(d.oasP1>0) addRow(`OAS P1\n${fmt(v(d.oasP1))}`, potName, d.oasP1);
         if(d.dbP1>0) addRow(`DB Pension P1\n${fmt(v(d.dbP1))}`, potName, d.dbP1);
@@ -614,6 +619,7 @@ class UIController {
             if(n.includes("Exp")) c='#f97316'; 
             if(n.includes("Mort")||n.includes("Debt")) c='#dc2626'; 
             if(n.includes("Available Cash")) c='#10b981';
+            if(n.includes("CCB")) c='#06b6d4';
             return { color: c };
         });
 
