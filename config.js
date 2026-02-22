@@ -12,6 +12,17 @@ const FINANCIAL_CONSTANTS = {
     
     // Core Rules
     RRIF_START_AGE: 72, 
+
+    // FHSA Rules (First Home Savings Account)
+    FHSA_ANNUAL_LIMIT: 8000,
+    FHSA_LIFETIME_LIMIT: 40000,
+    FHSA_MAX_YEARS: 15, // Must be closed or transferred to RRSP after 15 years
+
+    // RESP Rules (Registered Education Savings Plan)
+    RESP_LIFETIME_LIMIT: 50000,
+    RESP_CESG_MATCH_RATE: 0.20, // 20% match
+    RESP_CESG_ANNUAL_MAX: 500, // Max match per year ($2500 contribution)
+    RESP_CESG_LIFETIME_MAX: 7200, // Maximum lifetime grant per child
     
     // Federal and Provincial Tax Brackets (2026 Estimates)
     TAX_DATA: {
