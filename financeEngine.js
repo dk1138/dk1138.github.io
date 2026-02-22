@@ -121,7 +121,7 @@ class FinanceEngine {
             const r = id => this.getVal(`${p}_${id}_ret` + (isAdv && ret ? '_retire' : '')) / 100;
             return { 
                 tfsa: r('tfsa'), rrsp: r('rrsp'), cash: r('cash'), nreg: r('nonreg'), 
-                cryp: r('crypto'), lirf: r('lirf'), lif: r('lif'), rrif_acct: r('rrif_acct'), 
+                crypto: r('crypto'), lirf: r('lirf'), lif: r('lif'), rrif_acct: r('rrif_acct'), 
                 inc: this.getVal(`${p}_income_growth`) / 100 
             };
         };
@@ -129,7 +129,7 @@ class FinanceEngine {
         
         if(stress) { 
             ['tfsa','rrsp','nreg','cash','lirf','lif','rrif_acct'].forEach(k => { g1[k] = -0.15; g2[k] = -0.15; }); 
-            g1.cryp = -0.40; g2.cryp = -0.40; 
+            g1.crypto = -0.40; g2.crypto = -0.40; 
         }
 
         if (simContext) {
@@ -140,7 +140,7 @@ class FinanceEngine {
                 shock = this.randn_bm() * simContext.volatility;
             }
             if (shock !== 0) {
-                ['tfsa','rrsp','nreg','cryp','lirf','lif','rrif_acct'].forEach(k => { g1[k] += shock; g2[k] += shock; });
+                ['tfsa','rrsp','nreg','crypto','lirf','lif','rrif_acct'].forEach(k => { g1[k] += shock; g2[k] += shock; });
             }
         }
 
