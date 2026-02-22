@@ -1,11 +1,62 @@
 /**
  * Retirement Planner Pro - Data Controller
  * Handles CRUD operations and rendering for dynamic input arrays
- * (Properties, Income, Expenses, Windfalls, Strategy, Debt).
+ * (Properties, Income, Expenses, Windfalls, Dependents, Strategy, Debt).
  */
 class DataController {
     constructor(app) {
         this.app = app;
+    }
+
+    // --- DEPENDENTS (CCB & RESP) ---
+    renderDependents() {
+        const container = document.getElementById('dependents-container'); 
+        if(!container) return; 
+        container.innerHTML = '';
+        
+        if (!this.app.state.dependents) this.app.state.dependents = [];
+        
+        this.app.state.dependents.forEach((dep, idx) => {
+            const div = document.createElement('div');
+            div.className = 'row g-3 mb-2 align-items-end dependent-row';
+            div.innerHTML = `
+                <div class="col-5">
+                    <label class="form-label small text-muted mb-1">Name</label>
+                    <input type="text" class="form-control form-control-sm border-secondary dependent-update" value="${dep.name}" data-idx="${idx}" data-field="name">
+                </div>
+                <div class="col-5">
+                    <label class="form-label small text-muted mb-1">Birth Month</label>
+                    <input type="month" class="form-control form-control-sm border-secondary dependent-update" value="${dep.dob}" data-idx="${idx}" data-field="dob">
+                </div>
+                <div class="col-2">
+                    <button type="button" class="btn btn-sm btn-outline-danger w-100 mb-0 py-1" onclick="app.data.removeDependent(${idx})"><i class="bi bi-trash"></i></button>
+                </div>
+            `;
+            container.appendChild(div);
+        });
+
+        document.querySelectorAll('.dependent-update').forEach(el => {
+            el.addEventListener('input', e => {
+                const t = e.target;
+                this.app.state.dependents[t.dataset.idx][t.dataset.field] = t.value;
+                this.app.debouncedRun();
+            });
+        });
+    }
+
+    addDependent() {
+        if (!this.app.state.dependents) this.app.state.dependents = [];
+        this.app.state.dependents.push({ name: `Child ${this.app.state.dependents.length + 1}`, dob: new Date().toISOString().slice(0, 7) });
+        this.renderDependents();
+        this.app.run();
+    }
+
+    removeDependent(idx) {
+        this.app.showConfirm("Remove this dependent?", () => {
+            this.app.state.dependents.splice(idx, 1);
+            this.renderDependents();
+            this.app.run();
+        });
     }
 
     // --- WINDFALLS ---
@@ -374,6 +425,8 @@ class DataController {
 
         const taxDescriptions = {
             'tfsa': '<b>TFSA</b><br>Tax-Free Savings Account. Withdrawals are completely tax-free and do not affect government benefits.',
+            'fhsa': '<b>FHSA</b><br>First Home Savings Account. Tax-deductible contributions, tax-free withdrawals for a first home. Max 15 years.',
+            'resp': '<b>RESP</b><br>Registered Education Savings Plan. Grows tax-deferred. Government matches 20% of first $2,500/yr.',
             'rrsp': '<b>RRSP</b><br>Registered Retirement Savings Plan. Withdrawals are 100% fully taxable as ordinary income.',
             'rrif_acct': '<b>RRIF</b><br>Registered Retirement Income Fund. Subject to mandatory minimum annual withdrawals. 100% fully taxable.',
             'lif': '<b>LIF</b><br>Life Income Fund. Has both minimum AND maximum annual withdrawal limits. 100% fully taxable.',
