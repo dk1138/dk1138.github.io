@@ -40,6 +40,22 @@ class FinanceEngine {
         return {71:0.0528, 72:0.0540, 73:0.0553, 74:0.0567, 75:0.0582, 76:0.0598, 77:0.0617, 78:0.0636, 79:0.0658, 80:0.0682, 81:0.0708, 82:0.0738, 83:0.0771, 84:0.0808, 85:0.0851, 86:0.0899, 87:0.0955, 88:0.1021, 89:0.1099, 90:0.1192, 91:0.1306, 92:0.1449, 93:0.1634, 94:0.1879}[age] || 0.0528;
     }
 
+    // New: Added Ontario / Federal LIF Maximum limits based on MoneySense CRA Chart
+    getLifMaxFactor(age) {
+        const maxRates = {
+            55: 0.0651, 56: 0.0657, 57: 0.0663, 58: 0.0670, 59: 0.0677, 
+            60: 0.0685, 61: 0.0694, 62: 0.0704, 63: 0.0714, 64: 0.0726, 
+            65: 0.0738, 66: 0.0752, 67: 0.0767, 68: 0.0783, 69: 0.0802, 
+            70: 0.0822, 71: 0.0845, 72: 0.0871, 73: 0.0900, 74: 0.0934, 
+            75: 0.0971, 76: 0.1015, 77: 0.1066, 78: 0.1125, 79: 0.1196, 
+            80: 0.1282, 81: 0.1387, 82: 0.1519, 83: 0.1690, 84: 0.1919, 
+            85: 0.2240, 86: 0.2723, 87: 0.3529, 88: 0.5146
+        };
+        if (age >= 89) return 1.0000;
+        if (age < 55) return 0.0651; 
+        return maxRates[age] || 1.0000;
+    }
+
     calcBen(m, sA, p, rA, type) { 
         let v = m * p, d = (sA - 65) * 12; 
         if (type === 'cpp') {
@@ -128,7 +144,7 @@ class FinanceEngine {
         const g1 = getRates('p1', isRet1), g2 = getRates('p2', isRet2);
         
         if(stress) { 
-            ['tfsa','rrsp','nreg','cash','lirf','lif','rrif_acct'].forEach(k => { g1[k] = -0.15; g2[k] = -0.15; }); 
+            ['tfsa','rrsp','nreg','cash','lirf','lif','rrif_acct','crypto'].forEach(k => { g1[k] = -0.15; g2[k] = -0.15; }); 
             g1.crypto = -0.40; g2.crypto = -0.40; 
         }
 
@@ -254,41 +270,68 @@ class FinanceEngine {
         return res;
     }
 
-    calcRRIFMin(p1, p2, age1, age2, alive1, alive2, preRrsp1, preRrif1, preRrsp2, preRrif2) {
-        let r = { p1: 0, p2: 0, details: { p1: null, p2: null } };
+    calcRegMinimums(p1, p2, age1, age2, alive1, alive2, preRrsp1, preRrif1, preRrsp2, preRrif2, preLirf1, preLif1, preLirf2, preLif2) {
+        let r = { p1: 0, p2: 0, lifTaken1: 0, lifTaken2: 0, details: { p1: null, p2: null } };
         
-        const calcMin = (p, age, preRrsp, preRrif) => {
+        const calcMin = (p, age, preRrsp, preRrif, preLirf, preLif) => {
             let factor = this.getRrifFactor(age - 1);
             let baseBal = age >= this.CONSTANTS.RRIF_START_AGE ? (preRrsp + preRrif) : preRrif;
+            let baseLifBal = age >= this.CONSTANTS.RRIF_START_AGE ? (preLirf + preLif) : preLif;
+            
+            let actualRrifTaken = 0;
+            let actualLifTaken = 0;
             
             if (baseBal > 0) {
                 let minNeeded = baseBal * factor;
-                let actualTaken = 0;
-                
                 let tkRrif = Math.min(p.rrif_acct, minNeeded);
                 p.rrif_acct -= tkRrif;
-                actualTaken += tkRrif;
+                actualRrifTaken += tkRrif;
                 minNeeded -= tkRrif;
                 
                 if (minNeeded > 0 && age >= this.CONSTANTS.RRIF_START_AGE) {
                     let tkRrsp = Math.min(p.rrsp, minNeeded);
                     p.rrsp -= tkRrsp;
-                    actualTaken += tkRrsp;
+                    actualRrifTaken += tkRrsp;
                 }
-                
-                return { taken: actualTaken, details: { factor, bal: baseBal, min: actualTaken } };
             }
-            return { taken: 0, details: null };
+
+            if (baseLifBal > 0) {
+                let minNeeded = baseLifBal * factor;
+                let tkLif = Math.min(p.lif, minNeeded);
+                p.lif -= tkLif;
+                actualLifTaken += tkLif;
+                minNeeded -= tkLif;
+
+                if (minNeeded > 0 && age >= this.CONSTANTS.RRIF_START_AGE) {
+                    let tkLirf = Math.min(p.lirf, minNeeded);
+                    p.lirf -= tkLirf;
+                    actualLifTaken += tkLirf;
+                }
+            }
+            
+            return { 
+                rrifTaken: actualRrifTaken, 
+                lifTaken: actualLifTaken, 
+                details: { 
+                    factor, 
+                    bal: baseBal, 
+                    min: actualRrifTaken, 
+                    lifBal: baseLifBal, 
+                    lifMin: actualLifTaken 
+                } 
+            };
         };
         
         if (alive1) { 
-            let res = calcMin(p1, age1, preRrsp1, preRrif1); 
-            r.p1 = res.taken; 
+            let res = calcMin(p1, age1, preRrsp1, preRrif1, preLirf1, preLif1); 
+            r.p1 = res.rrifTaken; 
+            r.lifTaken1 = res.lifTaken;
             r.details.p1 = res.details; 
         }
         if (alive2) { 
-            let res = calcMin(p2, age2, preRrsp2, preRrif2); 
-            r.p2 = res.taken; 
+            let res = calcMin(p2, age2, preRrsp2, preRrif2, preLirf2, preLif2); 
+            r.p2 = res.rrifTaken; 
+            r.lifTaken2 = res.lifTaken;
             r.details.p2 = res.details; 
         }
         
@@ -323,11 +366,11 @@ class FinanceEngine {
         return exp * bInf;
     }
 
-    applyPensionSplitting(t1, t2, inf, rrif, p1, p2, age1, age2, setTaxes) {
+    applyPensionSplitting(t1, t2, inf, regMins, p1, p2, age1, age2, setTaxes) {
         let eligibleP1 = inf.p1.pension;
         let eligibleP2 = inf.p2.pension;
-        if (age1 >= 65) { eligibleP1 += rrif.p1 + (p1.lif > 0 ? p1.lif * 0.05 : 0); }
-        if (age2 >= 65) { eligibleP2 += rrif.p2 + (p2.lif > 0 ? p2.lif * 0.05 : 0); }
+        if (age1 >= 65) { eligibleP1 += regMins.p1 + regMins.lifTaken1; }
+        if (age2 >= 65) { eligibleP2 += regMins.p2 + regMins.lifTaken2; }
 
         if (t1 > t2 && eligibleP1 > 0) {
             let maxTransfer = eligibleP1 * 0.5;
@@ -418,7 +461,7 @@ class FinanceEngine {
         });
     }
 
-    handleDeficit(amount, p1, p2, curInc1, curInc2, alive1, alive2, log, breakdown, taxBrackets, onWithdrawal, age1, age2, oasRec1 = 0, oasRec2 = 0, oasThresholdInf = 0) {
+    handleDeficit(amount, p1, p2, curInc1, curInc2, alive1, alive2, log, breakdown, taxBrackets, onWithdrawal, age1, age2, oasRec1 = 0, oasRec2 = 0, oasThresholdInf = 0, lifLimits = {lifMax1: Infinity, lifMax2: Infinity}) {
         let df = amount;
         let runInc1 = curInc1;
         let runInc2 = curInc2;
@@ -462,9 +505,21 @@ class FinanceEngine {
                     grossNeeded = remainingNeed / (1 - effRate);
                 }
                 
-                let tk = Math.min(p[act], grossNeeded);
-                
                 let currentAge = (pfx === 'p1') ? age1 : age2;
+                let availableActBal = p[act];
+                
+                if (act === 'lif' || act === 'lirf') {
+                    let maxL = pfx === 'p1' ? lifLimits.lifMax1 : lifLimits.lifMax2;
+                    availableActBal = Math.min(availableActBal, maxL);
+                    if (availableActBal <= 0.01) continue; 
+                }
+                
+                let tk = Math.min(availableActBal, grossNeeded);
+
+                if (act === 'lif' || act === 'lirf') {
+                    if (pfx === 'p1') lifLimits.lifMax1 -= tk;
+                    else lifLimits.lifMax2 -= tk;
+                }
                 
                 let logKey = act;
                 if (act === 'rrsp' && currentAge >= this.CONSTANTS.RRIF_START_AGE) logKey = 'RRIF';
@@ -776,16 +831,26 @@ class FinanceEngine {
             
             const preGrowthRrsp1 = person1.rrsp;
             const preGrowthRrif1 = person1.rrif_acct;
+            const preGrowthLirf1 = person1.lirf;
+            const preGrowthLif1 = person1.lif;
+            
             const preGrowthRrsp2 = person2.rrsp;
             const preGrowthRrif2 = person2.rrif_acct;
+            const preGrowthLirf2 = person2.lirf;
+            const preGrowthLif2 = person2.lif;
 
             this.applyGrowth(person1, person2, isRet1, isRet2, this.inputs['asset_mode_advanced'], consts.inflation, i, simContext);
 
             const inflows = this.calcInflows(yr, i, person1, person2, age1, age2, alive1, alive2, isRet1, isRet2, consts, bInf, detailed ? trackedEvents : null);
             if (detailed && deathEvents.length > 0) inflows.events.push(...deathEvents);
 
-            const rrifMin = this.calcRRIFMin(person1, person2, age1, age2, alive1, alive2, preGrowthRrsp1, preGrowthRrif1, preGrowthRrsp2, preGrowthRrif2);
+            const regMins = this.calcRegMinimums(person1, person2, age1, age2, alive1, alive2, preGrowthRrsp1, preGrowthRrif1, preGrowthRrsp2, preGrowthRrif2, preGrowthLirf1, preGrowthLif1, preGrowthLirf2, preGrowthLif2);
             
+            let lifMax1 = (preGrowthLirf1 + preGrowthLif1) * this.getLifMaxFactor(age1 - 1);
+            let lifMax2 = (preGrowthLirf2 + preGrowthLif2) * this.getLifMaxFactor(age2 - 1);
+            lifMax1 = Math.max(0, lifMax1 - regMins.lifTaken1);
+            lifMax2 = Math.max(0, lifMax2 - regMins.lifTaken2);
+
             const expenses = this.calcOutflows(yr, i, age1, bInf, isRet1, isRet2, simContext);
 
             let mortgagePayment = 0;
@@ -832,12 +897,12 @@ class FinanceEngine {
                 inflows.events.push('Mortgage Paid'); 
             }
 
-            let taxableIncome1 = inflows.p1.gross + inflows.p1.cpp + inflows.p1.oas + inflows.p1.pension + rrifMin.p1 + inflows.p1.windfallTaxable + (person1.nreg * person1.nreg_yield);
-            let taxableIncome2 = inflows.p2.gross + inflows.p2.cpp + inflows.p2.oas + inflows.p2.pension + rrifMin.p2 + inflows.p2.windfallTaxable + (alive2 ? (person2.nreg * person2.nreg_yield) : 0);
+            let taxableIncome1 = inflows.p1.gross + inflows.p1.cpp + inflows.p1.oas + inflows.p1.pension + regMins.p1 + regMins.lifTaken1 + inflows.p1.windfallTaxable + (person1.nreg * person1.nreg_yield);
+            let taxableIncome2 = inflows.p2.gross + inflows.p2.cpp + inflows.p2.oas + inflows.p2.pension + regMins.p2 + regMins.lifTaken2 + inflows.p2.windfallTaxable + (alive2 ? (person2.nreg * person2.nreg_yield) : 0);
 
             let pensionSplitTransfer = { p1ToP2: 0, p2ToP1: 0 };
             if (this.mode === 'Couple' && this.inputs['pension_split_enabled']) {
-                this.applyPensionSplitting(taxableIncome1, taxableIncome2, inflows, rrifMin, person1, person2, age1, age2, (n1, n2, tAmt, dir) => { 
+                this.applyPensionSplitting(taxableIncome1, taxableIncome2, inflows, regMins, person1, person2, age1, age2, (n1, n2, tAmt, dir) => { 
                     taxableIncome1 = n1; taxableIncome2 = n2; 
                     if (dir === 'p1_to_p2') pensionSplitTransfer.p1ToP2 = tAmt;
                     if (dir === 'p2_to_p1') pensionSplitTransfer.p2ToP1 = tAmt;
@@ -861,15 +926,23 @@ class FinanceEngine {
             let wdBreakdown = detailed ? { p1: {}, p2: {} } : null;
 
             if(detailed) {
-                if(rrifMin.p1 > 0) { 
-                    flowLog.withdrawals['P1 RRIF'] = (flowLog.withdrawals['P1 RRIF'] || 0) + rrifMin.p1; 
-                    wdBreakdown.p1.RRIF = rrifMin.p1; 
-                    wdBreakdown.p1.RRIF_math = rrifMin.details.p1;
+                if(regMins.p1 > 0) { 
+                    flowLog.withdrawals['P1 RRIF'] = (flowLog.withdrawals['P1 RRIF'] || 0) + regMins.p1; 
+                    wdBreakdown.p1.RRIF = regMins.p1; 
+                    wdBreakdown.p1.RRIF_math = regMins.details.p1;
                 }
-                if(rrifMin.p2 > 0) { 
-                    flowLog.withdrawals['P2 RRIF'] = (flowLog.withdrawals['P2 RRIF'] || 0) + rrifMin.p2; 
-                    wdBreakdown.p2.RRIF = rrifMin.p2; 
-                    wdBreakdown.p2.RRIF_math = rrifMin.details.p2;
+                if(regMins.lifTaken1 > 0) { 
+                    flowLog.withdrawals['P1 LIF'] = (flowLog.withdrawals['P1 LIF'] || 0) + regMins.lifTaken1; 
+                    wdBreakdown.p1.LIF = regMins.lifTaken1; 
+                }
+                if(regMins.p2 > 0) { 
+                    flowLog.withdrawals['P2 RRIF'] = (flowLog.withdrawals['P2 RRIF'] || 0) + regMins.p2; 
+                    wdBreakdown.p2.RRIF = regMins.p2; 
+                    wdBreakdown.p2.RRIF_math = regMins.details.p2;
+                }
+                if(regMins.lifTaken2 > 0) { 
+                    flowLog.withdrawals['P2 LIF'] = (flowLog.withdrawals['P2 LIF'] || 0) + regMins.lifTaken2; 
+                    wdBreakdown.p2.LIF = regMins.lifTaken2; 
                 }
                 if(rrspDed.p1 > 0) { flowLog.withdrawals['P1 RRSP Top-Up'] = (flowLog.withdrawals['P1 RRSP Top-Up'] || 0) + rrspDed.p1; wdBreakdown.p1.RRSP = (wdBreakdown.p1.RRSP || 0) + rrspDed.p1; }
                 if(rrspDed.p2 > 0) { flowLog.withdrawals['P2 RRSP Top-Up'] = (flowLog.withdrawals['P2 RRSP Top-Up'] || 0) + rrspDed.p2; wdBreakdown.p2.RRSP = (wdBreakdown.p2.RRSP || 0) + rrspDed.p2; }
@@ -901,7 +974,7 @@ class FinanceEngine {
                         if (pfx === 'p1') taxableIncome1 += taxAmt;
                         if (pfx === 'p2') taxableIncome2 += taxAmt;
                         cashFromNonTaxableWd += nonTaxAmt;
-                    }, age1, age2, inflows.p1.oas, inflows.p2.oas, oasThresholdInf);
+                    }, age1, age2, inflows.p1.oas, inflows.p2.oas, oasThresholdInf, { lifMax1, lifMax2 });
                 }
                 
                 tax1 = this.calculateTaxDetailed(taxableIncome1, this.getRaw('tax_province'), taxBrackets, inflows.p1.oas, oasThresholdInf);
