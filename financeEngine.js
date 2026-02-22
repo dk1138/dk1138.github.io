@@ -40,20 +40,39 @@ class FinanceEngine {
         return {71:0.0528, 72:0.0540, 73:0.0553, 74:0.0567, 75:0.0582, 76:0.0598, 77:0.0617, 78:0.0636, 79:0.0658, 80:0.0682, 81:0.0708, 82:0.0738, 83:0.0771, 84:0.0808, 85:0.0851, 86:0.0899, 87:0.0955, 88:0.1021, 89:0.1099, 90:0.1192, 91:0.1306, 92:0.1449, 93:0.1634, 94:0.1879}[age] || 0.0528;
     }
 
-    // New: Added Ontario / Federal LIF Maximum limits based on MoneySense CRA Chart
-    getLifMaxFactor(age) {
+    // Dynamic LIF Maximums based on Province (Matches CRA/MoneySense table)
+    getLifMaxFactor(age, prov) {
+        const group1 = ['BC', 'AB', 'SK', 'ON', 'NB', 'NL'];
+        const group2 = ['MB', 'QC', 'NS'];
+        
+        let type = 'fed'; // PEI uses federal default as they lack provincial pension legislation
+        if (group1.includes(prov)) type = 'g1';
+        else if (group2.includes(prov)) type = 'g2';
+
         const maxRates = {
-            55: 0.0651, 56: 0.0657, 57: 0.0663, 58: 0.0670, 59: 0.0677, 
-            60: 0.0685, 61: 0.0694, 62: 0.0704, 63: 0.0714, 64: 0.0726, 
-            65: 0.0738, 66: 0.0752, 67: 0.0767, 68: 0.0783, 69: 0.0802, 
-            70: 0.0822, 71: 0.0845, 72: 0.0871, 73: 0.0900, 74: 0.0934, 
-            75: 0.0971, 76: 0.1015, 77: 0.1066, 78: 0.1125, 79: 0.1196, 
-            80: 0.1282, 81: 0.1387, 82: 0.1519, 83: 0.1690, 84: 0.1919, 
-            85: 0.2240, 86: 0.2723, 87: 0.3529, 88: 0.5146
+            'g1': {
+                55: 0.0651, 56: 0.0657, 57: 0.0663, 58: 0.0670, 59: 0.0677, 60: 0.0685, 61: 0.0694, 62: 0.0704, 63: 0.0714, 64: 0.0726, 
+                65: 0.0738, 66: 0.0752, 67: 0.0767, 68: 0.0783, 69: 0.0802, 70: 0.0822, 71: 0.0845, 72: 0.0871, 73: 0.0900, 74: 0.0934, 
+                75: 0.0971, 76: 0.1015, 77: 0.1066, 78: 0.1125, 79: 0.1196, 80: 0.1282, 81: 0.1387, 82: 0.1519, 83: 0.1690, 84: 0.1919, 
+                85: 0.2240, 86: 0.2723, 87: 0.3529, 88: 0.5146
+            },
+            'g2': {
+                55: 0.0640, 56: 0.0650, 57: 0.0650, 58: 0.0660, 59: 0.0670, 60: 0.0670, 61: 0.0680, 62: 0.0690, 63: 0.0700, 64: 0.0710, 
+                65: 0.0720, 66: 0.0730, 67: 0.0740, 68: 0.0760, 69: 0.0770, 70: 0.0790, 71: 0.0810, 72: 0.0830, 73: 0.0850, 74: 0.0880, 
+                75: 0.0910, 76: 0.0940, 77: 0.0980, 78: 0.1030, 79: 0.1080, 80: 0.1150, 81: 0.1210, 82: 0.1290, 83: 0.1380, 84: 0.1480, 
+                85: 0.1600, 86: 0.1730, 87: 0.1890, 88: 0.2000
+            },
+            'fed': {
+                55: 0.0516, 56: 0.0522, 57: 0.0527, 58: 0.0534, 59: 0.0541, 60: 0.0548, 61: 0.0556, 62: 0.0565, 63: 0.0575, 64: 0.0586, 
+                65: 0.0598, 66: 0.0611, 67: 0.0625, 68: 0.0641, 69: 0.0660, 70: 0.0680, 71: 0.0703, 72: 0.0729, 73: 0.0759, 74: 0.0793, 
+                75: 0.0833, 76: 0.0879, 77: 0.0932, 78: 0.0994, 79: 0.1068, 80: 0.1157, 81: 0.1265, 82: 0.1401, 83: 0.1575, 84: 0.1809, 
+                85: 0.2136, 86: 0.2626, 87: 0.3445, 88: 0.5083
+            }
         };
-        if (age >= 89) return 1.0000;
-        if (age < 55) return 0.0651; 
-        return maxRates[age] || 1.0000;
+
+        if (age >= 89) return type === 'g2' ? 0.2000 : 1.0000;
+        if (age < 55) return maxRates[type][55]; 
+        return maxRates[type][age] || (type === 'g2' ? 0.2000 : 1.0000);
     }
 
     calcBen(m, sA, p, rA, type) { 
@@ -508,6 +527,7 @@ class FinanceEngine {
                 let currentAge = (pfx === 'p1') ? age1 : age2;
                 let availableActBal = p[act];
                 
+                // Enforce LIF Maximum Limits
                 if (act === 'lif' || act === 'lirf') {
                     let maxL = pfx === 'p1' ? lifLimits.lifMax1 : lifLimits.lifMax2;
                     availableActBal = Math.min(availableActBal, maxL);
@@ -846,8 +866,8 @@ class FinanceEngine {
 
             const regMins = this.calcRegMinimums(person1, person2, age1, age2, alive1, alive2, preGrowthRrsp1, preGrowthRrif1, preGrowthRrsp2, preGrowthRrif2, preGrowthLirf1, preGrowthLif1, preGrowthLirf2, preGrowthLif2);
             
-            let lifMax1 = (preGrowthLirf1 + preGrowthLif1) * this.getLifMaxFactor(age1 - 1);
-            let lifMax2 = (preGrowthLirf2 + preGrowthLif2) * this.getLifMaxFactor(age2 - 1);
+            let lifMax1 = (preGrowthLirf1 + preGrowthLif1) * this.getLifMaxFactor(age1 - 1, this.getRaw('tax_province'));
+            let lifMax2 = (preGrowthLirf2 + preGrowthLif2) * this.getLifMaxFactor(age2 - 1, this.getRaw('tax_province'));
             lifMax1 = Math.max(0, lifMax1 - regMins.lifTaken1);
             lifMax2 = Math.max(0, lifMax2 - regMins.lifTaken2);
 
