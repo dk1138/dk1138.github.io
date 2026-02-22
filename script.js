@@ -1,21 +1,22 @@
 /**
  * Retirement Planner Pro - Core Application Controller
- * Version 10.9.12 (Strategy Array Expansion)
+ * Version 10.10.0 (CCB, FHSA, and RESP Integration)
  */
 
 class RetirementPlanner {
     constructor() {
         try {
-            this.APP_VERSION = "10.9.12";
+            this.APP_VERSION = "10.10.0";
             this.state = {
                 inputs: {},
                 debt: [],
                 properties: [{ name: "Primary Home", value: 1000000, mortgage: 430000, growth: 3.0, rate: 3.29, payment: 0, manual: false, includeInNW: false, sellEnabled: false, sellAge: 65, replacementValue: 0 }],
                 windfalls: [],
                 additionalIncome: [],
+                dependents: [], // Used for CCB & RESP projections
                 strategies: { 
-                    accum: ['tfsa', 'rrsp', 'nreg', 'cash', 'crypto', 'rrif_acct', 'lif', 'lirf'], 
-                    decum: ['rrif_acct', 'lif', 'rrsp', 'lirf', 'crypto', 'nreg', 'tfsa', 'cash'] 
+                    accum: ['tfsa', 'fhsa', 'resp', 'rrsp', 'nreg', 'cash', 'crypto', 'rrif_acct', 'lif', 'lirf'], 
+                    decum: ['rrif_acct', 'lif', 'rrsp', 'lirf', 'crypto', 'nreg', 'tfsa', 'fhsa', 'resp', 'cash'] 
                 },
                 mode: 'Couple',
                 projectionData: [],
@@ -43,7 +44,7 @@ class RetirementPlanner {
             this.expensesByCategory = {
                 "Housing": { items: [ { name: "Property Tax", curr: 6000, ret: 6000, trans: 6000, gogo: 6000, slow: 6000, nogo: 6000, freq: 1 }, { name: "Enbridge (Gas)", curr: 120, ret: 120, trans: 120, gogo: 120, slow: 120, nogo: 120, freq: 12 }, { name: "Enercare (HWT)", curr: 45, ret: 45, trans: 45, gogo: 45, slow: 45, nogo: 45, freq: 12 }, { name: "Alectra (Hydro)", curr: 150, ret: 150, trans: 150, gogo: 150, slow: 150, nogo: 150, freq: 12 }, { name: "RH Water", curr: 80, ret: 80, trans: 80, gogo: 80, slow: 80, nogo: 80, freq: 12 } ] },
                 "Living": { items: [ { name: "Grocery", curr: 800, ret: 800, trans: 800, gogo: 800, slow: 700, nogo: 600, freq: 12 }, { name: "Costco", curr: 400, ret: 400, trans: 400, gogo: 400, slow: 350, nogo: 300, freq: 12 }, { name: "Restaurants", curr: 400, ret: 300, trans: 350, gogo: 350, slow: 200, nogo: 100, freq: 12 }, { name: "Cellphone", curr: 120, ret: 120, trans: 120, gogo: 120, slow: 120, nogo: 120, freq: 12 }, { name: "Internet", curr: 90, ret: 90, trans: 90, gogo: 90, slow: 90, nogo: 90, freq: 12 } ] },
-                "Kids": { items: [ { name: "Daycare", curr: 1200, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 }, { name: "Activities", curr: 200, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 }, { name: "RESP Contribution", curr: 208, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 }, { name: "Clothing/Toys", curr: 100, ret: 50, trans: 50, gogo: 50, slow: 0, nogo: 0, freq: 12 } ] },
+                "Kids": { items: [ { name: "Daycare", curr: 1200, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 }, { name: "Activities", curr: 200, ret: 0, trans: 0, gogo: 0, slow: 0, nogo: 0, freq: 12 }, { name: "Clothing/Toys", curr: 100, ret: 50, trans: 50, gogo: 50, slow: 0, nogo: 0, freq: 12 } ] },
                 "Lifestyle": { items: [ { name: "Travel", curr: 5000, ret: 15000, trans: 10000, gogo: 15000, slow: 5000, nogo: 0, freq: 1 }, { name: "Electronic", curr: 500, ret: 500, trans: 500, gogo: 500, slow: 500, nogo: 200, freq: 1 }, { name: "Health Insurance", curr: 50, ret: 300, trans: 150, gogo: 300, slow: 500, nogo: 1000, freq: 12 }, { name: "Other", curr: 300, ret: 300, trans: 300, gogo: 300, slow: 200, nogo: 100, freq: 12 } ] }
             };
             
@@ -51,6 +52,8 @@ class RetirementPlanner {
             
             this.strategyLabels = { 
                 'tfsa': 'TFSA', 
+                'fhsa': 'FHSA',
+                'resp': 'RESP',
                 'rrsp': 'RRSP', 
                 'rrif_acct': 'RRIF', 
                 'lif': 'LIF', 
@@ -112,9 +115,10 @@ class RetirementPlanner {
             properties: JSON.parse(JSON.stringify(this.state.properties || [])),
             windfalls: JSON.parse(JSON.stringify(this.state.windfalls || [])),
             additionalIncome: JSON.parse(JSON.stringify(this.state.additionalIncome || [])),
+            dependents: JSON.parse(JSON.stringify(this.state.dependents || [])),
             strategies: { 
-                accum: [...(this.state.strategies?.accum || ['tfsa', 'rrsp', 'nreg', 'cash', 'crypto', 'rrif_acct', 'lif', 'lirf'])], 
-                decum: [...(this.state.strategies?.decum || ['rrif_acct', 'lif', 'rrsp', 'lirf', 'crypto', 'nreg', 'tfsa', 'cash'])] 
+                accum: [...(this.state.strategies?.accum || ['tfsa', 'fhsa', 'resp', 'rrsp', 'nreg', 'cash', 'crypto', 'rrif_acct', 'lif', 'lirf'])], 
+                decum: [...(this.state.strategies?.decum || ['rrif_acct', 'lif', 'rrsp', 'lirf', 'crypto', 'nreg', 'tfsa', 'fhsa', 'resp', 'cash'])] 
             },
             mode: this.state.mode || 'Couple',
             expenseMode: this.state.expenseMode || 'Simple',
@@ -198,6 +202,7 @@ class RetirementPlanner {
         this.data.addDebtRow(); 
         this.data.renderWindfalls(); 
         this.data.renderAdditionalIncome(); 
+        this.data.renderDependents();
         this.data.renderStrategy();
     }
 
@@ -305,6 +310,7 @@ class RetirementPlanner {
         if($('btnClearAll')) $('btnClearAll').addEventListener('click', () => this.showConfirm("Clear all data? This will wipe your current unsaved plan.", () => this.resetAllData()));
         if($('btnAddProperty')) $('btnAddProperty').addEventListener('click', () => this.data.addProperty());
         if($('btnAddWindfall')) $('btnAddWindfall').addEventListener('click', () => this.data.addWindfall());
+        if($('btnAddChild')) $('btnAddChild').addEventListener('click', () => this.data.addDependent());
         if ($('btnAddIncomeP1')) $('btnAddIncomeP1').addEventListener('click', () => this.data.addAdditionalIncome('p1'));
         if ($('btnAddIncomeP2')) $('btnAddIncomeP2').addEventListener('click', () => this.data.addAdditionalIncome('p2'));
         if($('btnExportCSV')) $('btnExportCSV').addEventListener('click', () => this.exportToCSV());
@@ -315,7 +321,7 @@ class RetirementPlanner {
             const cl = e.target.classList;
             if (cl.contains('live-calc')) {
                 if (cl.contains('formatted-num')) this.formatInput(e.target);
-                if (e.target.id && !e.target.id.startsWith('comp_') && e.target.id !== 'exp_gogo_age' && e.target.id !== 'exp_slow_age' && !cl.contains('property-update') && !cl.contains('windfall-update') && !cl.contains('debt-amount') && !cl.contains('income-stream-update')) {
+                if (e.target.id && !e.target.id.startsWith('comp_') && e.target.id !== 'exp_gogo_age' && e.target.id !== 'exp_slow_age' && !cl.contains('property-update') && !cl.contains('windfall-update') && !cl.contains('debt-amount') && !cl.contains('income-stream-update') && !cl.contains('dependent-update')) {
                     this.state.inputs[e.target.id] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
                     this.ui.updateSidebarSync(e.target.id, e.target.value);
                 }
@@ -506,6 +512,7 @@ class RetirementPlanner {
         this.state.properties = [];
         this.state.windfalls = [];
         this.state.additionalIncome = [];
+        this.state.dependents = [];
         this.state.debt = [];
         for (const cat in this.expensesByCategory) this.expensesByCategory[cat].items = [];
 
@@ -514,7 +521,7 @@ class RetirementPlanner {
         if(document.getElementById('modeSingle')) document.getElementById('modeSingle').checked = false;
 
         document.querySelectorAll('input, select').forEach(el => {
-            if(el.id && !el.id.startsWith('comp_') && !el.classList.contains('property-update') && !el.classList.contains('windfall-update') && !el.classList.contains('income-stream-update') && !el.classList.contains('expense-update') && !el.classList.contains('debt-amount')) {
+            if(el.id && !el.id.startsWith('comp_') && !el.classList.contains('property-update') && !el.classList.contains('windfall-update') && !el.classList.contains('income-stream-update') && !el.classList.contains('expense-update') && !el.classList.contains('debt-amount') && !el.classList.contains('dependent-update')) {
                 if (el.type === 'checkbox' || el.type === 'radio') {
                     if (el.name !== 'planMode') el.checked = false;
                 } else if (el.type === 'range') {
@@ -535,6 +542,7 @@ class RetirementPlanner {
             'tax_province': 'ON', 'inflation_rate': '2.5', 'p1_dob': age30Dob, 'p2_dob': age30Dob, 
             'p1_retireAge': '60', 'p2_retireAge': '60', 'p1_lifeExp': '90', 'p2_lifeExp': '95', 
             'exp_gogo_age': '75', 'exp_slow_age': '85', 'cfg_tfsa_limit': '7,000', 'cfg_rrsp_limit': '32,960', 
+            'cfg_fhsa_limit': '8,000', 'cfg_resp_limit': '2,500',
             'p1_tfsa_ret': '6.0', 'p2_tfsa_ret': '6.0', 'p1_rrsp_ret': '6.0', 'p2_rrsp_ret': '6.0', 
             'p1_nonreg_ret': '6.0', 'p2_nonreg_ret': '6.0', 'p1_crypto_ret': '6.0', 'p2_crypto_ret': '6.0', 
             'p1_cash_ret': '2.0', 'p2_cash_ret': '2.0', 'p1_income_growth': '2.0', 'p2_income_growth': '2.0', 
@@ -558,7 +566,7 @@ class RetirementPlanner {
             if (el) { el.checked = val; this.state.inputs[id] = val; }
         }
 
-        ['real-estate-container', 'windfall-container', 'p1-additional-income-container', 'p2-additional-income-container', 'debt-container'].forEach(id => {
+        ['real-estate-container', 'windfall-container', 'p1-additional-income-container', 'p2-additional-income-container', 'dependents-container', 'debt-container'].forEach(id => {
             if(document.getElementById(id)) document.getElementById(id).innerHTML = '';
         });
 
@@ -586,6 +594,7 @@ class RetirementPlanner {
         this.ui.updateAgeDisplay('p1');
         this.ui.updateAgeDisplay('p2');
         this.data.renderExpenseRows();
+        this.data.renderDependents();
         this.data.renderStrategy();
         this.ui.toggleModeDisplay();
 
@@ -648,11 +657,11 @@ class RetirementPlanner {
         this.state.inputs = {...(d.inputs||{})}; 
         
         this.state.strategies = {
-            accum: d.strategies?.accum || ['tfsa', 'rrsp', 'nreg', 'cash', 'crypto', 'rrif_acct', 'lif', 'lirf'],
-            decum: d.strategies?.decum || ['rrif_acct', 'lif', 'rrsp', 'lirf', 'crypto', 'nreg', 'tfsa', 'cash']
+            accum: d.strategies?.accum || ['tfsa', 'fhsa', 'resp', 'rrsp', 'nreg', 'cash', 'crypto', 'rrif_acct', 'lif', 'lirf'],
+            decum: d.strategies?.decum || ['rrif_acct', 'lif', 'rrsp', 'lirf', 'crypto', 'nreg', 'tfsa', 'fhsa', 'resp', 'cash']
         };
 
-        const allItems = ['tfsa', 'rrsp', 'rrif_acct', 'lif', 'lirf', 'nreg', 'cash', 'crypto'];
+        const allItems = ['tfsa', 'fhsa', 'resp', 'rrsp', 'rrif_acct', 'lif', 'lirf', 'nreg', 'cash', 'crypto'];
         allItems.forEach(item => {
             if (!this.state.strategies.accum.includes(item)) this.state.strategies.accum.push(item);
             if (!this.state.strategies.decum.includes(item)) this.state.strategies.decum.push(item);
@@ -674,8 +683,11 @@ class RetirementPlanner {
         if(d.properties) { d.properties.forEach(p => { if(p.includeInNW === undefined) p.includeInNW = false; }); this.state.properties = d.properties; } this.data.renderProperties();
         this.state.windfalls = d.windfalls || []; this.data.renderWindfalls();
         this.state.additionalIncome = d.additionalIncome || []; this.data.renderAdditionalIncome();
+        this.state.dependents = d.dependents || []; this.data.renderDependents();
+        
         const dC = document.getElementById('debt-container'); dC.innerHTML = ''; if(d.debt) d.debt.forEach(a => { this.data.addDebtRow(); const ins = dC.querySelectorAll('.debt-amount'); ins[ins.length-1].value = a; });
         this.ui.toggleModeDisplay(); this.data.renderStrategy();
+        
         if(document.getElementById('exp_gogo_val')) document.getElementById('exp_gogo_val').innerText = this.getRaw('exp_gogo_age')||75;
         if(document.getElementById('exp_slow_val')) document.getElementById('exp_slow_val').innerText = this.getRaw('exp_slow_age')||85;
         const advM = document.getElementById('expense_mode_advanced')?.checked; if(document.getElementById('expense-phase-controls')) document.getElementById('expense-phase-controls').style.display = advM?'flex':'none';
@@ -694,6 +706,8 @@ class RetirementPlanner {
         
         if(document.getElementById('cfg_tfsa_limit')) document.getElementById('cfg_tfsa_limit').value = (this.getVal('cfg_tfsa_limit') || 7000).toLocaleString();
         if(document.getElementById('cfg_rrsp_limit')) document.getElementById('cfg_rrsp_limit').value = (this.getVal('cfg_rrsp_limit') || 32960).toLocaleString();
+        if(document.getElementById('cfg_fhsa_limit')) document.getElementById('cfg_fhsa_limit').value = (this.getVal('cfg_fhsa_limit') || 8000).toLocaleString();
+        if(document.getElementById('cfg_resp_limit')) document.getElementById('cfg_resp_limit').value = (this.getVal('cfg_resp_limit') || 2500).toLocaleString();
 
         this.ui.updateBenefitVisibility();
     }
@@ -705,6 +719,7 @@ class RetirementPlanner {
             expensesData: JSON.parse(JSON.stringify(this.expensesByCategory || {})), 
             windfalls: JSON.parse(JSON.stringify(this.state.windfalls || [])), 
             additionalIncome: JSON.parse(JSON.stringify(this.state.additionalIncome || [])),
+            dependents: JSON.parse(JSON.stringify(this.state.dependents || [])),
             nwTrajectory: (this.state.projectionData || []).map(d => Math.round(d.debugNW)),
             years: (this.state.projectionData || []).map(d => d.year)
         }; 
