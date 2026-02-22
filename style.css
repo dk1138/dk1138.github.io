@@ -90,6 +90,8 @@ body {
   border-bottom: 1px solid var(--border-color);
   padding: 1rem 1.5rem;
   border-radius: var(--radius);
+  position: relative;
+  z-index: 1030; /* Ensures dropdowns display above the sticky grid header */
 }
 
 .card-header {
