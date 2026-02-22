@@ -16,13 +16,25 @@ const FINANCIAL_CONSTANTS = {
     // FHSA Rules (First Home Savings Account)
     FHSA_ANNUAL_LIMIT: 8000,
     FHSA_LIFETIME_LIMIT: 40000,
-    FHSA_MAX_YEARS: 15, // Must be closed or transferred to RRSP after 15 years
+    FHSA_MAX_YEARS: 15,
 
     // RESP Rules (Registered Education Savings Plan)
     RESP_LIFETIME_LIMIT: 50000,
-    RESP_CESG_MATCH_RATE: 0.20, // 20% match
-    RESP_CESG_ANNUAL_MAX: 500, // Max match per year ($2500 contribution)
-    RESP_CESG_LIFETIME_MAX: 7200, // Maximum lifetime grant per child
+    RESP_CESG_MATCH_RATE: 0.20, 
+    RESP_CESG_ANNUAL_MAX: 500, 
+    RESP_CESG_LIFETIME_MAX: 7200,
+
+    // CCB Rules (Canada Child Benefit - Projected Base Numbers)
+    CCB_RULES: {
+        MAX_UNDER_6: 7787,     // Max annual benefit per child under 6
+        MAX_6_TO_17: 6570,     // Max annual benefit per child 6 to 17
+        THRESHOLD_1: 36502,    // First phase-out threshold (AFNI)
+        THRESHOLD_2: 79087,    // Second phase-out threshold (AFNI)
+        
+        // Reduction rates based on number of children [1 child, 2 children, 3 children, 4+]
+        RATE_1: [0.07, 0.135, 0.19, 0.23], // Rate applied to income between Threshold 1 & 2
+        RATE_2: [0.032, 0.057, 0.08, 0.095] // Rate applied to income over Threshold 2
+    },
     
     // Federal and Provincial Tax Brackets (2026 Estimates)
     TAX_DATA: {
