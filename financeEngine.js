@@ -147,7 +147,7 @@ class FinanceEngine {
         const grow = (p, rates) => {
             p.tfsa *= (1 + rates.tfsa);
             if (p.tfsa_successor !== undefined) p.tfsa_successor *= (1 + rates.tfsa); 
-            p.rrsp *= (1 + rates.rrsp); p.cash *= (1 + rates.cash); p.crypto *= (1 + rates.cryp);
+            p.rrsp *= (1 + rates.rrsp); p.cash *= (1 + rates.cash); p.crypto *= (1 + rates.crypto);
             p.lirf *= (1 + rates.lirf); p.lif *= (1 + rates.lif); p.rrif_acct *= (1 + rates.rrif_acct);
             p.nreg *= (1 + (rates.nreg - p.nreg_yield));
             if(!isRet1) p.inc *= (1 + rates.inc); 
@@ -427,7 +427,6 @@ class FinanceEngine {
         const strats = this.strategies.decum;
 
         let hasBal = (p, t) => {
-            if (t === 'rrsp') return (p.rrif_acct + p.lif + p.lirf + p.rrsp) > 0;
             if (t === 'tfsa') return (p.tfsa + (p.tfsa_successor || 0)) > 0;
             return p[t] > 0;
         };
@@ -436,8 +435,7 @@ class FinanceEngine {
             if(a <= 0) return {net: 0, tax: 0};
             
             let accountsToPull;
-            if (t === 'rrsp') accountsToPull = ['rrif_acct', 'lif', 'lirf', 'rrsp'];
-            else if (t === 'tfsa') accountsToPull = ['tfsa', 'tfsa_successor'];
+            if (t === 'tfsa') accountsToPull = ['tfsa', 'tfsa_successor'];
             else accountsToPull = [t];
 
             let totalNetGot = 0;
@@ -541,7 +539,7 @@ class FinanceEngine {
                 while(p1Idx < strats.length) {
                     let type = strats[p1Idx];
                     if (!alive1 || !hasBal(p1, type)) { p1Idx++; continue; }
-                    let isTaxableAtAll = ['rrsp', 'nreg', 'crypto'].includes(type);
+                    let isTaxableAtAll = ['rrsp', 'rrif_acct', 'lif', 'lirf', 'nreg', 'crypto'].includes(type);
                     if (ceiling1 !== Infinity && isTaxableAtAll) {
                         if (ceiling1 - runInc1 <= 1) { p1Idx++; continue; }
                     }
@@ -551,7 +549,7 @@ class FinanceEngine {
                 while(p2Idx < strats.length) {
                     let type = strats[p2Idx];
                     if (!alive2 || !hasBal(p2, type)) { p2Idx++; continue; }
-                    let isTaxableAtAll = ['rrsp', 'nreg', 'crypto'].includes(type);
+                    let isTaxableAtAll = ['rrsp', 'rrif_acct', 'lif', 'lirf', 'nreg', 'crypto'].includes(type);
                     if (ceiling2 !== Infinity && isTaxableAtAll) {
                         if (ceiling2 - runInc2 <= 1) { p2Idx++; continue; }
                     }
@@ -573,7 +571,7 @@ class FinanceEngine {
                 else if (p1Idx < p2Idx) target = 'p1'; 
                 else if (p2Idx < p1Idx) target = 'p2'; 
                 else {
-                    let isTaxFree = !['rrsp', 'nreg', 'crypto'].includes(p1Type);
+                    let isTaxFree = !['rrsp', 'rrif_acct', 'lif', 'lirf', 'nreg', 'crypto'].includes(p1Type);
                     if (isTaxFree) target = 'split'; 
                     else if (Math.abs(runInc1 - runInc2) < TOLERANCE) target = 'split';
                     else if (runInc1 < runInc2) target = 'p1';
@@ -582,7 +580,7 @@ class FinanceEngine {
 
                 let getNetRoom = (type, inc, mR, pObj, ceil) => {
                     if (ceil === Infinity) return Infinity;
-                    let isFullyTaxable = type === 'rrsp'; 
+                    let isFullyTaxable = ['rrsp', 'rrif_acct', 'lif', 'lirf'].includes(type); 
                     let isCapGain = ['nreg', 'crypto'].includes(type);
                     
                     if (isFullyTaxable) {
@@ -622,10 +620,10 @@ class FinanceEngine {
                     let gotP2 = req2 > 0 ? wd(p2, p2Type, req2, 'p2', mR2) : {net: 0, tax: 0};
 
                     if (gotP1.net <= 0.01 && gotP1.tax <= 0.01 && req1 > 0) {
-                        if (p1Type === 'rrsp') { p1.rrsp = 0; p1.rrif_acct = 0; p1.lif = 0; p1.lirf = 0; } else p1[p1Type] = 0;
+                        p1[p1Type] = 0;
                     }
                     if (gotP2.net <= 0.01 && gotP2.tax <= 0.01 && req2 > 0) {
-                        if (p2Type === 'rrsp') { p2.rrsp = 0; p2.rrif_acct = 0; p2.lif = 0; p2.lirf = 0; } else p2[p2Type] = 0;
+                        p2[p2Type] = 0;
                     }
 
                     df -= (gotP1.net + gotP2.net);
@@ -661,7 +659,7 @@ class FinanceEngine {
                     let got = wd(pObj, tType, toTake, target, mR);
                     
                     if (got.net <= 0.01 && got.tax <= 0.01) {
-                        if (tType === 'rrsp') { pObj.rrsp = 0; pObj.rrif_acct = 0; pObj.lif = 0; pObj.lirf = 0; } else pObj[tType] = 0;
+                        pObj[tType] = 0;
                     }
                     
                     df -= got.net;
@@ -729,7 +727,6 @@ class FinanceEngine {
 
             let deathEvents = [];
             
-            // FULL SPOUSAL ROLLOVER: If a spouse dies, all their assets transfer tax-free to the survivor.
             if (!alive1 && !trackedEvents.has('P1 Dies')) {
                 trackedEvents.add('P1 Dies');
                 if (detailed) deathEvents.push('P1 Dies');
