@@ -97,6 +97,7 @@ class UIController {
         document.querySelectorAll('.p2-column').forEach(el => { if(!['TH','TD'].includes(el.tagName)) el.style.display = c ? '' : 'none'; });
         if(this.app.charts.nw) this.app.charts.nw.resize();
         if(this.app.charts.donut) this.app.charts.donut.resize();
+        if(this.app.charts.comp) this.app.charts.comp.resize();
     }
 
     updateScenarioBadge(name) {
@@ -203,17 +204,12 @@ class UIController {
                     let cbStr = Math.round(d.oasClawbackP1 / df).toLocaleString();
                     let incStr = Math.round((d.taxIncP1 || 0) / df).toLocaleString();
                     let threshStr = Math.round((d.oasThreshold || 0) / df).toLocaleString();
-                    
                     let excess = Math.max(0, (d.taxIncP1 || 0) - (d.oasThreshold || 0));
                     let excessStr = Math.round(excess / df).toLocaleString();
-                    
                     let maxRecovery = d.oasP1;
                     let maxIncome = (d.oasThreshold || 0) + (maxRecovery / 0.15);
                     let maxIncStr = Math.round(maxIncome / df).toLocaleString();
-                    
-                    let repaymentText = (d.oasClawbackP1 >= maxRecovery - 0.01) ? 
-                        `<b>Repayment (100% Clawed Back):</b> $${cbStr}` : 
-                        `<b>Repayment (15% of excess):</b> $${cbStr}`;
+                    let repaymentText = (d.oasClawbackP1 >= maxRecovery - 0.01) ? `<b>Repayment (100% Clawed Back):</b> $${cbStr}` : `<b>Repayment (15% of excess):</b> $${cbStr}`;
 
                     label += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="OAS Clawback Math" data-bs-content="<b>Net Income:</b> $${incStr}<br><b>Threshold:</b> $${threshStr}<br><b>Excess:</b> $${excessStr}<hr class='my-1'>${repaymentText}<br><span class='text-warning small' style='font-size:0.7rem;'>*Fully clawed back at $${maxIncStr}</span><br><span class='text-muted small' style='font-size:0.7rem;'>*Added to total taxes paid</span>"></i>`;
                 }
@@ -225,16 +221,13 @@ class UIController {
             
             Object.entries(d.wdBreakdown.p1).forEach(([t,a]) => {
                 if(t.endsWith('_math')) return; 
-                
                 let label = `${t} Withdrawals`;
                 if(t === 'RRIF' && d.wdBreakdown.p1.RRIF_math) {
                     let m = d.wdBreakdown.p1.RRIF_math;
                     let balStr = Math.round(m.bal / df).toLocaleString();
                     let minStr = Math.round(m.min / df).toLocaleString();
-                    
                     let extraWd = Math.max(0, a - m.min);
                     let extraStr = extraWd > 5 ? `<hr class='my-1'><b>Extra (Deficit) Wd:</b> $${Math.round(extraWd / df).toLocaleString()}` : '';
-                    
                     label += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="RRIF Withdrawal Math" data-bs-content="<b>Jan 1st Balance:</b> $${balStr}<br><b>Min Factor:</b> ${(m.factor*100).toFixed(2)}%<br><b>Required Min:</b> $${minStr}${extraStr}"></i>`;
                 } else if ((t === 'Non-Reg' || t === 'Crypto') && d.wdBreakdown.p1[t + '_math']) {
                     let m = d.wdBreakdown.p1[t + '_math'];
@@ -258,17 +251,12 @@ class UIController {
                         let cbStr = Math.round(d.oasClawbackP2 / df).toLocaleString();
                         let incStr = Math.round((d.taxIncP2 || 0) / df).toLocaleString();
                         let threshStr = Math.round((d.oasThreshold || 0) / df).toLocaleString();
-                        
                         let excess = Math.max(0, (d.taxIncP2 || 0) - (d.oasThreshold || 0));
                         let excessStr = Math.round(excess / df).toLocaleString();
-                        
                         let maxRecovery = d.oasP2;
                         let maxIncome = (d.oasThreshold || 0) + (maxRecovery / 0.15);
                         let maxIncStr = Math.round(maxIncome / df).toLocaleString();
-                        
-                        let repaymentText = (d.oasClawbackP2 >= maxRecovery - 0.01) ? 
-                            `<b>Repayment (100% Clawed Back):</b> $${cbStr}` : 
-                            `<b>Repayment (15% of excess):</b> $${cbStr}`;
+                        let repaymentText = (d.oasClawbackP2 >= maxRecovery - 0.01) ? `<b>Repayment (100% Clawed Back):</b> $${cbStr}` : `<b>Repayment (15% of excess):</b> $${cbStr}`;
 
                         label += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="OAS Clawback Math" data-bs-content="<b>Net Income:</b> $${incStr}<br><b>Threshold:</b> $${threshStr}<br><b>Excess:</b> $${excessStr}<hr class='my-1'>${repaymentText}<br><span class='text-warning small' style='font-size:0.7rem;'>*Fully clawed back at $${maxIncStr}</span><br><span class='text-muted small' style='font-size:0.7rem;'>*Added to total taxes paid</span>"></i>`;
                     }
@@ -279,16 +267,13 @@ class UIController {
                 if(d.invIncP2 > 0) groupP2 += ln("Inv. Yield (Taxable)", d.invIncP2, "text-muted");
                 Object.entries(d.wdBreakdown.p2).forEach(([t,a]) => {
                     if(t.endsWith('_math')) return; 
-                    
                     let label = `${t} Withdrawals`;
                     if(t === 'RRIF' && d.wdBreakdown.p2.RRIF_math) {
                         let m = d.wdBreakdown.p2.RRIF_math;
                         let balStr = Math.round(m.bal / df).toLocaleString();
                         let minStr = Math.round(m.min / df).toLocaleString();
-                        
                         let extraWd = Math.max(0, a - m.min);
                         let extraStr = extraWd > 5 ? `<hr class='my-1'><b>Extra (Deficit) Wd:</b> $${Math.round(extraWd / df).toLocaleString()}` : '';
-                        
                         label += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="RRIF Withdrawal Math" data-bs-content="<b>Jan 1st Balance:</b> $${balStr}<br><b>Min Factor:</b> ${(m.factor*100).toFixed(2)}%<br><b>Required Min:</b> $${minStr}${extraStr}"></i>`;
                     } else if ((t === 'Non-Reg' || t === 'Crypto') && d.wdBreakdown.p2[t + '_math']) {
                         let m = d.wdBreakdown.p2[t + '_math'];
@@ -311,19 +296,12 @@ class UIController {
             
             const buildTaxInfo = (tDetails, pName, taxIncObjStr) => {
                 if (!tDetails || tDetails.totalTax <= 0) return `Tax Paid ${pName}`;
-                
                 let content = `<b>Federal Tax:</b> $${Math.round(tDetails.fed / df).toLocaleString()}<br><b>Provincial Tax:</b> $${Math.round(tDetails.prov / df).toLocaleString()}<br><b>CPP/EI:</b> $${Math.round(tDetails.cpp_ei / df).toLocaleString()}`;
-                
-                if (tDetails.oas_clawback > 0) {
-                    content += `<br><b>OAS Clawback:</b> $${Math.round(tDetails.oas_clawback / df).toLocaleString()}`;
-                }
-                
+                if (tDetails.oas_clawback > 0) content += `<br><b>OAS Clawback:</b> $${Math.round(tDetails.oas_clawback / df).toLocaleString()}`;
                 let taxInc = d[taxIncObjStr] || 1;
                 let avgRate = ((tDetails.totalTax / taxInc) * 100).toFixed(1);
                 let margRate = ((tDetails.margRate || 0) * 100).toFixed(1);
-                
                 content += `<hr class='my-1'><b>Taxable Income:</b> $${Math.round(taxInc / df).toLocaleString()}<br><b>Average Rate:</b> ${avgRate}%<br><b>Marginal Rate:</b> ${margRate}%`;
-                
                 return `Tax Paid ${pName} <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="${pName} Tax Breakdown" data-bs-content="${content}"></i>`;
             };
 
@@ -345,7 +323,6 @@ class UIController {
             }
             
             aL += ln(`TFSA P1${fmtFlow(d.flows.contributions.p1.tfsa, d.wdBreakdown.p1['TFSA'])}`, d.assetsP1.tfsa) + (this.app.state.mode==='Couple'?ln(`TFSA P2${fmtFlow(d.flows.contributions.p2.tfsa, d.wdBreakdown.p2['TFSA'])}`, d.assetsP2.tfsa):'');
-            
             aL += ln(`TFSA (Successor) P1${fmtFlow(0, d.wdBreakdown.p1['TFSA (Successor)'])}`, d.assetsP1.tfsa_successor) + (this.app.state.mode==='Couple'?ln(`TFSA (Successor) P2${fmtFlow(0, d.wdBreakdown.p2['TFSA (Successor)'])}`, d.assetsP2.tfsa_successor):'');
             
             let r1Label = d.p1Age >= 72 ? 'RRIF' : 'RRSP';
@@ -361,7 +338,7 @@ class UIController {
             }
 
             aL += ln("LIRF P1",d.assetsP1.lirf) + (this.app.state.mode==='Couple'?ln("LIRF P2",d.assetsP2.lirf):'');
-            aL += ln("LIF P1",d.assetsP1.lif) + (this.app.state.mode==='Couple'?ln("LIF P2",d.assetsP2.lif):'');
+            aL += ln(`LIF P1${fmtFlow(0, d.wdBreakdown.p1['LIF'])}`,d.assetsP1.lif) + (this.app.state.mode==='Couple'?ln(`LIF P2${fmtFlow(0, d.wdBreakdown.p2['LIF'])}`,d.assetsP2.lif):'');
             aL += ln("Manual RRIF P1",d.assetsP1.rrif_acct) + (this.app.state.mode==='Couple'?ln("Manual RRIF P2",d.assetsP2.rrif_acct):'');
             aL += ln(`Non-Reg P1${fmtFlow(d.flows.contributions.p1.nreg, d.wdBreakdown.p1['Non-Reg'])}`, d.assetsP1.nreg) + (this.app.state.mode==='Couple'?ln(`Non-Reg P2${fmtFlow(d.flows.contributions.p2.nreg, d.wdBreakdown.p2['Non-Reg'])}`, d.assetsP2.nreg):'');
             aL += ln(`Cash P1${fmtFlow(d.flows.contributions.p1.cash, d.wdBreakdown.p1['Cash'])}`, d.assetsP1.cash) + (this.app.state.mode==='Couple'?ln(`Cash P2${fmtFlow(d.flows.contributions.p2.cash, d.wdBreakdown.p2['Cash'])}`, d.assetsP2.cash):'');
@@ -387,12 +364,59 @@ class UIController {
         let bankruptAge = null;
         let hasDebtAtStart = false;
 
+        let totalBenefits = 0;
+        let totalExternalInflow = 0;
+        let retExpSum = 0;
+        let retYears = 0;
+        let retDayNW = 0;
+        let retDayAge = 0;
+        let foundRetDay = false;
+
+        let getLiquidAssets = (d) => {
+            let a1 = d.assetsP1, a2 = d.assetsP2 || {};
+            return (a1.tfsa||0) + (a1.tfsa_successor||0) + (a1.rrsp||0) + (a1.rrif_acct||0) + (a1.lif||0) + (a1.lirf||0) + (a1.nreg||0) + (a1.cash||0) + (a1.crypto||0) +
+                   (a2.tfsa||0) + (a2.tfsa_successor||0) + (a2.rrsp||0) + (a2.rrif_acct||0) + (a2.lif||0) + (a2.lirf||0) + (a2.nreg||0) + (a2.cash||0) + (a2.crypto||0);
+        };
+
+        const initialLiquid = getLiquidAssets(this.app.state.projectionData[0]) / this.app.getDiscountFactor(0);
+        const initialHome = this.app.state.projectionData[0].homeValue / this.app.getDiscountFactor(0);
+
+        let compLabels = [];
+        let compTaxFree = [];
+        let compReg = [];
+        let compTaxable = [];
+        let compCrypto = [];
+        let compRE = [];
+
         this.app.state.projectionData.forEach((d, i) => {
             const df = this.app.getDiscountFactor(d.year - new Date().getFullYear());
-            totalTax += (d.taxP1 + (d.taxP2 || 0)) / df;
+            const tax = d.taxP1 + (d.taxP2 || 0);
+            const debt = d.mortgagePay + d.debtRepayment;
+            
+            totalTax += tax / df;
             totalInflow += d.grossInflow / df;
             totalExp += d.expenses / df; 
-            totalDebt += (d.mortgagePay + d.debtRepayment) / df;
+            totalDebt += debt / df;
+
+            const benefits = d.benefitsP1 + (d.benefitsP2 || 0);
+            totalBenefits += benefits / df;
+
+            const externalInflow = d.incomeP1 + (d.incomeP2 || 0) + (d.postRetP1 || 0) + (d.postRetP2 || 0) + benefits + d.dbP1 + (d.dbP2 || 0) + d.windfall;
+            totalExternalInflow += externalInflow / df;
+
+            const isP1Ret = d.p1Age >= this.app.getVal('p1_retireAge');
+            const isP2Ret = this.app.state.mode === 'Couple' ? (d.p2Age >= this.app.getVal('p2_retireAge')) : true;
+            
+            if (isP1Ret && !foundRetDay) {
+                retDayNW = d.debugNW / df;
+                retDayAge = d.p1Age;
+                foundRetDay = true;
+            }
+
+            if (isP1Ret && isP2Ret) {
+                retExpSum += d.expenses / df;
+                retYears++;
+            }
 
             const adjNW = d.debugNW / df;
             if (adjNW > peakNW) {
@@ -409,6 +433,22 @@ class UIController {
                 isBankrupt = true;
                 bankruptAge = d.p1Age;
             }
+
+            compLabels.push(d.p1Age);
+            let a1 = d.assetsP1, a2 = d.assetsP2 || {};
+            
+            let tfsa = (a1.tfsa||0) + (a1.tfsa_successor||0) + (a2.tfsa||0) + (a2.tfsa_successor||0);
+            let reg = (a1.rrsp||0) + (a1.rrif_acct||0) + (a1.lif||0) + (a1.lirf||0) + 
+                      (a2.rrsp||0) + (a2.rrif_acct||0) + (a2.lif||0) + (a2.lirf||0);
+            let taxable = (a1.nreg||0) + (a1.cash||0) + (a2.nreg||0) + (a2.cash||0);
+            let crypt = (a1.crypto||0) + (a2.crypto||0);
+            let re = (d.homeValue || 0) - (d.mortgage || 0);
+
+            compTaxFree.push(Math.round(tfsa / df));
+            compReg.push(Math.round(reg / df));
+            compTaxable.push(Math.round(taxable / df));
+            compCrypto.push(Math.round(crypt / df));
+            compRE.push(Math.max(0, Math.round(re / df)));
         });
 
         if (!hasDebtAtStart) debtFreeYear = "Already Debt-Free";
@@ -416,6 +456,12 @@ class UIController {
         const finalYear = this.app.state.projectionData[this.app.state.projectionData.length - 1];
         const finalDf = this.app.getDiscountFactor(finalYear.year - new Date().getFullYear());
         const finalEstate = finalYear.debugNW / finalDf;
+        const finalLiquid = getLiquidAssets(finalYear) / finalDf;
+        const finalHome = finalYear.homeValue / finalDf;
+
+        const totalLiquidGrowth = finalLiquid - initialLiquid + totalExp + totalTax + totalDebt - totalExternalInflow;
+        const totalHomeGrowth = finalHome - initialHome;
+        const totalGrowth = totalLiquidGrowth + totalHomeGrowth;
 
         const effRate = totalInflow > 0 ? ((totalTax / totalInflow) * 100).toFixed(1) : 0;
         const fmtK = n => n >= 1000000 ? '$' + (n / 1000000).toFixed(2) + 'M' : '$' + Math.round(n).toLocaleString();
@@ -428,6 +474,15 @@ class UIController {
         if (document.getElementById('dash_peak_nw')) document.getElementById('dash_peak_nw').innerText = `${fmtK(peakNW)} (Age ${peakAge})`;
         if (document.getElementById('dash_debt_free')) document.getElementById('dash_debt_free').innerText = debtFreeYear;
         
+        if (document.getElementById('dash_total_growth')) document.getElementById('dash_total_growth').innerText = fmtK(totalGrowth);
+        if (document.getElementById('dash_total_benefits')) document.getElementById('dash_total_benefits').innerText = fmtK(totalBenefits);
+        
+        let avgRetSpend = retYears > 0 ? (retExpSum / retYears) : 0;
+        if (document.getElementById('dash_avg_ret_spend')) document.getElementById('dash_avg_ret_spend').innerText = fmtK(avgRetSpend) + '/yr';
+        
+        if (document.getElementById('dash_ret_age')) document.getElementById('dash_ret_age').innerText = retDayAge || '--';
+        if (document.getElementById('dash_ret_day_nw')) document.getElementById('dash_ret_day_nw').innerText = fmtK(retDayNW);
+
         const healthEl = document.getElementById('dash_plan_health');
         if (healthEl) {
             if (isBankrupt) {
@@ -439,47 +494,66 @@ class UIController {
             }
         }
 
-        if (!document.getElementById('chartLifetimeDonut') || typeof Chart === 'undefined') return;
-        if (this.app.charts.donut) this.app.charts.donut.destroy();
-        
-        const ctx = document.getElementById('chartLifetimeDonut').getContext('2d');
         const isDark = document.documentElement.getAttribute('data-bs-theme') !== 'light';
+        const textColor = isDark ? '#cbd5e1' : '#475569';
+        const gridColor = isDark ? '#334155' : '#e2e8f0';
 
-        this.app.charts.donut = new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-                labels: ['Taxes Paid', 'Living Expenses', 'Debt & Mortgages', 'Final Estate Value'],
-                datasets: [{
-                    data: [Math.round(totalTax), Math.round(totalExp), Math.round(totalDebt), Math.max(0, Math.round(finalEstate))],
-                    backgroundColor: ['#ef4444', '#f59e0b', '#8b5cf6', '#10b981'],
-                    borderWidth: 0,
-                    hoverOffset: 4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                cutout: '65%',
-                plugins: {
-                    legend: {
-                        position: 'right',
-                        labels: { color: isDark ? '#cbd5e1' : '#475569', font: { family: 'Inter', size: 12 }, padding: 15 }
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                let label = context.label || '';
-                                if (label) label += ': ';
-                                if (context.parsed !== null) {
-                                    label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(context.parsed);
-                                }
-                                return label;
-                            }
-                        }
+        if (document.getElementById('chartLifetimeDonut') && typeof Chart !== 'undefined') {
+            if (this.app.charts.donut) this.app.charts.donut.destroy();
+            const ctxD = document.getElementById('chartLifetimeDonut').getContext('2d');
+            this.app.charts.donut = new Chart(ctxD, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Taxes Paid', 'Living Expenses', 'Debt & Mortgages', 'Final Estate Value'],
+                    datasets: [{
+                        data: [Math.round(totalTax), Math.round(totalExp), Math.round(totalDebt), Math.max(0, Math.round(finalEstate))],
+                        backgroundColor: ['#ef4444', '#f59e0b', '#8b5cf6', '#10b981'],
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '65%',
+                    plugins: {
+                        legend: { position: 'right', labels: { color: textColor, font: { family: 'Inter', size: 12 }, padding: 15 } },
+                        tooltip: { callbacks: { label: function(context) { let label = context.label || ''; if (label) label += ': '; if (context.parsed !== null) label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(context.parsed); return label; } } }
                     }
                 }
-            }
-        });
+            });
+        }
+
+        if (document.getElementById('chartComposition') && typeof Chart !== 'undefined') {
+            if (this.app.charts.comp) this.app.charts.comp.destroy();
+            const ctxC = document.getElementById('chartComposition').getContext('2d');
+            this.app.charts.comp = new Chart(ctxC, {
+                type: 'line',
+                data: {
+                    labels: compLabels,
+                    datasets: [
+                        { label: 'Real Estate Equity', data: compRE, backgroundColor: 'rgba(16, 185, 129, 0.2)', borderColor: '#10b981', fill: true, tension: 0.4, pointRadius: 0 },
+                        { label: 'Tax-Free (TFSA)', data: compTaxFree, backgroundColor: 'rgba(59, 130, 246, 0.2)', borderColor: '#3b82f6', fill: true, tension: 0.4, pointRadius: 0 },
+                        { label: 'Registered (RRSP/RRIF/LIF)', data: compReg, backgroundColor: 'rgba(139, 92, 246, 0.2)', borderColor: '#8b5cf6', fill: true, tension: 0.4, pointRadius: 0 },
+                        { label: 'Taxable (Cash/Non-Reg)', data: compTaxable, backgroundColor: 'rgba(245, 158, 11, 0.2)', borderColor: '#f59e0b', fill: true, tension: 0.4, pointRadius: 0 },
+                        { label: 'Crypto', data: compCrypto, backgroundColor: 'rgba(236, 72, 153, 0.2)', borderColor: '#ec4899', fill: true, tension: 0.4, pointRadius: 0 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        x: { stacked: true, title: { display: true, text: 'P1 Age', color: textColor }, ticks: { color: textColor }, grid: { color: gridColor } },
+                        y: { stacked: true, ticks: { color: textColor, callback: function(value) { if (value >= 1000000) return '$' + (value / 1000000).toFixed(1) + 'M'; if (value >= 1000) return '$' + (value / 1000).toFixed(0) + 'k'; return '$' + value; } }, grid: { color: gridColor } }
+                    },
+                    plugins: {
+                        legend: { position: 'top', labels: { color: textColor, font: { family: 'Inter', size: 12 }, usePointStyle: true, pointStyle: 'circle' } },
+                        tooltip: { callbacks: { label: function(context) { let label = context.dataset.label || ''; if (label) label += ': '; if (context.parsed.y !== null) label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(context.parsed.y); return label; } } }
+                    }
+                }
+            });
+        }
     }
 
     drawSankey(idx) {
