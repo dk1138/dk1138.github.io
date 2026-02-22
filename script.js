@@ -1,12 +1,12 @@
 /**
  * Retirement Planner Pro - Core Application Controller
- * Version 10.9.11 (Crash Proofing & Save Sanitizing)
+ * Version 10.9.12 (Strategy Array Expansion)
  */
 
 class RetirementPlanner {
     constructor() {
         try {
-            this.APP_VERSION = "10.9.11";
+            this.APP_VERSION = "10.9.12";
             this.state = {
                 inputs: {},
                 debt: [],
@@ -14,7 +14,7 @@ class RetirementPlanner {
                 windfalls: [],
                 additionalIncome: [],
                 strategies: { 
-                    accum: ['tfsa', 'rrsp', 'nreg', 'cash', 'crypto'], 
+                    accum: ['tfsa', 'rrsp', 'nreg', 'cash', 'crypto', 'rrif_acct', 'lif', 'lirf'], 
                     decum: ['rrif_acct', 'lif', 'rrsp', 'lirf', 'crypto', 'nreg', 'tfsa', 'cash'] 
                 },
                 mode: 'Couple',
@@ -113,7 +113,7 @@ class RetirementPlanner {
             windfalls: JSON.parse(JSON.stringify(this.state.windfalls || [])),
             additionalIncome: JSON.parse(JSON.stringify(this.state.additionalIncome || [])),
             strategies: { 
-                accum: [...(this.state.strategies?.accum || ['tfsa', 'rrsp', 'nreg', 'cash', 'crypto'])], 
+                accum: [...(this.state.strategies?.accum || ['tfsa', 'rrsp', 'nreg', 'cash', 'crypto', 'rrif_acct', 'lif', 'lirf'])], 
                 decum: [...(this.state.strategies?.decum || ['rrif_acct', 'lif', 'rrsp', 'lirf', 'crypto', 'nreg', 'tfsa', 'cash'])] 
             },
             mode: this.state.mode || 'Couple',
@@ -648,21 +648,15 @@ class RetirementPlanner {
         this.state.inputs = {...(d.inputs||{})}; 
         
         this.state.strategies = {
-            accum: d.strategies?.accum || ['tfsa', 'rrsp', 'nreg', 'cash', 'crypto'],
+            accum: d.strategies?.accum || ['tfsa', 'rrsp', 'nreg', 'cash', 'crypto', 'rrif_acct', 'lif', 'lirf'],
             decum: d.strategies?.decum || ['rrif_acct', 'lif', 'rrsp', 'lirf', 'crypto', 'nreg', 'tfsa', 'cash']
         };
 
-        const ensureDecum = ['rrif_acct', 'lif', 'lirf'];
-        ensureDecum.forEach(item => {
-            if (!this.state.strategies.decum.includes(item)) {
-                let rrspIdx = this.state.strategies.decum.indexOf('rrsp');
-                if(rrspIdx !== -1) this.state.strategies.decum.splice(rrspIdx, 0, item);
-                else this.state.strategies.decum.unshift(item);
-            }
+        const allItems = ['tfsa', 'rrsp', 'rrif_acct', 'lif', 'lirf', 'nreg', 'cash', 'crypto'];
+        allItems.forEach(item => {
+            if (!this.state.strategies.accum.includes(item)) this.state.strategies.accum.push(item);
+            if (!this.state.strategies.decum.includes(item)) this.state.strategies.decum.push(item);
         });
-        
-        if(!this.state.strategies.accum.includes('rrsp')) this.state.strategies.accum.push('rrsp');
-        if(!this.state.strategies.decum.includes('rrsp')) this.state.strategies.decum.push('rrsp');
 
         Object.entries(this.state.inputs).forEach(([id, val]) => { if(id.startsWith('comp_')) return; const el=document.getElementById(id); if(el) el.type==='checkbox'||el.type==='radio'?el.checked=val:el.value=val; });
         ['p1_retireAge','p2_retireAge','inflation_rate'].forEach(k => { if(this.state.inputs[k]) this.ui.updateSidebarSync(k, this.state.inputs[k]); });
