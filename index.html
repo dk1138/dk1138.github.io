@@ -143,6 +143,23 @@
                   <div class="card mb-4 border-secondary shadow-sm">
                     <div class="card-header d-flex align-items-center justify-content-between surface-card border-bottom border-secondary p-3">
                       <div class="d-flex align-items-center">
+                        <i class="bi bi-people text-info fs-4 me-3"></i>
+                        <h5 class="mb-0 me-2 fw-bold text-uppercase ls-1">Dependents (CCB & RESP)</h5>
+                      </div>
+                      <button type="button" class="btn btn-sm btn-outline-info rounded-pill px-3" id="btnAddChild"><i class="bi bi-plus-lg me-1"></i> Add Child</button>
+                    </div>
+                    <div class="card-body p-4" id="dependents-container">
+                       <div class="row g-3 mb-2 align-items-end dependent-row">
+                           <div class="col-5"><label class="form-label small">Name</label><input type="text" class="form-control dep-name" value="Child 1"></div>
+                           <div class="col-5"><label class="form-label small">Birth Month</label><input type="month" class="form-control live-calc dep-dob" value="2024-01"></div>
+                           <div class="col-2"><button type="button" class="btn btn-outline-danger w-100 btn-remove-child"><i class="bi bi-trash"></i></button></div>
+                       </div>
+                    </div>
+                  </div>
+
+                  <div class="card mb-4 border-secondary shadow-sm">
+                    <div class="card-header d-flex align-items-center justify-content-between surface-card border-bottom border-secondary p-3">
+                      <div class="d-flex align-items-center">
                         <i class="bi bi-wallet2 text-success fs-4 me-3"></i>
                         <h5 class="mb-0 me-2 fw-bold text-uppercase ls-1">2. Portfolio Assets</h5>
                         <button type="button" class="btn btn-link p-0 text-muted info-btn" data-bs-toggle="popover" data-bs-title="Assets & Returns" data-bs-content="Enter your <b>current</b> balances. The <b>Return %</b> is your expected annual growth. <br><br>Toggle <b>Advanced Mode</b> to set different return rates for after you retire.<br><br><b>Note:</b> Account details are collapsed by default to save space. Click the arrow to expand.">
