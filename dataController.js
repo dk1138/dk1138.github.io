@@ -347,27 +347,15 @@ class DataController {
 
     // --- STRATEGY Drag & Drop ---
     renderStrategy() {
-        const getBal = (k) => {
-            const map = {'nreg':'nonreg', 'rrif_acct':'rrif_acct'};
-            const inputKey = map[k] || k;
-            let bal = this.app.getVal(`p1_${inputKey}`);
-            if(this.app.state.mode === 'Couple') bal += this.app.getVal(`p2_${inputKey}`);
-            return bal;
-        };
-
         const visibleAccum = this.app.state.strategies.accum;
-        const visibleDecum = this.app.state.strategies.decum.filter(k => getBal(k) > 0);
+        const visibleDecum = this.app.state.strategies.decum;
 
         this.renderList('strat-accum-list', visibleAccum, 'accum', document.getElementById('strat-accum-container'));
         
         const decumContainer = document.getElementById('strat-decumulation'); 
         decumContainer.innerHTML = ''; 
         
-        if (visibleDecum.length === 0) {
-            decumContainer.innerHTML = '<div class="text-muted small p-3 text-center border border-secondary rounded-3 border-dashed mb-4" style="border-style: dashed !important;">No funded accounts to prioritize.</div>';
-        } else {
-            this.renderList('strat-decum-list', visibleDecum, 'decum', decumContainer);
-        }
+        this.renderList('strat-decum-list', visibleDecum, 'decum', decumContainer);
 
         setTimeout(() => { try { this.app.ui.initPopovers(); } catch(e) {} }, 50);
     }
