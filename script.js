@@ -15,7 +15,7 @@ class RetirementPlanner {
                 additionalIncome: [],
                 strategies: { 
                     accum: ['tfsa', 'rrsp', 'nreg', 'cash', 'crypto'], 
-                    decum: ['rrsp', 'crypto', 'nreg', 'tfsa', 'cash'] 
+                    decum: ['rrif_acct', 'lif', 'rrsp', 'lirf', 'crypto', 'nreg', 'tfsa', 'cash'] 
                 },
                 mode: 'Couple',
                 projectionData: [],
@@ -49,10 +49,17 @@ class RetirementPlanner {
             
             this.optimalAges = { p1_cpp: 65, p1_oas: 65, p2_cpp: 65, p2_oas: 65 };
             
-            // Renamed RRSP to cover the entire registered bundle
-            this.strategyLabels = { 'tfsa': 'TFSA', 'rrsp': 'Reg. (RRSP/LIF/RRIF)', 'nreg': 'Non-Reg', 'cash': 'Cash', 'crypto': 'Crypto' };
+            this.strategyLabels = { 
+                'tfsa': 'TFSA', 
+                'rrsp': 'RRSP', 
+                'rrif_acct': 'RRIF', 
+                'lif': 'LIF', 
+                'lirf': 'LIRF (LIRA)', 
+                'nreg': 'Non-Reg', 
+                'cash': 'Cash', 
+                'crypto': 'Crypto' 
+            };
 
-            // Verifying sub-controllers loaded
             if (typeof UIController === 'undefined') throw new Error("UIController is missing! Make sure uiController.js is saved in the exact same folder.");
             if (typeof DataController === 'undefined') throw new Error("DataController is missing! Make sure dataController.js is saved in the exact same folder.");
             if (typeof Optimizers === 'undefined') throw new Error("Optimizers module is missing! Make sure optimizers.js is saved in the exact same folder.");
@@ -107,7 +114,7 @@ class RetirementPlanner {
             additionalIncome: JSON.parse(JSON.stringify(this.state.additionalIncome || [])),
             strategies: { 
                 accum: [...(this.state.strategies?.accum || ['tfsa', 'rrsp', 'nreg', 'cash', 'crypto'])], 
-                decum: [...(this.state.strategies?.decum || ['rrsp', 'crypto', 'nreg', 'tfsa', 'cash'])] 
+                decum: [...(this.state.strategies?.decum || ['rrif_acct', 'lif', 'rrsp', 'lirf', 'crypto', 'nreg', 'tfsa', 'cash'])] 
             },
             mode: this.state.mode || 'Couple',
             expenseMode: this.state.expenseMode || 'Simple',
@@ -642,15 +649,18 @@ class RetirementPlanner {
         
         this.state.strategies = {
             accum: d.strategies?.accum || ['tfsa', 'rrsp', 'nreg', 'cash', 'crypto'],
-            decum: d.strategies?.decum || ['rrsp', 'crypto', 'nreg', 'tfsa', 'cash']
+            decum: d.strategies?.decum || ['rrif_acct', 'lif', 'rrsp', 'lirf', 'crypto', 'nreg', 'tfsa', 'cash']
         };
 
-        // SANITIZER: Remove old unbundled items if a user loads an old save file
-        const obsoleteItems = ['lif', 'lirf', 'rrif', 'rrif_acct'];
-        this.state.strategies.accum = this.state.strategies.accum.filter(s => !obsoleteItems.includes(s));
-        this.state.strategies.decum = this.state.strategies.decum.filter(s => !obsoleteItems.includes(s));
+        const ensureDecum = ['rrif_acct', 'lif', 'lirf'];
+        ensureDecum.forEach(item => {
+            if (!this.state.strategies.decum.includes(item)) {
+                let rrspIdx = this.state.strategies.decum.indexOf('rrsp');
+                if(rrspIdx !== -1) this.state.strategies.decum.splice(rrspIdx, 0, item);
+                else this.state.strategies.decum.unshift(item);
+            }
+        });
         
-        // Failsafe: Make sure 'rrsp' (our master bundle) is present
         if(!this.state.strategies.accum.includes('rrsp')) this.state.strategies.accum.push('rrsp');
         if(!this.state.strategies.decum.includes('rrsp')) this.state.strategies.decum.push('rrsp');
 
@@ -709,7 +719,4 @@ class RetirementPlanner {
     }
 }
 
-// ---------------------------------------------------------
-// Safely boot the app and attach it to the window
-// ---------------------------------------------------------
 window.app = new RetirementPlanner();
