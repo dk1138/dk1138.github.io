@@ -1,12 +1,12 @@
 /**
  * Retirement Planner Pro - Core Application Controller
- * Version 10.14.0 (Asset Totals UI & Liquid NW Fixes)
+ * Version 10.14.1 (RRSP Employer Match & Tax Refund Updates)
  */
 
 class RetirementPlanner {
     constructor() {
         try {
-            this.APP_VERSION = "10.14.0";
+            this.APP_VERSION = "10.14.1";
             this.state = {
                 inputs: {},
                 debt: [],
@@ -646,10 +646,40 @@ class RetirementPlanner {
     exportToCSV() {
         if (!this.state.projectionData.length) return alert("No data available.");
         const mode = this.state.mode, d = this.state.projectionData;
-        const h = ["Year", "P1 Age", mode==="Couple"?"P2 Age":null, "P1 Base Income", mode==="Couple"?"P2 Base Income":null, "P1 Post-Ret Inc", mode==="Couple"?"P2 Post-Ret Inc":null, "P1 Benefits", mode==="Couple"?"P2 Benefits":null, "P1 DB Pension", mode==="Couple"?"P2 DB Pension":null, "Windfall", "P1 Taxes", mode==="Couple"?"P2 Taxes":null, "Total Expenses", "Mortgage Payment", "Debt Payment", "Surplus/Deficit", "P1 TFSA", "P1 RRSP", "P1 Non-Reg", "P1 Cash", "P1 Crypto", "P1 LIRF", "P1 LIF", "P1 RRIF", mode==="Couple"?"P2 TFSA":null, mode==="Couple"?"P2 RRSP":null, mode==="Couple"?"P2 Non-Reg":null, mode==="Couple"?"P2 Cash":null, mode==="Couple"?"P2 Crypto":null, mode==="Couple"?"P2 LIRF":null, mode==="Couple"?"P2 LIF":null, mode==="Couple"?"P2 RRIF":null, "Liquid Net Worth", "Home Equity", "Total Net Worth"].filter(x=>x);
-        const rows = d.map(r => [r.year, r.p1Age, mode==="Couple"?(r.p2Age||""):null, Math.round(r.incomeP1), mode==="Couple"?Math.round(r.incomeP2):null, Math.round(r.postRetP1||0), mode==="Couple"?Math.round(r.postRetP2||0):null, Math.round(r.benefitsP1), mode==="Couple"?Math.round(r.benefitsP2):null, Math.round(r.dbP1), mode==="Couple"?Math.round(r.dbP2):null, Math.round(r.windfall), Math.round(r.taxP1), mode==="Couple"?Math.round(r.taxP2):null, Math.round(r.expenses), Math.round(r.mortgagePay), Math.round(r.debtPay), Math.round(r.surplus), Math.round(r.assetsP1.tfsa), Math.round(r.assetsP1.rrsp), Math.round(r.assetsP1.nreg), Math.round(r.assetsP1.cash), Math.round(r.assetsP1.crypto), Math.round(r.assetsP1.lirf), Math.round(r.assetsP1.lif), Math.round(r.assetsP1.rrif_acct), mode==="Couple"?Math.round(r.assetsP2.tfsa):null, mode==="Couple"?Math.round(r.assetsP2.rrsp):null, mode==="Couple"?Math.round(r.assetsP2.nreg):null, mode==="Couple"?Math.round(r.assetsP2.cash):null, mode==="Couple"?Math.round(r.assetsP2.crypto):null, mode==="Couple"?Math.round(r.assetsP2.lirf):null, mode==="Couple"?Math.round(r.assetsP2.lif):null, mode==="Couple"?Math.round(r.assetsP2.rrif_acct):null, Math.round(r.liquidNW), Math.round(r.homeValue-r.mortgage), Math.round(r.debugNW)].filter(x=>x!==null).join(","));
+        
+        const h = [
+            "Year", "P1 Age", mode==="Couple"?"P2 Age":null, 
+            "P1 Base Income", "P1 Employer Match", mode==="Couple"?"P2 Base Income":null, mode==="Couple"?"P2 Employer Match":null,
+            "P1 Post-Ret Inc", mode==="Couple"?"P2 Post-Ret Inc":null, 
+            "P1 Benefits", mode==="Couple"?"P2 Benefits":null, 
+            "P1 DB Pension", mode==="Couple"?"P2 DB Pension":null, 
+            "P1 RRSP Refund", mode==="Couple"?"P2 RRSP Refund":null,
+            "Windfall", 
+            "P1 Taxes", mode==="Couple"?"P2 Taxes":null, 
+            "Total Expenses", "Mortgage Payment", "Debt Payment", "Surplus/Deficit", 
+            "P1 TFSA", "P1 RRSP", "P1 Non-Reg", "P1 Cash", "P1 Crypto", "P1 LIRF", "P1 LIF", "P1 RRIF", 
+            mode==="Couple"?"P2 TFSA":null, mode==="Couple"?"P2 RRSP":null, mode==="Couple"?"P2 Non-Reg":null, mode==="Couple"?"P2 Cash":null, mode==="Couple"?"P2 Crypto":null, mode==="Couple"?"P2 LIRF":null, mode==="Couple"?"P2 LIF":null, mode==="Couple"?"P2 RRIF":null, 
+            "Liquid Net Worth", "Home Equity", "Total Net Worth"
+        ].filter(x=>x!==null);
+        
+        const rows = d.map(r => [
+            r.year, r.p1Age, mode==="Couple"?(r.p2Age||""):null, 
+            Math.round(r.incomeP1), Math.round(r.rrspMatchP1 || 0), mode==="Couple"?Math.round(r.incomeP2):null, mode==="Couple"?Math.round(r.rrspMatchP2 || 0):null,
+            Math.round(r.postRetP1||0), mode==="Couple"?Math.round(r.postRetP2||0):null, 
+            Math.round(r.benefitsP1), mode==="Couple"?Math.round(r.benefitsP2):null, 
+            Math.round(r.dbP1), mode==="Couple"?Math.round(r.dbP2):null, 
+            Math.round(r.rrspRefundP1 || 0), mode==="Couple"?Math.round(r.rrspRefundP2 || 0):null,
+            Math.round(r.windfall), 
+            Math.round(r.taxP1), mode==="Couple"?Math.round(r.taxP2):null, 
+            Math.round(r.expenses), Math.round(r.mortgagePay), Math.round(r.debtPay || r.debtRepayment || 0), Math.round(r.surplus), 
+            Math.round(r.assetsP1.tfsa), Math.round(r.assetsP1.rrsp), Math.round(r.assetsP1.nreg), Math.round(r.assetsP1.cash), Math.round(r.assetsP1.crypto), Math.round(r.assetsP1.lirf), Math.round(r.assetsP1.lif), Math.round(r.assetsP1.rrif_acct), 
+            mode==="Couple"?Math.round(r.assetsP2.tfsa):null, mode==="Couple"?Math.round(r.assetsP2.rrsp):null, mode==="Couple"?Math.round(r.assetsP2.nreg):null, mode==="Couple"?Math.round(r.assetsP2.cash):null, mode==="Couple"?Math.round(r.assetsP2.crypto):null, mode==="Couple"?Math.round(r.assetsP2.lirf):null, mode==="Couple"?Math.round(r.assetsP2.lif):null, mode==="Couple"?Math.round(r.assetsP2.rrif_acct):null, 
+            Math.round(r.liquidNW), Math.round(r.homeValue-r.mortgage), Math.round(r.debugNW)
+        ].filter(x=>x!==null).join(","));
+        
         const link = document.createElement("a");
-        link.setAttribute("href", encodeURI("data:text/csv;charset=utf-8," + [h.join(","), ...rows].join("\n"))); link.setAttribute("download", "retirement_plan_pro.csv");
+        link.setAttribute("href", encodeURI("data:text/csv;charset=utf-8," + [h.join(","), ...rows].join("\n"))); 
+        link.setAttribute("download", "retirement_plan_pro.csv");
         document.body.appendChild(link); link.click(); link.remove();
     }
 
