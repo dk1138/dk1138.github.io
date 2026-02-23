@@ -1,19 +1,19 @@
 /**
  * Retirement Planner Pro - Core Application Controller
- * Version 10.10.0 (CCB, FHSA, and RESP Integration)
+ * Version 10.11.0 (RRSP Employer Matching)
  */
 
 class RetirementPlanner {
     constructor() {
         try {
-            this.APP_VERSION = "10.10.0";
+            this.APP_VERSION = "10.11.0";
             this.state = {
                 inputs: {},
                 debt: [],
                 properties: [{ name: "Primary Home", value: 1000000, mortgage: 430000, growth: 3.0, rate: 3.29, payment: 0, manual: false, includeInNW: false, sellEnabled: false, sellAge: 65, replacementValue: 0 }],
                 windfalls: [],
                 additionalIncome: [],
-                dependents: [], // Used for CCB & RESP projections
+                dependents: [], 
                 strategies: { 
                     accum: ['tfsa', 'fhsa', 'resp', 'rrsp', 'nreg', 'cash', 'crypto', 'rrif_acct', 'lif', 'lirf'], 
                     decum: ['rrif_acct', 'lif', 'rrsp', 'lirf', 'crypto', 'nreg', 'tfsa', 'fhsa', 'resp', 'cash'] 
@@ -542,10 +542,11 @@ class RetirementPlanner {
             'tax_province': 'ON', 'inflation_rate': '2.5', 'p1_dob': age30Dob, 'p2_dob': age30Dob, 
             'p1_retireAge': '60', 'p2_retireAge': '60', 'p1_lifeExp': '90', 'p2_lifeExp': '95', 
             'exp_gogo_age': '75', 'exp_slow_age': '85', 'cfg_tfsa_limit': '7,000', 'cfg_rrsp_limit': '32,960', 
-            'cfg_fhsa_limit': '8,000', 'cfg_resp_limit': '2,500',
+            'cfg_fhsa_limit': '8,000', 'cfg_resp_limit': '2,500', 'cfg_crypto_limit': '5,000',
             'p1_tfsa_ret': '6.0', 'p2_tfsa_ret': '6.0', 'p1_rrsp_ret': '6.0', 'p2_rrsp_ret': '6.0', 
             'p1_nonreg_ret': '6.0', 'p2_nonreg_ret': '6.0', 'p1_crypto_ret': '6.0', 'p2_crypto_ret': '6.0', 
             'p1_cash_ret': '2.0', 'p2_cash_ret': '2.0', 'p1_income_growth': '2.0', 'p2_income_growth': '2.0', 
+            'p1_rrsp_match': '0.0', 'p2_rrsp_match': '0.0',
             'p1_cpp_start': '65', 'p2_cpp_start': '65', 'p1_oas_start': '65', 'p2_oas_start': '65', 
             'p1_oas_years': '40', 'p2_oas_years': '40'
         };
@@ -704,10 +705,17 @@ class RetirementPlanner {
         if(document.getElementById('p2_cpp_start_val')) document.getElementById('p2_cpp_start_val').innerText = this.getRaw('p2_cpp_start')||'65';
         if(document.getElementById('p2_oas_start_val')) document.getElementById('p2_oas_start_val').innerText = this.getRaw('p2_oas_start')||'65';
         
-        if(document.getElementById('cfg_tfsa_limit')) document.getElementById('cfg_tfsa_limit').value = (this.getVal('cfg_tfsa_limit') || 7000).toLocaleString();
-        if(document.getElementById('cfg_rrsp_limit')) document.getElementById('cfg_rrsp_limit').value = (this.getVal('cfg_rrsp_limit') || 32960).toLocaleString();
-        if(document.getElementById('cfg_fhsa_limit')) document.getElementById('cfg_fhsa_limit').value = (this.getVal('cfg_fhsa_limit') || 8000).toLocaleString();
-        if(document.getElementById('cfg_resp_limit')) document.getElementById('cfg_resp_limit').value = (this.getVal('cfg_resp_limit') || 2500).toLocaleString();
+        const setLim = (id, def) => {
+            if(document.getElementById(id)) {
+                let v = this.state.inputs[id] !== undefined ? this.getVal(id) : def;
+                document.getElementById(id).value = v.toLocaleString();
+            }
+        };
+        setLim('cfg_tfsa_limit', 7000);
+        setLim('cfg_rrsp_limit', 32960);
+        setLim('cfg_fhsa_limit', 8000);
+        setLim('cfg_resp_limit', 2500);
+        setLim('cfg_crypto_limit', 5000);
 
         this.ui.updateBenefitVisibility();
     }
