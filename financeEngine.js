@@ -12,6 +12,7 @@ class FinanceEngine {
         this.additionalIncome = data.additionalIncome || [];
         this.strategies = data.strategies || { accum: [], decum: [] };
         this.dependents = data.dependents || []; 
+        this.debt = data.debt || []; 
         this.mode = data.mode || 'Couple';
         this.expenseMode = data.expenseMode || 'Simple';
         this.expensesByCategory = data.expensesByCategory || {};
@@ -246,7 +247,6 @@ class FinanceEngine {
             }
         }
 
-        // Fix: isRet param ensures we check the retirement status of the specific person passed in
         const grow = (p, rates, isRet) => {
             p.tfsa *= (1 + rates.tfsa);
             if (p.tfsa_successor !== undefined) p.tfsa_successor *= (1 + rates.tfsa); 
@@ -256,7 +256,6 @@ class FinanceEngine {
             if (p.fhsa !== undefined) p.fhsa *= (1 + rates.fhsa);
             if (p.resp !== undefined) p.resp *= (1 + rates.resp);
             
-            // Fix: Income growth only applies after year 1 (i > 0)
             if(!isRet && i > 0) p.inc *= (1 + rates.inc); 
         };
         
@@ -305,14 +304,14 @@ class FinanceEngine {
         }
 
         this.windfalls.forEach(w => {
-            let act = false, amt = 0, sY = new Date(w.start + "-01").getFullYear();
+            let act = false, amt = 0, sY = new Date((w.start || "2026-01") + "-01").getFullYear();
             if(w.freq === 'one') { 
                 if(sY === yr) { act = true; amt = w.amount; } 
             } else { 
                 let eY = (w.end ? new Date(w.end + "-01") : new Date("2100-01-01")).getFullYear(); 
                 if(yr >= sY && yr <= eY) { 
                     act = true; 
-                    amt = w.amount * (w.freq === 'month' ? (yr === sY ? 12 - new Date(w.start + "-01").getMonth() : (yr === eY ? new Date(w.end + "-01").getMonth() + 1 : 12)) : 1); 
+                    amt = w.amount * (w.freq === 'month' ? (yr === sY ? 12 - new Date((w.start||"2026-01") + "-01").getMonth() : (yr === eY ? new Date(w.end + "-01").getMonth() + 1 : 12)) : 1); 
                 } 
             }
             if(act && amt > 0) { 
@@ -329,7 +328,7 @@ class FinanceEngine {
                 const retYear = ownerP.dob.getFullYear() + ownerP.retAge;
                 sY = retYear + (s.startRel || 0);
             } else {
-                sY = new Date(s.start + "-01").getFullYear();
+                sY = new Date((s.start||"2026-01") + "-01").getFullYear();
             }
 
             if (s.endMode === 'duration') {
@@ -339,10 +338,10 @@ class FinanceEngine {
             }
 
             if(yr >= sY && yr <= eY) {
-                let baseYear = s.startMode === 'ret_relative' ? sY : new Date(s.start + "-01").getFullYear();
+                let baseYear = s.startMode === 'ret_relative' ? sY : new Date((s.start||"2026-01") + "-01").getFullYear();
                 let amt = s.amount * Math.pow(1 + (s.growth / 100), yr - baseYear) * (s.freq === 'month' ? 12 : 1);
                 
-                if (s.startMode === 'date' && yr === sY) amt *= (12 - new Date(s.start + "-01").getMonth()) / 12;
+                if (s.startMode === 'date' && yr === sY) amt *= (12 - new Date((s.start||"2026-01") + "-01").getMonth()) / 12;
                 if (s.endMode === 'date' && s.end && yr === eY) amt *= Math.min(1, (new Date(s.end + "-01").getMonth() + 1) / 12);
 
                 if(amt > 0) { 
@@ -890,7 +889,7 @@ class FinanceEngine {
         }
     }
 
-    runSimulation(detailed = false, simContext = null, totalDebtInitial = 0) {
+    runSimulation(detailed = false, simContext = null) {
         const curY = new Date().getFullYear();
         let nwArray = [];
         let projectionData = [];
@@ -918,7 +917,6 @@ class FinanceEngine {
         };
 
         let simProperties = JSON.parse(JSON.stringify(this.properties));
-        let totalDebt = totalDebtInitial;
         
         const p1StartAge = curY - person1.dob.getFullYear();
         const p2StartAge = curY - person2.dob.getFullYear();
@@ -1029,7 +1027,6 @@ class FinanceEngine {
             const inflows = this.calcInflows(yr, i, person1, person2, age1, age2, alive1, alive2, isRet1, isRet2, consts, bInf, detailed ? trackedEvents : null);
             if (detailed && deathEvents.length > 0) inflows.events.push(...deathEvents);
 
-            // Inject last year's tax refund (from discretionary RRSP deposits)
             let appliedRefundP1 = 0;
             let appliedRefundP2 = 0;
             if (pendingRefund.p1 > 0 && alive1) {
@@ -1088,7 +1085,6 @@ class FinanceEngine {
             let grossTaxable1 = inflows.p1.gross + inflows.p1.cpp + inflows.p1.oas + inflows.p1.pension + regMins.p1 + regMins.lifTaken1 + inflows.p1.windfallTaxable + (person1.nreg * person1.nreg_yield);
             let grossTaxable2 = inflows.p2.gross + inflows.p2.cpp + inflows.p2.oas + inflows.p2.pension + regMins.p2 + regMins.lifTaken2 + inflows.p2.windfallTaxable + (alive2 ? (person2.nreg * person2.nreg_yield) : 0);
 
-            // Calculate taxes before match deductions to figure out how much tax was saved
             let taxWithoutMatch1 = alive1 ? this.calculateTaxDetailed(grossTaxable1, this.getRaw('tax_province'), taxBrackets, inflows.p1.oas, oasThresholdInf) : {totalTax: 0, margRate: 0};
             let taxWithoutMatch2 = alive2 ? this.calculateTaxDetailed(grossTaxable2, this.getRaw('tax_province'), taxBrackets, inflows.p2.oas, oasThresholdInf) : {totalTax: 0, margRate: 0};
 
@@ -1152,8 +1148,14 @@ class FinanceEngine {
             });
             simProperties = keptProperties;
 
-            let debtRepayment = totalDebt > 0 ? Math.min(totalDebt, 6000) : 0; 
-            totalDebt -= debtRepayment;
+            let futureExpenseAmt = 0;
+            this.debt.forEach(d => {
+                let sY = new Date((d.start || new Date().toISOString().slice(0,7)) + "-01").getFullYear();
+                if (sY === yr) {
+                    futureExpenseAmt += (Number(d.amount) || 0);
+                }
+            });
+            let debtRepayment = futureExpenseAmt; 
             
             if(detailed && simProperties.reduce((s,p) => s + p.mortgage, 0) <= 0 && !trackedEvents.has('Mortgage Paid') && simProperties.some(p => p.mortgage === 0 && p.value > 0)){ 
                 trackedEvents.add('Mortgage Paid'); 
@@ -1207,7 +1209,6 @@ class FinanceEngine {
             if (surplus > 0) {
                 this.handleSurplus(surplus, person1, person2, alive1, alive2, flowLog, i, consts.tfsaLimit * bInf, rrspRoom1, rrspRoom2, consts.cryptoLimit * bInf, consts.fhsaLimit * bInf, consts.respLimit * bInf, actDeductions);
                 
-                // Calculate tax refund generated from discretionary RRSP contributions made from surplus cash
                 if (actDeductions.p1 > 0) {
                     let recalculatedTax1 = this.calculateTaxDetailed(taxableIncome1 - actDeductions.p1, this.getRaw('tax_province'), taxBrackets, inflows.p1.oas, oasThresholdInf);
                     pendingRefund.p1 = tax1.totalTax - recalculatedTax1.totalTax;
@@ -1252,7 +1253,7 @@ class FinanceEngine {
             const assets1 = person1.tfsa + person1.tfsa_successor + person1.rrsp + person1.crypto + person1.nreg + person1.cash + person1.lirf + person1.lif + person1.rrif_acct + (person1.fhsa || 0) + (person1.resp || 0);
             const assets2 = this.mode === 'Couple' ? (person2.tfsa + person2.tfsa_successor + person2.rrsp + person2.crypto + person2.nreg + person2.cash + person2.lirf + person2.lif + person2.rrif_acct + (person2.fhsa || 0)) : 0;
             
-            const liquidNW = (assets1 + assets2) - totalDebt;
+            const liquidNW = (assets1 + assets2);
             
             let realEstateValue = 0, realEstateDebt = 0;
             simProperties.forEach(p => { 
@@ -1287,7 +1288,7 @@ class FinanceEngine {
                     p1Net: netIncome1, p2Net: netIncome2,
                     pensionSplit: pensionSplitTransfer,
                     expenses: expenses, mortgagePay: mortgagePayment, debtRepayment,
-                    debtRemaining: totalDebt,
+                    debtRemaining: 0, 
                     surplus: Math.abs(cashSurplus) < 5 ? 0 : cashSurplus,
                     debugNW: finalNetWorth,
                     liquidNW: liquidNW,
@@ -1300,7 +1301,6 @@ class FinanceEngine {
                     visualExpenses: expenses + mortgagePayment + debtRepayment + tax1.totalTax + tax2.totalTax,
                     mortgage: simProperties.reduce((s,p) => s + p.mortgage, 0), 
                     homeValue: simProperties.reduce((s,p) => s + p.value, 0),
-                    // Exclude the applied refund from the generic windfall bucket so it doesn't display twice in the UI
                     windfall: inflows.p1.windfallTaxable + (inflows.p1.windfallNonTax - appliedRefundP1) + inflows.p2.windfallTaxable + (inflows.p2.windfallNonTax - appliedRefundP2),
                     postRetP1: inflows.p1.postRet, postRetP2: inflows.p2.postRet,
                     invIncP1: (person1.nreg * person1.nreg_yield), invIncP2: (person2.nreg * person2.nreg_yield),
