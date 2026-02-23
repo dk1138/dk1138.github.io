@@ -157,9 +157,27 @@ class UIController {
         b.innerText = document.body.classList.contains(`show-${t}`) ? '[-]' : '[+]'; 
     }
 
-    renderTaxDetails(pfx, g, d) {
-        const c = document.getElementById(`${pfx}_tax_details`); if(!c) return;
-        c.innerHTML = g>0 ? `<div class="d-flex justify-content-between border-bottom border-secondary pb-1 mb-1"><span class="text-muted">Federal</span> <span>($${Math.round(d.fed).toLocaleString()}) ${((d.fed/g)*100).toFixed(1)}%</span></div><div class="d-flex justify-content-between border-bottom border-secondary pb-1 mb-1"><span class="text-muted">Provincial</span> <span>($${Math.round(d.prov).toLocaleString()}) ${((d.prov/g)*100).toFixed(1)}%</span></div><div class="d-flex justify-content-between border-bottom border-secondary pb-1 mb-1"><span class="text-muted">CPP/EI</span> <span>($${Math.round(d.cpp_ei).toLocaleString()})</span></div><div class="d-flex justify-content-between mt-2"><span class="text-warning fw-bold">Total Tax</span> <span class="text-warning fw-bold">($${Math.round(d.totalTax).toLocaleString()})</span></div><div class="d-flex justify-content-between"><span class="text-muted">Marginal Rate</span> <span>${(d.margRate*100).toFixed(2)}%</span></div><div class="d-flex justify-content-between mt-2 pt-2 border-top border-secondary"><span class="text-success fw-bold">After-Tax</span> <span class="text-success fw-bold">$${Math.round(g-d.totalTax).toLocaleString()}</span></div>` : `<span class="text-muted text-center d-block small">No Income Entered</span>`;
+    renderTaxDetails(pfx, g, d, empRrsp = 0) {
+        const c = document.getElementById(`${pfx}_tax_details`); 
+        if(!c) return;
+        
+        let h = '';
+        if (g > 0) {
+            h += `<div class="d-flex justify-content-between border-bottom border-secondary pb-1 mb-1"><span class="text-muted">Federal</span> <span>($${Math.round(d.fed).toLocaleString()}) ${((d.fed/g)*100).toFixed(1)}%</span></div>`;
+            h += `<div class="d-flex justify-content-between border-bottom border-secondary pb-1 mb-1"><span class="text-muted">Provincial</span> <span>($${Math.round(d.prov).toLocaleString()}) ${((d.prov/g)*100).toFixed(1)}%</span></div>`;
+            h += `<div class="d-flex justify-content-between border-bottom border-secondary pb-1 mb-1"><span class="text-muted">CPP/EI</span> <span>($${Math.round(d.cpp_ei).toLocaleString()})</span></div>`;
+            
+            if (empRrsp > 0) {
+                h += `<div class="d-flex justify-content-between border-bottom border-secondary pb-1 mb-1"><span class="text-info fw-bold">Employee RRSP Contrib.</span> <span class="text-info fw-bold">($${Math.round(empRrsp).toLocaleString()})</span></div>`;
+            }
+            
+            h += `<div class="d-flex justify-content-between mt-2"><span class="text-warning fw-bold">Total Tax</span> <span class="text-warning fw-bold">($${Math.round(d.totalTax).toLocaleString()})</span></div>`;
+            h += `<div class="d-flex justify-content-between"><span class="text-muted">Marginal Rate</span> <span>${(d.margRate*100).toFixed(2)}%</span></div>`;
+            h += `<div class="d-flex justify-content-between mt-2 pt-2 border-top border-secondary"><span class="text-success fw-bold">After-Tax Net</span> <span class="text-success fw-bold">$${Math.round(g - d.totalTax - empRrsp).toLocaleString()}</span></div>`;
+        } else {
+            h = `<span class="text-muted text-center d-block small">No Income Entered</span>`;
+        }
+        c.innerHTML = h;
     }
 
     getIconHTML(k, th) {
