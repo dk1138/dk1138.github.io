@@ -176,13 +176,21 @@ class UIController {
         
         this.app.state.projectionData.forEach((d) => {
             const df = this.app.getDiscountFactor(d.year - new Date().getFullYear());
-            const fmtK = n => { if(n == null || isNaN(n)) return ''; const v=n/df, a=Math.abs(v); if(Math.round(a)===0)return''; const s=v<0?'-':''; return a>=1000000?s+(a/1000000).toFixed(1)+'M':(a>=1000?s+Math.round(a/1000)+'k':s+a.toFixed(0)); };
+            const fmtK = n => { 
+                if(n == null || isNaN(n)) return ''; 
+                const v = n / df; 
+                const a = Math.abs(v); 
+                if(Math.round(a) === 0) return ''; 
+                const s = v < 0 ? '-' : ''; 
+                return a >= 1000000 ? s + (a/1000000).toFixed(1) + 'M' : (a >= 1000 ? s + Math.round(a/1000) + 'k' : s + Math.round(a)); 
+            };
             const fmtFlow = (c, w) => {
-                if(c > 0) return ` <span class="text-success small fw-bold">(+${fmtK(c * df)})</span>`;
-                if(w > 0) return ` <span class="text-danger small fw-bold">(-${fmtK(w * df)})</span>`;
+                if(c > 0) return ` <span class="text-success small fw-bold">(+${fmtK(c)})</span>`;
+                if(w > 0) return ` <span class="text-danger small fw-bold">(-${fmtK(w)})</span>`;
                 return '';
             };
-            const p1A=d.p1Alive?d.p1Age:'†', p2A=this.app.state.mode==='Couple'?(d.p2Alive?d.p2Age:'†'):'';
+            const p1A = d.p1Alive ? d.p1Age : '†';
+            const p2A = this.app.state.mode === 'Couple' ? (d.p2Alive ? d.p2Age : '†') : '';
             
             const p1R = this.app.getVal('p1_retireAge') <= d.p1Age, p2R = this.app.getVal('p2_retireAge') <= (d.p2Age||0);
             const gLim = parseInt(this.app.getRaw('exp_gogo_age'))||75, sLim = parseInt(this.app.getRaw('exp_slow_age'))||85;
@@ -190,8 +198,8 @@ class UIController {
             if(this.app.state.mode==='Couple') { if(p1R&&p2R) stat = d.p1Age<gLim?`<span class="status-pill status-gogo">Go-go Phase</span>`:d.p1Age<sLim?`<span class="status-pill status-slow">Slow-go Phase</span>`:`<span class="status-pill status-nogo">No-go Phase</span>`; else if(p1R||p2R) stat = `<span class="status-pill status-semi">Transition</span>`; }
             else if(p1R) stat = d.p1Age<gLim?`<span class="status-pill status-gogo">Go-go Phase</span>`:d.p1Age<sLim?`<span class="status-pill status-slow">Slow-go Phase</span>`:`<span class="status-pill status-nogo">No-go Phase</span>`;
             
-            const ln = (l,v,c='') => (!v||Math.round(v)===0)?'':`<div class="detail-item"><span>${l}</span> <span class="${c}">${fmtK(v * df)}</span></div>`;
-            const sL = (l,v) => (!v||Math.round(v)===0)?'':`<div class="detail-item sub"><span>${l}</span> <span>${fmtK(v * df)}</span></div>`;
+            const ln = (l,v,c='') => (!v||Math.round(v)===0)?'':`<div class="detail-item"><span>${l}</span> <span class="${c}">${fmtK(v)}</span></div>`;
+            const sL = (l,v) => (!v||Math.round(v)===0)?'':`<div class="detail-item sub"><span>${l}</span> <span>${fmtK(v)}</span></div>`;
             
             let groupP1 = '', groupP2 = '', groupOther = '';
             if(d.incomeP1 > 0) groupP1 += ln("Employment", d.incomeP1);
@@ -347,10 +355,15 @@ class UIController {
             aL += ln(`Non-Reg P1${fmtFlow(d.flows.contributions.p1.nreg, d.wdBreakdown.p1['Non-Reg'])}`, d.assetsP1.nreg) + (this.app.state.mode==='Couple'?ln(`Non-Reg P2${fmtFlow(d.flows.contributions.p2.nreg, d.wdBreakdown.p2['Non-Reg'])}`, d.assetsP2.nreg):'');
             aL += ln(`Cash P1${fmtFlow(d.flows.contributions.p1.cash, d.wdBreakdown.p1['Cash'])}`, d.assetsP1.cash) + (this.app.state.mode==='Couple'?ln(`Cash P2${fmtFlow(d.flows.contributions.p2.cash, d.wdBreakdown.p2['Cash'])}`, d.assetsP2.cash):'');
             aL += ln(`Crypto P1${fmtFlow(d.flows.contributions.p1.crypto, d.wdBreakdown.p1['Crypto'])}`, d.assetsP1.crypto) + (this.app.state.mode==='Couple'?ln(`Crypto P2${fmtFlow(d.flows.contributions.p2.crypto, d.wdBreakdown.p2['Crypto'])}`, d.assetsP2.crypto):'');
+            
+            if (d.debtRemaining > 0) {
+                aL += ln("Other Liabilities", -d.debtRemaining, "text-danger");
+            }
+            
             aL += ln("Liquid Net Worth",d.liquidNW,"text-info fw-bold")+ln("Total Real Estate Eq.",d.homeValue-d.mortgage);
             
             const rB = th==='light'?'bg-white border-bottom border-dark-subtle':'', rT = th==='light'?'text-dark':'text-white';
-            html += `<div class="grid-row-group" style="${th==='light'?'border-bottom:1px solid #ddd;':''}"><div class="grid-summary-row ${rB}" onclick="app.ui.toggleRow(this)"><div class="col-start col-timeline"><div class="d-flex align-items-center"><span class="fw-bold fs-6 me-1 ${rT}">${d.year}</span><span class="event-icons-inline">${d.events.map(k=>this.getIconHTML(k,th)).join('')}</span></div><span class="age-text ${rT}">${p1A} ${this.app.state.mode==='Couple'?'/ '+p2A:''}</span></div><div class="col-start">${stat}</div><div class="val-positive">${fmtK(d.grossInflow * df)}</div><div class="val-neutral text-danger">${fmtK(d.visualExpenses * df)}</div><div class="${d.surplus<0?'val-negative':'val-positive'}">${d.surplus>0?'+':''}${fmtK(d.surplus * df)}</div><div class="fw-bold ${rT}">${fmtK(d.debugNW * df)}</div><div class="text-center toggle-icon ${rT}"><i class="bi bi-chevron-down"></i></div></div><div class="grid-detail-wrapper"><div class="detail-container"><div class="detail-box surface-card"><div class="detail-title">Income Sources</div>${iL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total Gross Inflow</span> <span class="text-success fw-bold">${fmtK(d.grossInflow * df)}</span></div></div><div class="detail-box surface-card"><div class="detail-title">Outflows & Taxes</div>${eL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total Out</span> <span class="text-danger fw-bold">${fmtK(d.visualExpenses * df)}</span></div></div><div class="detail-box surface-card"><div class="detail-title">${assetTitle}</div>${aL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total NW</span> <span class="text-info fw-bold">${fmtK(d.debugNW * df)}</span></div></div></div></div></div>`;
+            html += `<div class="grid-row-group" style="${th==='light'?'border-bottom:1px solid #ddd;':''}"><div class="grid-summary-row ${rB}" onclick="app.ui.toggleRow(this)"><div class="col-start col-timeline"><div class="d-flex align-items-center"><span class="fw-bold fs-6 me-1 ${rT}">${d.year}</span><span class="event-icons-inline">${d.events.map(k=>this.getIconHTML(k,th)).join('')}</span></div><span class="age-text ${rT}">${p1A} ${this.app.state.mode==='Couple'?'/ '+p2A:''}</span></div><div class="col-start">${stat}</div><div class="val-positive">${fmtK(d.grossInflow)}</div><div class="val-neutral text-danger">${fmtK(d.visualExpenses)}</div><div class="${d.surplus<0?'val-negative':'val-positive'}">${d.surplus>0?'+':''}${fmtK(d.surplus)}</div><div class="fw-bold ${rT}">${fmtK(d.debugNW)}</div><div class="text-center toggle-icon ${rT}"><i class="bi bi-chevron-down"></i></div></div><div class="grid-detail-wrapper"><div class="detail-container"><div class="detail-box surface-card"><div class="detail-title">Income Sources</div>${iL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total Gross Inflow</span> <span class="text-success fw-bold">${fmtK(d.grossInflow)}</span></div></div><div class="detail-box surface-card"><div class="detail-title">Outflows & Taxes</div>${eL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total Out</span> <span class="text-danger fw-bold">${fmtK(d.visualExpenses)}</span></div></div><div class="detail-box surface-card"><div class="detail-title">${assetTitle}</div>${aL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total NW</span> <span class="text-info fw-bold">${fmtK(d.debugNW)}</span></div></div></div></div></div>`;
         });
         const grid = document.getElementById('projectionGrid'); if(grid) grid.innerHTML = html;
         
@@ -382,8 +395,9 @@ class UIController {
                    (a2.tfsa||0) + (a2.tfsa_successor||0) + (a2.fhsa||0) + (a2.rrsp||0) + (a2.rrif_acct||0) + (a2.lif||0) + (a2.lirf||0) + (a2.nreg||0) + (a2.cash||0) + (a2.crypto||0);
         };
 
-        const initialLiquid = getLiquidAssets(this.app.state.projectionData[0]) / this.app.getDiscountFactor(0);
-        const initialHome = this.app.state.projectionData[0].homeValue / this.app.getDiscountFactor(0);
+        const initialDf = this.app.getDiscountFactor(0);
+        const initialLiquid = getLiquidAssets(this.app.state.projectionData[0]) / initialDf;
+        const initialHome = this.app.state.projectionData[0].homeValue / initialDf;
 
         let compLabels = [];
         let compTaxFree = [];
@@ -428,8 +442,8 @@ class UIController {
                 peakAge = d.p1Age;
             }
             
-            if (i === 0 && (d.mortgage > 0 || d.debtRepayment > 0)) hasDebtAtStart = true;
-            if (hasDebtAtStart && debtFreeYear === "--" && d.mortgage <= 0 && d.debtRepayment <= 0) {
+            if (i === 0 && (d.mortgage > 0 || d.debtRemaining > 0)) hasDebtAtStart = true;
+            if (hasDebtAtStart && debtFreeYear === "--" && d.mortgage <= 0 && d.debtRemaining <= 0) {
                 debtFreeYear = d.year;
             }
 
