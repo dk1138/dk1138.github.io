@@ -217,7 +217,7 @@ class UIController {
             else if(p1R) stat = d.p1Age<gLim?`<span class="status-pill status-gogo">Go-go Phase</span>`:d.p1Age<sLim?`<span class="status-pill status-slow">Slow-go Phase</span>`:`<span class="status-pill status-nogo">No-go Phase</span>`;
             
             const ln = (l,v,c='') => (!v||Math.round(v)===0)?'':`<div class="detail-item"><span>${l}</span> <span class="${c}">${fmtK(v)}</span></div>`;
-            const sL = (l,v) => (!v||Math.round(v)===0)?'':`<div class="detail-item sub"><span>${l}</span> <span>${fmtK(v)}</span></div>`;
+            const sL = (l,v,c='') => (!v||Math.round(v)===0)?'':`<div class="detail-item sub"><span>${l}</span> <span class="${c}">${fmtK(v)}</span></div>`;
             
             let groupP1 = '', groupP2 = '', groupOther = '';
             
@@ -226,6 +226,10 @@ class UIController {
                 if (d.rrspMatchP1 > 0) {
                     groupP1 += sL("&nbsp;&nbsp;<span class='text-muted'>&#8627; Employer Match</span>", d.rrspMatchP1);
                 }
+            }
+            if(d.rrspRefundP1 > 0) {
+                let rfInfo = ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="RRSP Tax Refund" data-bs-content="Tax refund received this year resulting from your discretionary RRSP contributions made last year. Automatically added to your available cash."></i>`;
+                groupP1 += sL(`Tax Refund (RRSP)${rfInfo}`, d.rrspRefundP1, "text-success fw-bold");
             }
             if(d.postRetP1 > 0) groupP1 += sL("Post-Ret Work", d.postRetP1);
             if(d.ccbP1 > 0) groupP1 += sL("Canada Child Benefit (CCB)", d.ccbP1);
@@ -280,6 +284,10 @@ class UIController {
                         groupP2 += sL("&nbsp;&nbsp;<span class='text-muted'>&#8627; Employer Match</span>", d.rrspMatchP2);
                     }
                 }
+                if(d.rrspRefundP2 > 0) {
+                    let rfInfo = ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="RRSP Tax Refund" data-bs-content="Tax refund received this year resulting from your discretionary RRSP contributions made last year. Automatically added to your available cash."></i>`;
+                    groupP2 += sL(`Tax Refund (RRSP)${rfInfo}`, d.rrspRefundP2, "text-success fw-bold");
+                }
                 if(d.postRetP2 > 0) groupP2 += sL("Post-Ret Work", d.postRetP2);
                 if(d.cppP2 > 0) groupP2 += sL("CPP", d.cppP2);
                 
@@ -332,7 +340,7 @@ class UIController {
             if(groupP2) iL += `<div class="mb-2"><span class="text-purple fw-bold small text-uppercase" style="font-size:0.7rem; border-bottom:1px solid #334155; display:block; margin-bottom:4px;">Person 2</span>${groupP2}</div>`;
             if(groupOther) iL += `<div>${groupOther}</div>`;
             
-            const buildTaxInfo = (tDetails, pName, taxIncObjStr) => {
+            const buildTaxInfo = (tDetails, pName, taxIncObjStr, matchSav, discSav) => {
                 if (!tDetails || tDetails.totalTax <= 0) return `Tax Paid ${pName}`;
                 let content = `<b>Federal Tax:</b> $${Math.round(tDetails.fed / df).toLocaleString()}<br><b>Provincial Tax:</b> $${Math.round(tDetails.prov / df).toLocaleString()}<br><b>CPP/EI:</b> $${Math.round(tDetails.cpp_ei / df).toLocaleString()}`;
                 if (tDetails.oas_clawback > 0) content += `<br><b>OAS Clawback:</b> $${Math.round(tDetails.oas_clawback / df).toLocaleString()}`;
@@ -340,13 +348,31 @@ class UIController {
                 let avgRate = ((tDetails.totalTax / taxInc) * 100).toFixed(1);
                 let margRate = ((tDetails.margRate || 0) * 100).toFixed(1);
                 content += `<hr class='my-1'><b>Taxable Income:</b> $${Math.round(taxInc / df).toLocaleString()}<br><b>Average Rate:</b> ${avgRate}%<br><b>Marginal Rate:</b> ${margRate}%`;
+                
+                if (matchSav > 0 || discSav > 0) {
+                    content += `<hr class='my-1'>`;
+                    if (matchSav > 0) content += `<b>Payroll Tax Saved (RRSP Match):</b> <span class='text-success'>$${Math.round(matchSav / df).toLocaleString()}</span><br>`;
+                    if (discSav > 0) content += `<b>Est. Refund (Discretionary RRSP):</b> <span class='text-success'>$${Math.round(discSav / df).toLocaleString()}</span><br><span class='text-muted' style='font-size:0.7rem;'>*Refund will be added to next year's cash.</span>`;
+                }
+
                 return `Tax Paid ${pName} <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-html="true" data-bs-title="${pName} Tax Breakdown" data-bs-content="${content}"></i>`;
             };
 
-            let p1TaxLabel = buildTaxInfo(d.taxDetailsP1, 'P1', 'taxIncP1');
-            let p2TaxLabel = this.app.state.mode === 'Couple' ? buildTaxInfo(d.taxDetailsP2, 'P2', 'taxIncP2') : '';
+            let p1TaxLabel = buildTaxInfo(d.taxDetailsP1, 'P1', 'taxIncP1', d.matchTaxSavingsP1, d.discTaxSavingsP1);
+            let p2TaxLabel = this.app.state.mode === 'Couple' ? buildTaxInfo(d.taxDetailsP2, 'P2', 'taxIncP2', d.matchTaxSavingsP2, d.discTaxSavingsP2) : '';
 
-            let eL = ln("Living Exp",d.expenses) + ln("Mortgage",d.mortgagePay) + ln("Debt Repayment",d.debtRepayment) + ln(p1TaxLabel, d.taxP1, "val-negative") + (this.app.state.mode === 'Couple' ? ln(p2TaxLabel, d.taxP2, "val-negative") : '');
+            let eL = ln("Living Exp",d.expenses) + ln("Mortgage",d.mortgagePay) + ln("Debt Repayment",d.debtRepayment);
+            
+            eL += ln(p1TaxLabel, d.taxP1, "val-negative");
+            if (d.matchTaxSavingsP1 > 0) {
+                eL += `<div class="detail-item sub"><span class="text-success"><i class="bi bi-shield-check me-1"></i>Tax Saved (P1 RRSP Match)</span> <span class="text-success fw-bold">-$${fmtK(d.matchTaxSavingsP1).replace('-','')}</span></div>`;
+            }
+            if (this.app.state.mode === 'Couple') {
+                eL += ln(p2TaxLabel, d.taxP2, "val-negative");
+                if (d.matchTaxSavingsP2 > 0) {
+                    eL += `<div class="detail-item sub"><span class="text-success"><i class="bi bi-shield-check me-1"></i>Tax Saved (P2 RRSP Match)</span> <span class="text-success fw-bold">-$${fmtK(d.matchTaxSavingsP2).replace('-','')}</span></div>`;
+                }
+            }
             
             let aL = '';
             let assetTitle = 'Assets (End of Year)';
@@ -656,6 +682,7 @@ class UIController {
         if(d.oasP1>0) addRow(`OAS P1\n${fmt(v(d.oasP1))}`, potName, d.oasP1);
         if(d.dbP1>0) addRow(`DB Pension P1\n${fmt(v(d.dbP1))}`, potName, d.dbP1);
         if(d.invIncP1>0) addRow(`Inv. Yield P1\n${fmt(v(d.invIncP1))}`, potName, d.invIncP1);
+        if(d.rrspRefundP1>0) addRow(`RRSP Refund P1\n${fmt(v(d.rrspRefundP1))}`, potName, d.rrspRefundP1);
 
         if(d.incomeP2>0) addRow(`Employment P2\n${fmt(v(d.incomeP2))}`, potName, d.incomeP2);
         if(d.postRetP2>0) addRow(`Post-Ret Work P2\n${fmt(v(d.postRetP2))}`, potName, d.postRetP2);
@@ -663,6 +690,7 @@ class UIController {
         if(d.oasP2>0) addRow(`OAS P2\n${fmt(v(d.oasP2))}`, potName, d.oasP2);
         if(d.dbP2>0) addRow(`DB Pension P2\n${fmt(v(d.dbP2))}`, potName, d.dbP2);
         if(d.invIncP2>0) addRow(`Inv. Yield P2\n${fmt(v(d.invIncP2))}`, potName, d.invIncP2);
+        if(d.rrspRefundP2>0) addRow(`RRSP Refund P2\n${fmt(v(d.rrspRefundP2))}`, potName, d.rrspRefundP2);
 
         if(d.windfall>0) addRow(`Inheritance/Bonus\n${fmt(v(d.windfall))}`, potName, d.windfall);
 
@@ -691,6 +719,7 @@ class UIController {
             if(n.includes("Mort")||n.includes("Debt")) c='#dc2626'; 
             if(n.includes("Available Cash")) c='#10b981';
             if(n.includes("CCB")) c='#06b6d4';
+            if(n.includes("Refund")) c='#22c55e';
             return { color: c };
         });
 
