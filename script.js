@@ -1,12 +1,12 @@
 /**
  * Retirement Planner Pro - Core Application Controller
- * Version 10.13.0 (Fully Optimize Decumulation Algorithm)
+ * Version 10.14.0 (Asset Totals UI & Liquid NW Fixes)
  */
 
 class RetirementPlanner {
     constructor() {
         try {
-            this.APP_VERSION = "10.13.0";
+            this.APP_VERSION = "10.14.0";
             this.state = {
                 inputs: {},
                 debt: [],
@@ -450,8 +450,30 @@ class RetirementPlanner {
         this.run(); 
     }
 
+    updateAssetTotals() {
+        const sumAssets = (pfx) => {
+            let total = 0;
+            const accounts = ['tfsa', 'fhsa', 'resp', 'rrsp', 'lirf', 'lif', 'rrif_acct', 'nonreg', 'crypto', 'cash'];
+            accounts.forEach(act => {
+                total += this.getVal(`${pfx}_${act}`);
+            });
+            return total;
+        };
+
+        const p1Total = sumAssets('p1');
+        const p2Total = this.state.mode === 'Couple' ? sumAssets('p2') : 0;
+        const hhTotal = p1Total + p2Total;
+
+        const fmt = n => '$' + Math.round(n).toLocaleString();
+
+        if (document.getElementById('p1_total_assets_display')) document.getElementById('p1_total_assets_display').innerText = fmt(p1Total);
+        if (document.getElementById('p2_total_assets_display')) document.getElementById('p2_total_assets_display').innerText = fmt(p2Total);
+        if (document.getElementById('hh_total_assets_display')) document.getElementById('hh_total_assets_display').innerText = fmt(hhTotal);
+    }
+
     run() {
         try {
+            this.updateAssetTotals();
             this.data.estimateCPPOAS(); 
             this.data.updateIncomeDisplay(); 
             this.data.calcExpenses(); 
