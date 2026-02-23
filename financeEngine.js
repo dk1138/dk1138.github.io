@@ -93,16 +93,40 @@ class FinanceEngine {
 
         let countUnder6 = 0;
         let count6to17 = 0;
+        let activeKids = 0;
 
         dependents.forEach(dep => {
-            let birthYear = parseInt(dep.dob.split('-')[0]);
-            let age = currentYear - birthYear;
-            if (age >= 0 && age < 6) countUnder6++;
-            else if (age >= 6 && age < 18) count6to17++;
+            let parts = dep.dob.split('-');
+            let birthYear = parseInt(parts[0]);
+            let birthMonth = parseInt(parts[1]) || 1; 
+            
+            let turns6Year = birthYear + 6;
+            let turns18Year = birthYear + 18;
+
+            if (currentYear < turns18Year) {
+                activeKids++;
+            } else if (currentYear === turns18Year) {
+                activeKids++; // Still active for fractional months of their 18th year
+            }
+
+            if (currentYear < turns6Year) {
+                countUnder6 += 1;
+            } else if (currentYear === turns6Year) {
+                // Fractional math: Month of birthday gets the under 6 rate.
+                let under6Fraction = birthMonth / 12;
+                let over6Fraction = (12 - birthMonth) / 12;
+                countUnder6 += under6Fraction;
+                count6to17 += over6Fraction;
+            } else if (currentYear < turns18Year) {
+                count6to17 += 1;
+            } else if (currentYear === turns18Year) {
+                // Fractional math for aging out completely
+                let over6Fraction = birthMonth / 12;
+                count6to17 += over6Fraction;
+            }
         });
 
-        let totalKids = countUnder6 + count6to17;
-        if (totalKids === 0) return 0;
+        if (activeKids === 0) return 0;
 
         let maxUnder6 = rules.MAX_UNDER_6 * bInf;
         let max6to17 = rules.MAX_6_TO_17 * bInf;
@@ -110,7 +134,8 @@ class FinanceEngine {
         let thresh2 = rules.THRESHOLD_2 * bInf;
 
         let maxBenefit = (countUnder6 * maxUnder6) + (count6to17 * max6to17);
-        let rateIndex = Math.min(totalKids - 1, 3);
+        
+        let rateIndex = Math.max(0, Math.min(activeKids - 1, 3));
         let reduction = 0;
 
         if (familyNetIncome > thresh2) {
@@ -450,7 +475,7 @@ class FinanceEngine {
         }
     }
 
-    handleSurplus(amount, p1, p2, alive1, alive2, log, i, tfsaLim, rrspLim1, rrspLim2, cryptoLim, fhsaLim, respLim) {
+    handleSurplus(amount, p1, p2, alive1, alive2, log, i, tfsaLim, rrspLim1, rrspLim2, cryptoLim, fhsaLim, respLim, deductionsObj) {
         let r = amount;
         this.strategies.accum.forEach(t => { 
             if(r <= 0) return;
@@ -481,6 +506,7 @@ class FinanceEngine {
                         let take = Math.min(r, obj.room);
                         obj.p.rrsp += take; 
                         if(log) log.contributions[obj.k].rrsp += take; 
+                        if(deductionsObj) deductionsObj[obj.k] += take;
                         r -= take;
                     }
                 });
@@ -489,11 +515,13 @@ class FinanceEngine {
                 if(alive1 && r > 0 && p1.fhsa !== undefined) {
                     let take = Math.min(r, fhsaLim); p1.fhsa += take;
                     if(log) log.contributions.p1.fhsa += take;
+                    if(deductionsObj) deductionsObj.p1 += take;
                     r -= take;
                 }
                 if(alive2 && r > 0 && p2.fhsa !== undefined) {
                     let take = Math.min(r, fhsaLim); p2.fhsa += take;
                     if(log) log.contributions.p2.fhsa += take;
+                    if(deductionsObj) deductionsObj.p2 += take;
                     r -= take;
                 }
             }
@@ -850,7 +878,6 @@ class FinanceEngine {
         let trackedEvents = new Set();
         let finalNetWorth = 0;
 
-        // FIXED: Using strict undefined check instead of || to allow 0 to pass through correctly
         let consts = {
             cppMax1: this.getVal('p1_cpp_est_base'),
             oasMax1: this.CONSTANTS.MAX_OAS * (Math.max(0, Math.min(40, this.getVal('p1_oas_years'))) / 40),
@@ -863,6 +890,10 @@ class FinanceEngine {
             cryptoLimit: this.inputs['cfg_crypto_limit'] !== undefined ? this.getVal('cfg_crypto_limit') : 5000,
             inflation: this.getVal('inflation_rate') / 100
         };
+
+        // Estimate AFNI for the first year based on gross income minus assumed base deductions
+        let initialDeductionGuess = (this.mode === 'Couple' ? 2 : 1) * 15000; // rough guess
+        let previousAFNI = Math.max(0, (person1.inc + person2.inc) - initialDeductionGuess);
 
         for (let i = 0; i <= yearsToRun; i++) {
             const yr = curY + i;
@@ -943,12 +974,13 @@ class FinanceEngine {
             const inflows = this.calcInflows(yr, i, person1, person2, age1, age2, alive1, alive2, isRet1, isRet2, consts, bInf, detailed ? trackedEvents : null);
             if (detailed && deathEvents.length > 0) inflows.events.push(...deathEvents);
 
-            let taxableIncome1Raw = inflows.p1.gross + inflows.p1.cpp + inflows.p1.oas + inflows.p1.pension + inflows.p1.windfallTaxable + (person1.nreg * person1.nreg_yield);
-            let taxableIncome2Raw = inflows.p2.gross + inflows.p2.cpp + inflows.p2.oas + inflows.p2.pension + inflows.p2.windfallTaxable + (alive2 ? (person2.nreg * person2.nreg_yield) : 0);
+            const regMins = this.calcRegMinimums(person1, person2, age1, age2, alive1, alive2, preGrowthRrsp1, preGrowthRrif1, preGrowthRrsp2, preGrowthRrif2, preGrowthLirf1, preGrowthLif1, preGrowthLirf2, preGrowthLif2);
             
-            let familyNetIncomeForCCB = taxableIncome1Raw + taxableIncome2Raw;
-            let ccbPayout = this.calculateCCBForYear(yr, this.dependents, familyNetIncomeForCCB, bInf);
-            
+            let taxableIncome1 = inflows.p1.gross + inflows.p1.cpp + inflows.p1.oas + inflows.p1.pension + regMins.p1 + regMins.lifTaken1 + inflows.p1.windfallTaxable + (person1.nreg * person1.nreg_yield);
+            let taxableIncome2 = inflows.p2.gross + inflows.p2.cpp + inflows.p2.oas + inflows.p2.pension + regMins.p2 + regMins.lifTaken2 + inflows.p2.windfallTaxable + (alive2 ? (person2.nreg * person2.nreg_yield) : 0);
+
+            // Calculate CCB based on previous year's AFNI to mimic CRA logic precisely
+            let ccbPayout = this.calculateCCBForYear(yr, this.dependents, previousAFNI, bInf);
             if (ccbPayout > 0 && alive1) {
                 inflows.p1.windfallNonTax += ccbPayout;
                 if(detailed) {
@@ -956,8 +988,6 @@ class FinanceEngine {
                 }
             }
 
-            const regMins = this.calcRegMinimums(person1, person2, age1, age2, alive1, alive2, preGrowthRrsp1, preGrowthRrif1, preGrowthRrsp2, preGrowthRrif2, preGrowthLirf1, preGrowthLif1, preGrowthLirf2, preGrowthLif2);
-            
             let lifMax1 = (preGrowthLirf1 + preGrowthLif1) * this.getLifMaxFactor(age1 - 1, this.getRaw('tax_province'));
             let lifMax2 = (preGrowthLirf2 + preGrowthLif2) * this.getLifMaxFactor(age2 - 1, this.getRaw('tax_province'));
             lifMax1 = Math.max(0, lifMax1 - regMins.lifTaken1);
@@ -1008,9 +1038,6 @@ class FinanceEngine {
                 trackedEvents.add('Mortgage Paid'); 
                 inflows.events.push('Mortgage Paid'); 
             }
-
-            let taxableIncome1 = inflows.p1.gross + inflows.p1.cpp + inflows.p1.oas + inflows.p1.pension + regMins.p1 + regMins.lifTaken1 + inflows.p1.windfallTaxable + (person1.nreg * person1.nreg_yield);
-            let taxableIncome2 = inflows.p2.gross + inflows.p2.cpp + inflows.p2.oas + inflows.p2.pension + regMins.p2 + regMins.lifTaken2 + inflows.p2.windfallTaxable + (alive2 ? (person2.nreg * person2.nreg_yield) : 0);
 
             let pensionSplitTransfer = { p1ToP2: 0, p2ToP1: 0 };
             if (this.mode === 'Couple' && this.inputs['pension_split_enabled']) {
@@ -1063,8 +1090,10 @@ class FinanceEngine {
             const rrspRoom1 = Math.min(inflows.p1.earned * 0.18, consts.rrspMax * bInf);
             const rrspRoom2 = Math.min(inflows.p2.earned * 0.18, consts.rrspMax * bInf);
 
+            let actDeductions = { p1: 0, p2: 0 };
+
             if (surplus > 0) {
-                this.handleSurplus(surplus, person1, person2, alive1, alive2, flowLog, i, consts.tfsaLimit * bInf, rrspRoom1, rrspRoom2, consts.cryptoLimit * bInf, consts.fhsaLimit * bInf, consts.respLimit * bInf);
+                this.handleSurplus(surplus, person1, person2, alive1, alive2, flowLog, i, consts.tfsaLimit * bInf, rrspRoom1, rrspRoom2, consts.cryptoLimit * bInf, consts.fhsaLimit * bInf, consts.respLimit * bInf, actDeductions);
             } else {
                 let cashFromNonTaxableWd = 0; 
                 for(let pass = 0; pass < 5; pass++) {
@@ -1095,6 +1124,9 @@ class FinanceEngine {
                 netIncome2 = alive2 ? taxableIncome2 - tax2.totalTax + inflows.p2.windfallNonTax : 0;
                 surplus = (netIncome1 + netIncome2) - totalOutflows;
             }
+
+            // Update AFNI tracker for next year's CCB
+            previousAFNI = Math.max(0, (taxableIncome1 - actDeductions.p1) + (taxableIncome2 - actDeductions.p2));
 
             const assets1 = person1.tfsa + person1.tfsa_successor + person1.rrsp + person1.crypto + person1.nreg + person1.cash + person1.lirf + person1.lif + person1.rrif_acct + (person1.fhsa || 0) + (person1.resp || 0);
             const assets2 = person2.tfsa + person2.tfsa_successor + person2.rrsp + person2.crypto + person2.nreg + person2.cash + person2.lirf + person2.lif + person2.rrif_acct + (person2.fhsa || 0);
