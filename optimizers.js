@@ -5,6 +5,7 @@
 class Optimizers {
     constructor(app) {
         this.app = app;
+        this.currentOptPerson = 'p1';
     }
 
     // ---------------- SMART OPTIMIZERS START ---------------- //
@@ -155,115 +156,183 @@ class Optimizers {
     }
 
     runRRSPOptimizer() {
+        const modalContainer = document.getElementById('rrspOptimizerResults');
+        if (!modalContainer) return;
+
+        let html = `
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+                <ul class="nav nav-pills mb-2 mb-md-0" id="pills-tab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#opt-tab-content" type="button" role="tab" onclick="app.optimizers.calcRRSPFor('p1')">Player 1</button>
+                    </li>
+                    ${this.app.state.mode === 'Couple' ? `<li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#opt-tab-content" type="button" role="tab" onclick="app.optimizers.calcRRSPFor('p2')">Player 2</button></li>` : ''}
+                </ul>
+            </div>
+            <div class="mb-4 bg-black bg-opacity-25 p-3 rounded border border-secondary d-flex flex-wrap gap-3 align-items-center">
+                <div>
+                    <label class="form-label small text-info fw-bold mb-1">Your Available RRSP Room</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-transparent border-secondary text-muted">$</span>
+                        <input type="number" class="form-control border-secondary" id="opt_rrsp_room" value="50000" style="max-width: 150px;" oninput="app.optimizers.calcRRSPFor(app.optimizers.currentOptPerson)">
+                    </div>
+                    <div class="form-text text-muted mb-0" style="font-size:0.7rem;">Enter the limit from your Notice of Assessment</div>
+                </div>
+            </div>
+            <div id="opt-tab-content">
+                </div>
+        `;
+        modalContainer.innerHTML = html;
+        this.currentOptPerson = 'p1';
+        this.calcRRSPFor('p1');
+
+        let mEl = document.getElementById('rrspOptimizerModal');
+        if(mEl) {
+            let m = bootstrap.Modal.getInstance(mEl) || new bootstrap.Modal(mEl);
+            m.show();
+        }
+    }
+
+    calcRRSPFor(pfx) {
+        this.currentOptPerson = pfx;
+        const container = document.getElementById('opt-tab-content');
+        if(!container) return;
+
         const engine = new FinanceEngine(this.app.getEngineData());
         const taxBrackets = engine.getInflatedTaxData(1);
         const prov = this.app.getRaw('tax_province');
+        const currentYear = new Date().getFullYear();
+        const dependents = this.app.state.dependents || [];
+        const hasCCB = dependents.length > 0;
 
-        let html = `<ul class="nav nav-pills mb-3" id="pills-tab" role="tablist">
-                      <li class="nav-item" role="presentation">
-                        <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#rrsp-opt-p1" type="button" role="tab">Player 1</button>
-                      </li>`;
-        if (this.app.state.mode === 'Couple') {
-            html += `<li class="nav-item" role="presentation">
-                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#rrsp-opt-p2" type="button" role="tab">Player 2</button>
-                      </li>`;
-        }
-        html += `</ul><div class="tab-content" id="pills-tabContent">`;
+        let maxRoom = parseFloat(document.getElementById('opt_rrsp_room')?.value) || 100000;
+        if(maxRoom <= 0) maxRoom = 1000; // Provide a baseline if 0
 
-        const generateOptForPerson = (pfx, isActive) => {
-            let baseInc = this.app.getVal(`${pfx}_income`);
-            let addInc = 0;
-            const currentYear = new Date().getFullYear();
-            
-            // Add any side hustles active in the current year
+        // Determine Base Incomes & Pre-Existing RRSP Match Deductions
+        const getInc = (person) => {
+            let base = this.app.getVal(`${person}_income`);
+            let empMatchRate = this.app.getVal(`${person}_rrsp_match`) / 100;
+            let empTier = this.app.getVal(`${person}_rrsp_match_tier`) / 100;
+            if(empTier <= 0) empTier = 1;
+            let empRrspDeduction = (base * empMatchRate) / empTier; 
+
+            let add = 0;
             this.app.state.additionalIncome.forEach(s => {
-                if(s.owner === pfx && s.taxable) {
+                if(s.owner === person && s.taxable && s.startMode !== 'ret_relative') {
                     let sY = new Date((s.start || "2026-01") + "-01").getFullYear();
-                    if (s.startMode === 'ret_relative') return; // Exclude post-ret income for this calc
-                    if (currentYear >= sY) {
-                        addInc += s.amount * (s.freq === 'month' ? 12 : 1);
-                    }
+                    if(currentYear >= sY) add += s.amount * (s.freq === 'month' ? 12 : 1);
                 }
             });
-            
-            let grossInc = baseInc + addInc;
-            
-            if (grossInc <= 0) {
-                return `<div class="tab-pane fade ${isActive ? 'show active' : ''}" id="rrsp-opt-${pfx}" role="tabpanel"><p class="text-muted p-3">No taxable income entered for this player.</p></div>`;
-            }
+            return { gross: base + add, rrspDeduct: empRrspDeduction };
+        };
 
-            // Calculate current baseline tax
-            let currentTax = engine.calculateTaxDetailed(grossInc, prov, taxBrackets);
-            let currentMarginal = currentTax.margRate;
-            
-            let exactSweetSpot = 0;
-            let prevMarginal = currentTax.margRate;
-            
-            // Step backwards dollar by dollar (in $100 chunks for speed) to find the exact bracket cliff
-            for(let c = 100; c <= Math.min(grossInc, 100000); c += 100) {
-                 let t = engine.calculateTaxDetailed(grossInc - c, prov, taxBrackets);
-                 if (t.margRate < prevMarginal - 0.001) { // 0.1% threshold to avoid float math bugs
-                     exactSweetSpot = c - 100;
-                     break;
-                 }
-            }
-            
-            if(exactSweetSpot === 0) exactSweetSpot = grossInc; // Bottomed out
+        const targetData = getInc(pfx);
+        const otherData = this.app.state.mode === 'Couple' ? getInc(pfx === 'p1' ? 'p2' : 'p1') : { gross: 0, rrspDeduct: 0 };
 
-            // Build Output Table
-            let tableHtml = `<div class="table-responsive"><table class="table table-dark table-sm table-striped mt-3">
-                                <thead><tr><th class="text-secondary text-uppercase small ls-1">Contribution</th><th class="text-secondary text-uppercase small ls-1">Est. Refund</th><th class="text-secondary text-uppercase small ls-1">Refund %</th><th class="text-secondary text-uppercase small ls-1">New Marginal Rate</th></tr></thead>
-                                <tbody>`;
-            
-            let steps = [1000, 5000, 10000, 15000, 20000, 25000, 30000, 40000, 50000];
-            if (exactSweetSpot > 0 && !steps.includes(exactSweetSpot)) steps.push(exactSweetSpot);
-            steps.sort((a,b) => a - b);
+        // The taxable income before we start testing discretionary deposits
+        let startingTaxableInc = Math.max(0, targetData.gross - targetData.rrspDeduct);
+        let otherTaxableInc = Math.max(0, otherData.gross - otherData.rrspDeduct);
+        let startingFamilyNet = startingTaxableInc + otherTaxableInc;
 
-            steps.forEach(c => {
-                if (c > grossInc) return;
-                let t = engine.calculateTaxDetailed(grossInc - c, prov, taxBrackets);
-                let refund = currentTax.totalTax - t.totalTax;
-                let effRate = refund / c;
-                
-                let isSweet = c === exactSweetSpot;
-                let rowClass = isSweet ? 'table-success fw-bold text-dark' : '';
-                let label = isSweet ? `$${c.toLocaleString()} <span class="badge bg-success ms-2 text-dark">Sweet Spot</span>` : `$${c.toLocaleString()}`;
-                let colorClass = isSweet ? 'text-dark' : 'text-white';
-                
-                tableHtml += `<tr class="${rowClass}">
-                    <td class="align-middle">${label}</td>
-                    <td class="align-middle text-success ${isSweet ? 'text-dark' : ''}">$${Math.round(refund).toLocaleString()}</td>
-                    <td class="align-middle ${colorClass}">${(effRate * 100).toFixed(1)}%</td>
-                    <td class="align-middle ${colorClass}">${(t.margRate * 100).toFixed(1)}%</td>
-                </tr>`;
-            });
-            tableHtml += `</tbody></table></div>`;
-
-            let resHtml = `<div class="tab-pane fade ${isActive ? 'show active' : ''}" id="rrsp-opt-${pfx}" role="tabpanel">
-                            <div class="alert mt-3 border-success bg-success bg-opacity-10 text-white shadow-sm">
-                                <h6 class="fw-bold mb-2 text-success"><i class="bi bi-check-circle-fill me-2"></i>Optimal Deposit: $${exactSweetSpot.toLocaleString()}</h6>
-                                <p class="small mb-0 text-muted">At this contribution amount, you ride your current marginal tax rate of <b>${(currentTax.margRate*100).toFixed(1)}%</b> down to the absolute bottom. Contributing more will drop you into a lower bracket, making subsequent RRSP dollars mathematically less efficient.</p>
-                            </div>
-                            ${tableHtml}
-                           </div>`;
-            return resHtml;
+        if (startingTaxableInc <= 0) {
+            container.innerHTML = `<div class="p-3 text-muted">No taxable income to optimize.</div>`;
+            return;
         }
 
-        html += generateOptForPerson('p1', true);
-        if (this.app.state.mode === 'Couple') {
-            html += generateOptForPerson('p2', false);
-        }
-        html += `</div>`; 
+        // Calculate baseline Tax & CCB
+        let baseTax = engine.calculateTaxDetailed(startingTaxableInc, prov, taxBrackets);
+        let baseCCB = engine.calculateCCBForYear(currentYear, dependents, startingFamilyNet, 1);
 
-        const modalContainer = document.getElementById('rrspOptimizerResults');
-        if (modalContainer) {
-            modalContainer.innerHTML = html;
-            let mEl = document.getElementById('rrspOptimizerModal');
-            if(mEl) {
-                let m = new bootstrap.Modal(mEl);
-                m.show();
+        let exactSweetSpot = 0;
+        let prevMarginalReturn = 0;
+
+        // Step backwards dollar by dollar (in $100 chunks for speed) to track the marginal return curve
+        for(let c = 100; c <= Math.min(startingTaxableInc, maxRoom); c += 100) {
+            let testTax = engine.calculateTaxDetailed(startingTaxableInc - c, prov, taxBrackets);
+            let testCCB = engine.calculateCCBForYear(currentYear, dependents, startingFamilyNet - c, 1);
+            
+            let taxSavedTotal = baseTax.totalTax - testTax.totalTax;
+            let ccbGainedTotal = testCCB - baseCCB;
+            let totalSaved = taxSavedTotal + ccbGainedTotal;
+
+            // Check the previous block of $100 to find the exact drop-off
+            let prevTestTax = engine.calculateTaxDetailed(startingTaxableInc - (c - 100), prov, taxBrackets);
+            let prevTestCCB = engine.calculateCCBForYear(currentYear, dependents, startingFamilyNet - (c - 100), 1);
+            
+            let prevTaxSaved = baseTax.totalTax - prevTestTax.totalTax;
+            let prevCcbGained = prevTestCCB - baseCCB;
+            let prevTotalSaved = prevTaxSaved + prevCcbGained;
+
+            // Marginal ROI is the savings generated purely by the LAST $100 added
+            let marginalSavedOnThis100 = totalSaved - prevTotalSaved;
+            let marginalRate = marginalSavedOnThis100 / 100;
+
+            if (c === 100) {
+                prevMarginalReturn = marginalRate;
+            } else {
+                // If the return drops by more than 1%, we hit a tax cliff or a CCB phase-out threshold!
+                if (marginalRate < prevMarginalReturn - 0.01) {
+                    exactSweetSpot = c - 100;
+                    break;
+                }
+                prevMarginalReturn = marginalRate;
             }
         }
+
+        if(exactSweetSpot === 0) exactSweetSpot = Math.min(startingTaxableInc, maxRoom); // Bottomed out perfectly
+
+        // Build array of display points for the table
+        let steps = [1000, 5000, 10000, 15000, 20000, 25000, 30000, 40000, 50000];
+        if (maxRoom > 0 && !steps.includes(maxRoom)) steps.push(maxRoom);
+        if (exactSweetSpot > 0 && !steps.includes(exactSweetSpot)) steps.push(exactSweetSpot);
+        
+        steps = steps.filter(x => x <= maxRoom && x <= startingTaxableInc);
+        steps.sort((a,b) => a - b);
+
+        let tableHtml = `<div class="table-responsive"><table class="table table-dark table-sm table-striped mt-3">
+            <thead><tr>
+                <th class="text-secondary text-uppercase small ls-1">Contribution</th>
+                <th class="text-secondary text-uppercase small ls-1">Tax Refund</th>
+                ${hasCCB ? `<th class="text-secondary text-uppercase small ls-1">CCB Boost</th>` : ''}
+                <th class="text-secondary text-uppercase small ls-1">Total ROI ($)</th>
+                <th class="text-secondary text-uppercase small ls-1">Effective ROI %</th>
+            </tr></thead><tbody>`;
+        
+        steps.forEach(c => {
+            let t = engine.calculateTaxDetailed(startingTaxableInc - c, prov, taxBrackets);
+            let ccb = engine.calculateCCBForYear(currentYear, dependents, startingFamilyNet - c, 1);
+            
+            let taxRefund = baseTax.totalTax - t.totalTax;
+            let ccbBoost = ccb - baseCCB;
+            let totalRoi = taxRefund + ccbBoost;
+            let effRate = totalRoi / c;
+
+            let isSweet = c === exactSweetSpot;
+            let rowClass = isSweet ? 'table-success fw-bold text-dark' : '';
+            let label = isSweet ? `$${c.toLocaleString()} <span class="badge bg-success ms-2 text-dark shadow-sm">Sweet Spot</span>` : `$${c.toLocaleString()}`;
+            let colorClass = isSweet ? 'text-dark' : 'text-white';
+            
+            tableHtml += `<tr class="${rowClass}">
+                <td class="align-middle">${label}</td>
+                <td class="align-middle text-info ${isSweet ? 'text-dark' : ''}">$${Math.round(taxRefund).toLocaleString()}</td>
+                ${hasCCB ? `<td class="align-middle text-warning ${isSweet ? 'text-dark' : ''}">+$${Math.round(ccbBoost).toLocaleString()}</td>` : ''}
+                <td class="align-middle text-success ${isSweet ? 'text-dark' : ''}">$${Math.round(totalRoi).toLocaleString()}</td>
+                <td class="align-middle ${colorClass}">${(effRate * 100).toFixed(1)}%</td>
+            </tr>`;
+        });
+        tableHtml += `</tbody></table></div>`;
+
+        let infoText = hasCCB 
+            ? `At this amount, you ride your highest tax bracket AND your CCB boost down to the absolute bottom threshold. Contributing more will reduce the efficiency of subsequent dollars.`
+            : `At this amount, you ride your highest marginal tax rate down to the bottom bracket cliff. Contributing more drops you into a lower bracket, reducing the tax efficiency of subsequent dollars.`;
+
+        container.innerHTML = `
+            <div class="alert mt-3 border-success bg-success bg-opacity-10 text-white shadow-sm">
+                <h6 class="fw-bold mb-2 text-success"><i class="bi bi-check-circle-fill me-2"></i>Optimal Deposit: $${exactSweetSpot.toLocaleString()}</h6>
+                <p class="small mb-0 text-muted">${infoText}</p>
+                ${targetData.rrspDeduct > 0 ? `<p class="small mb-0 mt-2 text-warning"><i class="bi bi-info-circle me-1"></i>Note: This factors in the $${Math.round(targetData.rrspDeduct).toLocaleString()} pre-tax deduction from your Employer Match.</p>` : ''}
+            </div>
+            ${tableHtml}
+        `;
     }
 
     // ---------------- MONTE CARLO ENGINE START ---------------- //
