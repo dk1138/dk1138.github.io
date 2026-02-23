@@ -840,55 +840,48 @@ class FinanceEngine {
             }
         };
 
-        const lowestBracket = taxBrackets.FED.brackets[0]; 
-        const secondBracket = taxBrackets.FED.brackets[1] || (lowestBracket * 2);
         const optimizeOAS = this.inputs['oas_clawback_optimize'];
         const fullyOptimizeTax = this.inputs['fully_optimize_tax'];
+        
+        let p1OasCeil = (optimizeOAS && age1 >= 65) ? oasThresholdInf : Infinity;
+        let p2OasCeil = (optimizeOAS && age2 >= 65) ? oasThresholdInf : Infinity;
+        
+        const b = taxBrackets.FED.brackets;
+
+        // Helper to run a ceiling pass
+        const runPass = (c1, c2, strategies) => {
+            if (df > 1) executeWithdrawalStrategy(c1, c2, strategies);
+        };
 
         if (fullyOptimizeTax) {
-            const taxFree = ['tfsa', 'fhsa', 'resp', 'cash'];
-            const capGains = ['nreg', 'crypto'];
-            const fullyTaxable = ['rrif_acct', 'lif', 'rrsp', 'lirf'];
+            // Absolute Mathematical Optimal Sequence:
+            // 1. Taxable Yielding (NReg/Crypto) - Eliminates the annual tax drag on yields
+            // 2. Tax-Free (Cash/TFSA/FHSA/RESP) - Shields money completely from tax
+            // 3. Tax-Deferred (RRIF/LIF/RRSP) - Preserves pre-tax compounding for as long as possible
+            const optimalStrats = ['nreg', 'crypto', 'cash', 'tfsa', 'fhsa', 'resp', 'rrif_acct', 'lif', 'lirf', 'rrsp'];
 
-            // 1. Maximize the Lowest Tax Bracket (The "Cheap" Money)
-            // Withdraw taxable income while marginal rates are low to prevent future RRIF tax bombs.
-            executeWithdrawalStrategy(lowestBracket, lowestBracket, fullyTaxable);
-            if (df > 1) executeWithdrawalStrategy(lowestBracket, lowestBracket, capGains);
-
-            // 2. The Tax Shield
-            // Once the lowest bracket is full, pivot to Tax-Free accounts to fund the rest of the year.
-            // This prevents your marginal tax rate from spiking into the 30-40%+ ranges.
-            if (df > 1) executeWithdrawalStrategy(Infinity, Infinity, taxFree);
-
-            // 3. Exhaustion & OAS Protection
-            // If TFSA/Cash is empty, we must take the tax hit. Use Capital Gains first (50% inclusion).
-            if (df > 1) {
-                let p1SafeCeil = (optimizeOAS && age1 >= 65) ? oasThresholdInf : Infinity;
-                let p2SafeCeil = (optimizeOAS && age2 >= 65) ? oasThresholdInf : Infinity;
-
-                executeWithdrawalStrategy(p1SafeCeil, p2SafeCeil, capGains);
-                if (df > 1) executeWithdrawalStrategy(p1SafeCeil, p2SafeCeil, fullyTaxable);
-                
-                // If we still have a deficit, we have to break the OAS ceiling
-                if (df > 1 && (p1SafeCeil !== Infinity || p2SafeCeil !== Infinity)) {
-                    executeWithdrawalStrategy(Infinity, Infinity, capGains);
-                    if (df > 1) executeWithdrawalStrategy(Infinity, Infinity, fullyTaxable);
-                }
+            // Layer 1: Lowest Tax Bracket 
+            runPass(b[0], b[0], optimalStrats);
+            
+            // Layer 2: OAS Threshold Protection
+            if (optimizeOAS && (p1OasCeil < Infinity || p2OasCeil < Infinity)) {
+                runPass(Math.max(b[0], p1OasCeil), Math.max(b[0], p2OasCeil), optimalStrats);
             }
+
+            // Layer 3: Second Bracket
+            if (b.length > 1) runPass(b[1], b[1], optimalStrats);
+            
+            // Layer 4: Third Bracket
+            if (b.length > 2) runPass(b[2], b[2], optimalStrats);
+
+            // Layer 5: Exhaustion
+            runPass(Infinity, Infinity, optimalStrats);
+
         } else {
-            executeWithdrawalStrategy(lowestBracket, lowestBracket, strats);
-            
-            if (df > 1 && optimizeOAS) {
-                let p1Ceil = age1 >= 65 ? oasThresholdInf : Infinity;
-                let p2Ceil = age2 >= 65 ? oasThresholdInf : Infinity;
-                if (p1Ceil !== Infinity || p2Ceil !== Infinity) {
-                    executeWithdrawalStrategy(p1Ceil, p2Ceil, strats);
-                }
-            }
-            
-            if (df > 1) {
-                executeWithdrawalStrategy(Infinity, Infinity, strats);
-            }
+            // Manual strategy - Still use bracket smoothing to prevent accidental spikes
+            runPass(b[0], b[0], strats);
+            if (optimizeOAS) runPass(p1OasCeil, p2OasCeil, strats);
+            runPass(Infinity, Infinity, strats);
         }
     }
 
