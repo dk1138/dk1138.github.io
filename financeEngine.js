@@ -892,8 +892,10 @@ class FinanceEngine {
         };
 
         // Estimate AFNI for the first year based on gross income minus assumed base deductions
-        let initialDeductionGuess = (this.mode === 'Couple' ? 2 : 1) * 15000; // rough guess
+        let initialDeductionGuess = (this.mode === 'Couple' ? 2 : 1) * 15000;
         let previousAFNI = Math.max(0, (person1.inc + person2.inc) - initialDeductionGuess);
+
+        let flowLog = null;
 
         for (let i = 0; i <= yearsToRun; i++) {
             const yr = curY + i;
@@ -903,6 +905,10 @@ class FinanceEngine {
             const alive2 = this.mode === 'Couple' ? age2 <= person2.lifeExp : false;
             
             if (!alive1 && !alive2) break;
+
+            if(detailed) {
+                flowLog = { contributions: { p1: {tfsa:0, fhsa:0, resp:0, rrsp:0, nreg:0, cash:0, crypto:0}, p2: {tfsa:0, fhsa:0, rrsp:0, nreg:0, cash:0, crypto:0} }, withdrawals: {} };
+            }
 
             let deathEvents = [];
             
@@ -974,12 +980,46 @@ class FinanceEngine {
             const inflows = this.calcInflows(yr, i, person1, person2, age1, age2, alive1, alive2, isRet1, isRet2, consts, bInf, detailed ? trackedEvents : null);
             if (detailed && deathEvents.length > 0) inflows.events.push(...deathEvents);
 
+            // --- RRSP EMPLOYER MATCH LOGIC ---
+            let rrspRoom1 = Math.min(inflows.p1.earned * 0.18, consts.rrspMax * bInf);
+            let rrspRoom2 = Math.min(inflows.p2.earned * 0.18, consts.rrspMax * bInf);
+            
+            let p1_match_rate = this.getVal('p1_rrsp_match') / 100;
+            let p2_match_rate = this.getVal('p2_rrsp_match') / 100;
+
+            let matchAmountP1 = (!isRet1 && alive1) ? (person1.inc * p1_match_rate) : 0;
+            let matchAmountP2 = (!isRet2 && alive2) ? (person2.inc * p2_match_rate) : 0;
+
+            let totalMatch1 = 0;
+            if (matchAmountP1 > 0) {
+                totalMatch1 = Math.min(matchAmountP1 * 2, rrspRoom1);
+                let empPortion = totalMatch1 / 2;
+                inflows.p1.gross += empPortion; // Add employer portion to gross inflow for Sankey and accurate gross tally
+                person1.rrsp += totalMatch1; // Deposit directly into RRSP
+                rrspRoom1 -= totalMatch1; // Consume room
+                if(detailed) { flowLog.contributions.p1.rrsp += totalMatch1; }
+            }
+
+            let totalMatch2 = 0;
+            if (matchAmountP2 > 0) {
+                totalMatch2 = Math.min(matchAmountP2 * 2, rrspRoom2);
+                let empPortion = totalMatch2 / 2;
+                inflows.p2.gross += empPortion;
+                person2.rrsp += totalMatch2;
+                rrspRoom2 -= totalMatch2;
+                if(detailed) { flowLog.contributions.p2.rrsp += totalMatch2; }
+            }
+            // ----------------------------------
+
             const regMins = this.calcRegMinimums(person1, person2, age1, age2, alive1, alive2, preGrowthRrsp1, preGrowthRrif1, preGrowthRrsp2, preGrowthRrif2, preGrowthLirf1, preGrowthLif1, preGrowthLirf2, preGrowthLif2);
             
             let taxableIncome1 = inflows.p1.gross + inflows.p1.cpp + inflows.p1.oas + inflows.p1.pension + regMins.p1 + regMins.lifTaken1 + inflows.p1.windfallTaxable + (person1.nreg * person1.nreg_yield);
             let taxableIncome2 = inflows.p2.gross + inflows.p2.cpp + inflows.p2.oas + inflows.p2.pension + regMins.p2 + regMins.lifTaken2 + inflows.p2.windfallTaxable + (alive2 ? (person2.nreg * person2.nreg_yield) : 0);
 
-            // Calculate CCB based on previous year's AFNI to mimic CRA logic precisely
+            // Deduct the immediate RRSP matching contributions so net income reflects the true lower paycheck
+            taxableIncome1 = Math.max(0, taxableIncome1 - totalMatch1);
+            taxableIncome2 = Math.max(0, taxableIncome2 - totalMatch2);
+
             let ccbPayout = this.calculateCCBForYear(yr, this.dependents, previousAFNI, bInf);
             if (ccbPayout > 0 && alive1) {
                 inflows.p1.windfallNonTax += ccbPayout;
@@ -1061,7 +1101,6 @@ class FinanceEngine {
             const totalOutflows = expenses + mortgagePayment + debtRepayment;
             let surplus = totalNetIncome - totalOutflows;
 
-            let flowLog = detailed ? { contributions: { p1: {tfsa:0, fhsa:0, resp:0, rrsp:0, nreg:0, cash:0, crypto:0}, p2: {tfsa:0, fhsa:0, rrsp:0, nreg:0, cash:0, crypto:0} }, withdrawals: {} } : null;
             let wdBreakdown = detailed ? { p1: {}, p2: {} } : null;
 
             if(detailed) {
@@ -1083,12 +1122,7 @@ class FinanceEngine {
                     flowLog.withdrawals['P2 LIF'] = (flowLog.withdrawals['P2 LIF'] || 0) + regMins.lifTaken2; 
                     wdBreakdown.p2.LIF = regMins.lifTaken2; 
                 }
-                if(rrspDed.p1 > 0) { flowLog.withdrawals['P1 RRSP Top-Up'] = (flowLog.withdrawals['P1 RRSP Top-Up'] || 0) + rrspDed.p1; wdBreakdown.p1.RRSP = (wdBreakdown.p1.RRSP || 0) + rrspDed.p1; }
-                if(rrspDed.p2 > 0) { flowLog.withdrawals['P2 RRSP Top-Up'] = (flowLog.withdrawals['P2 RRSP Top-Up'] || 0) + rrspDed.p2; wdBreakdown.p2.RRSP = (wdBreakdown.p2.RRSP || 0) + rrspDed.p2; }
             }
-
-            const rrspRoom1 = Math.min(inflows.p1.earned * 0.18, consts.rrspMax * bInf);
-            const rrspRoom2 = Math.min(inflows.p2.earned * 0.18, consts.rrspMax * bInf);
 
             let actDeductions = { p1: 0, p2: 0 };
 
@@ -1125,7 +1159,6 @@ class FinanceEngine {
                 surplus = (netIncome1 + netIncome2) - totalOutflows;
             }
 
-            // Update AFNI tracker for next year's CCB
             previousAFNI = Math.max(0, (taxableIncome1 - actDeductions.p1) + (taxableIncome2 - actDeductions.p2));
 
             const assets1 = person1.tfsa + person1.tfsa_successor + person1.rrsp + person1.crypto + person1.nreg + person1.cash + person1.lirf + person1.lif + person1.rrif_acct + (person1.fhsa || 0) + (person1.resp || 0);
@@ -1147,7 +1180,9 @@ class FinanceEngine {
                 const p2GrossTotal = inflows.p2.gross + inflows.p2.cpp + inflows.p2.oas + inflows.p2.pension + inflows.p2.windfallTaxable + inflows.p2.windfallNonTax;
                 const totalYield = (person1.nreg * person1.nreg_yield) + (alive2 ? (person2.nreg * person2.nreg_yield) : 0);
                 const grossInflow = p1GrossTotal + p2GrossTotal + totalYield + totalWithdrawals;
-                const cashSurplus = grossInflow - (totalOutflows + tax1.totalTax + tax2.totalTax);
+                
+                // Exclude the immediate employer match deduction from the visible UI cashSurplus so it doesn't artificially inflate Available Cash 
+                const cashSurplus = grossInflow - (totalOutflows + tax1.totalTax + tax2.totalTax + totalMatch1 + totalMatch2);
 
                 projectionData.push({
                     year: yr, p1Age: age1, p2Age: this.mode === 'Couple' ? age2 : null, p1Alive: alive1, p2Alive: alive2,
