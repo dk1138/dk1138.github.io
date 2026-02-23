@@ -1025,8 +1025,16 @@ class FinanceEngine {
             if (detailed && deathEvents.length > 0) inflows.events.push(...deathEvents);
 
             // Inject last year's tax refund (from discretionary RRSP deposits)
-            if (pendingRefund.p1 > 0 && alive1) inflows.p1.windfallNonTax += pendingRefund.p1;
-            if (pendingRefund.p2 > 0 && alive2) inflows.p2.windfallNonTax += pendingRefund.p2;
+            let appliedRefundP1 = 0;
+            let appliedRefundP2 = 0;
+            if (pendingRefund.p1 > 0 && alive1) {
+                appliedRefundP1 = pendingRefund.p1;
+                inflows.p1.windfallNonTax += appliedRefundP1;
+            }
+            if (pendingRefund.p2 > 0 && alive2) {
+                appliedRefundP2 = pendingRefund.p2;
+                inflows.p2.windfallNonTax += appliedRefundP2;
+            }
             pendingRefund = { p1: 0, p2: 0 };
 
             let rrspRoom1 = Math.min(inflows.p1.earned * 0.18, consts.rrspMax * bInf);
@@ -1277,13 +1285,15 @@ class FinanceEngine {
                     visualExpenses: expenses + mortgagePayment + debtRepayment + tax1.totalTax + tax2.totalTax,
                     mortgage: simProperties.reduce((s,p) => s + p.mortgage, 0), 
                     homeValue: simProperties.reduce((s,p) => s + p.value, 0),
-                    windfall: inflows.p1.windfallTaxable + inflows.p1.windfallNonTax + inflows.p2.windfallTaxable + inflows.p2.windfallNonTax,
+                    // Exclude the applied refund from the generic windfall bucket so it doesn't display twice in the UI
+                    windfall: inflows.p1.windfallTaxable + (inflows.p1.windfallNonTax - appliedRefundP1) + inflows.p2.windfallTaxable + (inflows.p2.windfallNonTax - appliedRefundP2),
                     postRetP1: inflows.p1.postRet, postRetP2: inflows.p2.postRet,
                     invIncP1: (person1.nreg * person1.nreg_yield), invIncP2: (person2.nreg * person2.nreg_yield),
                     debugTotalInflow: grossInflow,
                     rrspRoomP1: rrspRoom1, rrspRoomP2: rrspRoom2,
                     rrspMatchP1: actEmpPortionP1, rrspTotalMatch1: totalMatch1,
-                    rrspMatchP2: actEmpPortionP2, rrspTotalMatch2: totalMatch2
+                    rrspMatchP2: actEmpPortionP2, rrspTotalMatch2: totalMatch2,
+                    rrspRefundP1: appliedRefundP1, rrspRefundP2: appliedRefundP2
                 });
             }
 
