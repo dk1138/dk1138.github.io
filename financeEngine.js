@@ -106,13 +106,12 @@ class FinanceEngine {
             if (currentYear < turns18Year) {
                 activeKids++;
             } else if (currentYear === turns18Year) {
-                activeKids++; // Still active for fractional months of their 18th year
+                activeKids++;
             }
 
             if (currentYear < turns6Year) {
                 countUnder6 += 1;
             } else if (currentYear === turns6Year) {
-                // Fractional math: Month of birthday gets the under 6 rate.
                 let under6Fraction = birthMonth / 12;
                 let over6Fraction = (12 - birthMonth) / 12;
                 countUnder6 += under6Fraction;
@@ -120,7 +119,6 @@ class FinanceEngine {
             } else if (currentYear < turns18Year) {
                 count6to17 += 1;
             } else if (currentYear === turns18Year) {
-                // Fractional math for aging out completely
                 let over6Fraction = birthMonth / 12;
                 count6to17 += over6Fraction;
             }
@@ -702,15 +700,15 @@ class FinanceEngine {
             return {net: totalNetGot, tax: totalTaxGot};
         };
 
-        const executeWithdrawalStrategy = (ceiling1, ceiling2) => {
+        const executeWithdrawalStrategy = (ceiling1, ceiling2, currentStrats) => {
             let p1Idx = 0;
             let p2Idx = 0;
 
             let sanityLimit = 200; 
-            while (df > 1 && (p1Idx < strats.length || p2Idx < strats.length) && sanityLimit-- > 0) {
+            while (df > 1 && (p1Idx < currentStrats.length || p2Idx < currentStrats.length) && sanityLimit-- > 0) {
                 
-                while(p1Idx < strats.length) {
-                    let type = strats[p1Idx];
+                while(p1Idx < currentStrats.length) {
+                    let type = currentStrats[p1Idx];
                     if (!alive1 || !hasBal(p1, type)) { p1Idx++; continue; }
                     let isTaxableAtAll = ['rrsp', 'rrif_acct', 'lif', 'lirf', 'nreg', 'crypto'].includes(type);
                     if (ceiling1 !== Infinity && isTaxableAtAll) {
@@ -719,8 +717,8 @@ class FinanceEngine {
                     break;
                 }
                 
-                while(p2Idx < strats.length) {
-                    let type = strats[p2Idx];
+                while(p2Idx < currentStrats.length) {
+                    let type = currentStrats[p2Idx];
                     if (!alive2 || !hasBal(p2, type)) { p2Idx++; continue; }
                     let isTaxableAtAll = ['rrsp', 'rrif_acct', 'lif', 'lirf', 'nreg', 'crypto'].includes(type);
                     if (ceiling2 !== Infinity && isTaxableAtAll) {
@@ -729,8 +727,8 @@ class FinanceEngine {
                     break;
                 }
 
-                const p1Type = p1Idx < strats.length ? strats[p1Idx] : null;
-                const p2Type = p2Idx < strats.length ? strats[p2Idx] : null;
+                const p1Type = p1Idx < currentStrats.length ? currentStrats[p1Idx] : null;
+                const p2Type = p2Idx < currentStrats.length ? currentStrats[p2Idx] : null;
 
                 if (!p1Type && !p2Type) break;
 
@@ -844,19 +842,47 @@ class FinanceEngine {
 
         const lowestBracket = taxBrackets.FED.brackets[0]; 
         const optimizeOAS = this.inputs['oas_clawback_optimize'];
+        const fullyOptimizeTax = this.inputs['fully_optimize_tax'];
 
-        executeWithdrawalStrategy(lowestBracket, lowestBracket);
-        
-        if (df > 1 && optimizeOAS) {
-            let p1Ceil = age1 >= 65 ? oasThresholdInf : Infinity;
-            let p2Ceil = age2 >= 65 ? oasThresholdInf : Infinity;
-            if (p1Ceil !== Infinity || p2Ceil !== Infinity) {
-                executeWithdrawalStrategy(p1Ceil, p2Ceil);
+        if (fullyOptimizeTax) {
+            const taxFree = ['tfsa', 'fhsa', 'resp', 'cash'];
+            const capGains = ['nreg', 'crypto'];
+            const fullyTaxable = ['rrif_acct', 'lif', 'rrsp', 'lirf'];
+
+            // 1. Melt down fully taxable accounts in the lowest bracket
+            executeWithdrawalStrategy(lowestBracket, lowestBracket, fullyTaxable);
+            if (df > 1) executeWithdrawalStrategy(lowestBracket, lowestBracket, capGains);
+            
+            // 2. Deficit remains -> income is in 2nd+ bracket. Use Tax-Free to avoid spiking rates
+            if (df > 1) executeWithdrawalStrategy(Infinity, Infinity, taxFree);
+
+            // 3. Tax-Free is empty -> Use Cap Gains up to OAS threshold
+            let p1Ceil = (optimizeOAS && age1 >= 65) ? oasThresholdInf : Infinity;
+            let p2Ceil = (optimizeOAS && age2 >= 65) ? oasThresholdInf : Infinity;
+            if (df > 1) executeWithdrawalStrategy(p1Ceil, p2Ceil, capGains);
+
+            // 4. Use Fully Taxable up to OAS threshold
+            if (df > 1) executeWithdrawalStrategy(p1Ceil, p2Ceil, fullyTaxable);
+
+            // 5. OAS Threshold breached. Drain remaining Cap Gains, then Taxable
+            if (df > 1) executeWithdrawalStrategy(Infinity, Infinity, capGains);
+            if (df > 1) executeWithdrawalStrategy(Infinity, Infinity, fullyTaxable);
+
+        } else {
+            // Standard Drag & Drop behavior with bracket ceilings
+            executeWithdrawalStrategy(lowestBracket, lowestBracket, strats);
+            
+            if (df > 1 && optimizeOAS) {
+                let p1Ceil = age1 >= 65 ? oasThresholdInf : Infinity;
+                let p2Ceil = age2 >= 65 ? oasThresholdInf : Infinity;
+                if (p1Ceil !== Infinity || p2Ceil !== Infinity) {
+                    executeWithdrawalStrategy(p1Ceil, p2Ceil, strats);
+                }
             }
-        }
-        
-        if (df > 1) {
-            executeWithdrawalStrategy(Infinity, Infinity);
+            
+            if (df > 1) {
+                executeWithdrawalStrategy(Infinity, Infinity, strats);
+            }
         }
     }
 
@@ -865,7 +891,6 @@ class FinanceEngine {
         let nwArray = [];
         let projectionData = [];
 
-        // UPDATED: Now respects user-provided ACB explicitly, fallback to Market Value only if untouched
         let person1 = { 
             tfsa: this.getVal('p1_tfsa'), tfsa_successor: 0, fhsa: this.getVal('p1_fhsa'), resp: this.getVal('p1_resp'), 
             rrsp: this.getVal('p1_rrsp'), cash: this.getVal('p1_cash'), nreg: this.getVal('p1_nonreg'), 
