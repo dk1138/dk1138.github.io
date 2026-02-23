@@ -186,7 +186,7 @@ class RetirementPlanner {
                 this.ui.initSidebar();
                 try { this.ui.initPopovers(); } catch(e) { console.warn("Popover init skip", e); }
 
-                setTimeout(() => { this.syncStateFromDOM(); this.run(); }, 300); 
+                setTimeout(() => { this.syncStateFromDOM(); this.updateStrategyVisuals(); this.run(); }, 300); 
             } catch (e) {
                 this.displayCrash(e);
             }
@@ -287,6 +287,7 @@ class RetirementPlanner {
             if (e.target.classList.contains('live-calc') && (e.target.tagName === 'SELECT' || e.target.type === 'checkbox' || e.target.type === 'radio')) {
                 if(e.target.id && !e.target.id.startsWith('comp_')) this.state.inputs[e.target.id] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
                 if(e.target.id && e.target.id.includes('_enabled')) this.ui.updateBenefitVisibility();
+                if(e.target.id === 'fully_optimize_tax') this.updateStrategyVisuals();
                 this.findOptimal(); this.run(); this.data.calcExpenses(); 
             }
         });
@@ -471,6 +472,22 @@ class RetirementPlanner {
         if (document.getElementById('hh_total_assets_display')) document.getElementById('hh_total_assets_display').innerText = fmt(hhTotal);
     }
 
+    updateStrategyVisuals() {
+        const optimizeOn = document.getElementById('fully_optimize_tax')?.checked;
+        const decumContainer = document.getElementById('strat-decumulation');
+        if (decumContainer) {
+            if (optimizeOn) {
+                decumContainer.style.opacity = '0.4';
+                decumContainer.style.pointerEvents = 'none';
+                decumContainer.style.filter = 'grayscale(100%)';
+            } else {
+                decumContainer.style.opacity = '1';
+                decumContainer.style.pointerEvents = 'auto';
+                decumContainer.style.filter = 'none';
+            }
+        }
+    }
+
     run() {
         try {
             this.updateAssetTotals();
@@ -623,6 +640,7 @@ class RetirementPlanner {
         this.ui.toggleModeDisplay();
 
         this.run();
+        this.updateStrategyVisuals();
     }
 
     exportToCSV() {
@@ -741,6 +759,7 @@ class RetirementPlanner {
         setLim('cfg_crypto_limit', 5000);
 
         this.ui.updateBenefitVisibility();
+        this.updateStrategyVisuals();
     }
     
     getCurrentSnapshot() { 
