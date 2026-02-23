@@ -1,12 +1,12 @@
 /**
  * Retirement Planner Pro - Core Application Controller
- * Version 10.12.0 (Adjustable Cost Base Integration)
+ * Version 10.13.0 (Fully Optimize Decumulation Algorithm)
  */
 
 class RetirementPlanner {
     constructor() {
         try {
-            this.APP_VERSION = "10.12.0";
+            this.APP_VERSION = "10.13.0";
             this.state = {
                 inputs: {},
                 debt: [],
@@ -560,7 +560,7 @@ class RetirementPlanner {
         const safeDefaultsCheckboxes = {
             'p1_cpp_enabled': false, 'p1_oas_enabled': false, 'p1_db_enabled': false,  
             'p2_cpp_enabled': false, 'p2_oas_enabled': false, 'p2_db_enabled': false,
-            'oas_clawback_optimize': false
+            'oas_clawback_optimize': false, 'fully_optimize_tax': false
         };
 
         for (const [id, val] of Object.entries(safeDefaultsCheckboxes)) {
