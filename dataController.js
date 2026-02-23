@@ -198,21 +198,48 @@ class DataController {
                 if(a>0){ if(s.owner==='p1'){ s.taxable?add.p1T+=a:add.p1N+=a; } else { s.taxable?add.p2T+=a:add.p2N+=a; } }
             }
         });
-        const p1G = this.app.getVal('p1_income') + add.p1T;
-        const p2G = this.app.getVal('p2_income') + add.p2T;
+
+        const p1Base = this.app.getVal('p1_income');
+        const p2Base = this.app.getVal('p2_income');
+
+        const p1G = p1Base + add.p1T;
+        const p2G = p2Base + add.p2T;
+
+        // Calculate Employee portion of RRSP Match to deduct from Net Take-Home
+        let p1_match_rate = this.app.getVal('p1_rrsp_match') / 100;
+        let p1_tier = this.app.getVal('p1_rrsp_match_tier') / 100;
+        if(p1_tier <= 0) p1_tier = 1;
+        let p1_emp_rrsp = (p1Base * p1_match_rate) / p1_tier;
+
+        let p2_match_rate = this.app.getVal('p2_rrsp_match') / 100;
+        let p2_tier = this.app.getVal('p2_rrsp_match_tier') / 100;
+        if(p2_tier <= 0) p2_tier = 1;
+        let p2_emp_rrsp = (p2Base * p2_match_rate) / p2_tier;
+
         const hhG = p1G + add.p1N + (this.app.state.mode==='Couple' ? p2G + add.p2N : 0);
         
         if(document.getElementById('household_gross_display')) document.getElementById('household_gross_display').innerHTML = `$${hhG.toLocaleString()} <span class="monthly-sub">($${Math.round(hhG/12).toLocaleString()}/mo)</span>`;
         
         const engine = new FinanceEngine(this.app.getEngineData());
         const taxBrackets = engine.getInflatedTaxData(1);
-        const p1D = engine.calculateTaxDetailed(p1G, prov, taxBrackets);
-        const p2D = engine.calculateTaxDetailed(p2G, prov, taxBrackets);
+
+        // Taxes are calculated on the taxable income (Gross minus RRSP deductions)
+        const p1Taxable = Math.max(0, p1G - p1_emp_rrsp);
+        const p2Taxable = Math.max(0, p2G - p2_emp_rrsp);
+
+        const p1D = engine.calculateTaxDetailed(p1Taxable, prov, taxBrackets);
+        const p2D = engine.calculateTaxDetailed(p2Taxable, prov, taxBrackets);
         
-        this.app.ui.renderTaxDetails('p1', p1G, p1D); 
-        this.app.ui.renderTaxDetails('p2', p2G, p2D);
+        // Pass the RRSP deduction to the UI Controller to show in the breakdown
+        this.app.ui.renderTaxDetails('p1', p1G, p1D, p1_emp_rrsp); 
+        this.app.ui.renderTaxDetails('p2', p2G, p2D, p2_emp_rrsp);
         
-        const hhN = (p1G-p1D.totalTax) + add.p1N + (this.app.state.mode==='Couple' ? (p2G-p2D.totalTax)+add.p2N : 0);
+        // Net Take-Home = Gross - Total Tax - RRSP Employee Deduction + Non-Taxable Income
+        const p1Net = (p1G - p1D.totalTax - p1_emp_rrsp) + add.p1N;
+        const p2Net = (p2G - p2D.totalTax - p2_emp_rrsp) + add.p2N;
+
+        const hhN = p1Net + (this.app.state.mode==='Couple' ? p2Net : 0);
+        
         if(document.getElementById('household_net_display')) document.getElementById('household_net_display').innerHTML = `$${Math.round(hhN).toLocaleString()} <span class="monthly-sub">($${Math.round(hhN/12).toLocaleString()}/mo)</span>`;
         return hhN;
     }
