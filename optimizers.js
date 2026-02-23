@@ -1,6 +1,6 @@
 /**
  * Retirement Planner Pro - Optimizers Controller
- * Handles advanced simulations like Monte Carlo and Die With Zero.
+ * Handles advanced simulations like Monte Carlo, Die With Zero, and RRSP Sweet Spot.
  */
 class Optimizers {
     constructor(app) {
@@ -153,7 +153,118 @@ class Optimizers {
         document.querySelector('button[data-bs-target="#plan-pane"]')?.click();
         alert("Retirement ages have been updated!");
     }
-    // ---------------- SMART OPTIMIZERS END ---------------- //
+
+    runRRSPOptimizer() {
+        const engine = new FinanceEngine(this.app.getEngineData());
+        const taxBrackets = engine.getInflatedTaxData(1);
+        const prov = this.app.getRaw('tax_province');
+
+        let html = `<ul class="nav nav-pills mb-3" id="pills-tab" role="tablist">
+                      <li class="nav-item" role="presentation">
+                        <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#rrsp-opt-p1" type="button" role="tab">Player 1</button>
+                      </li>`;
+        if (this.app.state.mode === 'Couple') {
+            html += `<li class="nav-item" role="presentation">
+                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#rrsp-opt-p2" type="button" role="tab">Player 2</button>
+                      </li>`;
+        }
+        html += `</ul><div class="tab-content" id="pills-tabContent">`;
+
+        const generateOptForPerson = (pfx, isActive) => {
+            let baseInc = this.app.getVal(`${pfx}_income`);
+            let addInc = 0;
+            const currentYear = new Date().getFullYear();
+            
+            // Add any side hustles active in the current year
+            this.app.state.additionalIncome.forEach(s => {
+                if(s.owner === pfx && s.taxable) {
+                    let sY = new Date((s.start || "2026-01") + "-01").getFullYear();
+                    if (s.startMode === 'ret_relative') return; // Exclude post-ret income for this calc
+                    if (currentYear >= sY) {
+                        addInc += s.amount * (s.freq === 'month' ? 12 : 1);
+                    }
+                }
+            });
+            
+            let grossInc = baseInc + addInc;
+            
+            if (grossInc <= 0) {
+                return `<div class="tab-pane fade ${isActive ? 'show active' : ''}" id="rrsp-opt-${pfx}" role="tabpanel"><p class="text-muted p-3">No taxable income entered for this player.</p></div>`;
+            }
+
+            // Calculate current baseline tax
+            let currentTax = engine.calculateTaxDetailed(grossInc, prov, taxBrackets);
+            let currentMarginal = currentTax.margRate;
+            
+            let exactSweetSpot = 0;
+            let prevMarginal = currentTax.margRate;
+            
+            // Step backwards dollar by dollar (in $100 chunks for speed) to find the exact bracket cliff
+            for(let c = 100; c <= Math.min(grossInc, 100000); c += 100) {
+                 let t = engine.calculateTaxDetailed(grossInc - c, prov, taxBrackets);
+                 if (t.margRate < prevMarginal - 0.001) { // 0.1% threshold to avoid float math bugs
+                     exactSweetSpot = c - 100;
+                     break;
+                 }
+            }
+            
+            if(exactSweetSpot === 0) exactSweetSpot = grossInc; // Bottomed out
+
+            // Build Output Table
+            let tableHtml = `<div class="table-responsive"><table class="table table-dark table-sm table-striped mt-3">
+                                <thead><tr><th class="text-secondary text-uppercase small ls-1">Contribution</th><th class="text-secondary text-uppercase small ls-1">Est. Refund</th><th class="text-secondary text-uppercase small ls-1">Refund %</th><th class="text-secondary text-uppercase small ls-1">New Marginal Rate</th></tr></thead>
+                                <tbody>`;
+            
+            let steps = [1000, 5000, 10000, 15000, 20000, 25000, 30000, 40000, 50000];
+            if (exactSweetSpot > 0 && !steps.includes(exactSweetSpot)) steps.push(exactSweetSpot);
+            steps.sort((a,b) => a - b);
+
+            steps.forEach(c => {
+                if (c > grossInc) return;
+                let t = engine.calculateTaxDetailed(grossInc - c, prov, taxBrackets);
+                let refund = currentTax.totalTax - t.totalTax;
+                let effRate = refund / c;
+                
+                let isSweet = c === exactSweetSpot;
+                let rowClass = isSweet ? 'table-success fw-bold text-dark' : '';
+                let label = isSweet ? `$${c.toLocaleString()} <span class="badge bg-success ms-2 text-dark">Sweet Spot</span>` : `$${c.toLocaleString()}`;
+                let colorClass = isSweet ? 'text-dark' : 'text-white';
+                
+                tableHtml += `<tr class="${rowClass}">
+                    <td class="align-middle">${label}</td>
+                    <td class="align-middle text-success ${isSweet ? 'text-dark' : ''}">$${Math.round(refund).toLocaleString()}</td>
+                    <td class="align-middle ${colorClass}">${(effRate * 100).toFixed(1)}%</td>
+                    <td class="align-middle ${colorClass}">${(t.margRate * 100).toFixed(1)}%</td>
+                </tr>`;
+            });
+            tableHtml += `</tbody></table></div>`;
+
+            let resHtml = `<div class="tab-pane fade ${isActive ? 'show active' : ''}" id="rrsp-opt-${pfx}" role="tabpanel">
+                            <div class="alert mt-3 border-success bg-success bg-opacity-10 text-white shadow-sm">
+                                <h6 class="fw-bold mb-2 text-success"><i class="bi bi-check-circle-fill me-2"></i>Optimal Deposit: $${exactSweetSpot.toLocaleString()}</h6>
+                                <p class="small mb-0 text-muted">At this contribution amount, you ride your current marginal tax rate of <b>${(currentTax.margRate*100).toFixed(1)}%</b> down to the absolute bottom. Contributing more will drop you into a lower bracket, making subsequent RRSP dollars mathematically less efficient.</p>
+                            </div>
+                            ${tableHtml}
+                           </div>`;
+            return resHtml;
+        }
+
+        html += generateOptForPerson('p1', true);
+        if (this.app.state.mode === 'Couple') {
+            html += generateOptForPerson('p2', false);
+        }
+        html += `</div>`; 
+
+        const modalContainer = document.getElementById('rrspOptimizerResults');
+        if (modalContainer) {
+            modalContainer.innerHTML = html;
+            let mEl = document.getElementById('rrspOptimizerModal');
+            if(mEl) {
+                let m = new bootstrap.Modal(mEl);
+                m.show();
+            }
+        }
+    }
 
     // ---------------- MONTE CARLO ENGINE START ---------------- //
     runMonteCarlo() {
