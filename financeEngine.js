@@ -849,27 +849,21 @@ class FinanceEngine {
             const capGains = ['nreg', 'crypto'];
             const fullyTaxable = ['rrif_acct', 'lif', 'rrsp', 'lirf'];
 
-            // 1. Melt down fully taxable accounts in the lowest bracket
             executeWithdrawalStrategy(lowestBracket, lowestBracket, fullyTaxable);
             if (df > 1) executeWithdrawalStrategy(lowestBracket, lowestBracket, capGains);
             
-            // 2. Deficit remains -> income is in 2nd+ bracket. Use Tax-Free to avoid spiking rates
             if (df > 1) executeWithdrawalStrategy(Infinity, Infinity, taxFree);
 
-            // 3. Tax-Free is empty -> Use Cap Gains up to OAS threshold
             let p1Ceil = (optimizeOAS && age1 >= 65) ? oasThresholdInf : Infinity;
             let p2Ceil = (optimizeOAS && age2 >= 65) ? oasThresholdInf : Infinity;
             if (df > 1) executeWithdrawalStrategy(p1Ceil, p2Ceil, capGains);
 
-            // 4. Use Fully Taxable up to OAS threshold
             if (df > 1) executeWithdrawalStrategy(p1Ceil, p2Ceil, fullyTaxable);
 
-            // 5. OAS Threshold breached. Drain remaining Cap Gains, then Taxable
             if (df > 1) executeWithdrawalStrategy(Infinity, Infinity, capGains);
             if (df > 1) executeWithdrawalStrategy(Infinity, Infinity, fullyTaxable);
 
         } else {
-            // Standard Drag & Drop behavior with bracket ceilings
             executeWithdrawalStrategy(lowestBracket, lowestBracket, strats);
             
             if (df > 1 && optimizeOAS) {
@@ -1240,6 +1234,7 @@ class FinanceEngine {
                     p1Net: netIncome1, p2Net: netIncome2,
                     pensionSplit: pensionSplitTransfer,
                     expenses: expenses, mortgagePay: mortgagePayment, debtRepayment,
+                    debtRemaining: totalDebt,
                     surplus: Math.abs(cashSurplus) < 5 ? 0 : cashSurplus,
                     debugNW: finalNetWorth,
                     liquidNW: liquidNW,
