@@ -1,12 +1,12 @@
 /**
  * Retirement Planner Pro - Core Application Controller
- * Version 10.14.1 (RRSP Employer Match & Tax Refund Updates)
+ * Version 10.14.2 (Added Export to PDF)
  */
 
 class RetirementPlanner {
     constructor() {
         try {
-            this.APP_VERSION = "10.14.1";
+            this.APP_VERSION = "10.14.2";
             this.state = {
                 inputs: {},
                 debt: [],
@@ -314,7 +314,11 @@ class RetirementPlanner {
         if($('btnAddChild')) $('btnAddChild').addEventListener('click', () => this.data.addDependent());
         if ($('btnAddIncomeP1')) $('btnAddIncomeP1').addEventListener('click', () => this.data.addAdditionalIncome('p1'));
         if ($('btnAddIncomeP2')) $('btnAddIncomeP2').addEventListener('click', () => this.data.addAdditionalIncome('p2'));
+        
+        // Export Buttons
         if($('btnExportCSV')) $('btnExportCSV').addEventListener('click', () => this.exportToCSV());
+        if($('btnExportPDF')) $('btnExportPDF').addEventListener('click', () => this.exportToPDF());
+        
         if($('btnExportJSON')) $('btnExportJSON').addEventListener('click', () => this.exportCurrentToJSON());
         if($('fileUpload')) $('fileUpload').addEventListener('change', e => this.handleFileUpload(e));
         
@@ -681,6 +685,64 @@ class RetirementPlanner {
         link.setAttribute("href", encodeURI("data:text/csv;charset=utf-8," + [h.join(","), ...rows].join("\n"))); 
         link.setAttribute("download", "retirement_plan_pro.csv");
         document.body.appendChild(link); link.click(); link.remove();
+    }
+
+    exportToPDF() {
+        if (!this.state.projectionData.length) return alert("No data available.");
+        if (typeof window.jspdf === 'undefined') {
+            alert("PDF library is still loading. Please try again in a few seconds.");
+            return;
+        }
+        
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('landscape');
+        const mode = this.state.mode;
+        const d = this.state.projectionData;
+
+        // Create a focused, high-level summary suitable for a PDF page
+        const head = [[
+            "Year", "Age (P1" + (mode === 'Couple' ? '/P2)' : ')'), "Gross Inflow", "Total Taxes", "Living Exp & Debt", "Surplus/Deficit", "Liquid Portfolio", "Total Net Worth"
+        ]];
+
+        const body = d.map(r => {
+            const df = this.app.getDiscountFactor(r.year - new Date().getFullYear());
+            const fmtK = n => '$' + Math.round(n / df).toLocaleString();
+            
+            let ages = r.p1Age;
+            if (mode === 'Couple') ages += ` / ${r.p2Age || '†'}`;
+            
+            return [
+                r.year,
+                ages,
+                fmtK(r.grossInflow),
+                fmtK(r.taxP1 + (r.taxP2 || 0)),
+                fmtK(r.expenses + r.mortgagePay + r.debtRepayment),
+                fmtK(r.surplus),
+                fmtK(r.liquidNW),
+                fmtK(r.debugNW)
+            ];
+        });
+
+        doc.autoTable({
+            head: head,
+            body: body,
+            theme: 'striped',
+            styles: { fontSize: 9, cellPadding: 3 },
+            headStyles: { fillColor: [41, 128, 185], textColor: [255, 255, 255] },
+            margin: { top: 20 },
+            didDrawPage: function (data) {
+                doc.setFontSize(14);
+                doc.setTextColor(40);
+                doc.text('Retirement Projection Summary', data.settings.margin.left, 12);
+                doc.setFontSize(9);
+                doc.setTextColor(100);
+                doc.text('* For a granular breakdown of individual accounts, please use the Export to Excel (CSV) tool.', data.settings.margin.left, 17);
+            }
+        });
+
+        const planNameEl = document.getElementById('currentScenarioName');
+        const planName = planNameEl && planNameEl.innerText ? planNameEl.innerText.replace(/\s+/g, '_').toLowerCase() : 'retirement_plan';
+        doc.save(`${planName}_summary.pdf`);
     }
 
     saveScenarioFromModal() {
