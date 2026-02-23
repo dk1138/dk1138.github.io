@@ -1028,25 +1028,33 @@ class FinanceEngine {
             
             let p1_match_rate = this.getVal('p1_rrsp_match') / 100;
             let p2_match_rate = this.getVal('p2_rrsp_match') / 100;
+            
+            let p1_tier = this.getVal('p1_rrsp_match_tier') / 100;
+            if(p1_tier <= 0) p1_tier = 1;
+            let p2_tier = this.getVal('p2_rrsp_match_tier') / 100;
+            if(p2_tier <= 0) p2_tier = 1;
 
-            let matchAmountP1 = (!isRet1 && alive1) ? (person1.inc * p1_match_rate) : 0;
-            let matchAmountP2 = (!isRet2 && alive2) ? (person2.inc * p2_match_rate) : 0;
+            let empPortionP1 = (!isRet1 && alive1) ? (person1.inc * p1_match_rate) : 0;
+            let empPortionP2 = (!isRet2 && alive2) ? (person2.inc * p2_match_rate) : 0;
+
+            let targetTotalP1 = empPortionP1 + (empPortionP1 / p1_tier);
+            let targetTotalP2 = empPortionP2 + (empPortionP2 / p2_tier);
 
             let totalMatch1 = 0;
-            if (matchAmountP1 > 0) {
-                totalMatch1 = Math.min(matchAmountP1 * 2, rrspRoom1);
-                let empPortion = totalMatch1 / 2;
-                inflows.p1.gross += empPortion; 
+            if (targetTotalP1 > 0) {
+                totalMatch1 = Math.min(targetTotalP1, rrspRoom1);
+                let actEmpPortionP1 = empPortionP1 * (totalMatch1 / targetTotalP1);
+                inflows.p1.gross += actEmpPortionP1; 
                 person1.rrsp += totalMatch1; 
                 rrspRoom1 -= totalMatch1; 
                 if(detailed) { flowLog.contributions.p1.rrsp += totalMatch1; }
             }
 
             let totalMatch2 = 0;
-            if (matchAmountP2 > 0 && alive2) {
-                totalMatch2 = Math.min(matchAmountP2 * 2, rrspRoom2);
-                let empPortion = totalMatch2 / 2;
-                inflows.p2.gross += empPortion;
+            if (targetTotalP2 > 0 && alive2) {
+                totalMatch2 = Math.min(targetTotalP2, rrspRoom2);
+                let actEmpPortionP2 = empPortionP2 * (totalMatch2 / targetTotalP2);
+                inflows.p2.gross += actEmpPortionP2;
                 person2.rrsp += totalMatch2;
                 rrspRoom2 -= totalMatch2;
                 if(detailed) { flowLog.contributions.p2.rrsp += totalMatch2; }
