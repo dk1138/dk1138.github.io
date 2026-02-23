@@ -1041,9 +1041,10 @@ class FinanceEngine {
             let targetTotalP2 = empPortionP2 + (empPortionP2 / p2_tier);
 
             let totalMatch1 = 0;
+            let actEmpPortionP1 = 0;
             if (targetTotalP1 > 0) {
                 totalMatch1 = Math.min(targetTotalP1, rrspRoom1);
-                let actEmpPortionP1 = empPortionP1 * (totalMatch1 / targetTotalP1);
+                actEmpPortionP1 = empPortionP1 * (totalMatch1 / targetTotalP1);
                 inflows.p1.gross += actEmpPortionP1; 
                 person1.rrsp += totalMatch1; 
                 rrspRoom1 -= totalMatch1; 
@@ -1051,9 +1052,10 @@ class FinanceEngine {
             }
 
             let totalMatch2 = 0;
+            let actEmpPortionP2 = 0;
             if (targetTotalP2 > 0 && alive2) {
                 totalMatch2 = Math.min(targetTotalP2, rrspRoom2);
-                let actEmpPortionP2 = empPortionP2 * (totalMatch2 / targetTotalP2);
+                actEmpPortionP2 = empPortionP2 * (totalMatch2 / targetTotalP2);
                 inflows.p2.gross += actEmpPortionP2;
                 person2.rrsp += totalMatch2;
                 rrspRoom2 -= totalMatch2;
@@ -1264,7 +1266,9 @@ class FinanceEngine {
                     postRetP1: inflows.p1.postRet, postRetP2: inflows.p2.postRet,
                     invIncP1: (person1.nreg * person1.nreg_yield), invIncP2: (person2.nreg * person2.nreg_yield),
                     debugTotalInflow: grossInflow,
-                    rrspRoomP1: rrspRoom1, rrspRoomP2: rrspRoom2
+                    rrspRoomP1: rrspRoom1, rrspRoomP2: rrspRoom2,
+                    rrspMatchP1: actEmpPortionP1, rrspTotalMatch1: totalMatch1,
+                    rrspMatchP2: actEmpPortionP2, rrspTotalMatch2: totalMatch2
                 });
             }
 
