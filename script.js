@@ -586,7 +586,7 @@ class RetirementPlanner {
             'p1_nonreg_ret': '6.0', 'p2_nonreg_ret': '6.0', 'p1_crypto_ret': '6.0', 'p2_crypto_ret': '6.0', 
             'p1_nonreg_acb': '10,000', 'p2_nonreg_acb': '5,000', 'p1_crypto_acb': '5,000', 'p2_crypto_acb': '2,000',
             'p1_cash_ret': '2.0', 'p2_cash_ret': '2.0', 'p1_income_growth': '2.0', 'p2_income_growth': '2.0', 
-            'p1_rrsp_match': '0.0', 'p2_rrsp_match': '0.0',
+            'p1_rrsp_match': '0.0', 'p2_rrsp_match': '0.0', 'p1_rrsp_match_tier': '100', 'p2_rrsp_match_tier': '100',
             'p1_cpp_start': '65', 'p2_cpp_start': '65', 'p1_oas_start': '65', 'p2_oas_start': '65', 
             'p1_oas_years': '40', 'p2_oas_years': '40'
         };
