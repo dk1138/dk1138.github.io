@@ -1005,10 +1005,14 @@
                         <div class="card border-secondary surface-card shadow-sm">
                             <div class="card-header border-secondary text-uppercase small fw-bold text-muted d-flex align-items-center">
                                 <span class="me-2">Tax & Benefit Optimization</span>
-                                <i class="bi bi-info-circle text-muted info-btn" style="cursor: help; font-size: 0.85rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="OAS Clawback Optimization" data-bs-content="The tool will attempt to keep your net income below the recovery tax threshold to preserve your Old Age Security benefits."></i>
                             </div>
                             <div class="card-body p-3">
-                                <div class="form-check form-switch ms-2 mb-0">
+                                <div class="form-check form-switch ms-2 mb-3">
+                                    <input class="form-check-input live-calc fs-5 mt-0" type="checkbox" id="fully_optimize_tax" role="switch">
+                                    <label class="form-check-label ms-2 small fw-bold text-success" style="margin-top: 2px;" for="fully_optimize_tax">Fully Optimize to Reduce Tax</label>
+                                    <div class="small text-muted mt-1">Overrides drag-and-drop order. Automatically melts down RRSPs in low tax brackets and uses TFSA/Non-Reg in high brackets to minimize lifetime tax.</div>
+                                </div>
+                                <div class="form-check form-switch ms-2 mb-0 border-top border-secondary pt-3">
                                     <input class="form-check-input live-calc fs-5 mt-0" type="checkbox" id="oas_clawback_optimize" role="switch">
                                     <label class="form-check-label ms-2 small fw-bold text-info" style="margin-top: 2px;" for="oas_clawback_optimize">Optimize to Avoid OAS Clawback</label>
                                 </div>
