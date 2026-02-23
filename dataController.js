@@ -416,16 +416,62 @@ class DataController {
             : `<table class="table table-sm table-borderless mb-0 bg-transparent" style="table-layout:fixed;"><tr><td width="20%" style="${lS}">Total</td><td width="16%" style="${cS}"><div class="text-danger fw-bold">${fmt(t.curr)}</div><div class="small text-muted" style="font-size:0.7rem">Now</div></td><td width="16%" style="${cS}"><div class="text-warning fw-bold">${fmt(t.trans*fT)}</div><div class="small text-muted" style="font-size:0.7rem">Trans</div></td><td width="16%" style="${cS}"><div class="text-info fw-bold">${fmt(t.gogo*fG)}</div><div class="small text-muted" style="font-size:0.7rem">Go-Go (&lt;${gLim})</div></td><td width="16%" style="${cS}"><div class="text-primary fw-bold">${fmt(t.slow*fS)}</div><div class="small text-muted" style="font-size:0.7rem">Slow (&lt;${sLim})</div></td><td width="16%" style="${cS}"><div class="text-secondary fw-bold">${fmt(t.nogo*fN)}</div><div class="small text-muted" style="font-size:0.7rem">No-Go (${sLim}+)</div></td></tr></table>`;
     }
 
-    // --- DEBTS ---
-    addDebtRow() {
-        const c = document.getElementById('debt-container'), div = document.createElement('div'); div.className = 'row g-3 mb-2 align-items-center debt-row';
-        div.innerHTML = `<div class="col-12 col-md-5"><input type="text" class="form-control form-control-sm" placeholder="Debt Name"></div><div class="col-8 col-md-4"><div class="input-group input-group-sm"><span class="input-group-text">$</span><input type="text" class="form-control formatted-num live-calc debt-amount" value="0"></div></div><div class="col-4 col-md-3"><button type="button" class="btn btn-outline-danger btn-sm w-100"><i class="bi bi-trash"></i></button></div>`;
-        c.appendChild(div); div.querySelector('.debt-amount').addEventListener('input', e => { this.app.formatInput(e.target); this.app.debouncedRun(); });
-        div.querySelector('.btn-outline-danger').addEventListener('click', () => this.app.showConfirm("Remove this liability?", () => { div.remove(); this.app.debouncedRun(); }));
+    // --- LARGE PURCHASES & DEBTS ---
+    renderDebts() {
+        const c = document.getElementById('debt-container'); if(!c) return;
+        c.innerHTML = '';
+        if(!this.app.state.debt) this.app.state.debt = [];
+        this.app.state.debt.forEach((d, idx) => {
+            const div = document.createElement('div'); 
+            div.className = 'row g-3 mb-2 align-items-end debt-row p-3 border border-secondary rounded-3 surface-card mb-3';
+            div.innerHTML = `
+                <div class="col-12 col-md-5">
+                    <label class="form-label small text-muted mb-1">Expense / Debt Name</label>
+                    <input type="text" class="form-control form-control-sm border-secondary debt-update" placeholder="e.g. Car, Reno, Loan" value="${d.name}" data-idx="${idx}" data-field="name">
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label small text-muted mb-1">Amount</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text border-secondary text-muted">$</span>
+                        <input type="text" class="form-control border-secondary formatted-num debt-update" value="${d.amount.toLocaleString()}" data-idx="${idx}" data-field="amount">
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label small text-muted mb-1">Date</label>
+                    <input type="month" class="form-control form-control-sm border-secondary debt-update" value="${d.start}" data-idx="${idx}" data-field="start">
+                </div>
+                <div class="col-12 col-md-1 d-flex justify-content-end pb-1">
+                    <button type="button" class="btn btn-outline-danger btn-sm px-2 py-1" onclick="app.data.removeDebt(${idx})"><i class="bi bi-trash"></i></button>
+                </div>
+            `;
+            c.appendChild(div);
+        });
+        c.querySelectorAll('.formatted-num').forEach(el => el.addEventListener('input', e => this.app.formatInput(e.target)));
+        c.querySelectorAll('.debt-update').forEach(el => {
+            el.addEventListener('input', e => {
+                const t = e.target;
+                const field = t.dataset.field;
+                let val = t.value;
+                if (field === 'amount') val = Number(val.replace(/,/g, '')) || 0;
+                this.app.state.debt[t.dataset.idx][field] = val;
+                this.app.debouncedRun();
+            });
+        });
     }
 
-    getTotalDebt() { 
-        let t=0; document.querySelectorAll('.debt-amount').forEach(el=>t+=Number(el.value.replace(/,/g,''))||0); return t; 
+    addDebtRow() {
+        if (!this.app.state.debt) this.app.state.debt = [];
+        this.app.state.debt.push({ name: "New Expense", amount: 0, start: new Date().toISOString().slice(0, 7) });
+        this.renderDebts();
+        this.app.run();
+    }
+    
+    removeDebt(idx) {
+        this.app.showConfirm("Remove this item?", () => {
+            this.app.state.debt.splice(idx, 1);
+            this.renderDebts();
+            this.app.run();
+        });
     }
 
     // --- STRATEGY Drag & Drop ---
