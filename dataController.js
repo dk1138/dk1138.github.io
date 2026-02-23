@@ -64,7 +64,7 @@ class DataController {
         const container = document.getElementById('windfall-container'); if(!container) return; container.innerHTML = '';
         this.app.state.windfalls.forEach((w, idx) => {
             const today = new Date().toISOString().slice(0, 7), div = document.createElement('div');
-            div.className = 'windfall-row p-3 border border-secondary rounded-3 surface-card mb-3';
+            div.className = 'windfall-row p-3 border border-secondary rounded-3 surface-card mb-4';
             div.innerHTML = `<div class="d-flex justify-content-between mb-3"><input type="text" class="form-control form-control-sm bg-transparent border-0 fw-bold text-success fs-6 windfall-update px-0" placeholder="Event Name" value="${w.name}" data-idx="${idx}" data-field="name"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-2 rounded-circle" onclick="app.data.removeWindfall(${idx})"><i class="bi bi-x-lg"></i></button></div><div class="row g-3 align-items-center mb-2"><div class="col-4"><label class="form-label small text-muted mb-1">Amount</label><div class="input-group input-group-sm"><span class="input-group-text border-secondary text-muted">$</span><input type="text" class="form-control border-secondary formatted-num windfall-update" value="${w.amount.toLocaleString()}" data-idx="${idx}" data-field="amount"></div></div><div class="col-4"><label class="form-label small text-muted mb-1">Frequency</label><select class="form-select form-select-sm border-secondary windfall-update" data-idx="${idx}" data-field="freq"><option value="one" ${w.freq==='one'?'selected':''}>One Time</option><option value="month" ${w.freq==='month'?'selected':''}>/ Month</option><option value="year" ${w.freq==='year'?'selected':''}>/ Year</option></select></div><div class="col-4 p2-column" style="${this.app.state.mode === 'Couple' ? '' : 'display:none;'}"><label class="form-label small text-muted mb-1">Owner</label><select class="form-select form-select-sm border-secondary windfall-update" data-idx="${idx}" data-field="owner"><option value="p1" ${w.owner==='p1'?'selected':''}>P1</option><option value="p2" ${w.owner==='p2'?'selected':''}>P2</option></select></div></div><div class="row g-3 align-items-end"><div class="col-4"><label class="form-label small text-muted mb-1">Start Date</label><input type="month" class="form-control form-control-sm border-secondary windfall-update" value="${w.start || today}" data-idx="${idx}" data-field="start"></div><div class="col-4" style="${w.freq==='one'?'display:none;':''}"><label class="form-label small text-muted mb-1">End Date</label><input type="month" class="form-control form-control-sm border-secondary windfall-update" value="${w.end}" data-idx="${idx}" data-field="end"></div><div class="col-4 d-flex align-items-center justify-content-end pb-1"><div class="form-check"><input class="form-check-input windfall-update" type="checkbox" id="wf_tax_${idx}" ${w.taxable?'checked':''} data-idx="${idx}" data-field="taxable"><label class="form-check-label text-muted small" for="wf_tax_${idx}">Is Taxable?</label></div></div></div>`;
             container.appendChild(div); div.querySelectorAll('.formatted-num').forEach(el => el.addEventListener('input', e => this.app.formatInput(e.target)));
         });
@@ -423,25 +423,24 @@ class DataController {
         if(!this.app.state.debt) this.app.state.debt = [];
         this.app.state.debt.forEach((d, idx) => {
             const div = document.createElement('div'); 
-            div.className = 'row g-3 mb-2 align-items-end debt-row p-3 border border-secondary rounded-3 surface-card mb-3';
+            div.className = 'debt-row p-3 border border-secondary rounded-3 surface-card mb-4';
             div.innerHTML = `
-                <div class="col-12 col-md-5">
-                    <label class="form-label small text-muted mb-1">Expense / Debt Name</label>
-                    <input type="text" class="form-control form-control-sm border-secondary debt-update" placeholder="e.g. Car, Reno, Loan" value="${d.name}" data-idx="${idx}" data-field="name">
+                <div class="d-flex justify-content-between mb-3">
+                    <input type="text" class="form-control form-control-sm bg-transparent border-0 fw-bold text-danger fs-6 debt-update px-0" placeholder="e.g. Car, Reno, Loan" value="${d.name}" data-idx="${idx}" data-field="name">
+                    <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2 rounded-circle" onclick="app.data.removeDebt(${idx})"><i class="bi bi-x-lg"></i></button>
                 </div>
-                <div class="col-6 col-md-3">
-                    <label class="form-label small text-muted mb-1">Amount</label>
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text border-secondary text-muted">$</span>
-                        <input type="text" class="form-control border-secondary formatted-num debt-update" value="${d.amount.toLocaleString()}" data-idx="${idx}" data-field="amount">
+                <div class="row g-3 align-items-center">
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small text-muted mb-1">Amount</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text border-secondary text-muted">$</span>
+                            <input type="text" class="form-control border-secondary formatted-num debt-update" value="${d.amount.toLocaleString()}" data-idx="${idx}" data-field="amount">
+                        </div>
                     </div>
-                </div>
-                <div class="col-6 col-md-3">
-                    <label class="form-label small text-muted mb-1">Date</label>
-                    <input type="month" class="form-control form-control-sm border-secondary debt-update" value="${d.start}" data-idx="${idx}" data-field="start">
-                </div>
-                <div class="col-12 col-md-1 d-flex justify-content-end pb-1">
-                    <button type="button" class="btn btn-outline-danger btn-sm px-2 py-1" onclick="app.data.removeDebt(${idx})"><i class="bi bi-trash"></i></button>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small text-muted mb-1">Target Date</label>
+                        <input type="month" class="form-control form-control-sm border-secondary debt-update" value="${d.start}" data-idx="${idx}" data-field="start">
+                    </div>
                 </div>
             `;
             c.appendChild(div);
