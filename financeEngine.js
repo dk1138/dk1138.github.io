@@ -850,26 +850,31 @@ class FinanceEngine {
             const capGains = ['nreg', 'crypto'];
             const fullyTaxable = ['rrif_acct', 'lif', 'rrsp', 'lirf'];
 
-            let p1SafeCeil = oasThresholdInf; 
-            let p2SafeCeil = oasThresholdInf; 
-            
-            // Push hard into the 2nd bracket if they are young, to avoid future tax bombs
-            if (age1 < 65) p1SafeCeil = secondBracket;
-            if (age2 < 65) p2SafeCeil = secondBracket;
+            // 1. Maximize the Lowest Tax Bracket (The "Cheap" Money)
+            // Withdraw taxable income while marginal rates are low to prevent future RRIF tax bombs.
+            executeWithdrawalStrategy(lowestBracket, lowestBracket, fullyTaxable);
+            if (df > 1) executeWithdrawalStrategy(lowestBracket, lowestBracket, capGains);
 
-            // 1. Kill Tax Drag: Drain Non-Reg accounts up to safe ceiling
-            executeWithdrawalStrategy(p1SafeCeil, p2SafeCeil, capGains);
-
-            // 2. Smooth the Curve: Melt down RRSP/RRIF up to safe ceiling to prevent future RRIF tax bombs
-            if (df > 1) executeWithdrawalStrategy(p1SafeCeil, p2SafeCeil, fullyTaxable);
-
-            // 3. Protect: Use Tax-Free accounts to cover the rest of the deficit, keeping us under the ceiling
+            // 2. The Tax Shield
+            // Once the lowest bracket is full, pivot to Tax-Free accounts to fund the rest of the year.
+            // This prevents your marginal tax rate from spiking into the 30-40%+ ranges.
             if (df > 1) executeWithdrawalStrategy(Infinity, Infinity, taxFree);
 
-            // 4. Exhaustion: If TFSA is empty, break the ceiling using the most tax-efficient accounts first
-            if (df > 1) executeWithdrawalStrategy(Infinity, Infinity, capGains);
-            if (df > 1) executeWithdrawalStrategy(Infinity, Infinity, fullyTaxable);
+            // 3. Exhaustion & OAS Protection
+            // If TFSA/Cash is empty, we must take the tax hit. Use Capital Gains first (50% inclusion).
+            if (df > 1) {
+                let p1SafeCeil = (optimizeOAS && age1 >= 65) ? oasThresholdInf : Infinity;
+                let p2SafeCeil = (optimizeOAS && age2 >= 65) ? oasThresholdInf : Infinity;
 
+                executeWithdrawalStrategy(p1SafeCeil, p2SafeCeil, capGains);
+                if (df > 1) executeWithdrawalStrategy(p1SafeCeil, p2SafeCeil, fullyTaxable);
+                
+                // If we still have a deficit, we have to break the OAS ceiling
+                if (df > 1 && (p1SafeCeil !== Infinity || p2SafeCeil !== Infinity)) {
+                    executeWithdrawalStrategy(Infinity, Infinity, capGains);
+                    if (df > 1) executeWithdrawalStrategy(Infinity, Infinity, fullyTaxable);
+                }
+            }
         } else {
             executeWithdrawalStrategy(lowestBracket, lowestBracket, strats);
             
