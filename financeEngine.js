@@ -95,7 +95,7 @@ class FinanceEngine {
         let count6to17 = 0;
 
         dependents.forEach(dep => {
-            let birthYear = parseInt(dep.split('-')[0]);
+            let birthYear = parseInt(dep.dob.split('-')[0]);
             let age = currentYear - birthYear;
             if (age >= 0 && age < 6) countUnder6++;
             else if (age >= 6 && age < 18) count6to17++;
@@ -454,7 +454,7 @@ class FinanceEngine {
         let r = amount;
         this.strategies.accum.forEach(t => { 
             if(r <= 0) return;
-            if(t === 'tfsa'){ 
+            if(t === 'tfsa' && tfsaLim > 0){ 
                 if(alive1 && (!this.inputs['skip_first_tfsa_p1'] || i > 0)){
                     let take = Math.min(r, tfsaLim); p1.tfsa += take; 
                     if(log) log.contributions.p1.tfsa += take; 
@@ -468,8 +468,8 @@ class FinanceEngine {
             }
             else if(t === 'rrsp'){ 
                 let priority = [];
-                const p1HasRoom = (!this.inputs['skip_first_rrsp_p1'] || i > 0) && alive1;
-                const p2HasRoom = (!this.inputs['skip_first_rrsp_p2'] || i > 0) && alive2;
+                const p1HasRoom = (!this.inputs['skip_first_rrsp_p1'] || i > 0) && alive1 && rrspLim1 > 0;
+                const p2HasRoom = (!this.inputs['skip_first_rrsp_p2'] || i > 0) && alive2 && rrspLim2 > 0;
                 if (p1HasRoom && p2HasRoom) {
                     if (p1.rrsp < p2.rrsp) priority = [{p: p1, room: rrspLim1, k: 'p1'}, {p: p2, room: rrspLim2, k: 'p2'}];
                     else priority = [{p: p2, room: rrspLim2, k: 'p2'}, {p: p1, room: rrspLim1, k: 'p1'}];
@@ -485,7 +485,7 @@ class FinanceEngine {
                     }
                 });
             }
-            else if (t === 'fhsa') {
+            else if (t === 'fhsa' && fhsaLim > 0) {
                 if(alive1 && r > 0 && p1.fhsa !== undefined) {
                     let take = Math.min(r, fhsaLim); p1.fhsa += take;
                     if(log) log.contributions.p1.fhsa += take;
@@ -497,7 +497,7 @@ class FinanceEngine {
                     r -= take;
                 }
             }
-            else if (t === 'resp') {
+            else if (t === 'resp' && respLim > 0) {
                 if(alive1 && r > 0 && p1.resp !== undefined) {
                     let take = Math.min(r, respLim); 
                     p1.resp += take;
@@ -507,7 +507,7 @@ class FinanceEngine {
                     r -= take;
                 }
             }
-            else if(t === 'crypto'){
+            else if(t === 'crypto' && cryptoLim > 0){
                 if (alive1 && r > 0) {
                     let take = Math.min(r, cryptoLim);
                     p1.crypto += take; p1.crypto_acb += take;
@@ -850,15 +850,16 @@ class FinanceEngine {
         let trackedEvents = new Set();
         let finalNetWorth = 0;
 
+        // FIXED: Using strict undefined check instead of || to allow 0 to pass through correctly
         let consts = {
             cppMax1: this.getVal('p1_cpp_est_base'),
             oasMax1: this.CONSTANTS.MAX_OAS * (Math.max(0, Math.min(40, this.getVal('p1_oas_years'))) / 40),
             cppMax2: this.getVal('p2_cpp_est_base'),
             oasMax2: this.CONSTANTS.MAX_OAS * (Math.max(0, Math.min(40, this.getVal('p2_oas_years'))) / 40),
-            tfsaLimit: this.getVal('cfg_tfsa_limit') || 7000,
-            rrspMax: this.getVal('cfg_rrsp_limit') || 32960,
-            fhsaLimit: this.getVal('cfg_fhsa_limit') || 8000,
-            respLimit: this.getVal('cfg_resp_limit') || 2500,
+            tfsaLimit: this.inputs['cfg_tfsa_limit'] !== undefined ? this.getVal('cfg_tfsa_limit') : 7000,
+            rrspMax: this.inputs['cfg_rrsp_limit'] !== undefined ? this.getVal('cfg_rrsp_limit') : 32960,
+            fhsaLimit: this.inputs['cfg_fhsa_limit'] !== undefined ? this.getVal('cfg_fhsa_limit') : 8000,
+            respLimit: this.inputs['cfg_resp_limit'] !== undefined ? this.getVal('cfg_resp_limit') : 2500,
             cryptoLimit: this.inputs['cfg_crypto_limit'] !== undefined ? this.getVal('cfg_crypto_limit') : 5000,
             inflation: this.getVal('inflation_rate') / 100
         };
