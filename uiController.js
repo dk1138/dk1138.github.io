@@ -202,7 +202,13 @@ class UIController {
             const sL = (l,v) => (!v||Math.round(v)===0)?'':`<div class="detail-item sub"><span>${l}</span> <span>${fmtK(v)}</span></div>`;
             
             let groupP1 = '', groupP2 = '', groupOther = '';
-            if(d.incomeP1 > 0) groupP1 += ln("Employment", d.incomeP1);
+            
+            if(d.incomeP1 > 0) {
+                groupP1 += ln("Employment", d.incomeP1);
+                if (d.rrspMatchP1 > 0) {
+                    groupP1 += sL("&nbsp;&nbsp;<span class='text-muted'>&#8627; Employer Match</span>", d.rrspMatchP1);
+                }
+            }
             if(d.postRetP1 > 0) groupP1 += sL("Post-Ret Work", d.postRetP1);
             if(d.ccbP1 > 0) groupP1 += sL("Canada Child Benefit (CCB)", d.ccbP1);
             if(d.cppP1 > 0) groupP1 += sL("CPP", d.cppP1);
@@ -250,7 +256,12 @@ class UIController {
             });
 
             if(this.app.state.mode==='Couple') {
-                if(d.incomeP2 > 0) groupP2 += ln("Employment", d.incomeP2);
+                if(d.incomeP2 > 0) {
+                    groupP2 += ln("Employment", d.incomeP2);
+                    if (d.rrspMatchP2 > 0) {
+                        groupP2 += sL("&nbsp;&nbsp;<span class='text-muted'>&#8627; Employer Match</span>", d.rrspMatchP2);
+                    }
+                }
                 if(d.postRetP2 > 0) groupP2 += sL("Post-Ret Work", d.postRetP2);
                 if(d.cppP2 > 0) groupP2 += sL("CPP", d.cppP2);
                 
@@ -311,7 +322,7 @@ class UIController {
                 let avgRate = ((tDetails.totalTax / taxInc) * 100).toFixed(1);
                 let margRate = ((tDetails.margRate || 0) * 100).toFixed(1);
                 content += `<hr class='my-1'><b>Taxable Income:</b> $${Math.round(taxInc / df).toLocaleString()}<br><b>Average Rate:</b> ${avgRate}%<br><b>Marginal Rate:</b> ${margRate}%`;
-                return `Tax Paid ${pName} <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="${pName} Tax Breakdown" data-bs-content="${content}"></i>`;
+                return `Tax Paid ${pName} <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-html="true" data-bs-title="${pName} Tax Breakdown" data-bs-content="${content}"></i>`;
             };
 
             let p1TaxLabel = buildTaxInfo(d.taxDetailsP1, 'P1', 'taxIncP1');
@@ -324,10 +335,10 @@ class UIController {
             
             if (this.app.state.mode === 'Couple') {
                 if (d.events.includes('P1 Dies') && d.p2Alive) {
-                    assetTitle += ` <i class="bi bi-info-circle text-warning ms-1 info-btn" style="font-size: 0.85rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="Spousal Rollover (P1 &rarr; P2)" data-bs-content="<div style='max-width: 250px; white-space: normal; line-height: 1.4;'>Person 1 passed away this year. Under CRA rules, their registered accounts (RRSP/RRIF, TFSA, FHSA) and non-registered investments are transferred directly to Person 2 <b>tax-free</b>. No deemed disposition tax is triggered on these assets at this time.</div>"></i>`;
+                    assetTitle += ` <i class="bi bi-info-circle text-warning ms-1 info-btn" style="font-size: 0.85rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-html="true" data-bs-title="Spousal Rollover (P1 &rarr; P2)" data-bs-content="<div style='max-width: 250px; white-space: normal; line-height: 1.4;'>Person 1 passed away this year. Under CRA rules, their registered accounts (RRSP/RRIF, TFSA, FHSA) and non-registered investments are transferred directly to Person 2 <b>tax-free</b>. No deemed disposition tax is triggered on these assets at this time.</div>"></i>`;
                 }
                 if (d.events.includes('P2 Dies') && d.p1Alive) {
-                    assetTitle += ` <i class="bi bi-info-circle text-purple ms-1 info-btn" style="font-size: 0.85rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="Spousal Rollover (P2 &rarr; P1)" data-bs-content="<div style='max-width: 250px; white-space: normal; line-height: 1.4;'>Person 2 passed away this year. Under CRA rules, their registered accounts (RRSP/RRIF, TFSA, FHSA) and non-registered investments are transferred directly to Person 1 <b>tax-free</b>. No deemed disposition tax is triggered on these assets at this time.</div>"></i>`;
+                    assetTitle += ` <i class="bi bi-info-circle text-purple ms-1 info-btn" style="font-size: 0.85rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-html="true" data-bs-title="Spousal Rollover (P2 &rarr; P1)" data-bs-content="<div style='max-width: 250px; white-space: normal; line-height: 1.4;'>Person 2 passed away this year. Under CRA rules, their registered accounts (RRSP/RRIF, TFSA, FHSA) and non-registered investments are transferred directly to Person 1 <b>tax-free</b>. No deemed disposition tax is triggered on these assets at this time.</div>"></i>`;
                 }
             }
             
@@ -339,13 +350,41 @@ class UIController {
 
             let r1Label = d.p1Age >= 72 ? 'RRIF' : 'RRSP';
             let r1Wd = (d.wdBreakdown.p1['RRSP']||0) + (d.wdBreakdown.p1['RRIF']||0);
-            let r1Info = d.p1Age < 72 ? ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="Contribution Limit" data-bs-content="Max CRA Deposit this year: $${Math.round((d.rrspRoomP1||0) / df).toLocaleString()}"></i>` : '';
+            let r1Info = '';
+            if (d.p1Age < 72) {
+                let totalDep1 = d.flows.contributions.p1.rrsp || 0;
+                let empMatch1 = d.rrspMatchP1 || 0;
+                let persDep1 = Math.max(0, totalDep1 - empMatch1);
+                let room1 = d.rrspRoomP1 || 0;
+                let pContent = `<b>Max CRA Deposit:</b> $${Math.round(room1 / df).toLocaleString()}<hr class='my-1'>`;
+                if (totalDep1 > 0) {
+                    if (empMatch1 > 0) pContent += `<b>Employer Match:</b> $${Math.round(empMatch1 / df).toLocaleString()}<br>`;
+                    pContent += `<b>Personal Contrib:</b> $${Math.round(persDep1 / df).toLocaleString()}<br><b>Total Deposited:</b> <span class='text-success'>$${Math.round(totalDep1 / df).toLocaleString()}</span>`;
+                } else {
+                    pContent += `<i>No deposits this year.</i>`;
+                }
+                r1Info = ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-html="true" data-bs-custom-class="projection-popover" data-bs-title="Contribution Breakdown" data-bs-content="${pContent}"></i>`;
+            }
             aL += ln(`${r1Label} P1${r1Info}${fmtFlow(d.flows.contributions.p1.rrsp, r1Wd)}`, d.assetsP1.rrsp);
             
             if(this.app.state.mode === 'Couple') {
                 let r2Label = d.p2Age >= 72 ? 'RRIF' : 'RRSP';
                 let r2Wd = (d.wdBreakdown.p2['RRSP']||0) + (d.wdBreakdown.p2['RRIF']||0);
-                let r2Info = d.p2Age < 72 ? ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="Contribution Limit" data-bs-content="Max CRA Deposit this year: $${Math.round((d.rrspRoomP2||0) / df).toLocaleString()}"></i>` : '';
+                let r2Info = '';
+                if (d.p2Age < 72) {
+                    let totalDep2 = d.flows.contributions.p2.rrsp || 0;
+                    let empMatch2 = d.rrspMatchP2 || 0;
+                    let persDep2 = Math.max(0, totalDep2 - empMatch2);
+                    let room2 = d.rrspRoomP2 || 0;
+                    let pContent = `<b>Max CRA Deposit:</b> $${Math.round(room2 / df).toLocaleString()}<hr class='my-1'>`;
+                    if (totalDep2 > 0) {
+                        if (empMatch2 > 0) pContent += `<b>Employer Match:</b> $${Math.round(empMatch2 / df).toLocaleString()}<br>`;
+                        pContent += `<b>Personal Contrib:</b> $${Math.round(persDep2 / df).toLocaleString()}<br><b>Total Deposited:</b> <span class='text-success'>$${Math.round(totalDep2 / df).toLocaleString()}</span>`;
+                    } else {
+                        pContent += `<i>No deposits this year.</i>`;
+                    }
+                    r2Info = ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-html="true" data-bs-custom-class="projection-popover" data-bs-title="Contribution Breakdown" data-bs-content="${pContent}"></i>`;
+                }
                 aL += ln(`${r2Label} P2${r2Info}${fmtFlow(d.flows.contributions.p2.rrsp, r2Wd)}`, d.assetsP2.rrsp);
             }
 
