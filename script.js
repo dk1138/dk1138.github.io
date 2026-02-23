@@ -1,12 +1,12 @@
 /**
  * Retirement Planner Pro - Core Application Controller
- * Version 10.14.2 (Added Export to PDF)
+ * Version 10.14.3 (Future Expenses Fixes)
  */
 
 class RetirementPlanner {
     constructor() {
         try {
-            this.APP_VERSION = "10.14.2";
+            this.APP_VERSION = "10.14.3";
             this.state = {
                 inputs: {},
                 debt: [],
@@ -63,9 +63,9 @@ class RetirementPlanner {
                 'crypto': 'Crypto' 
             };
 
-            if (typeof UIController === 'undefined') throw new Error("UIController is missing! Make sure uiController.js is saved in the exact same folder.");
-            if (typeof DataController === 'undefined') throw new Error("DataController is missing! Make sure dataController.js is saved in the exact same folder.");
-            if (typeof Optimizers === 'undefined') throw new Error("Optimizers module is missing! Make sure optimizers.js is saved in the exact same folder.");
+            if (typeof UIController === 'undefined') throw new Error("UIController is missing!");
+            if (typeof DataController === 'undefined') throw new Error("DataController is missing!");
+            if (typeof Optimizers === 'undefined') throw new Error("Optimizers module is missing!");
 
             this.ui = new UIController(this);
             this.data = new DataController(this);
@@ -116,6 +116,7 @@ class RetirementPlanner {
             windfalls: JSON.parse(JSON.stringify(this.state.windfalls || [])),
             additionalIncome: JSON.parse(JSON.stringify(this.state.additionalIncome || [])),
             dependents: JSON.parse(JSON.stringify(this.state.dependents || [])),
+            debt: JSON.parse(JSON.stringify(this.state.debt || [])),
             strategies: { 
                 accum: [...(this.state.strategies?.accum || ['tfsa', 'fhsa', 'resp', 'rrsp', 'nreg', 'cash', 'crypto', 'rrif_acct', 'lif', 'lirf'])], 
                 decum: [...(this.state.strategies?.decum || ['rrif_acct', 'lif', 'rrsp', 'lirf', 'crypto', 'nreg', 'tfsa', 'fhsa', 'resp', 'cash'])] 
@@ -199,7 +200,7 @@ class RetirementPlanner {
     renderDefaults() {
         this.data.renderExpenseRows(); 
         this.data.renderProperties(); 
-        this.data.addDebtRow(); 
+        if(this.state.debt.length === 0) this.data.addDebtRow(); 
         this.data.renderWindfalls(); 
         this.data.renderAdditionalIncome(); 
         this.data.renderDependents();
@@ -226,7 +227,7 @@ class RetirementPlanner {
 
     syncStateFromDOM() {
         document.querySelectorAll('input, select').forEach(el => {
-            if (el.id && !el.id.startsWith('comp_') && !el.className.includes('-update') && !el.classList.contains('debt-amount')) {
+            if (el.id && !el.id.startsWith('comp_') && !el.className.includes('-update') && !el.classList.contains('debt-update')) {
                 this.state.inputs[el.id] = el.type === 'checkbox' || el.type === 'radio' ? el.checked : el.value;
             }
         });
@@ -326,7 +327,7 @@ class RetirementPlanner {
             const cl = e.target.classList;
             if (cl.contains('live-calc')) {
                 if (cl.contains('formatted-num')) this.formatInput(e.target);
-                if (e.target.id && !e.target.id.startsWith('comp_') && e.target.id !== 'exp_gogo_age' && e.target.id !== 'exp_slow_age' && !cl.contains('property-update') && !cl.contains('windfall-update') && !cl.contains('debt-amount') && !cl.contains('income-stream-update') && !cl.contains('dependent-update')) {
+                if (e.target.id && !e.target.id.startsWith('comp_') && e.target.id !== 'exp_gogo_age' && e.target.id !== 'exp_slow_age' && !cl.contains('property-update') && !cl.contains('windfall-update') && !cl.contains('debt-update') && !cl.contains('income-stream-update') && !cl.contains('dependent-update')) {
                     this.state.inputs[e.target.id] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
                     this.ui.updateSidebarSync(e.target.id, e.target.value);
                 }
@@ -500,7 +501,7 @@ class RetirementPlanner {
             this.data.calcExpenses(); 
             
             const engine = new FinanceEngine(this.getEngineData());
-            this.state.projectionData = engine.runSimulation(true, null, this.data.getTotalDebt());
+            this.state.projectionData = engine.runSimulation(true, null);
 
             const slider = document.getElementById('yearSlider');
             if (this.state.projectionData && this.state.projectionData.length && slider) {
@@ -564,7 +565,7 @@ class RetirementPlanner {
         if(document.getElementById('modeSingle')) document.getElementById('modeSingle').checked = false;
 
         document.querySelectorAll('input, select').forEach(el => {
-            if(el.id && !el.id.startsWith('comp_') && !el.classList.contains('property-update') && !el.classList.contains('windfall-update') && !el.classList.contains('income-stream-update') && !el.classList.contains('expense-update') && !el.classList.contains('debt-amount') && !el.classList.contains('dependent-update')) {
+            if(el.id && !el.id.startsWith('comp_') && !el.classList.contains('property-update') && !el.classList.contains('windfall-update') && !el.classList.contains('income-stream-update') && !el.classList.contains('expense-update') && !el.classList.contains('debt-update') && !el.classList.contains('dependent-update')) {
                 if (el.type === 'checkbox' || el.type === 'radio') {
                     if (el.name !== 'planMode') el.checked = false;
                 } else if (el.type === 'range') {
@@ -660,7 +661,7 @@ class RetirementPlanner {
             "P1 RRSP Refund", mode==="Couple"?"P2 RRSP Refund":null,
             "Windfall", 
             "P1 Taxes", mode==="Couple"?"P2 Taxes":null, 
-            "Total Expenses", "Mortgage Payment", "Debt Payment", "Surplus/Deficit", 
+            "Total Expenses", "Mortgage Payment", "Future Exp/Debt Pmt", "Surplus/Deficit", 
             "P1 TFSA", "P1 RRSP", "P1 Non-Reg", "P1 Cash", "P1 Crypto", "P1 LIRF", "P1 LIF", "P1 RRIF", 
             mode==="Couple"?"P2 TFSA":null, mode==="Couple"?"P2 RRSP":null, mode==="Couple"?"P2 Non-Reg":null, mode==="Couple"?"P2 Cash":null, mode==="Couple"?"P2 Crypto":null, mode==="Couple"?"P2 LIRF":null, mode==="Couple"?"P2 LIF":null, mode==="Couple"?"P2 RRIF":null, 
             "Liquid Net Worth", "Home Equity", "Total Net Worth"
@@ -819,7 +820,18 @@ class RetirementPlanner {
         this.state.additionalIncome = d.additionalIncome || []; this.data.renderAdditionalIncome();
         this.state.dependents = d.dependents || []; this.data.renderDependents();
         
-        const dC = document.getElementById('debt-container'); dC.innerHTML = ''; if(d.debt) d.debt.forEach(a => { this.data.addDebtRow(); const ins = dC.querySelectorAll('.debt-amount'); ins[ins.length-1].value = a; });
+        // Load debts correctly using the new object format
+        if (d.debt && d.debt.length > 0) {
+            if (typeof d.debt[0] === 'string' || typeof d.debt[0] === 'number') {
+                this.state.debt = d.debt.map(v => ({ name: "Legacy Debt", amount: Number(String(v).replace(/,/g,'')) || 0, start: new Date().toISOString().slice(0, 7) }));
+            } else {
+                this.state.debt = d.debt;
+            }
+        } else {
+            this.state.debt = [];
+        }
+        this.data.renderDebts();
+
         this.ui.toggleModeDisplay(); this.data.renderStrategy();
         
         if(document.getElementById('exp_gogo_val')) document.getElementById('exp_gogo_val').innerText = this.getRaw('exp_gogo_age')||75;
@@ -857,15 +869,15 @@ class RetirementPlanner {
     getCurrentSnapshot() { 
         const s = { 
             version: this.APP_VERSION, inputs: {...this.state.inputs}, strategies: {...this.state.strategies}, 
-            debt: [], properties: JSON.parse(JSON.stringify(this.state.properties || [])), 
+            properties: JSON.parse(JSON.stringify(this.state.properties || [])), 
             expensesData: JSON.parse(JSON.stringify(this.expensesByCategory || {})), 
             windfalls: JSON.parse(JSON.stringify(this.state.windfalls || [])), 
             additionalIncome: JSON.parse(JSON.stringify(this.state.additionalIncome || [])),
             dependents: JSON.parse(JSON.stringify(this.state.dependents || [])),
+            debt: JSON.parse(JSON.stringify(this.state.debt || [])),
             nwTrajectory: (this.state.projectionData || []).map(d => Math.round(d.debugNW)),
             years: (this.state.projectionData || []).map(d => d.year)
         }; 
-        document.querySelectorAll('.debt-amount').forEach(el=>s.debt.push(el.value)); 
         return s; 
     }
 }
