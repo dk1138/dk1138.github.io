@@ -372,14 +372,8 @@ class UIController {
             let eL = ln("Living Exp",d.expenses) + ln("Mortgage",d.mortgagePay) + ln("Debt Repayment",d.debtRepayment);
             
             eL += ln(p1TaxLabel, d.taxP1, "val-negative");
-            if (d.matchTaxSavingsP1 > 0) {
-                eL += `<div class="detail-item sub"><span class="text-success"><i class="bi bi-shield-check me-1"></i>Tax Saved (P1 RRSP Match)</span> <span class="text-success fw-bold">-$${fmtK(d.matchTaxSavingsP1).replace('-','')}</span></div>`;
-            }
             if (this.app.state.mode === 'Couple') {
                 eL += ln(p2TaxLabel, d.taxP2, "val-negative");
-                if (d.matchTaxSavingsP2 > 0) {
-                    eL += `<div class="detail-item sub"><span class="text-success"><i class="bi bi-shield-check me-1"></i>Tax Saved (P2 RRSP Match)</span> <span class="text-success fw-bold">-$${fmtK(d.matchTaxSavingsP2).replace('-','')}</span></div>`;
-                }
             }
             
             let aL = '';
