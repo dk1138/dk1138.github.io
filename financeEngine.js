@@ -1078,11 +1078,23 @@ class FinanceEngine {
 
             const regMins = this.calcRegMinimums(person1, person2, age1, age2, alive1, alive2, preGrowthRrsp1, preGrowthRrif1, preGrowthRrsp2, preGrowthRrif2, preGrowthLirf1, preGrowthLif1, preGrowthLirf2, preGrowthLif2);
             
-            let taxableIncome1 = inflows.p1.gross + inflows.p1.cpp + inflows.p1.oas + inflows.p1.pension + regMins.p1 + regMins.lifTaken1 + inflows.p1.windfallTaxable + (person1.nreg * person1.nreg_yield);
-            let taxableIncome2 = inflows.p2.gross + inflows.p2.cpp + inflows.p2.oas + inflows.p2.pension + regMins.p2 + regMins.lifTaken2 + inflows.p2.windfallTaxable + (alive2 ? (person2.nreg * person2.nreg_yield) : 0);
+            const taxBrackets = this.getInflatedTaxData(bInf);
 
-            taxableIncome1 = Math.max(0, taxableIncome1 - totalMatch1);
-            taxableIncome2 = Math.max(0, taxableIncome2 - totalMatch2);
+            let grossTaxable1 = inflows.p1.gross + inflows.p1.cpp + inflows.p1.oas + inflows.p1.pension + regMins.p1 + regMins.lifTaken1 + inflows.p1.windfallTaxable + (person1.nreg * person1.nreg_yield);
+            let grossTaxable2 = inflows.p2.gross + inflows.p2.cpp + inflows.p2.oas + inflows.p2.pension + regMins.p2 + regMins.lifTaken2 + inflows.p2.windfallTaxable + (alive2 ? (person2.nreg * person2.nreg_yield) : 0);
+
+            // Calculate taxes before match deductions to figure out how much tax was saved
+            let taxWithoutMatch1 = alive1 ? this.calculateTaxDetailed(grossTaxable1, this.getRaw('tax_province'), taxBrackets, inflows.p1.oas, oasThresholdInf) : {totalTax: 0, margRate: 0};
+            let taxWithoutMatch2 = alive2 ? this.calculateTaxDetailed(grossTaxable2, this.getRaw('tax_province'), taxBrackets, inflows.p2.oas, oasThresholdInf) : {totalTax: 0, margRate: 0};
+
+            let taxableIncome1 = Math.max(0, grossTaxable1 - totalMatch1);
+            let taxableIncome2 = Math.max(0, grossTaxable2 - totalMatch2);
+
+            let taxWithMatchOnly1 = alive1 ? this.calculateTaxDetailed(taxableIncome1, this.getRaw('tax_province'), taxBrackets, inflows.p1.oas, oasThresholdInf) : {totalTax: 0, margRate: 0};
+            let taxWithMatchOnly2 = alive2 ? this.calculateTaxDetailed(taxableIncome2, this.getRaw('tax_province'), taxBrackets, inflows.p2.oas, oasThresholdInf) : {totalTax: 0, margRate: 0};
+
+            let matchTaxSavings1 = taxWithoutMatch1.totalTax - taxWithMatchOnly1.totalTax;
+            let matchTaxSavings2 = taxWithoutMatch2.totalTax - taxWithMatchOnly2.totalTax;
 
             let ccbPayout = this.calculateCCBForYear(yr, this.dependents, previousAFNI, bInf);
             if (ccbPayout > 0 && alive1) {
@@ -1151,8 +1163,6 @@ class FinanceEngine {
                     if (dir === 'p2_to_p1') pensionSplitTransfer.p2ToP1 = tAmt;
                 });
             }
-
-            const taxBrackets = this.getInflatedTaxData(bInf);
             
             let tax1 = alive1 ? this.calculateTaxDetailed(taxableIncome1, this.getRaw('tax_province'), taxBrackets, inflows.p1.oas, oasThresholdInf) : {totalTax: 0, margRate: 0};
             let tax2 = alive2 ? this.calculateTaxDetailed(taxableIncome2, this.getRaw('tax_province'), taxBrackets, inflows.p2.oas, oasThresholdInf) : {totalTax: 0, margRate: 0};
@@ -1293,7 +1303,9 @@ class FinanceEngine {
                     rrspRoomP1: rrspRoom1, rrspRoomP2: rrspRoom2,
                     rrspMatchP1: actEmpPortionP1, rrspTotalMatch1: totalMatch1,
                     rrspMatchP2: actEmpPortionP2, rrspTotalMatch2: totalMatch2,
-                    rrspRefundP1: appliedRefundP1, rrspRefundP2: appliedRefundP2
+                    rrspRefundP1: appliedRefundP1, rrspRefundP2: appliedRefundP2,
+                    matchTaxSavingsP1: matchTaxSavings1, matchTaxSavingsP2: matchTaxSavings2,
+                    discTaxSavingsP1: pendingRefund.p1, discTaxSavingsP2: pendingRefund.p2
                 });
             }
 
