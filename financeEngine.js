@@ -841,6 +841,7 @@ class FinanceEngine {
         };
 
         const lowestBracket = taxBrackets.FED.brackets[0]; 
+        const secondBracket = taxBrackets.FED.brackets[1] || (lowestBracket * 2);
         const optimizeOAS = this.inputs['oas_clawback_optimize'];
         const fullyOptimizeTax = this.inputs['fully_optimize_tax'];
 
@@ -849,17 +850,23 @@ class FinanceEngine {
             const capGains = ['nreg', 'crypto'];
             const fullyTaxable = ['rrif_acct', 'lif', 'rrsp', 'lirf'];
 
-            executeWithdrawalStrategy(lowestBracket, lowestBracket, fullyTaxable);
-            if (df > 1) executeWithdrawalStrategy(lowestBracket, lowestBracket, capGains);
+            let p1SafeCeil = oasThresholdInf; 
+            let p2SafeCeil = oasThresholdInf; 
             
+            // Push hard into the 2nd bracket if they are young, to avoid future tax bombs
+            if (age1 < 65) p1SafeCeil = secondBracket;
+            if (age2 < 65) p2SafeCeil = secondBracket;
+
+            // 1. Kill Tax Drag: Drain Non-Reg accounts up to safe ceiling
+            executeWithdrawalStrategy(p1SafeCeil, p2SafeCeil, capGains);
+
+            // 2. Smooth the Curve: Melt down RRSP/RRIF up to safe ceiling to prevent future RRIF tax bombs
+            if (df > 1) executeWithdrawalStrategy(p1SafeCeil, p2SafeCeil, fullyTaxable);
+
+            // 3. Protect: Use Tax-Free accounts to cover the rest of the deficit, keeping us under the ceiling
             if (df > 1) executeWithdrawalStrategy(Infinity, Infinity, taxFree);
 
-            let p1Ceil = (optimizeOAS && age1 >= 65) ? oasThresholdInf : Infinity;
-            let p2Ceil = (optimizeOAS && age2 >= 65) ? oasThresholdInf : Infinity;
-            if (df > 1) executeWithdrawalStrategy(p1Ceil, p2Ceil, capGains);
-
-            if (df > 1) executeWithdrawalStrategy(p1Ceil, p2Ceil, fullyTaxable);
-
+            // 4. Exhaustion: If TFSA is empty, break the ceiling using the most tax-efficient accounts first
             if (df > 1) executeWithdrawalStrategy(Infinity, Infinity, capGains);
             if (df > 1) executeWithdrawalStrategy(Infinity, Infinity, fullyTaxable);
 
