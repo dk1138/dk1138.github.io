@@ -939,6 +939,7 @@ class FinanceEngine {
         let previousAFNI = Math.max(0, (person1.inc + (this.mode === 'Couple' ? person2.inc : 0)) - initialDeductionGuess);
 
         let flowLog = null;
+        let pendingRefund = { p1: 0, p2: 0 };
 
         for (let i = 0; i <= yearsToRun; i++) {
             const yr = curY + i;
@@ -1022,6 +1023,11 @@ class FinanceEngine {
 
             const inflows = this.calcInflows(yr, i, person1, person2, age1, age2, alive1, alive2, isRet1, isRet2, consts, bInf, detailed ? trackedEvents : null);
             if (detailed && deathEvents.length > 0) inflows.events.push(...deathEvents);
+
+            // Inject last year's tax refund (from discretionary RRSP deposits)
+            if (pendingRefund.p1 > 0 && alive1) inflows.p1.windfallNonTax += pendingRefund.p1;
+            if (pendingRefund.p2 > 0 && alive2) inflows.p2.windfallNonTax += pendingRefund.p2;
+            pendingRefund = { p1: 0, p2: 0 };
 
             let rrspRoom1 = Math.min(inflows.p1.earned * 0.18, consts.rrspMax * bInf);
             let rrspRoom2 = Math.min(inflows.p2.earned * 0.18, consts.rrspMax * bInf);
@@ -1138,7 +1144,6 @@ class FinanceEngine {
                 });
             }
 
-            let rrspDed = { p1: 0, p2: 0 };
             const taxBrackets = this.getInflatedTaxData(bInf);
             
             let tax1 = alive1 ? this.calculateTaxDetailed(taxableIncome1, this.getRaw('tax_province'), taxBrackets, inflows.p1.oas, oasThresholdInf) : {totalTax: 0, margRate: 0};
@@ -1178,6 +1183,16 @@ class FinanceEngine {
 
             if (surplus > 0) {
                 this.handleSurplus(surplus, person1, person2, alive1, alive2, flowLog, i, consts.tfsaLimit * bInf, rrspRoom1, rrspRoom2, consts.cryptoLimit * bInf, consts.fhsaLimit * bInf, consts.respLimit * bInf, actDeductions);
+                
+                // Calculate tax refund generated from discretionary RRSP contributions made from surplus cash
+                if (actDeductions.p1 > 0) {
+                    let recalculatedTax1 = this.calculateTaxDetailed(taxableIncome1 - actDeductions.p1, this.getRaw('tax_province'), taxBrackets, inflows.p1.oas, oasThresholdInf);
+                    pendingRefund.p1 = tax1.totalTax - recalculatedTax1.totalTax;
+                }
+                if (actDeductions.p2 > 0) {
+                    let recalculatedTax2 = this.calculateTaxDetailed(taxableIncome2 - actDeductions.p2, this.getRaw('tax_province'), taxBrackets, inflows.p2.oas, oasThresholdInf);
+                    pendingRefund.p2 = tax2.totalTax - recalculatedTax2.totalTax;
+                }
             } else {
                 let cashFromNonTaxableWd = 0; 
                 for(let pass = 0; pass < 5; pass++) {
