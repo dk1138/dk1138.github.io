@@ -865,8 +865,28 @@ class FinanceEngine {
         let nwArray = [];
         let projectionData = [];
 
-        let person1 = { tfsa: this.getVal('p1_tfsa'), tfsa_successor: 0, fhsa: this.getVal('p1_fhsa'), resp: this.getVal('p1_resp'), rrsp: this.getVal('p1_rrsp'), cash: this.getVal('p1_cash'), nreg: this.getVal('p1_nonreg'), crypto: this.getVal('p1_crypto'), lirf: this.getVal('p1_lirf'), lif: this.getVal('p1_lif'), rrif_acct: this.getVal('p1_rrif_acct'), inc: this.getVal('p1_income'), dob: new Date(this.getRaw('p1_dob') || "1990-01"), retAge: this.getVal('p1_retireAge'), lifeExp: this.getVal('p1_lifeExp'), nreg_yield: this.getVal('p1_nonreg_yield')/100, acb: this.getVal('p1_nonreg'), crypto_acb: this.getVal('p1_crypto') };
-        let person2 = { tfsa: this.getVal('p2_tfsa'), tfsa_successor: 0, fhsa: this.getVal('p2_fhsa'), rrsp: this.getVal('p2_rrsp'), cash: this.getVal('p2_cash'), nreg: this.getVal('p2_nonreg'), crypto: this.getVal('p2_crypto'), lirf: this.getVal('p2_lirf'), lif: this.getVal('p2_lif'), rrif_acct: this.getVal('p2_rrif_acct'), inc: this.getVal('p2_income'), dob: new Date(this.getRaw('p2_dob') || "1990-01"), retAge: this.getVal('p2_retireAge'), lifeExp: this.getVal('p2_lifeExp'), nreg_yield: this.getVal('p2_nonreg_yield')/100, acb: this.getVal('p2_nonreg'), crypto_acb: this.getVal('p2_crypto') };
+        // UPDATED: Now respects user-provided ACB explicitly, fallback to Market Value only if untouched
+        let person1 = { 
+            tfsa: this.getVal('p1_tfsa'), tfsa_successor: 0, fhsa: this.getVal('p1_fhsa'), resp: this.getVal('p1_resp'), 
+            rrsp: this.getVal('p1_rrsp'), cash: this.getVal('p1_cash'), nreg: this.getVal('p1_nonreg'), 
+            crypto: this.getVal('p1_crypto'), lirf: this.getVal('p1_lirf'), lif: this.getVal('p1_lif'), 
+            rrif_acct: this.getVal('p1_rrif_acct'), inc: this.getVal('p1_income'), 
+            dob: new Date(this.getRaw('p1_dob') || "1990-01"), retAge: this.getVal('p1_retireAge'), 
+            lifeExp: this.getVal('p1_lifeExp'), nreg_yield: this.getVal('p1_nonreg_yield')/100, 
+            acb: this.inputs['p1_nonreg_acb'] !== undefined ? this.getVal('p1_nonreg_acb') : this.getVal('p1_nonreg'), 
+            crypto_acb: this.inputs['p1_crypto_acb'] !== undefined ? this.getVal('p1_crypto_acb') : this.getVal('p1_crypto') 
+        };
+        
+        let person2 = { 
+            tfsa: this.getVal('p2_tfsa'), tfsa_successor: 0, fhsa: this.getVal('p2_fhsa'), 
+            rrsp: this.getVal('p2_rrsp'), cash: this.getVal('p2_cash'), nreg: this.getVal('p2_nonreg'), 
+            crypto: this.getVal('p2_crypto'), lirf: this.getVal('p2_lirf'), lif: this.getVal('p2_lif'), 
+            rrif_acct: this.getVal('p2_rrif_acct'), inc: this.getVal('p2_income'), 
+            dob: new Date(this.getRaw('p2_dob') || "1990-01"), retAge: this.getVal('p2_retireAge'), 
+            lifeExp: this.getVal('p2_lifeExp'), nreg_yield: this.getVal('p2_nonreg_yield')/100, 
+            acb: this.inputs['p2_nonreg_acb'] !== undefined ? this.getVal('p2_nonreg_acb') : this.getVal('p2_nonreg'), 
+            crypto_acb: this.inputs['p2_crypto_acb'] !== undefined ? this.getVal('p2_crypto_acb') : this.getVal('p2_crypto') 
+        };
 
         let simProperties = JSON.parse(JSON.stringify(this.properties));
         let totalDebt = totalDebtInitial;
@@ -891,7 +911,6 @@ class FinanceEngine {
             inflation: this.getVal('inflation_rate') / 100
         };
 
-        // Estimate AFNI for the first year based on gross income minus assumed base deductions
         let initialDeductionGuess = (this.mode === 'Couple' ? 2 : 1) * 15000;
         let previousAFNI = Math.max(0, (person1.inc + person2.inc) - initialDeductionGuess);
 
@@ -980,7 +999,6 @@ class FinanceEngine {
             const inflows = this.calcInflows(yr, i, person1, person2, age1, age2, alive1, alive2, isRet1, isRet2, consts, bInf, detailed ? trackedEvents : null);
             if (detailed && deathEvents.length > 0) inflows.events.push(...deathEvents);
 
-            // --- RRSP EMPLOYER MATCH LOGIC ---
             let rrspRoom1 = Math.min(inflows.p1.earned * 0.18, consts.rrspMax * bInf);
             let rrspRoom2 = Math.min(inflows.p2.earned * 0.18, consts.rrspMax * bInf);
             
@@ -994,9 +1012,9 @@ class FinanceEngine {
             if (matchAmountP1 > 0) {
                 totalMatch1 = Math.min(matchAmountP1 * 2, rrspRoom1);
                 let empPortion = totalMatch1 / 2;
-                inflows.p1.gross += empPortion; // Add employer portion to gross inflow for Sankey and accurate gross tally
-                person1.rrsp += totalMatch1; // Deposit directly into RRSP
-                rrspRoom1 -= totalMatch1; // Consume room
+                inflows.p1.gross += empPortion; 
+                person1.rrsp += totalMatch1; 
+                rrspRoom1 -= totalMatch1; 
                 if(detailed) { flowLog.contributions.p1.rrsp += totalMatch1; }
             }
 
@@ -1009,14 +1027,12 @@ class FinanceEngine {
                 rrspRoom2 -= totalMatch2;
                 if(detailed) { flowLog.contributions.p2.rrsp += totalMatch2; }
             }
-            // ----------------------------------
 
             const regMins = this.calcRegMinimums(person1, person2, age1, age2, alive1, alive2, preGrowthRrsp1, preGrowthRrif1, preGrowthRrsp2, preGrowthRrif2, preGrowthLirf1, preGrowthLif1, preGrowthLirf2, preGrowthLif2);
             
             let taxableIncome1 = inflows.p1.gross + inflows.p1.cpp + inflows.p1.oas + inflows.p1.pension + regMins.p1 + regMins.lifTaken1 + inflows.p1.windfallTaxable + (person1.nreg * person1.nreg_yield);
             let taxableIncome2 = inflows.p2.gross + inflows.p2.cpp + inflows.p2.oas + inflows.p2.pension + regMins.p2 + regMins.lifTaken2 + inflows.p2.windfallTaxable + (alive2 ? (person2.nreg * person2.nreg_yield) : 0);
 
-            // Deduct the immediate RRSP matching contributions so net income reflects the true lower paycheck
             taxableIncome1 = Math.max(0, taxableIncome1 - totalMatch1);
             taxableIncome2 = Math.max(0, taxableIncome2 - totalMatch2);
 
@@ -1181,7 +1197,6 @@ class FinanceEngine {
                 const totalYield = (person1.nreg * person1.nreg_yield) + (alive2 ? (person2.nreg * person2.nreg_yield) : 0);
                 const grossInflow = p1GrossTotal + p2GrossTotal + totalYield + totalWithdrawals;
                 
-                // Exclude the immediate employer match deduction from the visible UI cashSurplus so it doesn't artificially inflate Available Cash 
                 const cashSurplus = grossInflow - (totalOutflows + tax1.totalTax + tax2.totalTax + totalMatch1 + totalMatch2);
 
                 projectionData.push({
