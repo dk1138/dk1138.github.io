@@ -1,12 +1,12 @@
 /**
  * Retirement Planner Pro - Core Application Controller
- * Version 10.11.0 (RRSP Employer Matching)
+ * Version 10.12.0 (Adjustable Cost Base Integration)
  */
 
 class RetirementPlanner {
     constructor() {
         try {
-            this.APP_VERSION = "10.11.0";
+            this.APP_VERSION = "10.12.0";
             this.state = {
                 inputs: {},
                 debt: [],
@@ -545,6 +545,7 @@ class RetirementPlanner {
             'cfg_fhsa_limit': '8,000', 'cfg_resp_limit': '2,500', 'cfg_crypto_limit': '5,000',
             'p1_tfsa_ret': '6.0', 'p2_tfsa_ret': '6.0', 'p1_rrsp_ret': '6.0', 'p2_rrsp_ret': '6.0', 
             'p1_nonreg_ret': '6.0', 'p2_nonreg_ret': '6.0', 'p1_crypto_ret': '6.0', 'p2_crypto_ret': '6.0', 
+            'p1_nonreg_acb': '10,000', 'p2_nonreg_acb': '5,000', 'p1_crypto_acb': '5,000', 'p2_crypto_acb': '2,000',
             'p1_cash_ret': '2.0', 'p2_cash_ret': '2.0', 'p1_income_growth': '2.0', 'p2_income_growth': '2.0', 
             'p1_rrsp_match': '0.0', 'p2_rrsp_match': '0.0',
             'p1_cpp_start': '65', 'p2_cpp_start': '65', 'p1_oas_start': '65', 'p2_oas_start': '65', 
