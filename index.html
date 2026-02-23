@@ -584,16 +584,18 @@
                   </div>
 
                   <div class="card mb-4 border-secondary shadow-sm">
-                    <div class="card-header d-flex align-items-center surface-card border-bottom border-secondary p-3">
-                      <i class="bi bi-credit-card-2-front text-danger fs-4 me-3"></i>
-                      <h5 class="mb-0 fw-bold text-uppercase ls-1 me-2">6. Other Liabilities</h5>
-                      <button type="button" class="btn btn-link p-0 text-muted info-btn" data-bs-toggle="popover" data-bs-title="Debts" data-bs-content="Track other debts like Car Loans, Student Loans, or LOCs. <br><b>Note:</b> Mortgages should be tracked in the Real Estate section above.">
-                        <i class="bi bi-info-circle"></i>
-                      </button>
+                    <div class="card-header d-flex align-items-center justify-content-between surface-card border-bottom border-secondary p-3">
+                      <div class="d-flex align-items-center">
+                        <i class="bi bi-cart-plus text-danger fs-4 me-3"></i>
+                        <h5 class="mb-0 fw-bold text-uppercase ls-1 me-2">6. Future Expenses & Debts</h5>
+                        <button type="button" class="btn btn-link p-0 text-muted info-btn" data-bs-toggle="popover" data-bs-title="Large Purchases" data-bs-content="Plan for future large expenses (like buying a car, renovation, or wedding) or lump-sum debt payoffs. <br><br>The amount will be deducted directly from your cash flow in the selected year.">
+                          <i class="bi bi-info-circle"></i>
+                        </button>
+                      </div>
+                      <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3" id="btnAddDebt"><i class="bi bi-plus-lg me-1"></i> Add Expense/Debt</button>
                     </div>
                     <div class="card-body p-4">
-                      <div id="debt-container" class="mb-4"></div>
-                      <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3" id="btnAddDebt"><i class="bi bi-plus-lg me-1"></i> Add Liability</button>
+                      <div id="debt-container"></div>
                     </div>
                   </div>
 
@@ -921,7 +923,7 @@
                                   <span class="fw-bold text-white" id="dash_peak_nw">$0 (Age --)</span>
                               </div>
                               <div class="d-flex justify-content-between mb-3">
-                                  <span class="text-muted fw-bold">Debt-Free Year</span>
+                                  <span class="text-muted fw-bold">Mortgage-Free Year</span>
                                   <span class="fw-bold text-white" id="dash_debt_free">--</span>
                               </div>
                               <div class="d-flex justify-content-between mb-3">
