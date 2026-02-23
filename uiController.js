@@ -222,10 +222,14 @@ class UIController {
             let groupP1 = '', groupP2 = '', groupOther = '';
             
             if(d.incomeP1 > 0) {
-                groupP1 += ln("Employment", d.incomeP1);
+                let empLabel = "Employment";
                 if (d.rrspMatchP1 > 0) {
-                    groupP1 += sL("&nbsp;&nbsp;<span class='text-muted'>&#8627; Employer Match</span>", d.rrspMatchP1);
+                    let base = (d.incomeP1 - d.rrspMatchP1) / df;
+                    let match = d.rrspMatchP1 / df;
+                    let content = `<b>Base Salary:</b> $${Math.round(base).toLocaleString()}<br><b>Employer RRSP Match:</b> $${Math.round(match).toLocaleString()}`;
+                    empLabel += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-html="true" data-bs-custom-class="projection-popover" data-bs-title="Compensation Breakdown" data-bs-content="${content}"></i>`;
                 }
+                groupP1 += ln(empLabel, d.incomeP1);
             }
             if(d.rrspRefundP1 > 0) {
                 let rfInfo = ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="RRSP Tax Refund" data-bs-content="Tax refund received this year resulting from your discretionary RRSP contributions made last year. Automatically added to your available cash."></i>`;
@@ -279,10 +283,14 @@ class UIController {
 
             if(this.app.state.mode==='Couple') {
                 if(d.incomeP2 > 0) {
-                    groupP2 += ln("Employment", d.incomeP2);
+                    let empLabel = "Employment";
                     if (d.rrspMatchP2 > 0) {
-                        groupP2 += sL("&nbsp;&nbsp;<span class='text-muted'>&#8627; Employer Match</span>", d.rrspMatchP2);
+                        let base = (d.incomeP2 - d.rrspMatchP2) / df;
+                        let match = d.rrspMatchP2 / df;
+                        let content = `<b>Base Salary:</b> $${Math.round(base).toLocaleString()}<br><b>Employer RRSP Match:</b> $${Math.round(match).toLocaleString()}`;
+                        empLabel += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-html="true" data-bs-custom-class="projection-popover" data-bs-title="Compensation Breakdown" data-bs-content="${content}"></i>`;
                     }
+                    groupP2 += ln(empLabel, d.incomeP2);
                 }
                 if(d.rrspRefundP2 > 0) {
                     let rfInfo = ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="RRSP Tax Refund" data-bs-content="Tax refund received this year resulting from your discretionary RRSP contributions made last year. Automatically added to your available cash."></i>`;
