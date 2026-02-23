@@ -931,7 +931,7 @@ class FinanceEngine {
         };
 
         let initialDeductionGuess = (this.mode === 'Couple' ? 2 : 1) * 15000;
-        let previousAFNI = Math.max(0, (person1.inc + person2.inc) - initialDeductionGuess);
+        let previousAFNI = Math.max(0, (person1.inc + (this.mode === 'Couple' ? person2.inc : 0)) - initialDeductionGuess);
 
         let flowLog = null;
 
@@ -1038,7 +1038,7 @@ class FinanceEngine {
             }
 
             let totalMatch2 = 0;
-            if (matchAmountP2 > 0) {
+            if (matchAmountP2 > 0 && alive2) {
                 totalMatch2 = Math.min(matchAmountP2 * 2, rrspRoom2);
                 let empPortion = totalMatch2 / 2;
                 inflows.p2.gross += empPortion;
@@ -1197,7 +1197,7 @@ class FinanceEngine {
             previousAFNI = Math.max(0, (taxableIncome1 - actDeductions.p1) + (taxableIncome2 - actDeductions.p2));
 
             const assets1 = person1.tfsa + person1.tfsa_successor + person1.rrsp + person1.crypto + person1.nreg + person1.cash + person1.lirf + person1.lif + person1.rrif_acct + (person1.fhsa || 0) + (person1.resp || 0);
-            const assets2 = person2.tfsa + person2.tfsa_successor + person2.rrsp + person2.crypto + person2.nreg + person2.cash + person2.lirf + person2.lif + person2.rrif_acct + (person2.fhsa || 0);
+            const assets2 = this.mode === 'Couple' ? (person2.tfsa + person2.tfsa_successor + person2.rrsp + person2.crypto + person2.nreg + person2.cash + person2.lirf + person2.lif + person2.rrif_acct + (person2.fhsa || 0)) : 0;
             
             const liquidNW = (assets1 + assets2) - totalDebt;
             
@@ -1213,7 +1213,7 @@ class FinanceEngine {
                 const totalWithdrawals = Object.values(flowLog.withdrawals).reduce((a,b) => a + b, 0);
                 const p1GrossTotal = inflows.p1.gross + inflows.p1.cpp + inflows.p1.oas + inflows.p1.pension + inflows.p1.windfallTaxable + inflows.p1.windfallNonTax;
                 const p2GrossTotal = inflows.p2.gross + inflows.p2.cpp + inflows.p2.oas + inflows.p2.pension + inflows.p2.windfallTaxable + inflows.p2.windfallNonTax;
-                const totalYield = (person1.nreg * person1.nreg_yield) + (alive2 ? (person2.nreg * person2.nreg_yield) : 0);
+                const totalYield = (person1.nreg * person1.nreg_yield) + (alive2 && this.mode === 'Couple' ? (person2.nreg * person2.nreg_yield) : 0);
                 const grossInflow = p1GrossTotal + p2GrossTotal + totalYield + totalWithdrawals;
                 
                 const cashSurplus = grossInflow - (totalOutflows + tax1.totalTax + tax2.totalTax + totalMatch1 + totalMatch2);
