@@ -965,7 +965,15 @@
               <div class="tab-pane fade p-0" id="summary-pane" role="tabpanel">
                 <div class="card border-0 shadow-none">
                   <div class="card-header d-flex justify-content-end p-3 border-bottom border-secondary surface-card">
-                    <button class="btn btn-sm btn-outline-success rounded-pill px-3" id="btnExportCSV"><i class="bi bi-file-earmark-spreadsheet me-2"></i>Export CSV</button>
+                    <div class="dropdown">
+                      <button class="btn btn-sm btn-outline-success rounded-pill px-3 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-download me-2"></i>Export
+                      </button>
+                      <ul class="dropdown-menu dropdown-menu-end shadow-sm border-secondary">
+                        <li><button class="dropdown-item d-flex align-items-center" id="btnExportCSV"><i class="bi bi-file-earmark-spreadsheet me-2 text-success"></i> Export to Excel (CSV)</button></li>
+                        <li><button class="dropdown-item d-flex align-items-center" id="btnExportPDF"><i class="bi bi-file-earmark-pdf me-2 text-danger"></i> Export to PDF</button></li>
+                      </ul>
+                    </div>
                   </div>
                   <div class="card-body p-0">
                     <div class="table-container border-0 rounded-0" id="summaryTableContainer" style="max-height: 85vh; overflow-y: auto;">
@@ -1409,5 +1417,9 @@
   <script src="optimizers.js"></script> 
   
   <script src="script.js"></script>
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+
 </body>
 </html>
