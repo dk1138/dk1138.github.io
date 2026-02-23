@@ -409,6 +409,9 @@ class DataController {
         this.renderList('strat-decum-list', visibleDecum, 'decum', decumContainer);
 
         setTimeout(() => { try { this.app.ui.initPopovers(); } catch(e) {} }, 50);
+        
+        // Ensure visual state is perfectly synced after re-rendering the elements
+        if (this.app.updateStrategyVisuals) this.app.updateStrategyVisuals();
     }
 
     renderList(id, arr, type, cont) {
