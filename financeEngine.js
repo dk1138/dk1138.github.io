@@ -246,7 +246,8 @@ class FinanceEngine {
             }
         }
 
-        const grow = (p, rates) => {
+        // Fix: isRet param ensures we check the retirement status of the specific person passed in
+        const grow = (p, rates, isRet) => {
             p.tfsa *= (1 + rates.tfsa);
             if (p.tfsa_successor !== undefined) p.tfsa_successor *= (1 + rates.tfsa); 
             p.rrsp *= (1 + rates.rrsp); p.cash *= (1 + rates.cash); p.crypto *= (1 + rates.crypto);
@@ -254,9 +255,13 @@ class FinanceEngine {
             p.nreg *= (1 + (rates.nreg - p.nreg_yield));
             if (p.fhsa !== undefined) p.fhsa *= (1 + rates.fhsa);
             if (p.resp !== undefined) p.resp *= (1 + rates.resp);
-            if(!isRet1) p.inc *= (1 + rates.inc); 
+            
+            // Fix: Income growth only applies after year 1 (i > 0)
+            if(!isRet && i > 0) p.inc *= (1 + rates.inc); 
         };
-        grow(p1, g1); grow(p2, g2);
+        
+        grow(p1, g1, isRet1); 
+        grow(p2, g2, isRet2);
     }
 
     calcInflows(yr, i, p1, p2, age1, age2, alive1, alive2, isRet1, isRet2, c, bInf, trackedEvents = null) {
