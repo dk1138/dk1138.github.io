@@ -103,13 +103,16 @@ class Optimizers {
             const fmt = n => '$' + Math.round(n).toLocaleString();
 
             let infoBtn = `<i class="bi bi-info-circle text-muted ms-2 info-btn" style="cursor: help; font-size: 0.9rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="Today's Dollars" data-bs-content="This estimate is in <b>Today's Dollars</b>, calculated using the current year's Maximum Pensionable Earnings (YMPE) limit.<br><br>This aligns perfectly with your plan's 'Today\\'s $' settings, ensuring your projection engine doesn't double-count inflation."></i>`;
+            let contribInfo = `<i class="bi bi-info-circle text-muted ms-1 info-btn" style="cursor: help; font-size: 0.8rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="Contributory Years" data-bs-content="The total number of years from age 18 to your target retirement age. This forms the base period over which your CPP is calculated."></i>`;
+            let dropInfo = `<i class="bi bi-info-circle text-muted ms-1 info-btn" style="cursor: help; font-size: 0.8rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="General Drop-out (17%)" data-bs-content="The CRA automatically removes up to 17% of your lowest-earning years (up to 8 years) from the calculation to boost your final average. This helps cover gaps for unemployment, school, or early retirement."></i>`;
+            let ratioInfo = `<i class="bi bi-info-circle text-muted ms-1 info-btn" style="cursor: help; font-size: 0.8rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="Lifetime Earnings Ratio" data-bs-content="Your lifetime average earnings compared to the maximum limits (YMPE) after all drop-outs are applied. A ratio of 100% means you maxed out your contributions every single year."></i>`;
 
             let html = `
                 <h6 class="text-success fw-bold mb-3"><i class="bi bi-check-circle-fill me-2"></i>Analysis Complete</h6>
                 <div class="row g-3 mb-3 text-white small">
-                    <div class="col-6"><b>Contributory Years:</b> ${Math.round(result.monthsContributoryTotal/12)}</div>
-                    <div class="col-6"><b>Years Dropped (17%):</b> ${result.droppedGeneralYears}</div>
-                    <div class="col-6"><b>Earnings Ratio:</b> ${(result.averageRatio * 100).toFixed(1)}%</div>
+                    <div class="col-6 d-flex align-items-center"><b>Contributory Years:</b> <span class="ms-2">${Math.round(result.monthsContributoryTotal/12)}</span> ${contribInfo}</div>
+                    <div class="col-6 d-flex align-items-center"><b>Years Dropped (17%):</b> <span class="ms-2">${result.droppedGeneralYears}</span> ${dropInfo}</div>
+                    <div class="col-6 d-flex align-items-center"><b>Earnings Ratio:</b> <span class="ms-2">${(result.averageRatio * 100).toFixed(1)}%</span> ${ratioInfo}</div>
                 </div>
                 
                 <div class="card bg-info bg-opacity-10 border-info border-opacity-50 p-3 text-center mb-3">
