@@ -83,7 +83,7 @@
               <div class="tab-pane fade show active p-3 p-md-4" id="plan-pane" role="tabpanel">
                 <form id="financialForm">
                   
-                  <div class="card mb-4 border-secondary shadow-sm">
+                  <div class="rp-card">
                     <div class="card-header d-flex align-items-center justify-content-between surface-card border-bottom border-secondary p-3">
                         <div class="d-flex align-items-center">
                             <i class="bi bi-person-vcard text-primary fs-4 me-3"></i>
@@ -140,7 +140,7 @@
                     </div>
                   </div>
 
-                  <div class="card mb-4 border-secondary shadow-sm">
+                  <div class="rp-card">
                     <div class="card-header d-flex align-items-center justify-content-between surface-card border-bottom border-secondary p-3">
                       <div class="d-flex align-items-center">
                         <i class="bi bi-people text-info fs-4 me-3"></i>
@@ -157,7 +157,7 @@
                     </div>
                   </div>
 
-                  <div class="card mb-4 border-secondary shadow-sm">
+                  <div class="rp-card">
                     <div class="card-header d-flex align-items-center justify-content-between surface-card border-bottom border-secondary p-3">
                       <div class="d-flex align-items-center">
                         <i class="bi bi-wallet2 text-success fs-4 me-3"></i>
@@ -392,7 +392,7 @@
                     </div>
                   </div>
 
-                  <div class="card mb-4 border-secondary shadow-sm">
+                  <div class="rp-card">
                     <div class="card-header d-flex align-items-center justify-content-between surface-card border-bottom border-secondary p-3">
                       <div class="d-flex align-items-center">
                         <i class="bi bi-house-heart text-danger fs-4 me-3"></i>
@@ -408,7 +408,7 @@
                     </div>
                   </div>
 
-                  <div class="card mb-4 border-secondary shadow-sm">
+                  <div class="rp-card">
                     <div class="card-header d-flex align-items-center surface-card border-bottom border-secondary p-3">
                         <i class="bi bi-cash-coin text-warning fs-4 me-3"></i>
                         <h5 class="mb-0 me-2 fw-bold text-uppercase ls-1">4. Income & Taxation</h5>
@@ -419,7 +419,8 @@
                     <div class="card-body p-4">
                       <div class="row mb-4">
                         <div class="col-12 col-md-4">
-                          <label class="form-label fw-bold">Province of Residence</label>
+                          <label class="form-label fw-bold d-flex align-items-center">Province of Residence</label>
+                          <div class="small text-warning fw-bold mb-2">Using 2026 Estimated Tax Brackets</div>
                           <select class="form-select live-calc" id="tax_province">
                             <option value="ON" selected>Ontario</option><option value="AB">Alberta</option><option value="BC">British Columbia</option><option value="MB">Manitoba</option><option value="NB">New Brunswick</option><option value="NL">Newfoundland & Labrador</option><option value="NS">Nova Scotia</option><option value="PE">Prince Edward Island</option><option value="QC">Quebec</option><option value="SK">Saskatchewan</option>
                           </select>
@@ -542,7 +543,7 @@
                     </div>
                   </div>
 
-                  <div class="card mb-4 border-secondary shadow-sm">
+                  <div class="rp-card">
                     <div class="card-header d-flex align-items-center justify-content-between surface-card border-bottom border-secondary p-3">
                       <div class="d-flex align-items-center">
                         <i class="bi bi-cart4 text-white fs-4 me-3"></i>
@@ -583,7 +584,7 @@
                     </div>
                   </div>
 
-                  <div class="card mb-4 border-secondary shadow-sm">
+                  <div class="rp-card">
                     <div class="card-header d-flex align-items-center justify-content-between surface-card border-bottom border-secondary p-3">
                       <div class="d-flex align-items-center">
                         <i class="bi bi-cart-plus text-danger fs-4 me-3"></i>
@@ -599,7 +600,7 @@
                     </div>
                   </div>
 
-                  <div class="card mb-4 border-secondary shadow-sm">
+                  <div class="rp-card">
                     <div class="card-header d-flex align-items-center justify-content-between surface-card border-bottom border-secondary p-3">
                       <div class="d-flex align-items-center">
                         <i class="bi bi-gift text-success fs-4 me-3"></i>
@@ -615,7 +616,7 @@
                     </div>
                   </div>
 
-                  <div class="card mb-4 border-secondary shadow-sm">
+                  <div class="rp-card">
                     <div class="card-header d-flex align-items-center surface-card border-bottom border-secondary p-3">
                         <i class="bi bi-bank text-primary fs-4 me-3"></i>
                         <h5 class="mb-0 me-2 fw-bold text-uppercase ls-1">8. Government Benefits</h5>
@@ -818,7 +819,7 @@
                     </div>
                   </div>
 
-                  <div class="card mb-4 border-secondary shadow-sm">
+                  <div class="rp-card">
                     <div class="card-header d-flex align-items-center surface-card border-bottom border-secondary p-3">
                       <i class="bi bi-graph-up-arrow text-secondary fs-4 me-3"></i>
                       <h5 class="mb-0 fw-bold text-uppercase ls-1">9. Economic Assumptions</h5>
@@ -843,7 +844,7 @@
                   
                   <div class="row g-4 mb-4">
                       <div class="col-12 col-md-4">
-                          <div class="card p-4 border-secondary surface-card shadow-sm h-100 text-center">
+                          <div class="rp-card p-4 surface-card h-100 text-center">
                               <div class="text-muted small text-uppercase fw-bold mb-2 d-flex align-items-center justify-content-center">
                                   <span class="me-2">Total Investment Growth</span>
                                   <i class="bi bi-info-circle text-muted info-btn" style="cursor: help; font-size: 0.85rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="The Compounder" data-bs-content="The exact amount of wealth generated purely by your portfolio returns over your lifetime, excluding all cash deposits and withdrawals."></i>
@@ -853,7 +854,7 @@
                           </div>
                       </div>
                       <div class="col-12 col-md-4">
-                          <div class="card p-4 border-secondary surface-card shadow-sm h-100 text-center">
+                          <div class="rp-card p-4 surface-card h-100 text-center">
                               <div class="text-muted small text-uppercase fw-bold mb-2 d-flex align-items-center justify-content-center">
                                   <span class="me-2">Govt Benefits Collected</span>
                                   <i class="bi bi-info-circle text-muted info-btn" style="cursor: help; font-size: 0.85rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="Benefits Collected" data-bs-content="The combined total of all CPP and OAS collected over your lifetime, net of any OAS clawback penalties."></i>
@@ -863,7 +864,7 @@
                           </div>
                       </div>
                       <div class="col-12 col-md-4">
-                          <div class="card p-4 border-secondary surface-card shadow-sm h-100 text-center">
+                          <div class="rp-card p-4 surface-card h-100 text-center">
                               <div class="text-muted small text-uppercase fw-bold mb-2 d-flex align-items-center justify-content-center">
                                   <span class="me-2">Total Lifetime Tax Paid</span>
                                   <i class="bi bi-info-circle text-muted info-btn" style="cursor: help; font-size: 0.85rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="Total Lifetime Tax" data-bs-content="The combined Federal and Provincial income taxes paid over the entire simulation."></i>
@@ -876,7 +877,7 @@
 
                   <div class="row g-4 mb-4">
                       <div class="col-12 col-md-4">
-                          <div class="card p-4 border-secondary surface-card shadow-sm h-100 text-center">
+                          <div class="rp-card p-4 surface-card h-100 text-center">
                               <div class="text-muted small text-uppercase fw-bold mb-2 d-flex align-items-center justify-content-center">
                                   <span class="me-2">Avg. Retirement Spending</span>
                                   <i class="bi bi-info-circle text-muted info-btn" style="cursor: help; font-size: 0.85rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="Retirement Lifestyle" data-bs-content="Your average annual living expenses during retirement. Excludes taxes and debt repayments."></i>
@@ -886,7 +887,7 @@
                           </div>
                       </div>
                       <div class="col-12 col-md-4">
-                          <div class="card p-4 border-secondary surface-card shadow-sm h-100 text-center">
+                          <div class="rp-card p-4 surface-card h-100 text-center">
                               <div class="text-muted small text-uppercase fw-bold mb-2 d-flex align-items-center justify-content-center">
                                   <span class="me-2">Total Living Expenses</span>
                                   <i class="bi bi-info-circle text-muted info-btn" style="cursor: help; font-size: 0.85rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="Total Living Expenses" data-bs-content="The total amount of cash spent on the lifestyle budgets defined in the Expenses section over the entire simulation."></i>
@@ -896,7 +897,7 @@
                           </div>
                       </div>
                       <div class="col-12 col-md-4">
-                          <div class="card p-4 border-secondary surface-card shadow-sm h-100 text-center">
+                          <div class="rp-card p-4 surface-card h-100 text-center">
                               <div class="text-muted small text-uppercase fw-bold mb-2 d-flex align-items-center justify-content-center">
                                   <span class="me-2">Total Gross Inflow</span>
                                   <i class="bi bi-info-circle text-muted info-btn" style="cursor: help; font-size: 0.85rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="Total Gross Inflow" data-bs-content="Every dollar that flows into your accounts, including employment income, pensions, government benefits, investment yields, and asset sales."></i>
@@ -909,7 +910,7 @@
                   
                   <div class="row g-4 mb-4">
                       <div class="col-12 col-md-6">
-                          <div class="card p-4 border-secondary surface-card shadow-sm h-100">
+                          <div class="rp-card p-4 surface-card h-100">
                               <h6 class="text-info fw-bold text-uppercase ls-1 mb-3 pb-2 border-bottom border-secondary d-flex align-items-center">
                                   <span class="me-2">Milestones & Estate</span>
                                   <i class="bi bi-info-circle text-muted info-btn" style="cursor: help; font-size: 0.85rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="Milestones & Estate" data-bs-content="Key timeline events and the final value of your assets (liquid cash + real estate equity) passed on to your estate at the end of the simulation."></i>
@@ -937,7 +938,7 @@
                           </div>
                       </div>
                       <div class="col-12 col-md-6">
-                          <div class="card p-4 border-secondary surface-card shadow-sm h-100">
+                          <div class="rp-card p-4 surface-card h-100">
                               <h6 class="text-purple fw-bold text-uppercase ls-1 mb-3 pb-2 border-bottom border-secondary d-flex align-items-center" style="color: var(--purple);">
                                   <span class="me-2">Lifetime Cash Distribution</span>
                                   <i class="bi bi-info-circle text-muted info-btn" style="cursor: help; font-size: 0.85rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="Cash Distribution" data-bs-content="A visual breakdown of where every dollar generated by your plan ended up going over your lifetime."></i>
@@ -951,7 +952,7 @@
 
                   <div class="row g-4">
                       <div class="col-12">
-                          <div class="card p-4 border-secondary surface-card shadow-sm h-100">
+                          <div class="rp-card p-4 surface-card h-100">
                               <h6 class="text-success fw-bold text-uppercase ls-1 mb-3 pb-2 border-bottom border-secondary d-flex align-items-center">
                                   <span class="me-2">Net Worth Composition Over Time</span>
                                   <i class="bi bi-info-circle text-muted info-btn" style="cursor: help; font-size: 0.85rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="Asset Transition" data-bs-content="A stacked area chart showing exactly how your wealth transitions between different account types (like RRSP to TFSA) throughout your life."></i>
@@ -1016,7 +1017,7 @@
 
                 <div class="row g-4">
                   <div class="col-md-6 border-end border-secondary pe-md-4 d-flex flex-column">
-                    <div class="card border-secondary surface-card shadow-sm h-100">
+                    <div class="rp-card surface-card h-100">
                         <div class="card-header border-secondary text-uppercase small fw-bold text-muted d-flex justify-content-between align-items-center">
                             <span>Annual Contribution Limits</span>
                             <a href="https://www.canada.ca/en/revenue-agency/services/tax/individuals/topics/rrsps-related-plans/contributing-a-rrsp-prpp/contributions-affect-your-rrsp-prpp-deduction-limit.html" target="_blank" class="text-muted info-btn" title="CRA Limits Info"><i class="bi bi-box-arrow-up-right"></i></a>
@@ -1078,7 +1079,7 @@
                   </div>
 
                   <div class="col-md-6 ps-md-4 d-flex flex-column gap-4">
-                    <div class="card border-secondary surface-card shadow-sm">
+                    <div class="rp-card surface-card">
                         <div class="card-header border-secondary text-uppercase small fw-bold text-muted d-flex align-items-center">
                             <span class="me-2">Tax & Benefit Optimization</span>
                         </div>
@@ -1095,7 +1096,7 @@
                         </div>
                     </div>
 
-                    <div class="card border-secondary surface-card shadow-sm flex-grow-1">
+                    <div class="rp-card surface-card flex-grow-1">
                         <div class="card-header border-secondary text-uppercase small fw-bold text-muted d-flex align-items-center">
                             <span class="me-2">Exceptions & Overrides</span>
                             <i class="bi bi-info-circle text-muted info-btn" style="cursor: help; font-size: 0.85rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="Exceptions & Overrides" data-bs-content="Specific rules to skip contributions during the first year, useful if you have recently made lump-sum deposits before starting the plan."></i>
@@ -1147,7 +1148,7 @@
                 </h5>
                 <div class="row g-4">
                     <div class="col-12 col-xl-6">
-                        <div class="card p-4 border-secondary surface-card shadow-sm h-100 transition-all">
+                        <div class="rp-card p-4 surface-card h-100 transition-all">
                             <h6 class="text-success fw-bold mb-2 fs-5"><i class="bi bi-bullseye me-2"></i>Optimal RRSP Calculator</h6>
                             <p class="small text-muted mb-4">Find your RRSP "Sweet Spot". Calculates exactly how much to contribute to maximize your tax refund before dropping into a lower tax bracket.</p>
                             <div class="d-grid mb-3 mt-auto">
@@ -1159,7 +1160,7 @@
                     </div>
 
                     <div class="col-12 col-xl-6">
-                        <div class="card p-4 border-secondary surface-card shadow-sm h-100 transition-all">
+                        <div class="rp-card p-4 surface-card h-100 transition-all">
                             <h6 class="text-info fw-bold mb-2 fs-5"><i class="bi bi-rocket-takeoff me-2"></i>RRSP Gross-Up Optimizer</h6>
                             <p class="small text-muted mb-4">Calculate how to maximize your RRSP contribution by using a short-term loan that is completely paid off by the resulting tax refund.</p>
                             <div class="d-grid mb-3 mt-auto">
@@ -1171,7 +1172,7 @@
                     </div>
 
                     <div class="col-12 col-xl-6">
-                        <div class="card p-4 border-secondary surface-card shadow-sm h-100 transition-all">
+                        <div class="rp-card p-4 surface-card h-100 transition-all">
                             <h6 class="text-primary fw-bold mb-2 fs-5"><i class="bi bi-arrow-repeat me-2"></i>Smith Maneuver Simulator</h6>
                             <p class="small text-muted mb-4">Convert your non-deductible mortgage into a tax-deductible investment loan. See how much wealth this Canadian strategy could generate for you.</p>
                             <div class="d-grid mb-3 mt-auto">
@@ -1183,7 +1184,7 @@
                     </div>
 
                     <div class="col-12 col-xl-6">
-                        <div class="card p-4 border-secondary surface-card shadow-sm h-100 transition-all opacity-50">
+                        <div class="rp-card p-4 surface-card h-100 transition-all opacity-50">
                             <h6 class="text-muted fw-bold mb-2 fs-5"><i class="bi bi-infinity me-2"></i>Die With Zero (Maintenance)</h6>
                             <p class="small text-muted mb-4">Calculates how much more you can spend, or how much earlier you can retire, to end up with exactly $0 at the end of your life expectancy.</p>
                             <div class="d-grid mb-3 mt-auto">
@@ -1197,7 +1198,7 @@
                     </div>
 
                     <div class="col-12 col-xl-6">
-                        <div class="card p-4 border-secondary surface-card shadow-sm h-100 transition-all opacity-50">
+                        <div class="rp-card p-4 surface-card h-100 transition-all opacity-50">
                             <h6 class="text-muted fw-bold mb-2 fs-5"><i class="bi bi-arrow-left-right me-2"></i>CPP/OAS Breakeven Calculator</h6>
                             <p class="small text-muted mb-4">Compare taking CPP/OAS early vs. late. Factors in the opportunity cost of draining your own investments to bridge the gap.</p>
                             <div class="d-grid mb-3 mt-auto">
@@ -1209,7 +1210,7 @@
                     </div>
 
                     <div class="col-12 col-xl-6">
-                        <div class="card p-4 border-secondary surface-card shadow-sm h-100 transition-all opacity-50">
+                        <div class="rp-card p-4 surface-card h-100 transition-all opacity-50">
                             <h6 class="text-muted fw-bold mb-2 fs-5"><i class="bi bi-house-exclamation me-2"></i>Mortgage Rate Shock Simulator</h6>
                             <p class="small text-muted mb-4">Stress-test future mortgage renewals at higher interest rates to see the exact impact on your final retirement net worth.</p>
                             <div class="d-grid mb-3 mt-auto">
@@ -1267,7 +1268,7 @@
                     </div>
                     <div class="col-12 col-xl-9">
                         <h5 class="text-muted small text-uppercase fw-bold ls-1 mb-4 pb-2 border-bottom border-secondary"><i class="bi bi-activity me-2 text-info"></i>Simulation Outcomes</h5>
-                        <div class="card p-4 border-secondary surface-card shadow-sm h-100">
+                        <div class="rp-card p-4 surface-card h-100">
                              <div style="height: 500px; position: relative; width: 100%;">
                                 <canvas id="chartMonteCarlo"></canvas>
                              </div>
@@ -1292,7 +1293,7 @@
                 </div>
                 <div class="row g-4">
                   <div class="col-12">
-                    <div class="card p-4 border-secondary surface-card shadow-sm">
+                    <div class="rp-card p-4 surface-card">
                         <h6 class="text-center text-success mb-4 fw-bold text-uppercase ls-1">Net Worth Trajectory Comparison</h6>
                         <div style="height: 500px; position: relative; width: 100%;">
                             <canvas id="chartNW"></canvas>
@@ -1459,14 +1460,14 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   
-  <script src="config.js"></script>
+  <script type="module" src="config.js"></script>
   <script src="financeEngine.js"></script>
   
   <script src="uiController.js"></script>
   <script src="dataController.js"></script>
   <script src="optimizers.js"></script> 
   
-  <script src="script.js"></script>
+  <script type="module" src="script.js"></script>
   
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
