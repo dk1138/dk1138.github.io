@@ -4,6 +4,7 @@
  */
 
 import { FINANCIAL_CONSTANTS } from './config.js';
+import { migrateData } from './migrations.js'; // <-- Added migration import
 
 class RetirementPlanner {
     constructor() {
@@ -160,8 +161,19 @@ class RetirementPlanner {
                 const savedData = localStorage.getItem(this.AUTO_SAVE_KEY);
                 if (savedData) {
                     try { 
-                        const parsed = JSON.parse(savedData);
-                        this.loadStateToDOM(parsed); 
+                        let parsed = JSON.parse(savedData);
+                        
+                        // --- NEW MIGRATION LOGIC ---
+                        const migrated = migrateData(parsed, this.APP_VERSION);
+                        
+                        if (migrated) {
+                            this.loadStateToDOM(migrated); 
+                        } else {
+                            // Fallback: If migration failed or version was too old
+                            console.log("Loading default values...");
+                            this.renderDefaults(); 
+                        }
+                        // ---------------------------
                     } catch(e) { 
                         console.error("Corrupted Save Found, resetting...", e); 
                         localStorage.removeItem(this.AUTO_SAVE_KEY);
@@ -541,13 +553,20 @@ class RetirementPlanner {
         const reader = new FileReader();
         reader.onload = event => {
             try { 
-                this.loadStateToDOM(JSON.parse(event.target.result)); 
-                this.run(); 
-                this.ui.updateScenarioBadge(file.name.replace('.json',''));
+                let parsed = JSON.parse(event.target.result);
                 
-                // UX Fix: Replacing the silent alert with a Toast mechanism would be best,
-                // but if Toasts aren't wired up globally yet, keep the alert for now.
-                alert('Plan loaded successfully.'); 
+                // --- NEW MIGRATION LOGIC ---
+                const migrated = migrateData(parsed, this.APP_VERSION);
+                
+                if (migrated) {
+                    this.loadStateToDOM(migrated); 
+                    this.run(); 
+                    this.ui.updateScenarioBadge(file.name.replace('.json',''));
+                    alert('Plan loaded successfully.'); 
+                } else {
+                    alert('Save file is too old or corrupted. Cannot load.');
+                }
+                // ---------------------------
             } 
             catch(err) { alert('Error parsing JSON.'); console.error(err); }
         };
@@ -802,7 +821,7 @@ class RetirementPlanner {
 
     loadStateToDOM(d) {
         if(!d) return;
-        if(d.version !== this.APP_VERSION) console.warn(`Updating save data from v${d.version||'old'} to v${this.APP_VERSION}`);
+
         this.state.inputs = {...(d.inputs||{})}; 
         
         this.state.strategies = {
