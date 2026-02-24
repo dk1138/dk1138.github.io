@@ -10,6 +10,159 @@ class Optimizers {
     }
 
     // ---------------- SMART OPTIMIZERS START ---------------- //
+
+    // --- CPP SMART IMPORTER & ANALYZER ---
+    runCPPImporter() {
+        const rawText = document.getElementById('cppPasteArea').value;
+        const targetPlayer = document.getElementById('cppTargetPlayer').value;
+        const targetRetAge = parseInt(document.getElementById('cppTargetAge').value) || 65;
+        const futureSalaryStr = document.getElementById('cppFutureSalary').value;
+        const futureSalary = Number(futureSalaryStr.replace(/,/g, '')) || 0;
+
+        const resultsArea = document.getElementById('cppResultsArea');
+
+        if (!rawText || rawText.trim() === '') {
+            alert('Please paste your Service Canada table data.');
+            return;
+        }
+
+        try {
+            // Instantiate the new CPP Engine
+            const cpp = new CPPEngine();
+            const records = cpp.parseServiceCanadaText(rawText);
+
+            if (records.length === 0) {
+                alert('Could not detect any valid year/earnings data. Please ensure you copied the table correctly.');
+                return;
+            }
+
+            const dobRaw = this.app.getRaw(`${targetPlayer}_dob`);
+            if (!dobRaw) {
+                alert('Please set a Date of Birth for this player in the Personal Information section first.');
+                return;
+            }
+
+            const birthYear = parseInt(dobRaw.split('-')[0]);
+            const currentYear = new Date().getFullYear();
+            const inflation = this.app.getVal('inflation_rate') / 100;
+
+            // We must calculate the baseline at age 65, because the main FinanceEngine 
+            // takes the Age 65 amount and applies the early/late penalty internally.
+            let lifetime = [...records];
+            let existingYears = new Set(lifetime.map(r => r.year));
+
+            // 1. Fill in missing past years with $0 (e.g. going to school, not working)
+            for (let y = birthYear + 18; y < currentYear; y++) {
+                if (!existingYears.has(y)) {
+                    lifetime.push({ year: y, earnings: 0 });
+                }
+            }
+
+            // 2. Project future years up to age 65
+            let currentSalary = futureSalary;
+            let lastYMPE = cpp.YMPE[2026] || 73200;
+
+            for (let y = currentYear; y < birthYear + 65; y++) {
+                // If they plan to retire BEFORE 65, their earnings drop to $0, 
+                // which accurately drags down their CPP estimate (unlike Service Canada's default projection)
+                let isWorking = y < (birthYear + targetRetAge);
+                let appliedSalary = isWorking ? currentSalary : 0;
+
+                if (!existingYears.has(y)) {
+                    lifetime.push({ year: y, earnings: appliedSalary, isProjected: true });
+                }
+
+                if (isWorking) currentSalary *= (1 + inflation);
+                
+                // Inflate the YMPE table for future math
+                if (!cpp.YMPE[y]) {
+                    lastYMPE *= (1 + inflation);
+                    cpp.YMPE[y] = lastYMPE;
+                }
+            }
+
+            lifetime.sort((a, b) => a.year - b.year);
+
+            // 3. Calculate Exact Base CPP at age 65
+            const startPensionYear = birthYear + 65;
+            const result = cpp.calculateBaseCPP(lifetime, birthYear, startPensionYear, []);
+
+            const annualBase = result.monthlyBase * 12;
+            const fmt = n => '$' + Math.round(n).toLocaleString();
+
+            // 4. Render Results
+            let html = `
+                <h6 class="text-success fw-bold mb-3"><i class="bi bi-check-circle-fill me-2"></i>Data Parsed & Projected!</h6>
+                <div class="row g-3 mb-3 text-white small">
+                    <div class="col-6"><b>Past Years Parsed:</b> ${records.length}</div>
+                    <div class="col-6"><b>Contributory Months:</b> ${result.monthsContributoryTotal}</div>
+                    <div class="col-6"><b>Lowest Years Dropped:</b> ${result.droppedGeneralYears} (17% Rule)</div>
+                    <div class="col-6"><b>Lifetime Avg Earnings Ratio:</b> ${(result.averageRatio * 100).toFixed(1)}%</div>
+                </div>
+                
+                <div class="card bg-success bg-opacity-10 border-success border-opacity-50 p-3 text-center mb-3">
+                    <div class="small fw-bold text-success text-uppercase ls-1 mb-1">Calculated Age 65 Baseline Amount</div>
+                    <div class="display-6 fw-bold text-white">${fmt(annualBase)}<span class="fs-5 text-muted fw-normal">/yr</span></div>
+                    <div class="small text-muted mt-2">This is the exact value to enter into your plan. The main simulator will automatically adjust this number up or down if you choose to take CPP before or after age 65.</div>
+                </div>
+
+                <button class="btn btn-success w-100 fw-bold py-3 fs-5" onclick="app.optimizers.applyCPPEstimate('${targetPlayer}', ${annualBase})">
+                    <i class="bi bi-arrow-right-circle-fill me-2"></i>Apply ${fmt(annualBase)} to ${targetPlayer.toUpperCase()} Plan
+                </button>
+            `;
+
+            resultsArea.innerHTML = html;
+            resultsArea.style.display = 'block';
+
+        } catch (err) {
+            console.error(err);
+            alert("An error occurred calculating CPP. Please ensure the pasted text is the raw table from Service Canada.");
+        }
+    }
+    
+    applyCPPEstimate(player, amount) {
+        const el = document.getElementById(`${player}_cpp_est_base`);
+        if (el) {
+            // Update the input field
+            el.value = Math.round(amount).toLocaleString();
+            this.app.state.inputs[`${player}_cpp_est_base`] = Math.round(amount);
+            
+            // Enable the CPP toggle if it was off
+            const toggle = document.getElementById(`${player}_cpp_enabled`);
+            if (toggle && !toggle.checked) {
+                toggle.checked = true;
+                this.app.state.inputs[`${player}_cpp_enabled`] = true;
+                this.app.ui.updateBenefitVisibility();
+            }
+
+            // Run main engine
+            this.app.run();
+            
+            // Close the modal
+            const modalEl = document.getElementById('cppAnalyzerModal');
+            if (modalEl) {
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                if (modal) modal.hide();
+            }
+            
+            // Auto switch to inputs tab and scroll to CPP section
+            const planTab = document.querySelector('button[data-bs-target="#plan-pane"]');
+            if(planTab) {
+                if (typeof bootstrap !== 'undefined' && bootstrap.Tab) {
+                    bootstrap.Tab.getOrCreateInstance(planTab).show();
+                } else {
+                    planTab.click();
+                }
+                setTimeout(() => { 
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' }); 
+                    // Add a visual flash effect to show it updated
+                    el.classList.add('bg-success', 'text-white');
+                    setTimeout(() => el.classList.remove('bg-success', 'text-white'), 1000);
+                }, 300);
+            }
+        }
+    }
+
     runDieWithZero() {
         const btn = document.getElementById('btnRunDwZ');
         if(btn) { btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Calculating...'; btn.disabled = true; }
@@ -691,7 +844,6 @@ class Optimizers {
         `;
         modalContainer.innerHTML = html;
         
-        // Add event listener to handle tab styling properly
         const summaryTab = document.getElementById('sm-summary-tab');
         const dataTab = document.getElementById('sm-data-tab');
         
@@ -739,7 +891,6 @@ class Optimizers {
             return;
         }
 
-        // Standard mortgage payment math
         let monthlyMortgageRate = rateMortgage / 12;
         let numPayments = amortYears * 12;
         let payment = 0;
@@ -749,11 +900,9 @@ class Optimizers {
             payment = balMortgage / numPayments;
         }
 
-        // State variables for Standard tracking
         let stdMortgage = balMortgage;
         let stdPortfolio = 0;
 
-        // State variables for Smith Maneuver tracking
         let smMortgage = balMortgage;
         let smHeloc = 0;
         let smPortfolio = 0;
@@ -768,7 +917,6 @@ class Optimizers {
         let chartDataSM = [0];
         let tableData = [];
 
-        // Handle Day 1 Deployment
         if (useDay1) {
             let maxTotalDebt = currentPropVal * 0.80;
             let maxHelocLimit = currentPropVal * 0.65;
@@ -790,13 +938,10 @@ class Optimizers {
         let smMortgagePaidOffMonth = 0;
         let stdMortgagePaidOffMonth = 0;
 
-        // Simulate month by month
         for (let m = 1; m <= numPayments; m++) {
             
-            // 1. Grow Property
             currentPropVal += currentPropVal * (propGrowth / 12);
 
-            // 2. Standard Mortgage Paydown
             if (stdMortgage > 0) {
                 let stdInterest = stdMortgage * monthlyMortgageRate;
                 let stdPrincipal = payment - stdInterest;
@@ -807,12 +952,10 @@ class Optimizers {
                 stdMortgage -= stdPrincipal;
             } else {
                 if(stdMortgagePaidOffMonth === 0) stdMortgagePaidOffMonth = m;
-                // If standard mortgage is paid off, redirect payment to standard portfolio
                 stdPortfolio += payment;
             }
             stdPortfolio += stdPortfolio * (rateInvest / 12);
 
-            // 3. Smith Maneuver Flow
             let maxTotalDebt = currentPropVal * 0.80;
             let maxHelocLimit = currentPropVal * 0.65;
 
@@ -825,87 +968,64 @@ class Optimizers {
                 }
                 smMortgage -= smPrincipal;
 
-                // Standard SM: Borrow exact principal paid to invest (if room exists)
                 let availHeloc = Math.max(0, Math.min(maxTotalDebt - smMortgage, maxHelocLimit) - smHeloc);
                 let borrowInvest = Math.min(smPrincipal, availHeloc);
                 smHeloc += borrowInvest;
                 smPortfolio += borrowInvest;
 
-                // Cash Damming Phase: Use business cashflow to pay down mortgage, borrow from HELOC to pay the business expense.
                 if (useCashDam && monthlyCashDam > 0 && smMortgage > 0) {
-                    // How much room is left on the HELOC right now?
                     let damRoom = Math.max(0, Math.min(maxTotalDebt - smMortgage, maxHelocLimit) - smHeloc);
-                    
-                    // We can only dam up to our available room, or the remaining mortgage balance.
                     let actualDam = Math.min(monthlyCashDam, damRoom, smMortgage);
                     
                     smMortgage -= actualDam;
                     smHeloc += actualDam;
-                    // Note: Portfolio does NOT grow here. The borrowed money pays the plumber/taxes. The cash went to the mortgage.
                 }
 
             } else {
                 if(smMortgagePaidOffMonth === 0) smMortgagePaidOffMonth = m;
                 
-                // Mortgage is paid off! Redirect the payment to pay down the HELOC.
                 let helocPaydown = Math.min(payment, smHeloc);
                 smHeloc -= helocPaydown;
-                // Any leftover payment gets invested
                 if (payment > helocPaydown) smPortfolio += (payment - helocPaydown);
-                
-                // If mortgage is gone, cash damming stops. Business revenue just pays business expenses normally.
             }
 
-            // 4. Calculate HELOC Interest & Capitalize
             let helocMonthlyInterest = smHeloc * (rateHeloc / 12);
             currentYearInterest += helocMonthlyInterest;
             totalInterestPaid += helocMonthlyInterest;
             
-            // Capitalize interest (borrow from HELOC to pay interest) if room exists. 
-            // In reality, banks require it out of pocket if you hit the 65% limit. We assume you borrow it.
             let roomForInterest = Math.max(0, Math.min(maxTotalDebt - smMortgage, maxHelocLimit) - smHeloc);
             let interestBorrowed = Math.min(helocMonthlyInterest, roomForInterest);
             smHeloc += interestBorrowed;
             
-            // Note: If interestBorrowed < helocMonthlyInterest, you'd technically have to pay it from cash flow 
-            // which reduces your portfolio growth. For a strict LTV simulation, we subtract the unpaid interest from the portfolio.
             let interestOutOfPocket = helocMonthlyInterest - interestBorrowed;
             if (interestOutOfPocket > 0) smPortfolio -= interestOutOfPocket;
 
-            // 5. Portfolio growth
             smPortfolio += smPortfolio * (rateInvest / 12);
 
-            // 6. End of Year Tax Processing
             if (m % 12 === 0 || m === numPayments) {
                 let refund = currentYearInterest * taxRate;
                 totalTaxRefunds += refund;
                 
                 if (useAccelerator && smMortgage > 0) {
-                    // Apply refund to mortgage principal
                     let lumpSum = Math.min(smMortgage, refund);
                     smMortgage -= lumpSum;
                     
-                    // Borrow that newly freed room to invest
                     let newRoom = Math.max(0, Math.min(maxTotalDebt - smMortgage, maxHelocLimit) - smHeloc);
                     let accelBorrow = Math.min(lumpSum, newRoom);
                     smHeloc += accelBorrow;
                     smPortfolio += accelBorrow;
 
-                    // If refund exceeded mortgage, invest the remainder directly
                     if (refund > lumpSum) {
                         smPortfolio += (refund - lumpSum);
                     }
                 } else if (useAccelerator && smMortgage <= 0) {
-                    // Mortgage gone, apply refund to HELOC
                     smHeloc -= Math.min(smHeloc, refund);
                 } else {
-                    // Pure Smith Maneuver: Reinvest refund into portfolio
                     smPortfolio += refund;
                 }
                 
                 currentYearInterest = 0;
 
-                // Snapshot for Chart and Table
                 let year = Math.ceil(m / 12);
                 let stdNetEquity = currentPropVal - stdMortgage + stdPortfolio;
                 let smNetEquity = currentPropVal - smMortgage - smHeloc + smPortfolio;
@@ -929,7 +1049,6 @@ class Optimizers {
 
         let finalNetBenefit = chartDataSM[chartDataSM.length - 1];
 
-        // Build UI Summary
         let html = `
             <div class="row mb-4 g-3 mt-1">
                 <div class="col-6">
@@ -989,7 +1108,6 @@ class Optimizers {
 
         chartContainer.innerHTML = html;
 
-        // Build Table rows
         let tableRows = '';
         tableData.forEach(row => {
             let mortPaid = row.smMort <= 0 && row.year > 0 && tableData[row.year-1] && tableData[row.year-1].smMort > 0;
@@ -1007,7 +1125,6 @@ class Optimizers {
         });
         tableBody.innerHTML = tableRows;
 
-        // Render Chart
         const ctx = document.getElementById('smChart').getContext('2d');
         if (this.smChartInstance) this.smChartInstance.destroy();
 
