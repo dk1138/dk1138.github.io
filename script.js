@@ -4,7 +4,6 @@
  */
 
 import { FINANCIAL_CONSTANTS } from './config.js';
-import { migrateData } from './migrations.js'; // <-- Added migration import
 
 class RetirementPlanner {
     constructor() {
@@ -107,6 +106,18 @@ class RetirementPlanner {
         };
     }
 
+    // Helper to safely compare semantic versions like "10.14.4" and "10.0.0"
+    isVersionTooOld(saveVersion, minVersion) {
+        if (!saveVersion) return true;
+        const s = saveVersion.split('.').map(Number);
+        const m = minVersion.split('.').map(Number);
+        for (let i = 0; i < m.length; i++) {
+            if ((s[i] || 0) < m[i]) return true;
+            if ((s[i] || 0) > m[i]) return false;
+        }
+        return false;
+    }
+
     getEngineData() {
         return {
             inputs: { ...this.state.inputs },
@@ -158,22 +169,23 @@ class RetirementPlanner {
                 }
                 
                 this.ui.populateAgeSelects();
+                
+                // Define the minimum version required to load a save file
+                const MIN_VERSION = "10.0.0"; 
                 const savedData = localStorage.getItem(this.AUTO_SAVE_KEY);
+                
                 if (savedData) {
                     try { 
                         let parsed = JSON.parse(savedData);
                         
-                        // --- NEW MIGRATION LOGIC ---
-                        const migrated = migrateData(parsed, this.APP_VERSION);
-                        
-                        if (migrated) {
-                            this.loadStateToDOM(migrated); 
+                        // Check if the save is compatible
+                        if (this.isVersionTooOld(parsed.version, MIN_VERSION)) {
+                            console.warn(`Save file (v${parsed.version || 'unknown'}) is too old. Minimum required is v${MIN_VERSION}. Loading defaults.`);
+                            localStorage.removeItem(this.AUTO_SAVE_KEY);
+                            this.renderDefaults();
                         } else {
-                            // Fallback: If migration failed or version was too old
-                            console.log("Loading default values...");
-                            this.renderDefaults(); 
+                            this.loadStateToDOM(parsed); 
                         }
-                        // ---------------------------
                     } catch(e) { 
                         console.error("Corrupted Save Found, resetting...", e); 
                         localStorage.removeItem(this.AUTO_SAVE_KEY);
@@ -551,22 +563,21 @@ class RetirementPlanner {
         const file = e.target.files[0];
         if (!file) return;
         const reader = new FileReader();
+        const MIN_VERSION = "10.0.0"; // Ensures file uploads respect the same version floor
+
         reader.onload = event => {
             try { 
                 let parsed = JSON.parse(event.target.result);
                 
-                // --- NEW MIGRATION LOGIC ---
-                const migrated = migrateData(parsed, this.APP_VERSION);
-                
-                if (migrated) {
-                    this.loadStateToDOM(migrated); 
-                    this.run(); 
-                    this.ui.updateScenarioBadge(file.name.replace('.json',''));
-                    alert('Plan loaded successfully.'); 
-                } else {
-                    alert('Save file is too old or corrupted. Cannot load.');
+                if (this.isVersionTooOld(parsed.version, MIN_VERSION)) {
+                    alert('This save file is too old and is no longer compatible with this version of the planner.');
+                    return; 
                 }
-                // ---------------------------
+                
+                this.loadStateToDOM(parsed); 
+                this.run(); 
+                this.ui.updateScenarioBadge(file.name.replace('.json',''));
+                alert('Plan loaded successfully.'); 
             } 
             catch(err) { alert('Error parsing JSON.'); console.error(err); }
         };
