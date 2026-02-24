@@ -85,6 +85,15 @@ body {
   box-shadow: var(--shadow);
 }
 
+/* New custom class to clean up HTML clutter */
+.rp-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-bottom: 1.5rem; /* Replaces .mb-4 */
+}
+
 .main-header {
   background: var(--bg-card);
   border-bottom: 1px solid var(--border-color);
@@ -714,6 +723,9 @@ body:not(.is-couple) .p2-column:not(td):not(th) { display: none; }
 /* Info Button Styling */
 .info-btn {
     transition: all 0.2s ease;
+    padding: 8px;  /* Increased tap target */
+    margin: -8px;  /* Offset padding */
+    display: inline-block;
 }
 .info-btn.text-muted:hover {
     color: var(--info) !important;
