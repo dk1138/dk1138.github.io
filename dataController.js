@@ -1,7 +1,7 @@
 /**
  * Retirement Planner Pro - Data Controller
  * Handles CRUD operations and rendering for dynamic input arrays
- * (Properties, Income, Expenses, Windfalls, Dependents, Strategy, Debt).
+ * (Properties, Income, Expenses, Windfalls, Dependents, Strategy, Debt, Leaves).
  */
 class DataController {
     constructor(app) {
@@ -167,6 +167,93 @@ class DataController {
         this.app.showConfirm("Remove income stream?", () => { 
             this.app.state.additionalIncome.splice(idx, 1); 
             this.renderAdditionalIncome(); this.updateIncomeDisplay(); this.app.run(); 
+        }); 
+    }
+
+    // --- LEAVES OF ABSENCE (e.g., Mat Leave) ---
+    renderLeaves() {
+        const cP1 = document.getElementById('p1-leaves-container');
+        const cP2 = document.getElementById('p2-leaves-container');
+        if(cP1) cP1.innerHTML = ''; 
+        if(cP2) cP2.innerHTML = '';
+        
+        if (!this.app.state.leaves) this.app.state.leaves = [];
+
+        this.app.state.leaves.forEach((l, idx) => {
+            const tgt = l.owner === 'p2' ? cP2 : cP1; 
+            if(!tgt) return;
+            
+            const div = document.createElement('div'); 
+            div.className = 'leave-row p-3 border border-secondary rounded-3 bg-black bg-opacity-25 mt-3 mb-3';
+            
+            div.innerHTML = `
+            <div class="d-flex justify-content-between mb-3">
+                <input type="text" class="form-control form-control-sm bg-transparent border-0 fw-bold text-warning fs-6 leave-update px-0" placeholder="Leave Name (e.g., Mat Leave)" value="${l.name}" data-idx="${idx}" data-field="name">
+                <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2 rounded-circle" onclick="app.data.removeLeave(${idx})"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="row g-3 align-items-center mb-2">
+                <div class="col-6">
+                    <label class="form-label small text-muted mb-1">Start Date</label>
+                    <input type="month" class="form-control form-control-sm border-secondary leave-update" value="${l.start || new Date().toISOString().slice(0, 7)}" data-idx="${idx}" data-field="start">
+                </div>
+                <div class="col-6">
+                    <label class="form-label small text-muted mb-1">Total Duration</label>
+                    <div class="input-group input-group-sm">
+                        <input type="number" class="form-control border-secondary leave-update" value="${l.durationWeeks}" data-idx="${idx}" data-field="durationWeeks">
+                        <span class="input-group-text border-secondary text-muted">Wks</span>
+                    </div>
+                </div>
+            </div>
+            <div class="row g-3 align-items-end mb-2">
+                <div class="col-6">
+                    <label class="form-label small text-muted mb-1">Company Top-up Target</label>
+                    <div class="input-group input-group-sm">
+                        <input type="number" class="form-control border-secondary leave-update" value="${l.topUpPercent}" data-idx="${idx}" data-field="topUpPercent" placeholder="e.g. 90">
+                        <span class="input-group-text border-secondary text-muted">%</span>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <label class="form-label small text-muted mb-1">Top-up Duration</label>
+                    <div class="input-group input-group-sm">
+                        <input type="number" class="form-control border-secondary leave-update" value="${l.topUpWeeks}" data-idx="${idx}" data-field="topUpWeeks" placeholder="e.g. 17">
+                        <span class="input-group-text border-secondary text-muted">Wks</span>
+                    </div>
+                </div>
+            </div>`;
+            tgt.appendChild(div); 
+        });
+
+        document.querySelectorAll('.leave-update').forEach(el => {
+            el.addEventListener('input', e => {
+                const t = e.target;
+                const field = t.dataset.field;
+                let val = t.value;
+                if (['durationWeeks', 'topUpPercent', 'topUpWeeks'].includes(field)) val = Number(val) || 0;
+                this.app.state.leaves[t.dataset.idx][field] = val;
+                this.app.debouncedRun(); 
+            });
+        });
+    }
+
+    addLeave(owner) { 
+        if (!this.app.state.leaves) this.app.state.leaves = [];
+        this.app.state.leaves.push({ 
+            name: "Maternity / Parental Leave", 
+            owner, 
+            start: new Date().toISOString().slice(0, 7), 
+            durationWeeks: 52, 
+            topUpPercent: 90, 
+            topUpWeeks: 17 
+        }); 
+        this.renderLeaves(); 
+        this.app.run(); 
+    }
+    
+    removeLeave(idx) { 
+        this.app.showConfirm("Remove this leave of absence?", () => { 
+            this.app.state.leaves.splice(idx, 1); 
+            this.renderLeaves(); 
+            this.app.run(); 
         }); 
     }
 
