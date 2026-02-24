@@ -16,7 +16,7 @@ class Optimizers {
 
         setTimeout(() => {
             const engine = new FinanceEngine(this.app.getEngineData());
-            const baseResult = engine.runSimulation(false, null, this.app.data.getTotalDebt());
+            const baseResult = engine.runSimulation(false, null);
             const baseFinalNW = baseResult[baseResult.length - 1];
             
             const resultsDiv = document.getElementById('dwz_results');
@@ -33,7 +33,7 @@ class Optimizers {
             for(let i=0; i<15; i++) {
                 let mid = (minMult + maxMult) / 2;
                 let testEngine = new FinanceEngine(this.app.getEngineData());
-                let res = testEngine.runSimulation(false, { expenseMultiplier: mid }, this.app.data.getTotalDebt());
+                let res = testEngine.runSimulation(false, { expenseMultiplier: mid });
                 let finalNW = res[res.length - 1];
                 if (finalNW > 0) {
                     minMult = mid;
@@ -70,7 +70,7 @@ class Optimizers {
                 if(this.app.state.mode === 'Couple') testData.inputs['p2_retireAge'] = testP2Age;
                 
                 let testEngine = new FinanceEngine(testData);
-                let res = testEngine.runSimulation(false, null, this.app.data.getTotalDebt());
+                let res = testEngine.runSimulation(false, null);
                 let finalNW = res[res.length - 1];
                 
                 if (finalNW >= 0) {
@@ -1087,7 +1087,6 @@ class Optimizers {
             workerData.method = method;
             workerData.volatility = volatility;
             workerData.sp500 = this.app.SP500_HISTORICAL;
-            workerData.totalDebt = this.app.data.getTotalDebt();
 
             worker.postMessage(workerData);
             
