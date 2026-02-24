@@ -4,7 +4,7 @@
  * Update these values annually (e.g., CRA tax bracket adjustments, max CPP/OAS).
  */
 
-const FINANCIAL_CONSTANTS = {
+export const FINANCIAL_CONSTANTS = {
     // 2026 Maximums
     MAX_CPP: 18092, 
     MAX_OAS: 8908, 
