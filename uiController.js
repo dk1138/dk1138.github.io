@@ -2,6 +2,37 @@
  * Retirement Planner Pro - UI Controller
  * Handles all DOM manipulation, charts, themes, and grid rendering.
  */
+
+const POPOVER_DICTIONARY = {
+    compensation: (base, match) => `<b>Base Salary:</b> $${base}<br><b>Employer RRSP Match:</b> $${match}`,
+    rrspRefund: () => `Tax refund received this year resulting from your discretionary RRSP contributions made last year. Automatically added to your available cash.`,
+    oasClawback: (netInc, thresh, excess, repaymentText, maxInc) => `<b>Net Income:</b> $${netInc}<br><b>Threshold:</b> $${thresh}<br><b>Excess:</b> $${excess}<hr class='my-1'>${repaymentText}<br><span class='text-warning small' style='font-size:0.7rem;'>*Fully clawed back at $${maxInc}</span><br><span class='text-muted small' style='font-size:0.7rem;'>*Added to total taxes paid</span>`,
+    rrifMath: (bal, factor, min, extraStr) => `<b>Jan 1st Balance:</b> $${bal}<br><b>Min Factor:</b> ${factor}%<br><b>Required Min:</b> $${min}${extraStr}`,
+    capGains: (wd, acb, gain, tax) => `<b>Total Withdrawn:</b> $${wd}<br><b>Adjusted Cost Base (ACB):</b> -$${acb}<br><b>Capital Gain:</b> $${gain}<hr class='my-1'><b>Added to Taxable Income (50% Inclusion):</b> $${tax}`,
+    taxBreakdown: (fed, prov, cpp, oasCb, taxInc, avg, marg, matchSavStr, discSavStr) => {
+        let str = `<b>Federal Tax:</b> $${fed}<br><b>Provincial Tax:</b> $${prov}<br><b>CPP/EI:</b> $${cpp}`;
+        if (oasCb) str += `<br><b>OAS Clawback:</b> $${oasCb}`;
+        str += `<hr class='my-1'><b>Taxable Income:</b> $${taxInc}<br><b>Average Rate:</b> ${avg}%<br><b>Marginal Rate:</b> ${marg}%`;
+        if (matchSavStr || discSavStr) {
+            str += `<hr class='my-1'>`;
+            if (matchSavStr) str += `<b>Payroll Tax Saved (RRSP Match):</b> <span class='text-success'>$${matchSavStr}</span><br>`;
+            if (discSavStr) str += `<b>Est. Refund (Discretionary RRSP):</b> <span class='text-success'>$${discSavStr}</span><br><span class='text-muted' style='font-size:0.7rem;'>*Refund will be added to next year's cash.</span>`;
+        }
+        return str;
+    },
+    spousalRollover: (p1ToP2) => `<div style='max-width: 250px; white-space: normal; line-height: 1.4;'>Person ${p1ToP2 ? '1' : '2'} passed away this year. Under CRA rules, their registered accounts (RRSP/RRIF, TFSA, FHSA) and non-registered investments are transferred directly to Person ${p1ToP2 ? '2' : '1'} <b>tax-free</b>. No deemed disposition tax is triggered on these assets at this time.</div>`,
+    rrspContrib: (room, match, pers, total) => {
+         let str = `<b>Max CRA Deposit:</b> $${room}<hr class='my-1'>`;
+         if (total !== '0') {
+             if (match !== '0') str += `<b>Employer Match:</b> $${match}<br>`;
+             str += `<b>Personal Contrib:</b> $${pers}<br><b>Total Deposited:</b> <span class='text-success'>$${total}</span>`;
+         } else {
+             str += `<i>No deposits this year.</i>`;
+         }
+         return str;
+    }
+};
+
 class UIController {
     constructor(app) {
         this.app = app;
@@ -186,6 +217,12 @@ class UIController {
         return `<i class="bi ${d.icon} ${c}" title="${d.title}"></i>`;
     }
 
+    // Helper function to build Bootstrap popover icons cleanly
+    buildPopoverIcon(title, content, colorClass = "text-muted", size = "0.75rem") {
+        const safeContent = content.replace(/"/g, '&quot;');
+        return ` <i class="bi bi-info-circle ${colorClass} ms-1 info-btn" style="font-size: ${size}; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-html="true" data-bs-custom-class="projection-popover" data-bs-title="${title}" data-bs-content="${safeContent}"></i>`;
+    }
+
     renderProjectionGrid() {
         const th = document.documentElement.getAttribute('data-bs-theme')||'dark';
         const hC = th==='light'?'bg-white text-dark border-bottom border-dark-subtle':'bg-transparent text-white border-secondary';
@@ -202,16 +239,20 @@ class UIController {
                 const s = v < 0 ? '-' : ''; 
                 return a >= 1000000 ? s + (a/1000000).toFixed(1) + 'M' : (a >= 1000 ? s + Math.round(a/1000) + 'k' : s + Math.round(a)); 
             };
+            const fmtStr = n => Math.round(n / df).toLocaleString();
+
             const fmtFlow = (c, w) => {
                 if(c > 0) return ` <span class="text-success small fw-bold">(+${fmtK(c)})</span>`;
                 if(w > 0) return ` <span class="text-danger small fw-bold">(-${fmtK(w)})</span>`;
                 return '';
             };
+            
             const p1A = d.p1Alive ? d.p1Age : '†';
             const p2A = this.app.state.mode === 'Couple' ? (d.p2Alive ? d.p2Age : '†') : '';
             
             const p1R = this.app.getVal('p1_retireAge') <= d.p1Age, p2R = this.app.getVal('p2_retireAge') <= (d.p2Age||0);
             const gLim = parseInt(this.app.getRaw('exp_gogo_age'))||75, sLim = parseInt(this.app.getRaw('exp_slow_age'))||85;
+            
             let stat = `<span class="status-pill status-working">Working</span>`;
             if(this.app.state.mode==='Couple') { if(p1R&&p2R) stat = d.p1Age<gLim?`<span class="status-pill status-gogo">Go-go Phase</span>`:d.p1Age<sLim?`<span class="status-pill status-slow">Slow-go Phase</span>`:`<span class="status-pill status-nogo">No-go Phase</span>`; else if(p1R||p2R) stat = `<span class="status-pill status-semi">Transition</span>`; }
             else if(p1R) stat = d.p1Age<gLim?`<span class="status-pill status-gogo">Go-go Phase</span>`:d.p1Age<sLim?`<span class="status-pill status-slow">Slow-go Phase</span>`:`<span class="status-pill status-nogo">No-go Phase</span>`;
@@ -221,18 +262,17 @@ class UIController {
             
             let groupP1 = '', groupP2 = '', groupOther = '';
             
+            // --- P1 Income Builders ---
             if(d.incomeP1 > 0) {
                 let empLabel = "Employment";
                 if (d.rrspMatchP1 > 0) {
-                    let base = (d.incomeP1 - d.rrspMatchP1) / df;
-                    let match = d.rrspMatchP1 / df;
-                    let content = `<b>Base Salary:</b> $${Math.round(base).toLocaleString()}<br><b>Employer RRSP Match:</b> $${Math.round(match).toLocaleString()}`;
-                    empLabel += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-html="true" data-bs-custom-class="projection-popover" data-bs-title="Compensation Breakdown" data-bs-content="${content}"></i>`;
+                    let content = POPOVER_DICTIONARY.compensation(fmtStr(d.incomeP1 - d.rrspMatchP1), fmtStr(d.rrspMatchP1));
+                    empLabel += this.buildPopoverIcon("Compensation Breakdown", content);
                 }
                 groupP1 += ln(empLabel, d.incomeP1);
             }
             if(d.rrspRefundP1 > 0) {
-                let rfInfo = ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="RRSP Tax Refund" data-bs-content="Tax refund received this year resulting from your discretionary RRSP contributions made last year. Automatically added to your available cash."></i>`;
+                let rfInfo = this.buildPopoverIcon("RRSP Tax Refund", POPOVER_DICTIONARY.rrspRefund());
                 groupP1 += sL(`Tax Refund (RRSP)${rfInfo}`, d.rrspRefundP1, "text-success fw-bold");
             }
             if(d.postRetP1 > 0) groupP1 += sL("Post-Ret Work", d.postRetP1);
@@ -242,17 +282,12 @@ class UIController {
             if(d.oasP1 > 0) {
                 let label = "OAS";
                 if (d.oasClawbackP1 > 0) {
-                    let cbStr = Math.round(d.oasClawbackP1 / df).toLocaleString();
-                    let incStr = Math.round((d.taxIncP1 || 0) / df).toLocaleString();
-                    let threshStr = Math.round((d.oasThreshold || 0) / df).toLocaleString();
                     let excess = Math.max(0, (d.taxIncP1 || 0) - (d.oasThreshold || 0));
-                    let excessStr = Math.round(excess / df).toLocaleString();
-                    let maxRecovery = d.oasP1;
-                    let maxIncome = (d.oasThreshold || 0) + (maxRecovery / 0.15);
-                    let maxIncStr = Math.round(maxIncome / df).toLocaleString();
-                    let repaymentText = (d.oasClawbackP1 >= maxRecovery - 0.01) ? `<b>Repayment (100% Clawed Back):</b> $${cbStr}` : `<b>Repayment (15% of excess):</b> $${cbStr}`;
-
-                    label += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="OAS Clawback Math" data-bs-content="<b>Net Income:</b> $${incStr}<br><b>Threshold:</b> $${threshStr}<br><b>Excess:</b> $${excessStr}<hr class='my-1'>${repaymentText}<br><span class='text-warning small' style='font-size:0.7rem;'>*Fully clawed back at $${maxIncStr}</span><br><span class='text-muted small' style='font-size:0.7rem;'>*Added to total taxes paid</span>"></i>`;
+                    let maxIncome = (d.oasThreshold || 0) + (d.oasP1 / 0.15);
+                    let repaymentText = (d.oasClawbackP1 >= d.oasP1 - 0.01) ? `<b>Repayment (100% Clawed Back):</b> $${fmtStr(d.oasClawbackP1)}` : `<b>Repayment (15% of excess):</b> $${fmtStr(d.oasClawbackP1)}`;
+                    
+                    let content = POPOVER_DICTIONARY.oasClawback(fmtStr(d.taxIncP1 || 0), fmtStr(d.oasThreshold || 0), fmtStr(excess), repaymentText, fmtStr(maxIncome));
+                    label += this.buildPopoverIcon("OAS Clawback Math", content);
                 }
                 groupP1 += sL(label, d.oasP1);
             }
@@ -260,40 +295,36 @@ class UIController {
             if(d.dbP1 > 0) groupP1 += sL("DB Pension", d.dbP1);
             if(d.invIncP1 > 0) groupP1 += ln("Inv. Yield (Taxable)", d.invIncP1, "text-muted");
             
+            // P1 Withdrawal Builders
             Object.entries(d.wdBreakdown.p1).forEach(([t,a]) => {
                 if(t.endsWith('_math')) return; 
                 let label = `${t} Withdrawals`;
                 if(t === 'RRIF' && d.wdBreakdown.p1.RRIF_math) {
                     let m = d.wdBreakdown.p1.RRIF_math;
-                    let balStr = Math.round(m.bal / df).toLocaleString();
-                    let minStr = Math.round(m.min / df).toLocaleString();
                     let extraWd = Math.max(0, a - m.min);
-                    let extraStr = extraWd > 5 ? `<hr class='my-1'><b>Extra (Deficit) Wd:</b> $${Math.round(extraWd / df).toLocaleString()}` : '';
-                    label += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="RRIF Withdrawal Math" data-bs-content="<b>Jan 1st Balance:</b> $${balStr}<br><b>Min Factor:</b> ${(m.factor*100).toFixed(2)}%<br><b>Required Min:</b> $${minStr}${extraStr}"></i>`;
+                    let extraStr = extraWd > 5 ? `<hr class='my-1'><b>Extra (Deficit) Wd:</b> $${fmtStr(extraWd)}` : '';
+                    let content = POPOVER_DICTIONARY.rrifMath(fmtStr(m.bal), (m.factor*100).toFixed(2), fmtStr(m.min), extraStr);
+                    label += this.buildPopoverIcon("RRIF Withdrawal Math", content);
                 } else if ((t === 'Non-Reg' || t === 'Crypto') && d.wdBreakdown.p1[t + '_math']) {
                     let m = d.wdBreakdown.p1[t + '_math'];
-                    let wdStr = Math.round(m.wd / df).toLocaleString();
-                    let acbStr = Math.round(m.acb / df).toLocaleString();
-                    let gainStr = Math.round(m.gain / df).toLocaleString();
-                    let taxStr = Math.round(m.tax / df).toLocaleString();
-                    label += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="Capital Gains Math" data-bs-content="<b>Total Withdrawn:</b> $${wdStr}<br><b>Adjusted Cost Base (ACB):</b> -$${acbStr}<br><b>Capital Gain:</b> $${gainStr}<hr class='my-1'><b>Added to Taxable Income (50% Inclusion):</b> $${taxStr}"></i>`;
+                    let content = POPOVER_DICTIONARY.capGains(fmtStr(m.wd), fmtStr(m.acb), fmtStr(m.gain), fmtStr(m.tax));
+                    label += this.buildPopoverIcon("Capital Gains Math", content);
                 }
                 groupP1 += sL(label, a);
             });
 
+            // --- P2 Income Builders ---
             if(this.app.state.mode==='Couple') {
                 if(d.incomeP2 > 0) {
                     let empLabel = "Employment";
                     if (d.rrspMatchP2 > 0) {
-                        let base = (d.incomeP2 - d.rrspMatchP2) / df;
-                        let match = d.rrspMatchP2 / df;
-                        let content = `<b>Base Salary:</b> $${Math.round(base).toLocaleString()}<br><b>Employer RRSP Match:</b> $${Math.round(match).toLocaleString()}`;
-                        empLabel += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-html="true" data-bs-custom-class="projection-popover" data-bs-title="Compensation Breakdown" data-bs-content="${content}"></i>`;
+                        let content = POPOVER_DICTIONARY.compensation(fmtStr(d.incomeP2 - d.rrspMatchP2), fmtStr(d.rrspMatchP2));
+                        empLabel += this.buildPopoverIcon("Compensation Breakdown", content);
                     }
                     groupP2 += ln(empLabel, d.incomeP2);
                 }
                 if(d.rrspRefundP2 > 0) {
-                    let rfInfo = ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="RRSP Tax Refund" data-bs-content="Tax refund received this year resulting from your discretionary RRSP contributions made last year. Automatically added to your available cash."></i>`;
+                    let rfInfo = this.buildPopoverIcon("RRSP Tax Refund", POPOVER_DICTIONARY.rrspRefund());
                     groupP2 += sL(`Tax Refund (RRSP)${rfInfo}`, d.rrspRefundP2, "text-success fw-bold");
                 }
                 if(d.postRetP2 > 0) groupP2 += sL("Post-Ret Work", d.postRetP2);
@@ -302,40 +333,33 @@ class UIController {
                 if(d.oasP2 > 0) {
                     let label = "OAS";
                     if (d.oasClawbackP2 > 0) {
-                        let cbStr = Math.round(d.oasClawbackP2 / df).toLocaleString();
-                        let incStr = Math.round((d.taxIncP2 || 0) / df).toLocaleString();
-                        let threshStr = Math.round((d.oasThreshold || 0) / df).toLocaleString();
                         let excess = Math.max(0, (d.taxIncP2 || 0) - (d.oasThreshold || 0));
-                        let excessStr = Math.round(excess / df).toLocaleString();
-                        let maxRecovery = d.oasP2;
-                        let maxIncome = (d.oasThreshold || 0) + (maxRecovery / 0.15);
-                        let maxIncStr = Math.round(maxIncome / df).toLocaleString();
-                        let repaymentText = (d.oasClawbackP2 >= maxRecovery - 0.01) ? `<b>Repayment (100% Clawed Back):</b> $${cbStr}` : `<b>Repayment (15% of excess):</b> $${cbStr}`;
-
-                        label += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="OAS Clawback Math" data-bs-content="<b>Net Income:</b> $${incStr}<br><b>Threshold:</b> $${threshStr}<br><b>Excess:</b> $${excessStr}<hr class='my-1'>${repaymentText}<br><span class='text-warning small' style='font-size:0.7rem;'>*Fully clawed back at $${maxIncStr}</span><br><span class='text-muted small' style='font-size:0.7rem;'>*Added to total taxes paid</span>"></i>`;
+                        let maxIncome = (d.oasThreshold || 0) + (d.oasP2 / 0.15);
+                        let repaymentText = (d.oasClawbackP2 >= d.oasP2 - 0.01) ? `<b>Repayment (100% Clawed Back):</b> $${fmtStr(d.oasClawbackP2)}` : `<b>Repayment (15% of excess):</b> $${fmtStr(d.oasClawbackP2)}`;
+                        
+                        let content = POPOVER_DICTIONARY.oasClawback(fmtStr(d.taxIncP2 || 0), fmtStr(d.oasThreshold || 0), fmtStr(excess), repaymentText, fmtStr(maxIncome));
+                        label += this.buildPopoverIcon("OAS Clawback Math", content);
                     }
                     groupP2 += sL(label, d.oasP2);
                 }
                 
                 if(d.dbP2 > 0) groupP2 += sL("DB Pension", d.dbP2);
                 if(d.invIncP2 > 0) groupP2 += ln("Inv. Yield (Taxable)", d.invIncP2, "text-muted");
+                
+                // P2 Withdrawal Builders
                 Object.entries(d.wdBreakdown.p2).forEach(([t,a]) => {
                     if(t.endsWith('_math')) return; 
                     let label = `${t} Withdrawals`;
                     if(t === 'RRIF' && d.wdBreakdown.p2.RRIF_math) {
                         let m = d.wdBreakdown.p2.RRIF_math;
-                        let balStr = Math.round(m.bal / df).toLocaleString();
-                        let minStr = Math.round(m.min / df).toLocaleString();
                         let extraWd = Math.max(0, a - m.min);
-                        let extraStr = extraWd > 5 ? `<hr class='my-1'><b>Extra (Deficit) Wd:</b> $${Math.round(extraWd / df).toLocaleString()}` : '';
-                        label += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="RRIF Withdrawal Math" data-bs-content="<b>Jan 1st Balance:</b> $${balStr}<br><b>Min Factor:</b> ${(m.factor*100).toFixed(2)}%<br><b>Required Min:</b> $${minStr}${extraStr}"></i>`;
+                        let extraStr = extraWd > 5 ? `<hr class='my-1'><b>Extra (Deficit) Wd:</b> $${fmtStr(extraWd)}` : '';
+                        let content = POPOVER_DICTIONARY.rrifMath(fmtStr(m.bal), (m.factor*100).toFixed(2), fmtStr(m.min), extraStr);
+                        label += this.buildPopoverIcon("RRIF Withdrawal Math", content);
                     } else if ((t === 'Non-Reg' || t === 'Crypto') && d.wdBreakdown.p2[t + '_math']) {
                         let m = d.wdBreakdown.p2[t + '_math'];
-                        let wdStr = Math.round(m.wd / df).toLocaleString();
-                        let acbStr = Math.round(m.acb / df).toLocaleString();
-                        let gainStr = Math.round(m.gain / df).toLocaleString();
-                        let taxStr = Math.round(m.tax / df).toLocaleString();
-                        label += ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-title="Capital Gains Math" data-bs-content="<b>Total Withdrawn:</b> $${wdStr}<br><b>Adjusted Cost Base (ACB):</b> -$${acbStr}<br><b>Capital Gain:</b> $${gainStr}<hr class='my-1'><b>Added to Taxable Income (50% Inclusion):</b> $${taxStr}"></i>`;
+                        let content = POPOVER_DICTIONARY.capGains(fmtStr(m.wd), fmtStr(m.acb), fmtStr(m.gain), fmtStr(m.tax));
+                        label += this.buildPopoverIcon("Capital Gains Math", content);
                     }
                     groupP2 += sL(label, a);
                 });
@@ -350,20 +374,21 @@ class UIController {
             
             const buildTaxInfo = (tDetails, pName, taxIncObjStr, matchSav, discSav) => {
                 if (!tDetails || tDetails.totalTax <= 0) return `Tax Paid ${pName}`;
-                let content = `<b>Federal Tax:</b> $${Math.round(tDetails.fed / df).toLocaleString()}<br><b>Provincial Tax:</b> $${Math.round(tDetails.prov / df).toLocaleString()}<br><b>CPP/EI:</b> $${Math.round(tDetails.cpp_ei / df).toLocaleString()}`;
-                if (tDetails.oas_clawback > 0) content += `<br><b>OAS Clawback:</b> $${Math.round(tDetails.oas_clawback / df).toLocaleString()}`;
+                
                 let taxInc = d[taxIncObjStr] || 1;
                 let avgRate = ((tDetails.totalTax / taxInc) * 100).toFixed(1);
                 let margRate = ((tDetails.margRate || 0) * 100).toFixed(1);
-                content += `<hr class='my-1'><b>Taxable Income:</b> $${Math.round(taxInc / df).toLocaleString()}<br><b>Average Rate:</b> ${avgRate}%<br><b>Marginal Rate:</b> ${margRate}%`;
                 
-                if (matchSav > 0 || discSav > 0) {
-                    content += `<hr class='my-1'>`;
-                    if (matchSav > 0) content += `<b>Payroll Tax Saved (RRSP Match):</b> <span class='text-success'>$${Math.round(matchSav / df).toLocaleString()}</span><br>`;
-                    if (discSav > 0) content += `<b>Est. Refund (Discretionary RRSP):</b> <span class='text-success'>$${Math.round(discSav / df).toLocaleString()}</span><br><span class='text-muted' style='font-size:0.7rem;'>*Refund will be added to next year's cash.</span>`;
-                }
+                let mSavStr = matchSav > 0 ? fmtStr(matchSav) : null;
+                let dSavStr = discSav > 0 ? fmtStr(discSav) : null;
+                
+                let content = POPOVER_DICTIONARY.taxBreakdown(
+                    fmtStr(tDetails.fed), fmtStr(tDetails.prov), fmtStr(tDetails.cpp_ei),
+                    tDetails.oas_clawback > 0 ? fmtStr(tDetails.oas_clawback) : null,
+                    fmtStr(taxInc), avgRate, margRate, mSavStr, dSavStr
+                );
 
-                return `Tax Paid ${pName} <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-html="true" data-bs-title="${pName} Tax Breakdown" data-bs-content="${content}"></i>`;
+                return `Tax Paid ${pName}` + this.buildPopoverIcon(`${pName} Tax Breakdown`, content);
             };
 
             let p1TaxLabel = buildTaxInfo(d.taxDetailsP1, 'P1', 'taxIncP1', d.matchTaxSavingsP1, d.discTaxSavingsP1);
@@ -381,10 +406,10 @@ class UIController {
             
             if (this.app.state.mode === 'Couple') {
                 if (d.events.includes('P1 Dies') && d.p2Alive) {
-                    assetTitle += ` <i class="bi bi-info-circle text-warning ms-1 info-btn" style="font-size: 0.85rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-html="true" data-bs-title="Spousal Rollover (P1 &rarr; P2)" data-bs-content="<div style='max-width: 250px; white-space: normal; line-height: 1.4;'>Person 1 passed away this year. Under CRA rules, their registered accounts (RRSP/RRIF, TFSA, FHSA) and non-registered investments are transferred directly to Person 2 <b>tax-free</b>. No deemed disposition tax is triggered on these assets at this time.</div>"></i>`;
+                    assetTitle += this.buildPopoverIcon("Spousal Rollover (P1 &rarr; P2)", POPOVER_DICTIONARY.spousalRollover(true), "text-warning", "0.85rem");
                 }
                 if (d.events.includes('P2 Dies') && d.p1Alive) {
-                    assetTitle += ` <i class="bi bi-info-circle text-purple ms-1 info-btn" style="font-size: 0.85rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-custom-class="projection-popover" data-bs-html="true" data-bs-title="Spousal Rollover (P2 &rarr; P1)" data-bs-content="<div style='max-width: 250px; white-space: normal; line-height: 1.4;'>Person 2 passed away this year. Under CRA rules, their registered accounts (RRSP/RRIF, TFSA, FHSA) and non-registered investments are transferred directly to Person 1 <b>tax-free</b>. No deemed disposition tax is triggered on these assets at this time.</div>"></i>`;
+                    assetTitle += this.buildPopoverIcon("Spousal Rollover (P2 &rarr; P1)", POPOVER_DICTIONARY.spousalRollover(false), "text-purple", "0.85rem");
                 }
             }
             
@@ -401,15 +426,8 @@ class UIController {
                 let totalDep1 = d.flows.contributions.p1.rrsp || 0;
                 let empMatch1 = d.rrspMatchP1 || 0;
                 let persDep1 = Math.max(0, totalDep1 - empMatch1);
-                let room1 = d.rrspRoomP1 || 0;
-                let pContent = `<b>Max CRA Deposit:</b> $${Math.round(room1 / df).toLocaleString()}<hr class='my-1'>`;
-                if (totalDep1 > 0) {
-                    if (empMatch1 > 0) pContent += `<b>Employer Match:</b> $${Math.round(empMatch1 / df).toLocaleString()}<br>`;
-                    pContent += `<b>Personal Contrib:</b> $${Math.round(persDep1 / df).toLocaleString()}<br><b>Total Deposited:</b> <span class='text-success'>$${Math.round(totalDep1 / df).toLocaleString()}</span>`;
-                } else {
-                    pContent += `<i>No deposits this year.</i>`;
-                }
-                r1Info = ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-html="true" data-bs-custom-class="projection-popover" data-bs-title="Contribution Breakdown" data-bs-content="${pContent}"></i>`;
+                let content = POPOVER_DICTIONARY.rrspContrib(fmtStr(d.rrspRoomP1 || 0), fmtStr(empMatch1), fmtStr(persDep1), fmtStr(totalDep1));
+                r1Info = this.buildPopoverIcon("Contribution Breakdown", content);
             }
             aL += ln(`${r1Label} P1${r1Info}${fmtFlow(d.flows.contributions.p1.rrsp, r1Wd)}`, d.assetsP1.rrsp);
             
@@ -421,15 +439,8 @@ class UIController {
                     let totalDep2 = d.flows.contributions.p2.rrsp || 0;
                     let empMatch2 = d.rrspMatchP2 || 0;
                     let persDep2 = Math.max(0, totalDep2 - empMatch2);
-                    let room2 = d.rrspRoomP2 || 0;
-                    let pContent = `<b>Max CRA Deposit:</b> $${Math.round(room2 / df).toLocaleString()}<hr class='my-1'>`;
-                    if (totalDep2 > 0) {
-                        if (empMatch2 > 0) pContent += `<b>Employer Match:</b> $${Math.round(empMatch2 / df).toLocaleString()}<br>`;
-                        pContent += `<b>Personal Contrib:</b> $${Math.round(persDep2 / df).toLocaleString()}<br><b>Total Deposited:</b> <span class='text-success'>$${Math.round(totalDep2 / df).toLocaleString()}</span>`;
-                    } else {
-                        pContent += `<i>No deposits this year.</i>`;
-                    }
-                    r2Info = ` <i class="bi bi-info-circle text-muted ms-1 info-btn" style="font-size: 0.75rem; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-html="true" data-bs-custom-class="projection-popover" data-bs-title="Contribution Breakdown" data-bs-content="${pContent}"></i>`;
+                    let content = POPOVER_DICTIONARY.rrspContrib(fmtStr(d.rrspRoomP2 || 0), fmtStr(empMatch2), fmtStr(persDep2), fmtStr(totalDep2));
+                    r2Info = this.buildPopoverIcon("Contribution Breakdown", content);
                 }
                 aL += ln(`${r2Label} P2${r2Info}${fmtFlow(d.flows.contributions.p2.rrsp, r2Wd)}`, d.assetsP2.rrsp);
             }
