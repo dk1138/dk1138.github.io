@@ -15,7 +15,7 @@ class RetirementPlanner {
                 properties: [{ name: "Primary Home", value: 1000000, mortgage: 430000, growth: 3.0, rate: 3.29, payment: 0, manual: false, includeInNW: false, sellEnabled: false, sellAge: 65, replacementValue: 0 }],
                 windfalls: [],
                 additionalIncome: [],
-                leaves: [], // New: Added Leaves of Absence array
+                leaves: [],
                 dependents: [], 
                 strategies: { 
                     accum: ['tfsa', 'fhsa', 'resp', 'rrsp', 'nreg', 'cash', 'crypto', 'rrif_acct', 'lif', 'lirf'], 
@@ -107,7 +107,6 @@ class RetirementPlanner {
         };
     }
 
-    // Helper to safely compare semantic versions like "10.14.4" and "10.0.0"
     isVersionTooOld(saveVersion, minVersion) {
         if (!saveVersion) return true;
         const s = saveVersion.split('.').map(Number);
@@ -125,7 +124,7 @@ class RetirementPlanner {
             properties: structuredClone(this.state.properties || []),
             windfalls: structuredClone(this.state.windfalls || []),
             additionalIncome: structuredClone(this.state.additionalIncome || []),
-            leaves: structuredClone(this.state.leaves || []), // New: Pass leaves to engine
+            leaves: structuredClone(this.state.leaves || []),
             dependents: structuredClone(this.state.dependents || []),
             debt: structuredClone(this.state.debt || []),
             strategies: { 
@@ -172,15 +171,12 @@ class RetirementPlanner {
                 
                 this.ui.populateAgeSelects();
                 
-                // Define the minimum version required to load a save file
                 const MIN_VERSION = "10.0.0"; 
                 const savedData = localStorage.getItem(this.AUTO_SAVE_KEY);
                 
                 if (savedData) {
                     try { 
                         let parsed = JSON.parse(savedData);
-                        
-                        // Check if the save is compatible
                         if (this.isVersionTooOld(parsed.version, MIN_VERSION)) {
                             console.warn(`Save file (v${parsed.version || 'unknown'}) is too old. Minimum required is v${MIN_VERSION}. Loading defaults.`);
                             localStorage.removeItem(this.AUTO_SAVE_KEY);
@@ -226,7 +222,7 @@ class RetirementPlanner {
         if(this.state.debt.length === 0) this.data.addDebtRow(); 
         this.data.renderWindfalls(); 
         this.data.renderAdditionalIncome(); 
-        this.data.renderLeaves(); // Render leaves array (starts empty)
+        this.data.renderLeaves();
         this.data.renderDependents();
         this.data.renderStrategy();
     }
@@ -274,7 +270,6 @@ class RetirementPlanner {
     }
 
     formatInput(el) { 
-        // Capture exact cursor position before modifying
         const start = el.selectionStart;
         const oldValLength = el.value.length;
 
@@ -283,7 +278,6 @@ class RetirementPlanner {
             const newVal = Number(v).toLocaleString('en-US');
             el.value = newVal;
 
-            // Prevent cursor from jumping to the end
             if (document.activeElement === el) {
                 const diff = newVal.length - oldValLength;
                 const newPos = Math.max(0, start + diff);
@@ -354,7 +348,6 @@ class RetirementPlanner {
         if ($('btnAddIncomeP1')) $('btnAddIncomeP1').addEventListener('click', () => this.data.addAdditionalIncome('p1'));
         if ($('btnAddIncomeP2')) $('btnAddIncomeP2').addEventListener('click', () => this.data.addAdditionalIncome('p2'));
         
-        // Export Buttons
         if($('btnExportCSV')) $('btnExportCSV').addEventListener('click', () => this.exportToCSV());
         if($('btnExportPDF')) $('btnExportPDF').addEventListener('click', () => this.exportToPDF());
         
@@ -566,7 +559,7 @@ class RetirementPlanner {
         const file = e.target.files[0];
         if (!file) return;
         const reader = new FileReader();
-        const MIN_VERSION = "10.0.0"; // Ensures file uploads respect the same version floor
+        const MIN_VERSION = "10.0.0"; 
 
         reader.onload = event => {
             try { 
@@ -754,7 +747,8 @@ class RetirementPlanner {
         ]];
 
         const body = d.map(r => {
-            const df = this.app.getDiscountFactor(r.year - new Date().getFullYear());
+            // FIX: Removed "this.app." and correctly called the internal method
+            const df = this.getDiscountFactor(r.year - new Date().getFullYear());
             const fmtK = n => '$' + Math.round(n / df).toLocaleString();
             
             let ages = r.p1Age;
