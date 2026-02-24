@@ -10,6 +10,10 @@ export const FINANCIAL_CONSTANTS = {
     MAX_OAS: 8908, 
     OAS_CLAWBACK_THRESHOLD: 90997, // 2026 Estimated threshold for OAS recovery tax
     
+    // EI & Maternity Leave Rules (2026 Estimates)
+    MAX_EI_WEEKLY_BENEFIT: 720,    // Projected 2026 max weekly EI payment
+    EI_REPLACEMENT_RATE: 0.55,     // Standard EI pays 55% of average insurable weekly earnings
+
     // Core Rules
     RRIF_START_AGE: 72, 
 
