@@ -1,12 +1,14 @@
 /**
  * Retirement Planner Pro - Core Application Controller
- * Version 10.14.3 (Future Expenses Fixes)
+ * Version 10.14.4 (Performance & UX Optimizations)
  */
+
+import { FINANCIAL_CONSTANTS } from './config.js';
 
 class RetirementPlanner {
     constructor() {
         try {
-            this.APP_VERSION = "10.14.3";
+            this.APP_VERSION = "10.14.4";
             this.state = {
                 inputs: {},
                 debt: [],
@@ -26,14 +28,9 @@ class RetirementPlanner {
             this.AUTO_SAVE_KEY = 'rp_autosave_v1';
             this.THEME_KEY = 'rp_theme';
             
-            if (typeof FINANCIAL_CONSTANTS === 'undefined') {
-                console.error("CRITICAL ERROR: config.js is not loaded.");
-                this.CONSTANTS = { TAX_DATA: {}, MAX_OAS: 0, MAX_CPP: 0, RRIF_START_AGE: 72 };
-                this.SP500_HISTORICAL = [0.1];
-            } else {
-                this.CONSTANTS = FINANCIAL_CONSTANTS;
-                this.SP500_HISTORICAL = FINANCIAL_CONSTANTS.SP500_HISTORICAL;
-            }
+            // Assign Constants from the ES6 Module Import
+            this.CONSTANTS = FINANCIAL_CONSTANTS;
+            this.SP500_HISTORICAL = FINANCIAL_CONSTANTS.SP500_HISTORICAL;
 
             this.charts = { nw: null, sankey: null, mc: null }; 
             this.confirmModal = null; 
@@ -112,18 +109,18 @@ class RetirementPlanner {
     getEngineData() {
         return {
             inputs: { ...this.state.inputs },
-            properties: JSON.parse(JSON.stringify(this.state.properties || [])),
-            windfalls: JSON.parse(JSON.stringify(this.state.windfalls || [])),
-            additionalIncome: JSON.parse(JSON.stringify(this.state.additionalIncome || [])),
-            dependents: JSON.parse(JSON.stringify(this.state.dependents || [])),
-            debt: JSON.parse(JSON.stringify(this.state.debt || [])),
+            properties: structuredClone(this.state.properties || []),
+            windfalls: structuredClone(this.state.windfalls || []),
+            additionalIncome: structuredClone(this.state.additionalIncome || []),
+            dependents: structuredClone(this.state.dependents || []),
+            debt: structuredClone(this.state.debt || []),
             strategies: { 
                 accum: [...(this.state.strategies?.accum || ['tfsa', 'fhsa', 'resp', 'rrsp', 'nreg', 'cash', 'crypto', 'rrif_acct', 'lif', 'lirf'])], 
                 decum: [...(this.state.strategies?.decum || ['rrif_acct', 'lif', 'rrsp', 'lirf', 'crypto', 'nreg', 'tfsa', 'fhsa', 'resp', 'cash'])] 
             },
             mode: this.state.mode || 'Couple',
             expenseMode: this.state.expenseMode || 'Simple',
-            expensesByCategory: JSON.parse(JSON.stringify(this.expensesByCategory || {})),
+            expensesByCategory: structuredClone(this.expensesByCategory || {}),
             constants: this.CONSTANTS,
             strategyLabels: this.strategyLabels
         };
@@ -250,8 +247,22 @@ class RetirementPlanner {
     }
 
     formatInput(el) { 
+        // Capture exact cursor position before modifying
+        const start = el.selectionStart;
+        const oldValLength = el.value.length;
+
         const v = String(el.value).replace(/,/g, ''); 
-        if(!isNaN(v) && v!=='') el.value = Number(v).toLocaleString('en-US'); 
+        if(!isNaN(v) && v !== '') {
+            const newVal = Number(v).toLocaleString('en-US');
+            el.value = newVal;
+
+            // Prevent cursor from jumping to the end
+            if (document.activeElement === el) {
+                const diff = newVal.length - oldValLength;
+                const newPos = Math.max(0, start + diff);
+                el.setSelectionRange(newPos, newPos);
+            }
+        }
     }
 
     bindEvents() {
@@ -533,6 +544,9 @@ class RetirementPlanner {
                 this.loadStateToDOM(JSON.parse(event.target.result)); 
                 this.run(); 
                 this.ui.updateScenarioBadge(file.name.replace('.json',''));
+                
+                // UX Fix: Replacing the silent alert with a Toast mechanism would be best,
+                // but if Toasts aren't wired up globally yet, keep the alert for now.
                 alert('Plan loaded successfully.'); 
             } 
             catch(err) { alert('Error parsing JSON.'); console.error(err); }
@@ -869,12 +883,12 @@ class RetirementPlanner {
     getCurrentSnapshot() { 
         const s = { 
             version: this.APP_VERSION, inputs: {...this.state.inputs}, strategies: {...this.state.strategies}, 
-            properties: JSON.parse(JSON.stringify(this.state.properties || [])), 
-            expensesData: JSON.parse(JSON.stringify(this.expensesByCategory || {})), 
-            windfalls: JSON.parse(JSON.stringify(this.state.windfalls || [])), 
-            additionalIncome: JSON.parse(JSON.stringify(this.state.additionalIncome || [])),
-            dependents: JSON.parse(JSON.stringify(this.state.dependents || [])),
-            debt: JSON.parse(JSON.stringify(this.state.debt || [])),
+            properties: structuredClone(this.state.properties || []), 
+            expensesData: structuredClone(this.expensesByCategory || {}), 
+            windfalls: structuredClone(this.state.windfalls || []), 
+            additionalIncome: structuredClone(this.state.additionalIncome || []),
+            dependents: structuredClone(this.state.dependents || []),
+            debt: structuredClone(this.state.debt || []),
             nwTrajectory: (this.state.projectionData || []).map(d => Math.round(d.debugNW)),
             years: (this.state.projectionData || []).map(d => d.year)
         }; 
