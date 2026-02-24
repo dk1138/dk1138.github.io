@@ -1079,42 +1079,58 @@ class Optimizers {
         const startYear = new Date().getFullYear();
 
         if (window.Worker) {
-            const worker = new Worker('worker.js');
-            
-            const workerData = this.app.getEngineData();
-            workerData.simulations = SIMULATIONS;
-            workerData.method = method;
-            workerData.volatility = volatility;
-            workerData.sp500 = this.app.SP500_HISTORICAL;
+            try {
+                const worker = new Worker('worker.js');
+                
+                // Safely serialize the engine data. This strips out any stray functions or non-cloneable objects 
+                // from the config/constants that would otherwise cause a fatal DataCloneError.
+                const workerData = JSON.parse(JSON.stringify(this.app.getEngineData()));
+                workerData.simulations = SIMULATIONS;
+                workerData.method = method;
+                workerData.volatility = volatility;
+                workerData.sp500 = this.app.SP500_HISTORICAL;
 
-            worker.postMessage(workerData);
-            
-            worker.onmessage = (e) => {
-                const response = e.data;
+                worker.onmessage = (e) => {
+                    try {
+                        const response = e.data;
+                        
+                        if (response.success) {
+                            this.processMonteCarloChart(response.trajectories, startYear);
+                        } else {
+                            console.error('Simulation Engine Error:', response.error, response.stack);
+                            alert("Simulation Error: " + response.error);
+                        }
+                    } catch (err) {
+                        console.error('Error drawing Monte Carlo chart:', err);
+                    } finally {
+                        // Guarantee the button ALWAYS resets, even if the chart processing throws an error
+                        if(btn) {
+                            btn.innerHTML = '<i class="bi bi-play-circle-fill me-2"></i> Run Monte Carlo';
+                            btn.disabled = false;
+                        }
+                        worker.terminate();
+                    }
+                };
                 
-                if (response.success) {
-                    this.processMonteCarloChart(response.trajectories, startYear);
-                } else {
-                    console.error('Simulation Engine Error:', response.error, response.stack);
-                    alert("Simulation Error: " + response.error);
-                }
-                
+                worker.onerror = (error) => {
+                    console.error('Worker Script Error:', error);
+                    alert("A fatal error occurred loading the background worker.");
+                    if(btn) {
+                        btn.innerHTML = '<i class="bi bi-play-circle-fill me-2"></i> Run Monte Carlo';
+                        btn.disabled = false;
+                    }
+                    worker.terminate();
+                };
+
+                worker.postMessage(workerData);
+            } catch (error) {
+                console.error("Failed to start Monte Carlo worker:", error);
+                alert("Failed to start simulation. Please check the console for details.");
                 if(btn) {
                     btn.innerHTML = '<i class="bi bi-play-circle-fill me-2"></i> Run Monte Carlo';
                     btn.disabled = false;
                 }
-                worker.terminate();
-            };
-            
-            worker.onerror = (error) => {
-                console.error('Worker Script Error:', error);
-                alert("A fatal error occurred loading the background worker.");
-                if(btn) {
-                    btn.innerHTML = '<i class="bi bi-play-circle-fill me-2"></i> Run Monte Carlo';
-                    btn.disabled = false;
-                }
-                worker.terminate();
-            };
+            }
         } else {
             alert("Your browser doesn't support background processing (Web Workers). The simulation cannot run.");
             if(btn) {
