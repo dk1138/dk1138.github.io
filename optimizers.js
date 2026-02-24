@@ -10,202 +10,6 @@ class Optimizers {
     }
 
     // ---------------- SMART OPTIMIZERS START ---------------- //
-
-    // --- CPP SMART IMPORTER & ANALYZER (Today's Dollars) ---
-    
-    // Opens the modal and pre-fills user inputs from the active plan
-    openCPPModal() {
-        document.getElementById('cppTargetPlayer').value = 'p1';
-        this.updateCPPModalDefaults('p1');
-        const modalEl = document.getElementById('cppAnalyzerModal');
-        let m = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
-        m.show();
-    }
-
-    // Updates the inputs if the user switches from P1 to P2
-    updateCPPModalDefaults(player) {
-        const retAge = this.app.getVal(`${player}_retireAge`) || 65;
-        const inc = this.app.getVal(`${player}_income`) || 0;
-        
-        const ageEl = document.getElementById('cppTargetAge');
-        const salEl = document.getElementById('cppFutureSalary');
-        
-        if (ageEl) ageEl.value = retAge;
-        if (salEl) salEl.value = inc.toLocaleString();
-        
-        const res = document.getElementById('cppResultsArea');
-        if (res) res.style.display = 'none';
-    }
-
-    runCPPImporter() {
-        const rawText = document.getElementById('cppPasteArea').value;
-        const targetPlayer = document.getElementById('cppTargetPlayer').value;
-        const targetRetAge = parseInt(document.getElementById('cppTargetAge').value) || 65;
-        const futureSalaryStr = document.getElementById('cppFutureSalary').value;
-        const futureSalary = Number(futureSalaryStr.replace(/,/g, '')) || 0;
-
-        const resultsArea = document.getElementById('cppResultsArea');
-
-        if (!rawText || rawText.trim() === '') {
-            alert('Please paste your Service Canada table data.');
-            return;
-        }
-
-        try {
-            const cpp = new CPPEngine();
-            const records = cpp.parseServiceCanadaText(rawText);
-
-            if (records.length === 0) {
-                alert('Could not detect any valid data. Ensure you copied the full earnings table.');
-                return;
-            }
-
-            const dobRaw = this.app.getRaw(`${targetPlayer}_dob`);
-            if (!dobRaw) {
-                alert('Please set a Date of Birth for this player in the Personal Information section first.');
-                return;
-            }
-
-            const birthYear = parseInt(dobRaw.split('-')[0]);
-            const currentYear = new Date().getFullYear();
-
-            let lifetime = [...records];
-            let existingYears = new Set(lifetime.map(r => r.year));
-
-            // 1. Fill past gaps with $0
-            for (let y = birthYear + 18; y < currentYear; y++) {
-                if (!existingYears.has(y)) lifetime.push({ year: y, earnings: 0 });
-            }
-
-            // 2. Project future years until age 65
-            // Note: We use 0% inflation here because we want the ratio in "Real" terms
-            for (let y = currentYear; y < birthYear + 65; y++) {
-                let isWorking = y < (birthYear + targetRetAge);
-                let appliedSalary = isWorking ? futureSalary : 0;
-                if (!existingYears.has(y)) {
-                    lifetime.push({ year: y, earnings: appliedSalary, isProjected: true });
-                }
-                // Maintain YMPE at current level for Today's Dollar baseline
-                if (!cpp.YMPE[y]) cpp.YMPE[y] = cpp.YMPE[2026];
-                if (!cpp.YAMPE[y]) cpp.YAMPE[y] = cpp.YAMPE[2026];
-            }
-
-            lifetime.sort((a, b) => a.year - b.year);
-
-            // 3. Calculate Base AND Enhanced CPP at age 65
-            const startPensionYear = birthYear + 65;
-            const baseResult = cpp.calculateBaseCPP(lifetime, birthYear, startPensionYear, []);
-
-            // To keep it strictly in Today's Dollars, we force the calculation 
-            // to use the 2026 Average YMPE ($69,120) instead of the actual inflated future one
-            const todayAvgYMPE = 69120; 
-            const baseMonthlyToday = (todayAvgYMPE * 0.25 * baseResult.averageRatio) / 12;
-
-            // Calculate Enhancements using Today's YMPE
-            const enhancedResult = cpp.calculateEnhancedCPP(lifetime, startPensionYear, todayAvgYMPE);
-
-            const totalMonthly = baseMonthlyToday + enhancedResult.totalMonthlyEnhancement;
-            const totalAnnual = totalMonthly * 12;
-
-            const fmt = n => '$' + Math.round(n).toLocaleString();
-
-            let infoBtn = `<i class="bi bi-info-circle text-muted ms-2 info-btn" style="cursor: help; font-size: 0.9rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="Today's Dollars" data-bs-content="This estimate is strictly in <b>Today's Dollars</b>, calculated using current Maximum Pensionable Earnings (YMPE) limits.<br><br>This aligns perfectly with your plan's 'Today\\'s $' settings, ensuring your projection engine doesn't double-count inflation."></i>`;
-            let contribInfo = `<i class="bi bi-info-circle text-muted ms-1 info-btn" style="cursor: help; font-size: 0.8rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="Contributory Years" data-bs-content="The total number of years from age 18 to age 65."></i>`;
-            let dropInfo = `<i class="bi bi-info-circle text-muted ms-1 info-btn" style="cursor: help; font-size: 0.8rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="General Drop-out (17%)" data-bs-content="The CRA automatically removes up to 17% of your lowest-earning years (roughly 8 years) from the base calculation to boost your final average."></i>`;
-            let ratioInfo = `<i class="bi bi-info-circle text-muted ms-1 info-btn" style="cursor: help; font-size: 0.8rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="Lifetime Earnings Ratio" data-bs-content="Your lifetime average earnings compared to the maximum limits (YMPE) after all drop-outs are applied. A ratio of 100% means you maxed out your contributions every single year."></i>`;
-
-            let html = `
-                <h6 class="text-success fw-bold mb-3"><i class="bi bi-check-circle-fill me-2"></i>Analysis Complete</h6>
-                
-                <div class="row g-3 mb-3 text-white small">
-                    <div class="col-6 d-flex align-items-center"><b>Contributory Years:</b> <span class="ms-2">${Math.round(baseResult.monthsContributoryTotal/12)}</span> ${contribInfo}</div>
-                    <div class="col-6 d-flex align-items-center"><b>Years Dropped (17%):</b> <span class="ms-2">${baseResult.droppedGeneralYears}</span> ${dropInfo}</div>
-                    <div class="col-12 d-flex align-items-center border-top border-secondary pt-2 mt-2"><b>Earnings Ratio (Base):</b> <span class="ms-2">${(baseResult.averageRatio * 100).toFixed(1)}%</span> ${ratioInfo}</div>
-                </div>
-
-                <div class="card bg-black bg-opacity-25 border-secondary p-3 mb-3 small">
-                    <div class="d-flex justify-content-between mb-1">
-                        <span class="text-muted">Base CPP (Pre-2019 Rules):</span>
-                        <span class="text-white">${fmt(baseMonthlyToday * 12)}/yr</span>
-                    </div>
-                    <div class="d-flex justify-content-between mb-1">
-                        <span class="text-muted">Phase 1 Enhancement (2019-2023):</span>
-                        <span class="text-info">+${fmt(enhancedResult.monthlyPhase1 * 12)}/yr</span>
-                    </div>
-                    <div class="d-flex justify-content-between">
-                        <span class="text-muted">Phase 2 Enhancement (2024+):</span>
-                        <span class="text-info">+${fmt(enhancedResult.monthlyPhase2 * 12)}/yr</span>
-                    </div>
-                </div>
-                
-                <div class="card bg-info bg-opacity-10 border-info border-opacity-50 p-3 text-center mb-3">
-                    <div class="small fw-bold text-info text-uppercase ls-1 mb-1 d-flex justify-content-center align-items-center">
-                        Total Baseline at Age 65 ${infoBtn}
-                    </div>
-                    <div class="display-6 fw-bold text-white">${fmt(totalAnnual)}<span class="fs-5 text-muted fw-normal">/yr</span></div>
-                </div>
-
-                <button class="btn btn-primary w-100 fw-bold py-3 fs-5" onclick="app.optimizers.applyCPPEstimate('${targetPlayer}', ${totalAnnual})">
-                    <i class="bi bi-arrow-right-circle-fill me-2"></i>Apply ${fmt(totalAnnual)} to Plan
-                </button>
-            `;
-
-            resultsArea.innerHTML = html;
-            resultsArea.style.display = 'block';
-            
-            // Re-initialize popovers for the dynamically generated HTML
-            setTimeout(() => { try { this.app.ui.initPopovers(); } catch(e){} }, 50);
-
-        } catch (err) {
-            console.error(err);
-            alert("Error calculating CPP. Check console for details.");
-        }
-    }
-
-    applyCPPEstimate(player, amount) {
-        const el = document.getElementById(`${player}_cpp_est_base`);
-        if (el) {
-            // Update the input field
-            el.value = Math.round(amount).toLocaleString();
-            this.app.state.inputs[`${player}_cpp_est_base`] = Math.round(amount);
-            
-            // Enable the CPP toggle if it was off
-            const toggle = document.getElementById(`${player}_cpp_enabled`);
-            if (toggle && !toggle.checked) {
-                toggle.checked = true;
-                this.app.state.inputs[`${player}_cpp_enabled`] = true;
-                this.app.ui.updateBenefitVisibility();
-            }
-
-            // Run main engine
-            this.app.run();
-            
-            // Close the modal
-            const modalEl = document.getElementById('cppAnalyzerModal');
-            if (modalEl) {
-                const modal = bootstrap.Modal.getInstance(modalEl);
-                if (modal) modal.hide();
-            }
-            
-            // Auto switch to inputs tab and scroll to CPP section
-            const planTab = document.querySelector('button[data-bs-target="#plan-pane"]');
-            if(planTab) {
-                if (typeof bootstrap !== 'undefined' && bootstrap.Tab) {
-                    bootstrap.Tab.getOrCreateInstance(planTab).show();
-                } else {
-                    planTab.click();
-                }
-                setTimeout(() => { 
-                    el.scrollIntoView({ behavior: 'smooth', block: 'center' }); 
-                    // Add a visual flash effect to show it updated
-                    el.classList.add('bg-success', 'text-white');
-                    setTimeout(() => el.classList.remove('bg-success', 'text-white'), 1000);
-                }, 300);
-            }
-        }
-    }
-
-    // --- DIE WITH ZERO ---
     runDieWithZero() {
         const btn = document.getElementById('btnRunDwZ');
         if(btn) { btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Calculating...'; btn.disabled = true; }
@@ -934,6 +738,7 @@ class Optimizers {
             return;
         }
 
+        // Standard mortgage payment math
         let monthlyMortgageRate = rateMortgage / 12;
         let numPayments = amortYears * 12;
         let payment = 0;
@@ -943,9 +748,11 @@ class Optimizers {
             payment = balMortgage / numPayments;
         }
 
+        // State variables for Standard tracking
         let stdMortgage = balMortgage;
         let stdPortfolio = 0;
 
+        // State variables for Smith Maneuver tracking
         let smMortgage = balMortgage;
         let smHeloc = 0;
         let smPortfolio = 0;
@@ -960,6 +767,7 @@ class Optimizers {
         let chartDataSM = [0];
         let tableData = [];
 
+        // Handle Day 1 Deployment
         if (useDay1) {
             let maxTotalDebt = currentPropVal * 0.80;
             let maxHelocLimit = currentPropVal * 0.65;
@@ -981,10 +789,13 @@ class Optimizers {
         let smMortgagePaidOffMonth = 0;
         let stdMortgagePaidOffMonth = 0;
 
+        // Simulate month by month
         for (let m = 1; m <= numPayments; m++) {
             
+            // 1. Grow Property
             currentPropVal += currentPropVal * (propGrowth / 12);
 
+            // 2. Standard Mortgage Paydown
             if (stdMortgage > 0) {
                 let stdInterest = stdMortgage * monthlyMortgageRate;
                 let stdPrincipal = payment - stdInterest;
@@ -995,10 +806,12 @@ class Optimizers {
                 stdMortgage -= stdPrincipal;
             } else {
                 if(stdMortgagePaidOffMonth === 0) stdMortgagePaidOffMonth = m;
+                // If standard mortgage is paid off, redirect payment to standard portfolio
                 stdPortfolio += payment;
             }
             stdPortfolio += stdPortfolio * (rateInvest / 12);
 
+            // 3. Smith Maneuver Flow
             let maxTotalDebt = currentPropVal * 0.80;
             let maxHelocLimit = currentPropVal * 0.65;
 
@@ -1011,64 +824,87 @@ class Optimizers {
                 }
                 smMortgage -= smPrincipal;
 
+                // Standard SM: Borrow exact principal paid to invest (if room exists)
                 let availHeloc = Math.max(0, Math.min(maxTotalDebt - smMortgage, maxHelocLimit) - smHeloc);
                 let borrowInvest = Math.min(smPrincipal, availHeloc);
                 smHeloc += borrowInvest;
                 smPortfolio += borrowInvest;
 
+                // Cash Damming Phase: Use business cashflow to pay down mortgage, borrow from HELOC to pay the business expense.
                 if (useCashDam && monthlyCashDam > 0 && smMortgage > 0) {
+                    // How much room is left on the HELOC right now?
                     let damRoom = Math.max(0, Math.min(maxTotalDebt - smMortgage, maxHelocLimit) - smHeloc);
+                    
+                    // We can only dam up to our available room, or the remaining mortgage balance.
                     let actualDam = Math.min(monthlyCashDam, damRoom, smMortgage);
                     
                     smMortgage -= actualDam;
                     smHeloc += actualDam;
+                    // Note: Portfolio does NOT grow here. The borrowed money pays the plumber/taxes. The cash went to the mortgage.
                 }
 
             } else {
                 if(smMortgagePaidOffMonth === 0) smMortgagePaidOffMonth = m;
                 
+                // Mortgage is paid off! Redirect the payment to pay down the HELOC.
                 let helocPaydown = Math.min(payment, smHeloc);
                 smHeloc -= helocPaydown;
+                // Any leftover payment gets invested
                 if (payment > helocPaydown) smPortfolio += (payment - helocPaydown);
+                
+                // If mortgage is gone, cash damming stops. Business revenue just pays business expenses normally.
             }
 
+            // 4. Calculate HELOC Interest & Capitalize
             let helocMonthlyInterest = smHeloc * (rateHeloc / 12);
             currentYearInterest += helocMonthlyInterest;
             totalInterestPaid += helocMonthlyInterest;
             
+            // Capitalize interest (borrow from HELOC to pay interest) if room exists. 
+            // In reality, banks require it out of pocket if you hit the 65% limit. We assume you borrow it.
             let roomForInterest = Math.max(0, Math.min(maxTotalDebt - smMortgage, maxHelocLimit) - smHeloc);
             let interestBorrowed = Math.min(helocMonthlyInterest, roomForInterest);
             smHeloc += interestBorrowed;
             
+            // Note: If interestBorrowed < helocMonthlyInterest, you'd technically have to pay it from cash flow 
+            // which reduces your portfolio growth. For a strict LTV simulation, we subtract the unpaid interest from the portfolio.
             let interestOutOfPocket = helocMonthlyInterest - interestBorrowed;
             if (interestOutOfPocket > 0) smPortfolio -= interestOutOfPocket;
 
+            // 5. Portfolio growth
             smPortfolio += smPortfolio * (rateInvest / 12);
 
+            // 6. End of Year Tax Processing
             if (m % 12 === 0 || m === numPayments) {
                 let refund = currentYearInterest * taxRate;
                 totalTaxRefunds += refund;
                 
                 if (useAccelerator && smMortgage > 0) {
+                    // Apply refund to mortgage principal
                     let lumpSum = Math.min(smMortgage, refund);
                     smMortgage -= lumpSum;
                     
+                    // Borrow that newly freed room to invest
                     let newRoom = Math.max(0, Math.min(maxTotalDebt - smMortgage, maxHelocLimit) - smHeloc);
                     let accelBorrow = Math.min(lumpSum, newRoom);
                     smHeloc += accelBorrow;
                     smPortfolio += accelBorrow;
 
+                    // If refund exceeded mortgage, invest the remainder directly
                     if (refund > lumpSum) {
                         smPortfolio += (refund - lumpSum);
                     }
                 } else if (useAccelerator && smMortgage <= 0) {
+                    // Mortgage gone, apply refund to HELOC
                     smHeloc -= Math.min(smHeloc, refund);
                 } else {
+                    // Pure Smith Maneuver: Reinvest refund into portfolio
                     smPortfolio += refund;
                 }
                 
                 currentYearInterest = 0;
 
+                // Snapshot for Chart and Table
                 let year = Math.ceil(m / 12);
                 let stdNetEquity = currentPropVal - stdMortgage + stdPortfolio;
                 let smNetEquity = currentPropVal - smMortgage - smHeloc + smPortfolio;
@@ -1092,6 +928,7 @@ class Optimizers {
 
         let finalNetBenefit = chartDataSM[chartDataSM.length - 1];
 
+        // Build UI Summary
         let html = `
             <div class="row mb-4 g-3 mt-1">
                 <div class="col-6">
@@ -1151,6 +988,7 @@ class Optimizers {
 
         chartContainer.innerHTML = html;
 
+        // Build Table rows
         let tableRows = '';
         tableData.forEach(row => {
             let mortPaid = row.smMort <= 0 && row.year > 0 && tableData[row.year-1] && tableData[row.year-1].smMort > 0;
@@ -1168,6 +1006,7 @@ class Optimizers {
         });
         tableBody.innerHTML = tableRows;
 
+        // Render Chart
         const ctx = document.getElementById('smChart').getContext('2d');
         if (this.smChartInstance) this.smChartInstance.destroy();
 
@@ -1248,26 +1087,28 @@ class Optimizers {
             workerData.volatility = volatility;
             workerData.sp500 = this.app.SP500_HISTORICAL;
 
-            worker.postMessage({ type: 'RUN_MONTE_CARLO', payload: workerData });
+            worker.postMessage(workerData);
             
             worker.onmessage = (e) => {
-                const { type, payload } = e.data;
-                if (type === 'MONTE_CARLO_COMPLETE') {
-                    const { successRate, medianTrajectory, p10Trajectory } = payload;
-                    
-                    this.processMonteCarloChartFromPayload(successRate, medianTrajectory, p10Trajectory, startYear);
-                    
-                    if(btn) {
-                        btn.innerHTML = '<i class="bi bi-play-circle-fill me-2"></i> Run Monte Carlo';
-                        btn.disabled = false;
-                    }
-                    worker.terminate();
+                const response = e.data;
+                
+                if (response.success) {
+                    this.processMonteCarloChart(response.trajectories, startYear);
+                } else {
+                    console.error('Simulation Engine Error:', response.error, response.stack);
+                    alert("Simulation Error: " + response.error);
                 }
+                
+                if(btn) {
+                    btn.innerHTML = '<i class="bi bi-play-circle-fill me-2"></i> Run Monte Carlo';
+                    btn.disabled = false;
+                }
+                worker.terminate();
             };
             
             worker.onerror = (error) => {
-                console.error('Worker error:', error);
-                alert("An error occurred during the simulation. Check the console for details.");
+                console.error('Worker Script Error:', error);
+                alert("A fatal error occurred loading the background worker.");
                 if(btn) {
                     btn.innerHTML = '<i class="bi bi-play-circle-fill me-2"></i> Run Monte Carlo';
                     btn.disabled = false;
@@ -1283,14 +1124,28 @@ class Optimizers {
         }
     }
 
-    processMonteCarloChartFromPayload(successRateStr, medianData, p10Data, startYear) {
+    processMonteCarloChart(trajectories, startYear) {
+        if (!trajectories || trajectories.length === 0) return;
+
+        trajectories.sort((a, b) => a[a.length - 1] - b[b.length - 1]);
+
+        const runs = trajectories.length;
+        const p10Idx = Math.floor(runs * 0.10);
+        const p50Idx = Math.floor(runs * 0.50);
+        const p90Idx = Math.floor(runs * 0.90);
+
+        let p10Data = trajectories[p10Idx];
+        let p50Data = trajectories[p50Idx];
+        let p90Data = trajectories[p90Idx];
+
+        const successCount = trajectories.filter(t => t[t.length-1] > 0).length;
+        const successRate = ((successCount / runs) * 100).toFixed(1);
+
         const statsBox = document.getElementById('mc_stats_box');
         const rateEl = document.getElementById('mc_success_rate');
-        const successRate = parseFloat(successRateStr);
-        
         if(statsBox && rateEl) {
             statsBox.style.display = 'block';
-            rateEl.innerText = `${successRate.toFixed(1)}%`;
+            rateEl.innerText = `${successRate}%`;
             statsBox.className = successRate >= 90 ? 'card p-3 border-success bg-success bg-opacity-10 text-center' : 
                                (successRate >= 75 ? 'card p-3 border-warning bg-warning bg-opacity-10 text-center' : 
                                'card p-3 border-danger bg-danger bg-opacity-10 text-center');
@@ -1299,16 +1154,17 @@ class Optimizers {
                              'display-4 fw-bold text-danger');
         }
 
-        const ctx = document.getElementById('chartMonteCarlo').getContext('2d');
-        const p1Age = Math.abs(startYear - parseInt(this.app.getRaw('p1_dob').split('-')[0]));
-        const labels = medianData.map((_, i) => p1Age + i);
-
-        // Convert to Today's Dollars inside the chart visually for better understanding
+        // Apply Today's Dollars discounting so the chart aligns with the main app's purchasing power view
         const inflation = this.app.getVal('inflation_rate') / 100;
         const discount = (val, idx) => val / Math.pow(1 + inflation, idx);
-        
-        const medAdj = medianData.map((v, i) => Math.round(discount(v, i)));
+
+        const medAdj = p50Data.map((v, i) => Math.round(discount(v, i)));
         const p10Adj = p10Data.map((v, i) => Math.round(discount(v, i)));
+        const p90Adj = p90Data.map((v, i) => Math.round(discount(v, i)));
+
+        const ctx = document.getElementById('chartMonteCarlo').getContext('2d');
+        const p1Age = Math.abs(startYear - parseInt(this.app.getRaw('p1_dob').split('-')[0]));
+        const labels = p50Data.map((_, i) => p1Age + i);
 
         if(this.app.charts.mc) this.app.charts.mc.destroy(); 
 
@@ -1321,6 +1177,15 @@ class Optimizers {
             data: {
                 labels: labels,
                 datasets: [
+                    {
+                        label: 'Optimistic (Top 10%)',
+                        data: p90Adj,
+                        borderColor: '#10b981', 
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        pointRadius: 0
+                    },
                     {
                         label: 'Median Scenario (50th Percentile)',
                         data: medAdj,
@@ -1380,23 +1245,6 @@ class Optimizers {
                 }
             }
         });
-    }
-
-    // Keep this function here for backward compatibility if `runMonteCarlo` uses it instead of payload logic
-    processMonteCarloChart(trajectories, startYear) {
-        trajectories.sort((a, b) => a[a.length - 1] - b[b.length - 1]);
-
-        const runs = trajectories.length;
-        const p10Idx = Math.floor(runs * 0.10);
-        const p50Idx = Math.floor(runs * 0.50);
-
-        const p10Data = trajectories[p10Idx];
-        const p50Data = trajectories[p50Idx];
-
-        const successCount = trajectories.filter(t => t[t.length-1] > 0).length;
-        const successRate = ((successCount / runs) * 100).toFixed(1);
-
-        this.processMonteCarloChartFromPayload(successRate, p50Data, p10Data, startYear);
     }
     // ---------------- MONTE CARLO ENGINE END ---------------- //
 }
