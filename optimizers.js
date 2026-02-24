@@ -335,6 +335,176 @@ class Optimizers {
         `;
     }
 
+    runRRSPGrossUpOptimizer() {
+        const modalContainer = document.getElementById('rrspGrossUpResults');
+        if (!modalContainer) return;
+
+        let html = `
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+                <ul class="nav nav-pills mb-2 mb-md-0" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#opt-gross-tab" type="button" role="tab" onclick="app.optimizers.calcRRSPGrossUpFor('p1')">Player 1</button>
+                    </li>
+                    ${this.app.state.mode === 'Couple' ? `<li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#opt-gross-tab" type="button" role="tab" onclick="app.optimizers.calcRRSPGrossUpFor('p2')">Player 2</button></li>` : ''}
+                </ul>
+            </div>
+            <div class="mb-4 bg-black bg-opacity-25 p-3 rounded border border-secondary d-flex flex-wrap gap-3 align-items-center">
+                <div>
+                    <label class="form-label small text-info fw-bold mb-1">Available RRSP Room</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-transparent border-secondary text-muted">$</span>
+                        <input type="number" class="form-control border-secondary" id="opt_gross_room" value="50000" style="max-width: 150px;" oninput="app.optimizers.calcRRSPGrossUpFor(app.optimizers.currentOptPerson)">
+                    </div>
+                </div>
+                <div>
+                    <label class="form-label small text-success fw-bold mb-1">Cash Available to Contribute</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-transparent border-secondary text-muted">$</span>
+                        <input type="number" class="form-control border-secondary" id="opt_gross_cash" value="10000" style="max-width: 150px;" oninput="app.optimizers.calcRRSPGrossUpFor(app.optimizers.currentOptPerson)">
+                    </div>
+                </div>
+            </div>
+            <div id="opt-gross-tab-content">
+            </div>
+        `;
+        modalContainer.innerHTML = html;
+        this.currentOptPerson = 'p1';
+        this.calcRRSPGrossUpFor('p1');
+
+        let mEl = document.getElementById('rrspGrossUpModal');
+        if(mEl) {
+            let m = bootstrap.Modal.getInstance(mEl) || new bootstrap.Modal(mEl);
+            m.show();
+        }
+    }
+
+    calcRRSPGrossUpFor(pfx) {
+        this.currentOptPerson = pfx;
+        const container = document.getElementById('opt-gross-tab-content');
+        if(!container) return;
+
+        const engine = new FinanceEngine(this.app.getEngineData());
+        const taxBrackets = engine.getInflatedTaxData(1);
+        const prov = this.app.getRaw('tax_province');
+        const currentYear = new Date().getFullYear();
+
+        let maxRoom = parseFloat(document.getElementById('opt_gross_room')?.value) || 0;
+        let cash = parseFloat(document.getElementById('opt_gross_cash')?.value) || 0;
+
+        if (cash <= 0) {
+            container.innerHTML = `<div class="p-3 text-muted">Please enter the cash amount you have available to contribute.</div>`;
+            return;
+        }
+
+        // Determine Base Incomes (same base logic as RRSP Sweet Spot)
+        const getInc = (person) => {
+            let base = this.app.getVal(`${person}_income`);
+            let empMatchRate = this.app.getVal(`${person}_rrsp_match`) / 100;
+            let empTier = this.app.getVal(`${person}_rrsp_match_tier`) / 100;
+            if(empTier <= 0) empTier = 1;
+            let empRrspDeduction = (base * empMatchRate) / empTier; 
+
+            let add = 0;
+            this.app.state.additionalIncome.forEach(s => {
+                if(s.owner === person && s.taxable && s.startMode !== 'ret_relative') {
+                    let sY = new Date((s.start || "2026-01") + "-01").getFullYear();
+                    if(currentYear >= sY) add += s.amount * (s.freq === 'month' ? 12 : 1);
+                }
+            });
+            return { gross: base + add, rrspDeduct: empRrspDeduction };
+        };
+
+        const targetData = getInc(pfx);
+        let startingTaxableInc = Math.max(0, targetData.gross - targetData.rrspDeduct);
+
+        if (startingTaxableInc <= 0) {
+            container.innerHTML = `<div class="p-3 text-muted">No taxable income to optimize.</div>`;
+            return;
+        }
+
+        let baseTax = engine.calculateTaxDetailed(startingTaxableInc, prov, taxBrackets);
+        
+        // Calculate Standard scenario (just contributing cash)
+        let standardTax = engine.calculateTaxDetailed(Math.max(0, startingTaxableInc - cash), prov, taxBrackets);
+        let standardRefund = baseTax.totalTax - standardTax.totalTax;
+
+        // Calculate Gross-Up scenario via binary search
+        // We want to find max Total Contribution T such that: Tax Refund(T) >= T - cash
+        let maxT = Math.min(startingTaxableInc, maxRoom);
+        let bestT = cash;
+        let bestLoan = 0;
+        let bestRefund = standardRefund;
+
+        let low = cash;
+        let high = maxT;
+        
+        for (let i = 0; i < 50; i++) {
+            let mid = (low + high) / 2;
+            let testTax = engine.calculateTaxDetailed(startingTaxableInc - mid, prov, taxBrackets);
+            let testRefund = baseTax.totalTax - testTax.totalTax;
+            let requiredLoan = mid - cash;
+
+            if (testRefund >= requiredLoan) {
+                // Refund covers the loan, we can try to push higher
+                bestT = mid;
+                bestLoan = requiredLoan;
+                bestRefund = testRefund;
+                low = mid;
+            } else {
+                // Refund falls short, scale back
+                high = mid;
+            }
+            
+            if (high - low < 1) break; // converge
+        }
+        
+        bestT = Math.floor(bestT);
+        bestLoan = bestT - cash;
+        let finalTax = engine.calculateTaxDetailed(startingTaxableInc - bestT, prov, taxBrackets);
+        bestRefund = baseTax.totalTax - finalTax.totalTax;
+
+        // Safety catch for rounding boundaries
+        if (bestRefund < bestLoan) {
+            bestT -= 1;
+            bestLoan = bestT - cash;
+            let adjTax = engine.calculateTaxDetailed(startingTaxableInc - bestT, prov, taxBrackets);
+            bestRefund = baseTax.totalTax - adjTax.totalTax;
+        }
+
+        container.innerHTML = `
+            <div class="row g-4 mt-2">
+                <div class="col-md-6">
+                    <div class="card bg-black bg-opacity-25 border-secondary h-100">
+                        <div class="card-header border-secondary text-muted fw-bold small text-uppercase ls-1">Standard Method</div>
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between mb-2"><span>Cash Contributed</span> <span class="fw-bold text-white">$${Math.round(cash).toLocaleString()}</span></div>
+                            <div class="d-flex justify-content-between mb-2"><span>RRSP Loan</span> <span class="fw-bold text-white">$0</span></div>
+                            <div class="d-flex justify-content-between mb-2 pt-2 border-top border-secondary"><span>Total RRSP Deposit</span> <span class="fw-bold text-info">$${Math.round(cash).toLocaleString()}</span></div>
+                            <div class="d-flex justify-content-between mt-3 text-success"><span>Tax Refund Generated</span> <span class="fw-bold">+$${Math.round(standardRefund).toLocaleString()}</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card bg-info bg-opacity-10 border-info h-100">
+                        <div class="card-header border-info text-info fw-bold small text-uppercase ls-1"><i class="bi bi-rocket-takeoff me-2"></i>Gross-Up Method</div>
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between mb-2"><span>Cash Contributed</span> <span class="fw-bold text-white">$${Math.round(cash).toLocaleString()}</span></div>
+                            <div class="d-flex justify-content-between mb-2"><span class="text-warning">Short-Term Loan</span> <span class="fw-bold text-warning">+$${Math.round(bestLoan).toLocaleString()}</span></div>
+                            <div class="d-flex justify-content-between mb-2 pt-2 border-top border-info text-info"><span class="fw-bold">Total RRSP Deposit</span> <span class="fw-bold fs-5">$${Math.round(bestT).toLocaleString()}</span></div>
+                            <div class="d-flex justify-content-between mt-3 text-success"><span>Tax Refund (Pays off loan)</span> <span class="fw-bold">+$${Math.round(bestRefund).toLocaleString()}</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="alert mt-4 border-success bg-success bg-opacity-10 text-white shadow-sm">
+                <h6 class="fw-bold mb-2 text-success"><i class="bi bi-graph-up-arrow me-2"></i>The Gross-Up Advantage</h6>
+                <p class="small mb-0">By taking a short-term RRSP loan of <strong>$${Math.round(bestLoan).toLocaleString()}</strong> in February, your tax refund will entirely pay it off by April/May. This gets <strong>$${Math.round(bestT - cash).toLocaleString()}</strong> more compounding in your RRSP immediately compared to the standard method.</p>
+                ${bestT >= maxRoom ? `<p class="small text-warning mt-2 mb-0"><i class="bi bi-exclamation-triangle me-1"></i> You maxed out your available RRSP room. You could potentially gross-up more if you had more room.</p>` : ''}
+            </div>
+        `;
+    }
+
     // ---------------- MONTE CARLO ENGINE START ---------------- //
     runMonteCarlo() {
         const simCountInput = document.getElementById('mc_sim_count');
