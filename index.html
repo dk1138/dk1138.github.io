@@ -1188,38 +1188,12 @@
                     </div>
 
                     <div class="col-12 col-xl-6">
-                        <div class="rp-card p-4 surface-card h-100 transition-all opacity-50">
-                            <h6 class="text-muted fw-bold mb-2 fs-5"><i class="bi bi-infinity me-2"></i>Die With Zero (Maintenance)</h6>
-                            <p class="small text-muted mb-4">Calculates how much more you can spend, or how much earlier you can retire, to end up with exactly $0 at the end of your life expectancy.</p>
+                        <div class="rp-card p-4 surface-card h-100 transition-all border-secondary">
+                            <h6 class="text-white fw-bold mb-2 fs-5"><i class="bi bi-file-earmark-spreadsheet me-2 text-primary"></i>CPP Smart Importer & Analyzer</h6>
+                            <p class="small text-muted mb-4">Paste your Service Canada records directly into the app. We'll automatically calculate your exact lifetime average and apply the CRA 17% general drop-out rule to project your exact future CPP.</p>
                             <div class="d-grid mb-3 mt-auto">
-                                <button class="btn btn-outline-secondary fw-bold py-2" id="btnRunDwZ" onclick="app.optimizers.runDieWithZero()" disabled>
-                                    <i class="bi bi-play-circle-fill me-2"></i>Currently Unavailable
-                                </button>
-                            </div>
-                            <div id="dwz_results" style="display:none;" class="mt-3 pt-3 border-top border-secondary">
-                                </div>
-                        </div>
-                    </div>
-
-                    <div class="col-12 col-xl-6">
-                        <div class="rp-card p-4 surface-card h-100 transition-all opacity-50">
-                            <h6 class="text-muted fw-bold mb-2 fs-5"><i class="bi bi-arrow-left-right me-2"></i>CPP/OAS Breakeven Calculator</h6>
-                            <p class="small text-muted mb-4">Compare taking CPP/OAS early vs. late. Factors in the opportunity cost of draining your own investments to bridge the gap.</p>
-                            <div class="d-grid mb-3 mt-auto">
-                                <button class="btn btn-outline-secondary fw-bold py-2" disabled>
-                                    <i class="bi bi-play-circle-fill me-2"></i>Coming Soon
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-12 col-xl-6">
-                        <div class="rp-card p-4 surface-card h-100 transition-all opacity-50">
-                            <h6 class="text-muted fw-bold mb-2 fs-5"><i class="bi bi-house-exclamation me-2"></i>Mortgage Rate Shock Simulator</h6>
-                            <p class="small text-muted mb-4">Stress-test future mortgage renewals at higher interest rates to see the exact impact on your final retirement net worth.</p>
-                            <div class="d-grid mb-3 mt-auto">
-                                <button class="btn btn-outline-secondary fw-bold py-2" disabled>
-                                    <i class="bi bi-play-circle-fill me-2"></i>Coming Soon
+                                <button class="btn btn-outline-primary fw-bold py-2" data-bs-toggle="modal" data-bs-target="#cppAnalyzerModal">
+                                    <i class="bi bi-box-arrow-in-right me-2"></i>Launch Importer
                                 </button>
                             </div>
                         </div>
@@ -1452,6 +1426,55 @@
       </div>
     </div>
 
+    <div class="modal fade" id="cppAnalyzerModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content shadow-lg border-secondary rounded-4">
+          <div class="modal-header border-secondary p-4 surface-card rounded-top-4">
+            <h5 class="modal-title fs-5 fw-bold text-white d-flex align-items-center"><div class="bg-primary bg-opacity-10 text-primary p-2 rounded me-3 d-flex"><i class="bi bi-file-earmark-spreadsheet"></i></div>CPP Smart Importer</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body p-4 bg-input">
+             <div class="alert alert-info bg-primary bg-opacity-10 border-primary border-opacity-25 text-white small">
+                <strong>How to use:</strong> Log in to your <a href="https://www.canada.ca/en/employment-social-development/services/my-account.html" target="_blank" class="text-info fw-bold">Service Canada</a> account. Navigate to your CPP Contributions page, highlight the entire table of your earnings (from the first year to the current year), copy it, and paste it directly into the box below.
+             </div>
+             
+             <div class="mb-4">
+                 <label class="form-label fw-bold text-muted small text-uppercase ls-1">Select Player</label>
+                 <select id="cppTargetPlayer" class="form-select bg-black bg-opacity-25 border-secondary text-white w-50">
+                     <option value="p1">Player 1</option>
+                     <option value="p2">Player 2</option>
+                 </select>
+             </div>
+
+             <label class="form-label fw-bold text-muted small text-uppercase ls-1">Paste Service Canada Table Here</label>
+             <textarea id="cppPasteArea" class="form-control bg-black bg-opacity-25 border-secondary text-white mb-3 font-monospace small" rows="6" placeholder="Paste text here... e.g.&#10;2023  $66,600.00  $3,754.45&#10;2022  $64,900.00  $3,499.80"></textarea>
+             
+             <div class="row g-3">
+                 <div class="col-md-6">
+                     <label class="form-label small text-muted mb-1 fw-bold">Target Retirement Age</label>
+                     <input type="number" id="cppTargetAge" class="form-control border-secondary" value="65">
+                 </div>
+                 <div class="col-md-6">
+                     <label class="form-label small text-muted mb-1 fw-bold">Expected Future Salary (Today's $)</label>
+                     <div class="input-group">
+                         <span class="input-group-text border-secondary bg-black bg-opacity-25 text-muted">$</span>
+                         <input type="text" id="cppFutureSalary" class="form-control border-secondary formatted-num" value="0">
+                     </div>
+                     <div class="form-text text-muted" style="font-size: 0.7rem;">Used to estimate future contributions.</div>
+                 </div>
+             </div>
+             
+             <div id="cppResultsArea" style="display:none;" class="mt-4 pt-4 border-top border-secondary">
+                 </div>
+          </div>
+          <div class="modal-footer border-secondary p-3 surface-card rounded-bottom-4 d-flex justify-content-between">
+            <button type="button" class="btn btn-outline-secondary px-4 fw-bold" data-bs-dismiss="modal">Close</button>
+            <button type="button" class="btn btn-primary px-4 fw-bold" onclick="app.optimizers.runCPPImporter()">Analyze Data</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="container text-center text-muted mt-5 mb-4 px-3" style="max-width: 900px; font-size: 0.75rem; line-height: 1.5;">
         <strong>Disclaimer:</strong> Retirement Planner Pro is a simulation tool intended strictly for educational, informational, and personal use. It does not constitute professional financial, tax, or legal advice. While we strive for mathematical accuracy, tax laws and economic variables are complex and subject to change. You must verify all calculations and consult with a certified financial planner or tax professional before making any financial decisions. The developer(s) assume no liability for any actions taken based on this tool. <br><br>
         <span class="fw-medium text-white">This tool is for <strong>personal use only</strong>. For commercial use, integration, or licensing inquiries, please contact the developer.</span>
@@ -1465,7 +1488,7 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   
   <script type="module" src="config.js"></script>
-  <script src="financeEngine.js"></script>
+  <script src="cppEngine.js"></script> <script src="financeEngine.js"></script>
   
   <script src="uiController.js"></script>
   <script src="dataController.js"></script>
