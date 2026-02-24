@@ -4,7 +4,7 @@
  * Handles historical YMPE, the 17% General Drop-out, and Child Rearing Provision.
  */
 
-export class CPPEngine {
+class CPPEngine {
     constructor() {
         // Historical YMPE (Yearly Maximum Pensionable Earnings)
         this.YMPE = {
@@ -24,8 +24,9 @@ export class CPPEngine {
         };
         
         // Year's Additional Maximum Pensionable Earnings (YAMPE) - Tier 2 starts 2024
+        // Note: For now, we calculate base CPP. Tier 2 is separate and simply added on top if desired later.
         this.YAMPE = {
-            2024: 73200, 2025: 79600, 2026: 83400 // Est
+            2024: 73200, 2025: 79600, 2026: 83400 
         };
     }
 
@@ -39,7 +40,9 @@ export class CPPEngine {
         // Match patterns like "2020 $58,700.00 $2,898.00" or "2015 45000 1500"
         const lines = rawText.split('\n');
         
-        const yearRegex = /^.*?(\d{4}).*?\$?([\d,]+\.\d{2}|[\d,]+).*$/;
+        // This regex looks for a 4 digit year, optionally some characters, then an optional $ sign, 
+        // then the earnings number (which might contain commas and decimals).
+        const yearRegex = /^.*?(\d{4}).*?\$?\s*([\d,]+\.\d{2}|[\d,]+).*$/;
 
         lines.forEach(line => {
             const match = line.trim().match(yearRegex);
@@ -47,7 +50,6 @@ export class CPPEngine {
                 const year = parseInt(match[1]);
                 if (year >= 1966 && year <= new Date().getFullYear()) {
                     let earnings = parseFloat(match[2].replace(/,/g, ''));
-                    // Check if it's a valid earnings number (not just a random year mention)
                     if (!isNaN(earnings)) {
                         records.push({ year: year, earnings: earnings });
                     }
@@ -55,7 +57,7 @@ export class CPPEngine {
             }
         });
 
-        // Remove duplicates and sort by year
+        // Remove duplicates (keeping the last parsed one if duplicates exist) and sort by year
         records = Array.from(new Map(records.map(item => [item.year, item])).values());
         return records.sort((a, b) => a.year - b.year);
     }
@@ -102,6 +104,8 @@ export class CPPEngine {
         const yearTurn18 = birthYear + 18;
         let monthsContributory = (startPensionYear - yearTurn18) * 12;
         
+        if (monthsContributory <= 0) return { monthlyBase: 0, monthsContributoryTotal: 0, droppedCRDOYears: 0, droppedGeneralYears: 0, averageRatio: 0 };
+
         // Calculate Unadjusted Pensionable Earnings (UPE) ratios
         let pensionableRatios = lifetimeRecords.map(r => {
             const ympe = this.YMPE[r.year];
@@ -111,6 +115,7 @@ export class CPPEngine {
                 year: r.year,
                 ratio: cappedEarnings / ympe,
                 ympe: ympe,
+                earnings: r.earnings,
                 isChildRearing: childRearingYears.includes(r.year)
             };
         }).filter(r => r !== null && r.year >= yearTurn18 && r.year < startPensionYear);
@@ -118,18 +123,30 @@ export class CPPEngine {
         // 1. Child Rearing Drop-Out (CRDO)
         // Remove low earning years while caring for a child under 7
         let crdoDropped = 0;
+        let crdoDroppedYears = [];
         pensionableRatios = pensionableRatios.filter(r => {
-            if (r.isChildRearing && r.ratio < 0.5) { // Simplification: Drop if ratio is bad
+            // Simplification: We drop the year if the ratio is under 0.8 to help them, 
+            // the official CRA formula optimizes this drop to perfectly maximize the final pension.
+            if (r.isChildRearing && r.ratio < 0.8) { 
                 crdoDropped++;
+                crdoDroppedYears.push(r.year);
                 monthsContributory -= 12;
                 return false;
             }
             return true;
         });
 
+        // Ensure we don't drop below 120 months (10 years) of contributions as per CRA rules
+        const minMonths = 120;
+        
         // 2. The 17% General Drop-Out
         // We drop the lowest 17% of the REMAINING contributory months
-        const generalDropoutMonths = Math.floor(monthsContributory * 0.17);
+        let generalDropoutMonths = Math.floor(monthsContributory * 0.17);
+        
+        if (monthsContributory - generalDropoutMonths < minMonths) {
+            generalDropoutMonths = Math.max(0, monthsContributory - minMonths);
+        }
+        
         const generalDropoutYears = Math.floor(generalDropoutMonths / 12);
         
         // Sort by ratio to drop the lowest
@@ -140,14 +157,19 @@ export class CPPEngine {
         
         // 3. Calculate Average Ratio
         const totalRatio = finalRatios.reduce((sum, r) => sum + r.ratio, 0);
-        const averageRatio = totalRatio / finalRatios.length;
+        const averageRatio = finalRatios.length > 0 ? (totalRatio / finalRatios.length) : 0;
 
         // 4. Calculate Maximum Pension based on last 5 years average YMPE
         let last5YMPE = 0;
+        let countedYears = 0;
         for(let i = 1; i <= 5; i++) {
-            last5YMPE += this.YMPE[startPensionYear - i] || this.YMPE[2026];
+            let y = startPensionYear - i;
+            if (this.YMPE[y]) {
+                last5YMPE += this.YMPE[y];
+                countedYears++;
+            }
         }
-        const avgYMPE = last5YMPE / 5;
+        const avgYMPE = countedYears > 0 ? (last5YMPE / countedYears) : this.YMPE[2026];
 
         // Base CPP is 25% of the average YMPE adjusted by your personal earnings ratio
         const monthlyBaseCPP = (avgYMPE * 0.25 * averageRatio) / 12;
@@ -157,7 +179,9 @@ export class CPPEngine {
             monthsContributoryTotal: monthsContributory,
             droppedCRDOYears: crdoDropped,
             droppedGeneralYears: generalDropoutYears,
-            averageRatio: averageRatio
+            averageRatio: averageRatio,
+            crdoDroppedList: crdoDroppedYears,
+            finalRatiosUsed: finalRatios
         };
     }
 }
