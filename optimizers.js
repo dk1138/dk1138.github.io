@@ -11,7 +11,7 @@ class Optimizers {
 
     // ---------------- SMART OPTIMIZERS START ---------------- //
 
-    // --- CPP SMART IMPORTER & ANALYZER ---
+    // --- CPP SMART IMPORTER & ANALYZER (Today's Dollars) ---
     runCPPImporter() {
         const rawText = document.getElementById('cppPasteArea').value;
         const targetPlayer = document.getElementById('cppTargetPlayer').value;
@@ -27,12 +27,11 @@ class Optimizers {
         }
 
         try {
-            // Instantiate the new CPP Engine
             const cpp = new CPPEngine();
             const records = cpp.parseServiceCanadaText(rawText);
 
             if (records.length === 0) {
-                alert('Could not detect any valid year/earnings data. Please ensure you copied the table correctly.');
+                alert('Could not detect any valid data. Ensure you copied the full earnings table.');
                 return;
             }
 
@@ -44,70 +43,56 @@ class Optimizers {
 
             const birthYear = parseInt(dobRaw.split('-')[0]);
             const currentYear = new Date().getFullYear();
-            const inflation = this.app.getVal('inflation_rate') / 100;
 
-            // We must calculate the baseline at age 65, because the main FinanceEngine 
-            // takes the Age 65 amount and applies the early/late penalty internally.
             let lifetime = [...records];
             let existingYears = new Set(lifetime.map(r => r.year));
 
-            // 1. Fill in missing past years with $0 (e.g. going to school, not working)
+            // 1. Fill past gaps with $0
             for (let y = birthYear + 18; y < currentYear; y++) {
-                if (!existingYears.has(y)) {
-                    lifetime.push({ year: y, earnings: 0 });
-                }
+                if (!existingYears.has(y)) lifetime.push({ year: y, earnings: 0 });
             }
 
-            // 2. Project future years up to age 65
-            let currentSalary = futureSalary;
-            let lastYMPE = cpp.YMPE[2026] || 73200;
-
+            // 2. Project future years until age 65
+            // Note: We use 0% inflation here because we want the ratio in "Real" terms
             for (let y = currentYear; y < birthYear + 65; y++) {
-                // If they plan to retire BEFORE 65, their earnings drop to $0, 
-                // which accurately drags down their CPP estimate (unlike Service Canada's default projection)
                 let isWorking = y < (birthYear + targetRetAge);
-                let appliedSalary = isWorking ? currentSalary : 0;
-
+                let appliedSalary = isWorking ? futureSalary : 0;
                 if (!existingYears.has(y)) {
                     lifetime.push({ year: y, earnings: appliedSalary, isProjected: true });
                 }
-
-                if (isWorking) currentSalary *= (1 + inflation);
-                
-                // Inflate the YMPE table for future math
-                if (!cpp.YMPE[y]) {
-                    lastYMPE *= (1 + inflation);
-                    cpp.YMPE[y] = lastYMPE;
-                }
+                // Maintain YMPE at current level for Today's Dollar baseline
+                if (!cpp.YMPE[y]) cpp.YMPE[y] = cpp.YMPE[2026];
             }
 
             lifetime.sort((a, b) => a.year - b.year);
 
-            // 3. Calculate Exact Base CPP at age 65
+            // 3. Calculate baseline at age 65 using current YMPE averages
             const startPensionYear = birthYear + 65;
             const result = cpp.calculateBaseCPP(lifetime, birthYear, startPensionYear, []);
 
-            const annualBase = result.monthlyBase * 12;
+            // Calculation based on Today's (2026) YMPE Average (~$69,120)
+            const todayAvgYMPE = 69120; 
+            const monthlyBaseToday = (todayAvgYMPE * 0.25 * result.averageRatio) / 12;
+            const annualBaseToday = monthlyBaseToday * 12;
+
             const fmt = n => '$' + Math.round(n).toLocaleString();
 
-            // 4. Render Results
             let html = `
-                <h6 class="text-success fw-bold mb-3"><i class="bi bi-check-circle-fill me-2"></i>Data Parsed & Projected!</h6>
+                <h6 class="text-success fw-bold mb-3"><i class="bi bi-check-circle-fill me-2"></i>Analysis Complete</h6>
                 <div class="row g-3 mb-3 text-white small">
-                    <div class="col-6"><b>Past Years Parsed:</b> ${records.length}</div>
-                    <div class="col-6"><b>Contributory Months:</b> ${result.monthsContributoryTotal}</div>
-                    <div class="col-6"><b>Lowest Years Dropped:</b> ${result.droppedGeneralYears} (17% Rule)</div>
-                    <div class="col-6"><b>Lifetime Avg Earnings Ratio:</b> ${(result.averageRatio * 100).toFixed(1)}%</div>
+                    <div class="col-6"><b>Contributory Years:</b> ${Math.round(result.monthsContributoryTotal/12)}</div>
+                    <div class="col-6"><b>Years Dropped (17%):</b> ${result.droppedGeneralYears}</div>
+                    <div class="col-6"><b>Earnings Ratio:</b> ${(result.averageRatio * 100).toFixed(1)}%</div>
                 </div>
                 
-                <div class="card bg-success bg-opacity-10 border-success border-opacity-50 p-3 text-center mb-3">
-                    <div class="small fw-bold text-success text-uppercase ls-1 mb-1">Calculated Age 65 Baseline Amount</div>
-                    <div class="display-6 fw-bold text-white">${fmt(annualBase)}<span class="fs-5 text-muted fw-normal">/yr</span></div>
-                    <div class="small text-muted mt-2">This is the exact value to enter into your plan. The main simulator will automatically adjust this number up or down if you choose to take CPP before or after age 65.</div>
+                <div class="card bg-info bg-opacity-10 border-info border-opacity-50 p-3 text-center mb-3">
+                    <div class="small fw-bold text-info text-uppercase ls-1 mb-1">Today's Dollar Baseline (Age 65)</div>
+                    <div class="display-6 fw-bold text-white">${fmt(annualBaseToday)}<span class="fs-5 text-muted fw-normal">/yr</span></div>
+                    <div class="small text-muted mt-2">This value is expressed in <b>today's purchasing power</b>. Applying this will allow the main engine to grow it with inflation correctly.</div>
                 </div>
 
-                <button class="btn btn-success w-100 fw-bold py-3 fs-5" onclick="app.optimizers.applyCPPEstimate('${targetPlayer}', ${annualBase})">
-                    <i class="bi bi-arrow-right-circle-fill me-2"></i>Apply ${fmt(annualBase)} to ${targetPlayer.toUpperCase()} Plan
+                <button class="btn btn-primary w-100 fw-bold py-3 fs-5" onclick="app.optimizers.applyCPPEstimate('${targetPlayer}', ${annualBaseToday})">
+                    <i class="bi bi-arrow-right-circle-fill me-2"></i>Apply ${fmt(annualBaseToday)} to Plan
                 </button>
             `;
 
@@ -116,10 +101,10 @@ class Optimizers {
 
         } catch (err) {
             console.error(err);
-            alert("An error occurred calculating CPP. Please ensure the pasted text is the raw table from Service Canada.");
+            alert("Error calculating CPP. Check console for details.");
         }
     }
-    
+
     applyCPPEstimate(player, amount) {
         const el = document.getElementById(`${player}_cpp_est_base`);
         if (el) {
@@ -163,6 +148,7 @@ class Optimizers {
         }
     }
 
+    // --- DIE WITH ZERO ---
     runDieWithZero() {
         const btn = document.getElementById('btnRunDwZ');
         if(btn) { btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Calculating...'; btn.disabled = true; }
@@ -1205,17 +1191,21 @@ class Optimizers {
             workerData.volatility = volatility;
             workerData.sp500 = this.app.SP500_HISTORICAL;
 
-            worker.postMessage(workerData);
+            worker.postMessage({ type: 'RUN_MONTE_CARLO', payload: workerData });
             
             worker.onmessage = (e) => {
-                const trajectories = e.data.trajectories;
-                this.processMonteCarloChart(trajectories, startYear);
-                
-                if(btn) {
-                    btn.innerHTML = '<i class="bi bi-play-circle-fill me-2"></i> Run Monte Carlo';
-                    btn.disabled = false;
+                const { type, payload } = e.data;
+                if (type === 'MONTE_CARLO_COMPLETE') {
+                    const { successRate, medianTrajectory, p10Trajectory } = payload;
+                    
+                    this.processMonteCarloChartFromPayload(successRate, medianTrajectory, p10Trajectory, startYear);
+                    
+                    if(btn) {
+                        btn.innerHTML = '<i class="bi bi-play-circle-fill me-2"></i> Run Monte Carlo';
+                        btn.disabled = false;
+                    }
+                    worker.terminate();
                 }
-                worker.terminate();
             };
             
             worker.onerror = (error) => {
@@ -1236,26 +1226,14 @@ class Optimizers {
         }
     }
 
-    processMonteCarloChart(trajectories, startYear) {
-        trajectories.sort((a, b) => a[a.length - 1] - b[b.length - 1]);
-
-        const runs = trajectories.length;
-        const p10Idx = Math.floor(runs * 0.10);
-        const p50Idx = Math.floor(runs * 0.50);
-        const p90Idx = Math.floor(runs * 0.90);
-
-        const p10Data = trajectories[p10Idx];
-        const p50Data = trajectories[p50Idx];
-        const p90Data = trajectories[p90Idx];
-
-        const successCount = trajectories.filter(t => t[t.length-1] > 0).length;
-        const successRate = ((successCount / runs) * 100).toFixed(1);
-
+    processMonteCarloChartFromPayload(successRateStr, medianData, p10Data, startYear) {
         const statsBox = document.getElementById('mc_stats_box');
         const rateEl = document.getElementById('mc_success_rate');
+        const successRate = parseFloat(successRateStr);
+        
         if(statsBox && rateEl) {
             statsBox.style.display = 'block';
-            rateEl.innerText = `${successRate}%`;
+            rateEl.innerText = `${successRate.toFixed(1)}%`;
             statsBox.className = successRate >= 90 ? 'card p-3 border-success bg-success bg-opacity-10 text-center' : 
                                (successRate >= 75 ? 'card p-3 border-warning bg-warning bg-opacity-10 text-center' : 
                                'card p-3 border-danger bg-danger bg-opacity-10 text-center');
@@ -1265,9 +1243,21 @@ class Optimizers {
         }
 
         const ctx = document.getElementById('chartMonteCarlo').getContext('2d');
-        const labels = p50Data.map((_, i) => startYear + i);
+        const p1Age = Math.abs(startYear - parseInt(this.app.getRaw('p1_dob').split('-')[0]));
+        const labels = medianData.map((_, i) => p1Age + i);
+
+        // Convert to Today's Dollars inside the chart visually for better understanding
+        const inflation = this.app.getVal('inflation_rate') / 100;
+        const discount = (val, idx) => val / Math.pow(1 + inflation, idx);
+        
+        const medAdj = medianData.map((v, i) => Math.round(discount(v, i)));
+        const p10Adj = p10Data.map((v, i) => Math.round(discount(v, i)));
 
         if(this.app.charts.mc) this.app.charts.mc.destroy(); 
+
+        const isDark = document.documentElement.getAttribute('data-bs-theme') !== 'light';
+        const textColor = isDark ? '#cbd5e1' : '#475569';
+        const gridColor = isDark ? '#334155' : '#e2e8f0';
 
         this.app.charts.mc = new Chart(ctx, {
             type: 'line',
@@ -1275,30 +1265,24 @@ class Optimizers {
                 labels: labels,
                 datasets: [
                     {
-                        label: 'Optimistic (Top 10%)',
-                        data: p90Data,
-                        borderColor: '#10b981', 
-                        backgroundColor: 'transparent',
-                        borderWidth: 2,
-                        tension: 0.4,
-                        pointRadius: 0
-                    },
-                    {
-                        label: 'Median Outcome',
-                        data: p50Data,
+                        label: 'Median Scenario (50th Percentile)',
+                        data: medAdj,
                         borderColor: '#3b82f6', 
-                        backgroundColor: 'transparent',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
                         borderWidth: 3,
                         tension: 0.4,
+                        fill: true,
                         pointRadius: 0
                     },
                     {
-                        label: 'Pessimistic (Bottom 10%)',
-                        data: p10Data,
+                        label: 'Pessimistic Scenario (Bottom 10%)',
+                        data: p10Adj,
                         borderColor: '#ef4444', 
                         backgroundColor: 'transparent',
                         borderWidth: 2,
                         tension: 0.4,
+                        borderDash: [5, 5],
+                        fill: false,
                         pointRadius: 0
                     },
                     {
@@ -1317,7 +1301,7 @@ class Optimizers {
                 maintainAspectRatio: false,
                 interaction: { mode: 'index', intersect: false },
                 plugins: {
-                    legend: { position: 'bottom', labels: { color: '#888' } },
+                    legend: { position: 'bottom', labels: { color: textColor } },
                     tooltip: {
                         callbacks: {
                             label: function(context) {
@@ -1327,14 +1311,35 @@ class Optimizers {
                     }
                 },
                 scales: {
-                    x: { grid: { color: '#333' }, ticks: { color: '#888' } },
+                    x: { 
+                        title: { display: true, text: 'Player 1 Age', color: textColor },
+                        grid: { color: gridColor }, 
+                        ticks: { color: textColor } 
+                    },
                     y: { 
-                        grid: { color: '#333' }, 
-                        ticks: { color: '#888', callback: (val) => '$' + (val/1000000).toFixed(1) + 'M' } 
+                        grid: { color: gridColor }, 
+                        ticks: { color: textColor, callback: (val) => '$' + (val/1000000).toFixed(1) + 'M' } 
                     }
                 }
             }
         });
+    }
+
+    // Keep this function here for backward compatibility if `runMonteCarlo` uses it instead of payload logic
+    processMonteCarloChart(trajectories, startYear) {
+        trajectories.sort((a, b) => a[a.length - 1] - b[b.length - 1]);
+
+        const runs = trajectories.length;
+        const p10Idx = Math.floor(runs * 0.10);
+        const p50Idx = Math.floor(runs * 0.50);
+
+        const p10Data = trajectories[p10Idx];
+        const p50Data = trajectories[p50Idx];
+
+        const successCount = trajectories.filter(t => t[t.length-1] > 0).length;
+        const successRate = ((successCount / runs) * 100).toFixed(1);
+
+        this.processMonteCarloChartFromPayload(successRate, p50Data, p10Data, startYear);
     }
     // ---------------- MONTE CARLO ENGINE END ---------------- //
 }
