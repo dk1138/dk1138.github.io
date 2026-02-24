@@ -49,7 +49,9 @@ class UIController {
             "P1 Dies": { icon: 'bi-heartbreak-fill', color: 'text-white', title: "Person 1 Deceased" }, 
             "P2 Dies": { icon: 'bi-heartbreak', color: 'text-white', title: "Person 2 Deceased" },
             "Windfall": { icon: 'bi-gift-fill', color: 'text-success', title: "Inheritance/Bonus Received" },
-            "Downsize": { icon: 'bi-box-seam-fill', color: 'text-primary', title: "Real Estate Downsizing" }
+            "Downsize": { icon: 'bi-box-seam-fill', color: 'text-primary', title: "Real Estate Downsizing" },
+            "P1 Leave": { icon: 'bi-pause-circle-fill', color: 'text-warning', title: "Person 1 Leave of Absence" },
+            "P2 Leave": { icon: 'bi-pause-circle-fill', color: 'text-purple', title: "Person 2 Leave of Absence" }
         };
     }
 
@@ -264,13 +266,17 @@ class UIController {
             
             // --- P1 Income Builders ---
             if(d.incomeP1 > 0) {
+                let baseOnly = d.incomeP1 - (d.eiMatP1 || 0) - (d.topUpP1 || 0);
                 let empLabel = "Employment";
                 if (d.rrspMatchP1 > 0) {
-                    let content = POPOVER_DICTIONARY.compensation(fmtStr(d.incomeP1 - d.rrspMatchP1), fmtStr(d.rrspMatchP1));
+                    let content = POPOVER_DICTIONARY.compensation(fmtStr(baseOnly - d.rrspMatchP1), fmtStr(d.rrspMatchP1));
                     empLabel += this.buildPopoverIcon("Compensation Breakdown", content);
                 }
-                groupP1 += ln(empLabel, d.incomeP1);
+                if (baseOnly > 0) groupP1 += ln(empLabel, baseOnly);
             }
+            if(d.eiMatP1 > 0) groupP1 += sL("EI Leave Benefit", d.eiMatP1, "text-warning");
+            if(d.topUpP1 > 0) groupP1 += sL("Employer Top-Up", d.topUpP1, "text-success");
+
             if(d.rrspRefundP1 > 0) {
                 let rfInfo = this.buildPopoverIcon("RRSP Tax Refund", POPOVER_DICTIONARY.rrspRefund());
                 groupP1 += sL(`Tax Refund (RRSP)${rfInfo}`, d.rrspRefundP1, "text-success fw-bold");
@@ -316,13 +322,17 @@ class UIController {
             // --- P2 Income Builders ---
             if(this.app.state.mode==='Couple') {
                 if(d.incomeP2 > 0) {
+                    let baseOnly = d.incomeP2 - (d.eiMatP2 || 0) - (d.topUpP2 || 0);
                     let empLabel = "Employment";
                     if (d.rrspMatchP2 > 0) {
-                        let content = POPOVER_DICTIONARY.compensation(fmtStr(d.incomeP2 - d.rrspMatchP2), fmtStr(d.rrspMatchP2));
+                        let content = POPOVER_DICTIONARY.compensation(fmtStr(baseOnly - d.rrspMatchP2), fmtStr(d.rrspMatchP2));
                         empLabel += this.buildPopoverIcon("Compensation Breakdown", content);
                     }
-                    groupP2 += ln(empLabel, d.incomeP2);
+                    if (baseOnly > 0) groupP2 += ln(empLabel, baseOnly);
                 }
+                if(d.eiMatP2 > 0) groupP2 += sL("EI Leave Benefit", d.eiMatP2, "text-warning");
+                if(d.topUpP2 > 0) groupP2 += sL("Employer Top-Up", d.topUpP2, "text-success");
+
                 if(d.rrspRefundP2 > 0) {
                     let rfInfo = this.buildPopoverIcon("RRSP Tax Refund", POPOVER_DICTIONARY.rrspRefund());
                     groupP2 += sL(`Tax Refund (RRSP)${rfInfo}`, d.rrspRefundP2, "text-success fw-bold");
@@ -688,7 +698,11 @@ class UIController {
 
         const potName = `Available Cash\n${fmt(v(d.householdNet))}`; 
         
-        if(d.incomeP1>0) addRow(`Employment P1\n${fmt(v(d.incomeP1))}`, potName, d.incomeP1);
+        let baseP1 = d.incomeP1 - (d.eiMatP1 || 0) - (d.topUpP1 || 0);
+        if(baseP1>0) addRow(`Employment P1\n${fmt(v(baseP1))}`, potName, baseP1);
+        if(d.eiMatP1>0) addRow(`EI Leave P1\n${fmt(v(d.eiMatP1))}`, potName, d.eiMatP1);
+        if(d.topUpP1>0) addRow(`Top-Up P1\n${fmt(v(d.topUpP1))}`, potName, d.topUpP1);
+
         if(d.postRetP1>0) addRow(`Post-Ret Work P1\n${fmt(v(d.postRetP1))}`, potName, d.postRetP1);
         if(d.ccbP1>0) addRow(`CCB P1\n${fmt(v(d.ccbP1))}`, potName, d.ccbP1);
         if(d.cppP1>0) addRow(`CPP P1\n${fmt(v(d.cppP1))}`, potName, d.cppP1);
@@ -697,7 +711,11 @@ class UIController {
         if(d.invIncP1>0) addRow(`Inv. Yield P1\n${fmt(v(d.invIncP1))}`, potName, d.invIncP1);
         if(d.rrspRefundP1>0) addRow(`RRSP Refund P1\n${fmt(v(d.rrspRefundP1))}`, potName, d.rrspRefundP1);
 
-        if(d.incomeP2>0) addRow(`Employment P2\n${fmt(v(d.incomeP2))}`, potName, d.incomeP2);
+        let baseP2 = (d.incomeP2 || 0) - (d.eiMatP2 || 0) - (d.topUpP2 || 0);
+        if(baseP2>0) addRow(`Employment P2\n${fmt(v(baseP2))}`, potName, baseP2);
+        if(d.eiMatP2>0) addRow(`EI Leave P2\n${fmt(v(d.eiMatP2))}`, potName, d.eiMatP2);
+        if(d.topUpP2>0) addRow(`Top-Up P2\n${fmt(v(d.topUpP2))}`, potName, d.topUpP2);
+
         if(d.postRetP2>0) addRow(`Post-Ret Work P2\n${fmt(v(d.postRetP2))}`, potName, d.postRetP2);
         if(d.cppP2>0) addRow(`CPP P2\n${fmt(v(d.cppP2))}`, potName, d.cppP2);
         if(d.oasP2>0) addRow(`OAS P2\n${fmt(v(d.oasP2))}`, potName, d.oasP2);
