@@ -560,7 +560,15 @@ class Optimizers {
         let html = `
             <div class="row g-4">
                 <div class="col-lg-4 border-end border-secondary pe-lg-4">
-                    <h6 class="text-info fw-bold text-uppercase ls-1 mb-3">1. Mortgage Details</h6>
+                    <h6 class="text-info fw-bold text-uppercase ls-1 mb-3">1. Property & Mortgage</h6>
+                    <div class="mb-3">
+                        <label class="form-label small text-muted mb-1">Current Home Value</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-transparent border-secondary text-muted">$</span>
+                            <input type="number" class="form-control border-secondary" id="sm_home_val" value="800000" oninput="app.optimizers.calcSmithManeuver()">
+                        </div>
+                        <div class="form-text text-muted" style="font-size: 0.65rem;">Used to calculate 65% HELOC limits.</div>
+                    </div>
                     <div class="mb-3">
                         <label class="form-label small text-muted mb-1">Mortgage Balance</label>
                         <div class="input-group input-group-sm">
@@ -568,47 +576,118 @@ class Optimizers {
                             <input type="number" class="form-control border-secondary" id="sm_mortgage" value="${defaultMortgage}" oninput="app.optimizers.calcSmithManeuver()">
                         </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label small text-muted mb-1">Interest Rate (%)</label>
-                        <div class="input-group input-group-sm">
-                            <input type="number" step="0.01" class="form-control border-secondary" id="sm_mortgage_rate" value="${defaultRate}" oninput="app.optimizers.calcSmithManeuver()">
-                            <span class="input-group-text bg-transparent border-secondary text-muted">%</span>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label small text-muted mb-1">Mortgage (%)</label>
+                            <div class="input-group input-group-sm">
+                                <input type="number" step="0.01" class="form-control border-secondary" id="sm_mortgage_rate" value="${defaultRate}" oninput="app.optimizers.calcSmithManeuver()">
+                                <span class="input-group-text bg-transparent border-secondary text-muted">%</span>
+                            </div>
                         </div>
-                    </div>
-                    <div class="mb-4">
-                        <label class="form-label small text-muted mb-1">Amortization Remaining (Years)</label>
-                        <input type="number" class="form-control form-control-sm border-secondary" id="sm_amortization" value="20" oninput="app.optimizers.calcSmithManeuver()">
+                        <div class="col-6">
+                            <label class="form-label small text-muted mb-1">Amort. (Yrs)</label>
+                            <input type="number" class="form-control form-control-sm border-secondary" id="sm_amortization" value="20" oninput="app.optimizers.calcSmithManeuver()">
+                        </div>
                     </div>
 
-                    <h6 class="text-warning fw-bold text-uppercase ls-1 mb-3 pt-3 border-top border-secondary">2. Investment & HELOC</h6>
-                    <div class="mb-3">
-                        <label class="form-label small text-muted mb-1">HELOC Interest Rate (%)</label>
-                        <div class="input-group input-group-sm">
-                            <input type="number" step="0.1" class="form-control border-secondary" id="sm_heloc_rate" value="7.2" oninput="app.optimizers.calcSmithManeuver()">
-                            <span class="input-group-text bg-transparent border-secondary text-muted">%</span>
+                    <h6 class="text-warning fw-bold text-uppercase ls-1 mb-3 pt-3 border-top border-secondary">2. Financial Rates</h6>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label small text-muted mb-1">HELOC Rate (%)</label>
+                            <div class="input-group input-group-sm">
+                                <input type="number" step="0.1" class="form-control border-secondary" id="sm_heloc_rate" value="7.2" oninput="app.optimizers.calcSmithManeuver()">
+                                <span class="input-group-text bg-transparent border-secondary text-muted">%</span>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small text-muted mb-1">Invest Return (%)</label>
+                            <div class="input-group input-group-sm">
+                                <input type="number" step="0.1" class="form-control border-secondary" id="sm_invest_return" value="8.0" oninput="app.optimizers.calcSmithManeuver()">
+                                <span class="input-group-text bg-transparent border-secondary text-muted">%</span>
+                            </div>
                         </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label small text-muted mb-1">Investment Return (%)</label>
-                        <div class="input-group input-group-sm">
-                            <input type="number" step="0.1" class="form-control border-secondary" id="sm_invest_return" value="8.0" oninput="app.optimizers.calcSmithManeuver()">
-                            <span class="input-group-text bg-transparent border-secondary text-muted">%</span>
+                    <div class="row g-2 mb-4">
+                        <div class="col-6">
+                            <label class="form-label small text-muted mb-1">Marginal Tax (%)</label>
+                            <div class="input-group input-group-sm">
+                                <input type="number" step="0.1" class="form-control border-secondary" id="sm_tax_rate" value="43.4" oninput="app.optimizers.calcSmithManeuver()">
+                                <span class="input-group-text bg-transparent border-secondary text-muted">%</span>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small text-muted mb-1">Prop. Growth (%)</label>
+                            <div class="input-group input-group-sm">
+                                <input type="number" step="0.1" class="form-control border-secondary" id="sm_prop_growth" value="3.0" oninput="app.optimizers.calcSmithManeuver()">
+                                <span class="input-group-text bg-transparent border-secondary text-muted">%</span>
+                            </div>
                         </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label small text-muted mb-1">Marginal Tax Rate (%)</label>
-                        <div class="input-group input-group-sm">
-                            <input type="number" step="0.1" class="form-control border-secondary" id="sm_tax_rate" value="43.4" oninput="app.optimizers.calcSmithManeuver()">
-                            <span class="input-group-text bg-transparent border-secondary text-muted">%</span>
-                        </div>
-                        <div class="form-text text-muted" style="font-size: 0.65rem;">Used to calculate the tax refund generated by deducting HELOC interest.</div>
+
+                    <h6 class="text-success fw-bold text-uppercase ls-1 mb-3 pt-3 border-top border-secondary">3. Strategy Settings</h6>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input mt-1" type="checkbox" id="sm_use_accelerator" checked onchange="app.optimizers.calcSmithManeuver()">
+                        <label class="form-check-label small text-white fw-bold" for="sm_use_accelerator">Use "Accelerator" Method</label>
+                        <div class="form-text text-muted" style="font-size: 0.65rem;">Applies tax refunds as a lump sum to the mortgage, freeing up more HELOC room instantly. Pays off mortgage faster.</div>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input mt-1" type="checkbox" id="sm_use_day1" onchange="app.optimizers.calcSmithManeuver()">
+                        <label class="form-check-label small text-white fw-bold" for="sm_use_day1">Deploy Initial Equity Day-1</label>
+                        <div class="form-text text-muted" style="font-size: 0.65rem;">Immediately borrows all available 65% LTV HELOC room on Day 1 to invest.</div>
                     </div>
                 </div>
-                <div class="col-lg-8 ps-lg-4" id="sm-results-container">
+                <div class="col-lg-8 ps-lg-4 position-relative">
+                    <ul class="nav nav-tabs border-secondary mb-3" id="sm-tabs" role="tablist">
+                      <li class="nav-item" role="presentation">
+                        <button class="nav-link active bg-transparent text-white border-0 fw-bold border-bottom border-primary" style="border-radius:0;" id="sm-summary-tab" data-bs-toggle="tab" data-bs-target="#sm-summary" type="button" role="tab">Summary & Chart</button>
+                      </li>
+                      <li class="nav-item" role="presentation">
+                        <button class="nav-link bg-transparent text-muted border-0 fw-bold" style="border-radius:0;" id="sm-data-tab" data-bs-toggle="tab" data-bs-target="#sm-data" type="button" role="tab" onclick="this.classList.replace('text-muted','text-white'); this.classList.add('border-bottom','border-primary'); document.getElementById('sm-summary-tab').classList.replace('text-white','text-muted'); document.getElementById('sm-summary-tab').classList.remove('border-bottom','border-primary');">Yearly Data Table</button>
+                      </li>
+                    </ul>
+                    
+                    <div class="tab-content" id="sm-tabContent">
+                        <div class="tab-pane fade show active" id="sm-summary" role="tabpanel">
+                            <div id="sm-results-chart-container"></div>
+                        </div>
+                        <div class="tab-pane fade" id="sm-data" role="tabpanel">
+                            <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                                <table class="table table-dark table-sm table-striped table-hover mt-2" style="font-size: 0.8rem;">
+                                    <thead class="sticky-top bg-black">
+                                        <tr>
+                                            <th class="text-secondary text-uppercase border-secondary">Year</th>
+                                            <th class="text-secondary text-uppercase border-secondary">Home Val</th>
+                                            <th class="text-secondary text-uppercase border-secondary text-danger">Std Mort.</th>
+                                            <th class="text-secondary text-uppercase border-secondary text-warning">SM Mort.</th>
+                                            <th class="text-secondary text-uppercase border-secondary text-danger">SM HELOC</th>
+                                            <th class="text-secondary text-uppercase border-secondary text-info">SM Portfolio</th>
+                                            <th class="text-secondary text-uppercase border-secondary text-success">Net Benefit</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="sm-table-body">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
+                </div>
             </div>
         `;
         modalContainer.innerHTML = html;
+        
+        // Add event listener to handle tab styling properly
+        const summaryTab = document.getElementById('sm-summary-tab');
+        const dataTab = document.getElementById('sm-data-tab');
+        
+        if (summaryTab && dataTab) {
+            summaryTab.addEventListener('click', () => {
+                summaryTab.classList.replace('text-muted', 'text-white');
+                summaryTab.classList.add('border-bottom', 'border-primary');
+                dataTab.classList.replace('text-white', 'text-muted');
+                dataTab.classList.remove('border-bottom', 'border-primary');
+            });
+        }
+
         this.calcSmithManeuver();
 
         let mEl = document.getElementById('smithManeuverModal');
@@ -619,22 +698,27 @@ class Optimizers {
     }
 
     calcSmithManeuver() {
-        const container = document.getElementById('sm-results-container');
-        if(!container) return;
+        const chartContainer = document.getElementById('sm-results-chart-container');
+        const tableBody = document.getElementById('sm-table-body');
+        if(!chartContainer || !tableBody) return;
 
+        let homeVal = parseFloat(document.getElementById('sm_home_val')?.value) || 0;
+        let propGrowth = (parseFloat(document.getElementById('sm_prop_growth')?.value) || 0) / 100;
         let balMortgage = parseFloat(document.getElementById('sm_mortgage')?.value) || 0;
         let amortYears = parseInt(document.getElementById('sm_amortization')?.value) || 0;
         let rateMortgage = (parseFloat(document.getElementById('sm_mortgage_rate')?.value) || 0) / 100;
         let rateHeloc = (parseFloat(document.getElementById('sm_heloc_rate')?.value) || 0) / 100;
         let rateInvest = (parseFloat(document.getElementById('sm_invest_return')?.value) || 0) / 100;
         let taxRate = (parseFloat(document.getElementById('sm_tax_rate')?.value) || 0) / 100;
+        let useAccelerator = document.getElementById('sm_use_accelerator')?.checked || false;
+        let useDay1 = document.getElementById('sm_use_day1')?.checked || false;
 
-        if (balMortgage <= 0 || amortYears <= 0) {
-            container.innerHTML = `<div class="text-muted p-3">Please enter valid mortgage details to run the simulation.</div>`;
+        if (balMortgage <= 0 || amortYears <= 0 || homeVal <= 0) {
+            chartContainer.innerHTML = `<div class="text-muted p-3">Please enter valid property and mortgage details to run the simulation.</div>`;
             return;
         }
 
-        // Standard mortgage math (simplified monthly compounding for simulation)
+        // Standard mortgage payment math
         let monthlyMortgageRate = rateMortgage / 12;
         let numPayments = amortYears * 12;
         let payment = 0;
@@ -644,99 +728,211 @@ class Optimizers {
             payment = balMortgage / numPayments;
         }
 
+        // State variables for Standard tracking
+        let stdMortgage = balMortgage;
+        let stdPortfolio = 0;
+
+        // State variables for Smith Maneuver tracking
         let smMortgage = balMortgage;
         let smHeloc = 0;
         let smPortfolio = 0;
+        let currentPropVal = homeVal;
+        
         let totalTaxRefunds = 0;
         let totalInterestPaid = 0;
-
-        let chartLabels = [];
-        let chartDataStandard = [];
-        let chartDataSM = [];
-
         let currentYearInterest = 0;
+
+        let chartLabels = ['Start'];
+        let chartDataStandard = [0];
+        let chartDataSM = [0];
+        let tableData = [];
+
+        // Handle Day 1 Deployment
+        if (useDay1) {
+            let maxTotalDebt = currentPropVal * 0.80;
+            let maxHelocLimit = currentPropVal * 0.65;
+            let initialAvail = Math.max(0, Math.min(maxTotalDebt - smMortgage, maxHelocLimit));
+            smHeloc += initialAvail;
+            smPortfolio += initialAvail;
+        }
+
+        tableData.push({
+            year: 0,
+            home: currentPropVal,
+            stdMort: stdMortgage,
+            smMort: smMortgage,
+            smHeloc: smHeloc,
+            smPort: smPortfolio,
+            netBen: 0
+        });
+
+        let smMortgagePaidOffMonth = 0;
+        let stdMortgagePaidOffMonth = numPayments;
 
         // Simulate month by month
         for (let m = 1; m <= numPayments; m++) {
             
-            // Standard/Base calculation
-            let smInterest = smMortgage * monthlyMortgageRate;
-            let smPrincipal = payment - smInterest;
-            if (smPrincipal > smMortgage) smPrincipal = smMortgage; // Catch final payment overshoot
-            smMortgage -= smPrincipal;
+            // 1. Grow Property
+            currentPropVal += currentPropVal * (propGrowth / 12);
 
-            // Smith Maneuver: Borrow the exact principal paid from the HELOC
-            smHeloc += smPrincipal;
-            
-            // Invest it into the portfolio
-            smPortfolio += smPrincipal;
+            // 2. Standard Mortgage Paydown
+            if (stdMortgage > 0) {
+                let stdInterest = stdMortgage * monthlyMortgageRate;
+                let stdPrincipal = payment - stdInterest;
+                if (stdPrincipal > stdMortgage) stdPrincipal = stdMortgage;
+                stdMortgage -= stdPrincipal;
+            } else {
+                // If standard mortgage is paid off, redirect payment to standard portfolio
+                stdPortfolio += payment;
+            }
+            stdPortfolio += stdPortfolio * (rateInvest / 12);
 
-            // Calculate HELOC interest for the month
+            // 3. Smith Maneuver Flow
+            let maxTotalDebt = currentPropVal * 0.80;
+            let maxHelocLimit = currentPropVal * 0.65;
+
+            if (smMortgage > 0) {
+                let smInterest = smMortgage * monthlyMortgageRate;
+                let smPrincipal = payment - smInterest;
+                if (smPrincipal > smMortgage) {
+                    smPrincipal = smMortgage;
+                    if(smMortgagePaidOffMonth === 0) smMortgagePaidOffMonth = m;
+                }
+                smMortgage -= smPrincipal;
+
+                // Calculate available HELOC room
+                let availHeloc = Math.max(0, Math.min(maxTotalDebt - smMortgage, maxHelocLimit) - smHeloc);
+                
+                // Borrow exact principal paid to invest (if room exists)
+                let borrowInvest = Math.min(smPrincipal, availHeloc);
+                smHeloc += borrowInvest;
+                smPortfolio += borrowInvest;
+            } else {
+                if(smMortgagePaidOffMonth === 0) smMortgagePaidOffMonth = m;
+                // Mortgage is paid off! Redirect the payment to pay down the HELOC.
+                let helocPaydown = Math.min(payment, smHeloc);
+                smHeloc -= helocPaydown;
+                // Any leftover payment gets invested
+                if (payment > helocPaydown) smPortfolio += (payment - helocPaydown);
+            }
+
+            // 4. Calculate HELOC Interest & Capitalize
             let helocMonthlyInterest = smHeloc * (rateHeloc / 12);
             currentYearInterest += helocMonthlyInterest;
             totalInterestPaid += helocMonthlyInterest;
             
-            // Capitalizing the Interest: Borrow from the HELOC to pay its own interest so cash flow stays identical
-            smHeloc += helocMonthlyInterest;
+            // Capitalize interest (borrow from HELOC to pay interest) if room exists. 
+            // In reality, banks require it out of pocket if you hit the 65% limit. We assume you borrow it.
+            let roomForInterest = Math.max(0, Math.min(maxTotalDebt - smMortgage, maxHelocLimit) - smHeloc);
+            let interestBorrowed = Math.min(helocMonthlyInterest, roomForInterest);
+            smHeloc += interestBorrowed;
+            
+            // Note: If interestBorrowed < helocMonthlyInterest, you'd technically have to pay it from cash flow 
+            // which reduces your portfolio growth. For a strict LTV simulation, we subtract the unpaid interest from the portfolio.
+            let interestOutOfPocket = helocMonthlyInterest - interestBorrowed;
+            if (interestOutOfPocket > 0) smPortfolio -= interestOutOfPocket;
 
-            // Portfolio growth
+            // 5. Portfolio growth
             smPortfolio += smPortfolio * (rateInvest / 12);
 
-            // End of year tax refund processing
+            // 6. End of Year Tax Processing
             if (m % 12 === 0 || m === numPayments) {
-                // Claim HELOC interest on taxes
                 let refund = currentYearInterest * taxRate;
                 totalTaxRefunds += refund;
                 
-                // Purest SM: reinvest the tax refund into the portfolio to accelerate compounding
-                smPortfolio += refund;
+                if (useAccelerator && smMortgage > 0) {
+                    // Apply refund to mortgage principal
+                    let lumpSum = Math.min(smMortgage, refund);
+                    smMortgage -= lumpSum;
+                    
+                    // Borrow that newly freed room to invest
+                    let newRoom = Math.max(0, Math.min(maxTotalDebt - smMortgage, maxHelocLimit) - smHeloc);
+                    let accelBorrow = Math.min(lumpSum, newRoom);
+                    smHeloc += accelBorrow;
+                    smPortfolio += accelBorrow;
+
+                    // If refund exceeded mortgage, invest the remainder directly
+                    if (refund > lumpSum) {
+                        smPortfolio += (refund - lumpSum);
+                    }
+                } else if (useAccelerator && smMortgage <= 0) {
+                    // Mortgage gone, apply refund to HELOC
+                    smHeloc -= Math.min(smHeloc, refund);
+                } else {
+                    // Pure Smith Maneuver: Reinvest refund into portfolio
+                    smPortfolio += refund;
+                }
                 
                 currentYearInterest = 0;
 
-                chartLabels.push("Year " + (m/12));
-                chartDataStandard.push(0); // Baseline net benefit is 0
-                chartDataSM.push(Math.round(smPortfolio - smHeloc)); // The SM Spread
+                // Snapshot for Chart and Table
+                let year = Math.ceil(m / 12);
+                let stdNetEquity = currentPropVal - stdMortgage + stdPortfolio;
+                let smNetEquity = currentPropVal - smMortgage - smHeloc + smPortfolio;
+                let netBenefit = smNetEquity - stdNetEquity;
+
+                chartLabels.push("Year " + year);
+                chartDataStandard.push(0); 
+                chartDataSM.push(Math.round(netBenefit));
+
+                tableData.push({
+                    year: year,
+                    home: currentPropVal,
+                    stdMort: stdMortgage,
+                    smMort: smMortgage,
+                    smHeloc: smHeloc,
+                    smPort: smPortfolio,
+                    netBen: netBenefit
+                });
             }
         }
 
-        let netWealthGenerated = smPortfolio - smHeloc;
+        let finalNetBenefit = chartDataSM[chartDataSM.length - 1];
 
+        // Build UI Summary
         let html = `
-            <div class="row mb-4 g-3">
+            <div class="row mb-4 g-3 mt-1">
                 <div class="col-6">
                     <div class="card bg-black bg-opacity-25 border-secondary h-100 p-3 text-center">
                         <div class="small text-muted text-uppercase fw-bold ls-1 mb-1">Standard Method</div>
                         <div class="fs-3 fw-bold text-white">$0</div>
-                        <div class="small text-muted">Net Wealth Generated</div>
+                        <div class="small text-muted">Net Wealth Advantage</div>
                     </div>
                 </div>
                 <div class="col-6">
-                    <div class="card bg-primary bg-opacity-10 border-primary h-100 p-3 text-center position-relative">
+                    <div class="card bg-primary bg-opacity-10 border-primary h-100 p-3 text-center position-relative overflow-hidden">
+                        <div class="position-absolute top-0 start-0 w-100 h-100 bg-primary opacity-25 pointer-events-none" style="background: radial-gradient(circle, rgba(13,110,253,0.3) 0%, rgba(0,0,0,0) 70%);"></div>
                         <div class="small text-primary text-uppercase fw-bold ls-1 mb-1"><i class="bi bi-arrow-repeat me-1"></i>Smith Maneuver</div>
-                        <div class="fs-3 fw-bold ${netWealthGenerated >= 0 ? 'text-success' : 'text-danger'}">
-                            ${netWealthGenerated >= 0 ? '+' : ''}$${Math.round(netWealthGenerated).toLocaleString()}
+                        <div class="fs-3 fw-bold ${finalNetBenefit >= 0 ? 'text-success' : 'text-danger'}">
+                            ${finalNetBenefit >= 0 ? '+' : ''}$${Math.round(finalNetBenefit).toLocaleString()}
                         </div>
-                        <div class="small text-muted">Net Wealth Generated</div>
+                        <div class="small text-muted">Net Wealth Advantage</div>
                     </div>
                 </div>
             </div>
 
             <div class="row mb-4 g-3 text-muted small">
-                <div class="col-md-4">
-                    <div class="p-2 border border-secondary rounded bg-black bg-opacity-25">
-                        <div class="fw-bold mb-1 text-white">Final Portfolio Value</div>
+                <div class="col-md-3">
+                    <div class="p-2 border border-secondary rounded bg-black bg-opacity-25 text-center">
+                        <div class="fw-bold mb-1 text-white">Mortgage Gone</div>
+                        <div class="text-info fs-6">${smMortgagePaidOffMonth > 0 ? `Year ${(smMortgagePaidOffMonth/12).toFixed(1)}` : 'N/A'}</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="p-2 border border-secondary rounded bg-black bg-opacity-25 text-center">
+                        <div class="fw-bold mb-1 text-white">Final Portfolio</div>
                         <div class="text-info fs-6">$${Math.round(smPortfolio).toLocaleString()}</div>
                     </div>
                 </div>
-                <div class="col-md-4">
-                    <div class="p-2 border border-secondary rounded bg-black bg-opacity-25">
-                        <div class="fw-bold mb-1 text-white">Final HELOC Debt</div>
+                <div class="col-md-3">
+                    <div class="p-2 border border-secondary rounded bg-black bg-opacity-25 text-center">
+                        <div class="fw-bold mb-1 text-white">Final HELOC</div>
                         <div class="text-danger fs-6">-$${Math.round(smHeloc).toLocaleString()}</div>
                     </div>
                 </div>
-                <div class="col-md-4">
-                    <div class="p-2 border border-secondary rounded bg-black bg-opacity-25">
-                        <div class="fw-bold mb-1 text-white">Tax Refunds Reinvested</div>
+                <div class="col-md-3">
+                    <div class="p-2 border border-secondary rounded bg-black bg-opacity-25 text-center">
+                        <div class="fw-bold mb-1 text-white">Tax Refunds</div>
                         <div class="text-success fs-6">+$${Math.round(totalTaxRefunds).toLocaleString()}</div>
                     </div>
                 </div>
@@ -747,11 +943,29 @@ class Optimizers {
             </div>
             
             <div class="alert alert-secondary bg-transparent border-secondary mt-4 mb-0 p-3 small text-muted">
-                <strong>How the math works:</strong> This simulation strictly controls for Cash Flow. It assumes you make your standard mortgage payment, borrow the principal portion from your HELOC to invest, and <em>borrow again from the HELOC to pay the monthly interest</em> (capitalizing). At year end, your tax refund is deposited directly into your investment portfolio. The spread between your after-tax return and the HELOC rate creates the wealth shown above.
+                <strong>How the math works:</strong> We compare your Net Equity (Home + Portfolio - All Debts) against a standard mortgage path. It accurately enforces the Canadian 65% HELOC / 80% Total Debt LTV rules. The "Accelerator" pays down the non-deductible mortgage much faster, converting it into deductible debt, generating the wealth spread shown above.
             </div>
         `;
 
-        container.innerHTML = html;
+        chartContainer.innerHTML = html;
+
+        // Build Table rows
+        let tableRows = '';
+        tableData.forEach(row => {
+            let mortPaid = row.smMort <= 0 && row.year > 0 && tableData[row.year-1] && tableData[row.year-1].smMort > 0;
+            let rowClass = mortPaid ? 'table-primary fw-bold' : '';
+            
+            tableRows += `<tr class="${rowClass}">
+                <td>${row.year === 0 ? 'Start' : row.year}</td>
+                <td>$${Math.round(row.home).toLocaleString()}</td>
+                <td class="${row.stdMort <= 0 ? 'text-success' : ''}">$${Math.round(row.stdMort).toLocaleString()}</td>
+                <td class="${row.smMort <= 0 ? 'text-success' : ''}">$${Math.round(row.smMort).toLocaleString()} ${mortPaid ? '<i class="bi bi-check-circle ms-1"></i>' : ''}</td>
+                <td>-$${Math.round(row.smHeloc).toLocaleString()}</td>
+                <td>$${Math.round(row.smPort).toLocaleString()}</td>
+                <td class="${row.netBen >= 0 ? 'text-success' : 'text-danger'}">${row.netBen >= 0 ? '+' : ''}$${Math.round(row.netBen).toLocaleString()}</td>
+            </tr>`;
+        });
+        tableBody.innerHTML = tableRows;
 
         // Render Chart
         const ctx = document.getElementById('smChart').getContext('2d');
@@ -763,7 +977,7 @@ class Optimizers {
                 labels: chartLabels,
                 datasets: [
                     {
-                        label: 'The Smith Maneuver Spread (Net Wealth)',
+                        label: 'Net Wealth Advantage vs Standard',
                         data: chartDataSM,
                         borderColor: '#0d6efd',
                         backgroundColor: 'rgba(13, 110, 253, 0.1)',
@@ -773,7 +987,7 @@ class Optimizers {
                         pointRadius: 0
                     },
                     {
-                        label: 'Standard Mortgage Paydown',
+                        label: 'Standard Baseline',
                         data: chartDataStandard,
                         borderColor: '#6c757d',
                         borderWidth: 2,
