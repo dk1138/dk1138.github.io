@@ -471,6 +471,53 @@ class Optimizers {
             bestRefund = baseTax.totalTax - adjTax.totalTax;
         }
 
+        let effRate = bestT > 0 ? (bestRefund / bestT) * 100 : 0;
+        let margRate = baseTax.margRate * 100;
+        let finalMargRate = finalTax.margRate * 100;
+
+        let mathBreakdownHtml = `
+            <div class="card bg-black bg-opacity-25 border-secondary mt-4 shadow-sm">
+                <div class="card-header border-secondary text-info fw-bold small text-uppercase ls-1">
+                    <i class="bi bi-calculator me-2"></i>Behind the Math (Tax Bracket Breakdown)
+                </div>
+                <div class="card-body p-3 small text-muted">
+                    <div class="row mb-2">
+                        <div class="col-6"><strong>Starting Taxable Income:</strong></div>
+                        <div class="col-6 text-end text-white">$${Math.round(startingTaxableInc).toLocaleString()}</div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-6"><strong>Starting Marginal Tax Rate:</strong></div>
+                        <div class="col-6 text-end text-white">${margRate.toFixed(1)}%</div>
+                    </div>
+                    <div class="row mb-2 pb-2 border-bottom border-secondary">
+                        <div class="col-6"><strong>Total Contribution:</strong></div>
+                        <div class="col-6 text-end text-info">-$${Math.round(bestT).toLocaleString()}</div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-6"><strong>New Taxable Income:</strong></div>
+                        <div class="col-6 text-end text-white">$${Math.round(startingTaxableInc - bestT).toLocaleString()}</div>
+                    </div>
+                    <div class="row mb-2 pb-2 border-bottom border-secondary">
+                        <div class="col-6"><strong>Ending Marginal Tax Rate:</strong></div>
+                        <div class="col-6 text-end text-white">${finalMargRate.toFixed(1)}%</div>
+                    </div>
+                    <div class="row mb-2 mt-2">
+                        <div class="col-8"><strong>Total Tax Refund Generated:</strong></div>
+                        <div class="col-4 text-end text-success fw-bold">+$${Math.round(bestRefund).toLocaleString()}</div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-8"><strong>Effective Refund Rate on Deposit:</strong></div>
+                        <div class="col-4 text-end text-success fw-bold">${effRate.toFixed(1)}%</div>
+                    </div>
+                    <div class="alert alert-secondary bg-transparent border-secondary mt-3 mb-0 p-2" style="font-size: 0.75rem;">
+                        <strong>How it works:</strong> The algorithm finds the exact loan amount where:<br>
+                        <code class="text-white">Tax Refund Generated &ge; Loan Amount</code><br><br>
+                        It calculates your taxes precisely using progressive tax brackets, meaning if your large contribution drops you into a lower tax bracket, the algorithm automatically adjusts the loan downwards so you don't get stuck with leftover debt.
+                    </div>
+                </div>
+            </div>
+        `;
+
         container.innerHTML = `
             <div class="row g-4 mt-2">
                 <div class="col-md-6">
@@ -502,6 +549,8 @@ class Optimizers {
                 <p class="small mb-0">By taking a short-term RRSP loan of <strong>$${Math.round(bestLoan).toLocaleString()}</strong> in February, your tax refund will entirely pay it off by April/May. This gets <strong>$${Math.round(bestT - cash).toLocaleString()}</strong> more compounding in your RRSP immediately compared to the standard method.</p>
                 ${bestT >= maxRoom ? `<p class="small text-warning mt-2 mb-0"><i class="bi bi-exclamation-triangle me-1"></i> You maxed out your available RRSP room. You could potentially gross-up more if you had more room.</p>` : ''}
             </div>
+
+            ${mathBreakdownHtml}
         `;
     }
 
