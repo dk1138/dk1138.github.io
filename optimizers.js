@@ -711,8 +711,7 @@ class Optimizers {
                     </div>
                 </div>
                 <div class="col-6">
-                    <div class="card bg-primary bg-opacity-10 border-primary h-100 p-3 text-center position-relative overflow-hidden">
-                        <div class="position-absolute top-0 start-0 w-100 h-100 bg-primary opacity-10 pointer-events-none" style="background: radial-gradient(circle, rgba(13,110,253,0.2) 0%, rgba(0,0,0,0) 70%);"></div>
+                    <div class="card bg-primary bg-opacity-10 border-primary h-100 p-3 text-center position-relative">
                         <div class="small text-primary text-uppercase fw-bold ls-1 mb-1"><i class="bi bi-arrow-repeat me-1"></i>Smith Maneuver</div>
                         <div class="fs-3 fw-bold ${netWealthGenerated >= 0 ? 'text-success' : 'text-danger'}">
                             ${netWealthGenerated >= 0 ? '+' : ''}$${Math.round(netWealthGenerated).toLocaleString()}
