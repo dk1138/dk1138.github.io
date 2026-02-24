@@ -549,42 +549,6 @@ class Optimizers {
         `;
     }
 
-        container.innerHTML = `
-            <div class="row g-4 mt-2">
-                <div class="col-md-6">
-                    <div class="card bg-black bg-opacity-25 border-secondary h-100">
-                        <div class="card-header border-secondary text-muted fw-bold small text-uppercase ls-1">Standard Method</div>
-                        <div class="card-body p-3">
-                            <div class="d-flex justify-content-between mb-2"><span>Cash Contributed</span> <span class="fw-bold text-white">$${Math.round(cash).toLocaleString()}</span></div>
-                            <div class="d-flex justify-content-between mb-2"><span>RRSP Loan</span> <span class="fw-bold text-white">$0</span></div>
-                            <div class="d-flex justify-content-between mb-2 pt-2 border-top border-secondary"><span>Total RRSP Deposit</span> <span class="fw-bold text-info">$${Math.round(cash).toLocaleString()}</span></div>
-                            <div class="d-flex justify-content-between mt-3 text-success"><span>Tax Refund Generated</span> <span class="fw-bold">+$${Math.round(standardRefund).toLocaleString()}</span></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="card bg-info bg-opacity-10 border-info h-100">
-                        <div class="card-header border-info text-info fw-bold small text-uppercase ls-1"><i class="bi bi-rocket-takeoff me-2"></i>Gross-Up Method</div>
-                        <div class="card-body p-3">
-                            <div class="d-flex justify-content-between mb-2"><span>Cash Contributed</span> <span class="fw-bold text-white">$${Math.round(cash).toLocaleString()}</span></div>
-                            <div class="d-flex justify-content-between mb-2"><span class="text-warning">Short-Term Loan</span> <span class="fw-bold text-warning">+$${Math.round(bestLoan).toLocaleString()}</span></div>
-                            <div class="d-flex justify-content-between mb-2 pt-2 border-top border-info text-info"><span class="fw-bold">Total RRSP Deposit</span> <span class="fw-bold fs-5">$${Math.round(bestT).toLocaleString()}</span></div>
-                            <div class="d-flex justify-content-between mt-3 text-success"><span>Tax Refund (Pays off loan)</span> <span class="fw-bold">+$${Math.round(bestRefund).toLocaleString()}</span></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="alert mt-4 border-success bg-success bg-opacity-10 text-white shadow-sm">
-                <h6 class="fw-bold mb-2 text-success"><i class="bi bi-graph-up-arrow me-2"></i>The Gross-Up Advantage</h6>
-                <p class="small mb-0">By taking a short-term RRSP loan of <strong>$${Math.round(bestLoan).toLocaleString()}</strong> in February, your tax refund will entirely pay it off by April/May. This gets <strong>$${Math.round(bestT - cash).toLocaleString()}</strong> more compounding in your RRSP immediately compared to the standard method.</p>
-                ${bestT >= maxRoom ? `<p class="small text-warning mt-2 mb-0"><i class="bi bi-exclamation-triangle me-1"></i> You maxed out your available RRSP room. You could potentially gross-up more if you had more room.</p>` : ''}
-            </div>
-
-            ${mathBreakdownHtml}
-        `;
-    }
-
     // ---------------- MONTE CARLO ENGINE START ---------------- //
     runMonteCarlo() {
         const simCountInput = document.getElementById('mc_sim_count');
