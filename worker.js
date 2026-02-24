@@ -27,8 +27,8 @@ self.onmessage = function(e) {
             simContext.volatility = data.volatility;
         }
 
-        // Run simulation using the shared engine (detailed = false, passing initial debt)
-        trajectories.push(engine.runSimulation(false, simContext, data.totalDebt));
+        // Run simulation using the shared engine (detailed = false)
+        trajectories.push(engine.runSimulation(false, simContext));
     }
     
     self.postMessage({ trajectories });
