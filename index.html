@@ -1159,6 +1159,18 @@
                     </div>
 
                     <div class="col-12 col-xl-6">
+                        <div class="card p-4 border-secondary surface-card shadow-sm h-100 transition-all">
+                            <h6 class="text-info fw-bold mb-2 fs-5"><i class="bi bi-rocket-takeoff me-2"></i>RRSP Gross-Up Optimizer</h6>
+                            <p class="small text-muted mb-4">Calculate how to maximize your RRSP contribution by using a short-term loan that is completely paid off by the resulting tax refund.</p>
+                            <div class="d-grid mb-3 mt-auto">
+                                <button class="btn btn-outline-info fw-bold py-2" onclick="app.optimizers.runRRSPGrossUpOptimizer()">
+                                    <i class="bi bi-play-circle-fill me-2"></i>Calculate Gross-Up
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-xl-6">
                         <div class="card p-4 border-secondary surface-card shadow-sm h-100 transition-all opacity-50">
                             <h6 class="text-muted fw-bold mb-2 fs-5"><i class="bi bi-infinity me-2"></i>Die With Zero (Maintenance)</h6>
                             <p class="small text-muted mb-4">Calculates how much more you can spend, or how much earlier you can retire, to end up with exactly $0 at the end of your life expectancy.</p>
@@ -1188,18 +1200,6 @@
                         <div class="card p-4 border-secondary surface-card shadow-sm h-100 transition-all opacity-50">
                             <h6 class="text-muted fw-bold mb-2 fs-5"><i class="bi bi-house-exclamation me-2"></i>Mortgage Rate Shock Simulator</h6>
                             <p class="small text-muted mb-4">Stress-test future mortgage renewals at higher interest rates to see the exact impact on your final retirement net worth.</p>
-                            <div class="d-grid mb-3 mt-auto">
-                                <button class="btn btn-outline-secondary fw-bold py-2" disabled>
-                                    <i class="bi bi-play-circle-fill me-2"></i>Coming Soon
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-12 col-xl-6">
-                        <div class="card p-4 border-secondary surface-card shadow-sm h-100 transition-all opacity-50">
-                            <h6 class="text-muted fw-bold mb-2 fs-5"><i class="bi bi-bank me-2"></i>Terminal Tax & Estate Optimizer</h6>
-                            <p class="small text-muted mb-4">Simulates the final deemed disposition tax bill upon the last passing spouse to show Gross vs. Net Estate left to heirs.</p>
                             <div class="d-grid mb-3 mt-auto">
                                 <button class="btn btn-outline-secondary fw-bold py-2" disabled>
                                     <i class="bi bi-play-circle-fill me-2"></i>Coming Soon
@@ -1408,6 +1408,22 @@
           </div>
           <div class="modal-body p-4 bg-input" id="rrspOptimizerResults">
              </div>
+          <div class="modal-footer border-secondary p-3 surface-card rounded-bottom-4">
+            <button type="button" class="btn btn-outline-secondary px-4 fw-bold" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="rrspGrossUpModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content shadow-lg border-secondary rounded-4">
+          <div class="modal-header border-secondary p-4 surface-card rounded-top-4">
+            <h5 class="modal-title fs-5 fw-bold text-white d-flex align-items-center"><div class="bg-info bg-opacity-10 text-info p-2 rounded me-3 d-flex"><i class="bi bi-rocket-takeoff"></i></div>RRSP Gross-Up Analysis</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body p-4 bg-input" id="rrspGrossUpResults">
+          </div>
           <div class="modal-footer border-secondary p-3 surface-card rounded-bottom-4">
             <button type="button" class="btn btn-outline-secondary px-4 fw-bold" data-bs-dismiss="modal">Close</button>
           </div>
