@@ -87,44 +87,66 @@ class Optimizers {
                 }
                 // Maintain YMPE at current level for Today's Dollar baseline
                 if (!cpp.YMPE[y]) cpp.YMPE[y] = cpp.YMPE[2026];
+                if (!cpp.YAMPE[y]) cpp.YAMPE[y] = cpp.YAMPE[2026];
             }
 
             lifetime.sort((a, b) => a.year - b.year);
 
-            // 3. Calculate baseline at age 65 using current YMPE averages
+            // 3. Calculate Base AND Enhanced CPP at age 65
             const startPensionYear = birthYear + 65;
-            const result = cpp.calculateBaseCPP(lifetime, birthYear, startPensionYear, []);
+            const baseResult = cpp.calculateBaseCPP(lifetime, birthYear, startPensionYear, []);
 
-            // Calculation based on Today's (2026) YMPE Average (~$69,120)
+            // To keep it strictly in Today's Dollars, we force the calculation 
+            // to use the 2026 Average YMPE ($69,120) instead of the actual inflated future one
             const todayAvgYMPE = 69120; 
-            const monthlyBaseToday = (todayAvgYMPE * 0.25 * result.averageRatio) / 12;
-            const annualBaseToday = monthlyBaseToday * 12;
+            const baseMonthlyToday = (todayAvgYMPE * 0.25 * baseResult.averageRatio) / 12;
+
+            // Calculate Enhancements using Today's YMPE
+            const enhancedResult = cpp.calculateEnhancedCPP(lifetime, startPensionYear, todayAvgYMPE);
+
+            const totalMonthly = baseMonthlyToday + enhancedResult.totalMonthlyEnhancement;
+            const totalAnnual = totalMonthly * 12;
 
             const fmt = n => '$' + Math.round(n).toLocaleString();
 
-            let infoBtn = `<i class="bi bi-info-circle text-muted ms-2 info-btn" style="cursor: help; font-size: 0.9rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="Today's Dollars" data-bs-content="This estimate is in <b>Today's Dollars</b>, calculated using the current year's Maximum Pensionable Earnings (YMPE) limit.<br><br>This aligns perfectly with your plan's 'Today\\'s $' settings, ensuring your projection engine doesn't double-count inflation."></i>`;
-            let contribInfo = `<i class="bi bi-info-circle text-muted ms-1 info-btn" style="cursor: help; font-size: 0.8rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="Contributory Years" data-bs-content="The total number of years from age 18 to your target retirement age. This forms the base period over which your CPP is calculated."></i>`;
-            let dropInfo = `<i class="bi bi-info-circle text-muted ms-1 info-btn" style="cursor: help; font-size: 0.8rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="General Drop-out (17%)" data-bs-content="The CRA automatically removes up to 17% of your lowest-earning years (up to 8 years) from the calculation to boost your final average. This helps cover gaps for unemployment, school, or early retirement."></i>`;
+            let infoBtn = `<i class="bi bi-info-circle text-muted ms-2 info-btn" style="cursor: help; font-size: 0.9rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="Today's Dollars" data-bs-content="This estimate is strictly in <b>Today's Dollars</b>, calculated using current Maximum Pensionable Earnings (YMPE) limits.<br><br>This aligns perfectly with your plan's 'Today\\'s $' settings, ensuring your projection engine doesn't double-count inflation."></i>`;
+            let contribInfo = `<i class="bi bi-info-circle text-muted ms-1 info-btn" style="cursor: help; font-size: 0.8rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="Contributory Years" data-bs-content="The total number of years from age 18 to age 65."></i>`;
+            let dropInfo = `<i class="bi bi-info-circle text-muted ms-1 info-btn" style="cursor: help; font-size: 0.8rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="General Drop-out (17%)" data-bs-content="The CRA automatically removes up to 17% of your lowest-earning years (roughly 8 years) from the base calculation to boost your final average."></i>`;
             let ratioInfo = `<i class="bi bi-info-circle text-muted ms-1 info-btn" style="cursor: help; font-size: 0.8rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="Lifetime Earnings Ratio" data-bs-content="Your lifetime average earnings compared to the maximum limits (YMPE) after all drop-outs are applied. A ratio of 100% means you maxed out your contributions every single year."></i>`;
 
             let html = `
                 <h6 class="text-success fw-bold mb-3"><i class="bi bi-check-circle-fill me-2"></i>Analysis Complete</h6>
+                
                 <div class="row g-3 mb-3 text-white small">
-                    <div class="col-6 d-flex align-items-center"><b>Contributory Years:</b> <span class="ms-2">${Math.round(result.monthsContributoryTotal/12)}</span> ${contribInfo}</div>
-                    <div class="col-6 d-flex align-items-center"><b>Years Dropped (17%):</b> <span class="ms-2">${result.droppedGeneralYears}</span> ${dropInfo}</div>
-                    <div class="col-6 d-flex align-items-center"><b>Earnings Ratio:</b> <span class="ms-2">${(result.averageRatio * 100).toFixed(1)}%</span> ${ratioInfo}</div>
+                    <div class="col-6 d-flex align-items-center"><b>Contributory Years:</b> <span class="ms-2">${Math.round(baseResult.monthsContributoryTotal/12)}</span> ${contribInfo}</div>
+                    <div class="col-6 d-flex align-items-center"><b>Years Dropped (17%):</b> <span class="ms-2">${baseResult.droppedGeneralYears}</span> ${dropInfo}</div>
+                    <div class="col-12 d-flex align-items-center border-top border-secondary pt-2 mt-2"><b>Earnings Ratio (Base):</b> <span class="ms-2">${(baseResult.averageRatio * 100).toFixed(1)}%</span> ${ratioInfo}</div>
+                </div>
+
+                <div class="card bg-black bg-opacity-25 border-secondary p-3 mb-3 small">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted">Base CPP (Pre-2019 Rules):</span>
+                        <span class="text-white">${fmt(baseMonthlyToday * 12)}/yr</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted">Phase 1 Enhancement (2019-2023):</span>
+                        <span class="text-info">+${fmt(enhancedResult.monthlyPhase1 * 12)}/yr</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted">Phase 2 Enhancement (2024+):</span>
+                        <span class="text-info">+${fmt(enhancedResult.monthlyPhase2 * 12)}/yr</span>
+                    </div>
                 </div>
                 
                 <div class="card bg-info bg-opacity-10 border-info border-opacity-50 p-3 text-center mb-3">
                     <div class="small fw-bold text-info text-uppercase ls-1 mb-1 d-flex justify-content-center align-items-center">
-                        Today's Dollar Baseline (Age 65) ${infoBtn}
+                        Total Baseline at Age 65 ${infoBtn}
                     </div>
-                    <div class="display-6 fw-bold text-white">${fmt(annualBaseToday)}<span class="fs-5 text-muted fw-normal">/yr</span></div>
-                    <div class="small text-muted mt-2">This value is expressed in <b>today's purchasing power</b>. Applying this will allow the main engine to grow it with inflation correctly.</div>
+                    <div class="display-6 fw-bold text-white">${fmt(totalAnnual)}<span class="fs-5 text-muted fw-normal">/yr</span></div>
                 </div>
 
-                <button class="btn btn-primary w-100 fw-bold py-3 fs-5" onclick="app.optimizers.applyCPPEstimate('${targetPlayer}', ${annualBaseToday})">
-                    <i class="bi bi-arrow-right-circle-fill me-2"></i>Apply ${fmt(annualBaseToday)} to Plan
+                <button class="btn btn-primary w-100 fw-bold py-3 fs-5" onclick="app.optimizers.applyCPPEstimate('${targetPlayer}', ${totalAnnual})">
+                    <i class="bi bi-arrow-right-circle-fill me-2"></i>Apply ${fmt(totalAnnual)} to Plan
                 </button>
             `;
 
