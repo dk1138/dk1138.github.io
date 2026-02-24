@@ -10,6 +10,7 @@ class FinanceEngine {
         this.properties = data.properties || [];
         this.windfalls = data.windfalls || [];
         this.additionalIncome = data.additionalIncome || [];
+        this.leaves = data.leaves || []; // New: Added Leaves of Absence
         this.strategies = data.strategies || { accum: [], decum: [] };
         this.dependents = data.dependents || []; 
         this.debt = data.debt || []; 
@@ -265,14 +266,71 @@ class FinanceEngine {
 
     calcInflows(yr, i, p1, p2, age1, age2, alive1, alive2, isRet1, isRet2, c, bInf, trackedEvents = null) {
         let res = { 
-            p1: { gross:0, earned:0, cpp:0, oas:0, pension:0, windfallTaxable:0, windfallNonTax:0, postRet:0, ccb:0 }, 
-            p2: { gross:0, earned:0, cpp:0, oas:0, pension:0, windfallTaxable:0, windfallNonTax:0, postRet:0, ccb:0 },
+            p1: { gross:0, earned:0, cpp:0, oas:0, pension:0, windfallTaxable:0, windfallNonTax:0, postRet:0, ccb:0, eiMat:0, topUp:0 }, 
+            p2: { gross:0, earned:0, cpp:0, oas:0, pension:0, windfallTaxable:0, windfallNonTax:0, postRet:0, ccb:0, eiMat:0, topUp:0 },
             events: []
         };
         
         const calcP = (p, age, isRet, pfx, maxCpp, maxOas) => {
-            let inf = { gross:0, earned:0, cpp:0, oas:0, pension:0, postRet:0 };
-            if(!isRet) { inf.gross += p.inc; inf.earned += p.inc; }
+            let inf = { gross:0, earned:0, cpp:0, oas:0, pension:0, postRet:0, eiMat:0, topUp:0 };
+            
+            if(!isRet) { 
+                let baseInc = p.inc;
+                let workFraction = 1.0;
+                let eiTotal = 0;
+                let topUpTotal = 0;
+
+                // --- Calculate Leaves of Absence (e.g. Maternity) ---
+                this.leaves.forEach(l => {
+                    if (l.owner === pfx) {
+                        let [ly, lm] = (l.start || "2026-01").split('-');
+                        let ls = new Date(parseInt(ly), parseInt(lm) - 1, 1);
+                        let le = new Date(ls.getTime() + (l.durationWeeks || 0) * 7 * 24 * 60 * 60 * 1000);
+                        let te = new Date(ls.getTime() + (l.topUpWeeks || 0) * 7 * 24 * 60 * 60 * 1000);
+                        
+                        let ys = new Date(yr, 0, 1);
+                        let ye = new Date(yr, 11, 31, 23, 59, 59);
+
+                        // Overlap of leave duration with the current calendar year
+                        let overlapStart = new Date(Math.max(ls.getTime(), ys.getTime()));
+                        let overlapEnd = new Date(Math.min(le.getTime(), ye.getTime()));
+                        let leaveWeeksInYear = overlapStart < overlapEnd ? (overlapEnd - overlapStart) / (7 * 24 * 60 * 60 * 1000) : 0;
+
+                        // Overlap of Top-Up duration with the current calendar year
+                        let topUpOverlapStart = new Date(Math.max(ls.getTime(), ys.getTime()));
+                        let topUpOverlapEnd = new Date(Math.min(te.getTime(), ye.getTime()));
+                        let topUpWeeksInYear = topUpOverlapStart < topUpOverlapEnd ? (topUpOverlapEnd - topUpOverlapStart) / (7 * 24 * 60 * 60 * 1000) : 0;
+
+                        if (leaveWeeksInYear > 0) {
+                            let weeklySal = baseInc / 52;
+                            let maxEi = (this.CONSTANTS.MAX_EI_WEEKLY_BENEFIT || 720) * bInf;
+                            let repRate = this.CONSTANTS.EI_REPLACEMENT_RATE || 0.55;
+                            let weeklyEI = Math.min(maxEi, weeklySal * repRate);
+                            
+                            let weeklyTopUpTarget = weeklySal * ((l.topUpPercent || 0) / 100);
+                            let weeklyTopUpAmt = Math.max(0, weeklyTopUpTarget - weeklyEI);
+
+                            workFraction -= (leaveWeeksInYear / 52);
+                            eiTotal += (leaveWeeksInYear * weeklyEI);
+                            topUpTotal += (topUpWeeksInYear * weeklyTopUpAmt);
+                            
+                            if (trackedEvents && !trackedEvents.has(`${pfx.toUpperCase()} Leave`)) {
+                                trackedEvents.add(`${pfx.toUpperCase()} Leave`);
+                                res.events.push(`${pfx.toUpperCase()} Leave`);
+                            }
+                        }
+                    }
+                });
+
+                // Apply prorated income
+                workFraction = Math.max(0, workFraction); // Prevent negative fractions
+                let proratedInc = baseInc * workFraction;
+                
+                inf.gross += proratedInc + eiTotal + topUpTotal;
+                inf.earned += proratedInc + topUpTotal; // EI doesn't generate RRSP room, employer top-up does
+                inf.eiMat += eiTotal;
+                inf.topUp += topUpTotal;
+            }
             
             if(this.inputs[`${pfx}_db_enabled`]) {
                 const lStart = parseInt(this.getRaw(`${pfx}_db_lifetime_start`) || 60), bStart = parseInt(this.getRaw(`${pfx}_db_bridge_start`) || 60);
@@ -1275,6 +1333,8 @@ class FinanceEngine {
                 projectionData.push({
                     year: yr, p1Age: age1, p2Age: this.mode === 'Couple' ? age2 : null, p1Alive: alive1, p2Alive: alive2,
                     incomeP1: inflows.p1.gross, incomeP2: inflows.p2.gross,
+                    eiMatP1: inflows.p1.eiMat, eiMatP2: inflows.p2.eiMat,
+                    topUpP1: inflows.p1.topUp, topUpP2: inflows.p2.topUp,
                     cppP1: inflows.p1.cpp, cppP2: inflows.p2.cpp,
                     oasP1: inflows.p1.oas, oasP2: inflows.p2.oas,
                     ccbP1: inflows.p1.ccb || 0,
