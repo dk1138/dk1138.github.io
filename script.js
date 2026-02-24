@@ -15,6 +15,7 @@ class RetirementPlanner {
                 properties: [{ name: "Primary Home", value: 1000000, mortgage: 430000, growth: 3.0, rate: 3.29, payment: 0, manual: false, includeInNW: false, sellEnabled: false, sellAge: 65, replacementValue: 0 }],
                 windfalls: [],
                 additionalIncome: [],
+                leaves: [], // New: Added Leaves of Absence array
                 dependents: [], 
                 strategies: { 
                     accum: ['tfsa', 'fhsa', 'resp', 'rrsp', 'nreg', 'cash', 'crypto', 'rrif_acct', 'lif', 'lirf'], 
@@ -124,6 +125,7 @@ class RetirementPlanner {
             properties: structuredClone(this.state.properties || []),
             windfalls: structuredClone(this.state.windfalls || []),
             additionalIncome: structuredClone(this.state.additionalIncome || []),
+            leaves: structuredClone(this.state.leaves || []), // New: Pass leaves to engine
             dependents: structuredClone(this.state.dependents || []),
             debt: structuredClone(this.state.debt || []),
             strategies: { 
@@ -224,6 +226,7 @@ class RetirementPlanner {
         if(this.state.debt.length === 0) this.data.addDebtRow(); 
         this.data.renderWindfalls(); 
         this.data.renderAdditionalIncome(); 
+        this.data.renderLeaves(); // Render leaves array (starts empty)
         this.data.renderDependents();
         this.data.renderStrategy();
     }
@@ -362,7 +365,7 @@ class RetirementPlanner {
             const cl = e.target.classList;
             if (cl.contains('live-calc')) {
                 if (cl.contains('formatted-num')) this.formatInput(e.target);
-                if (e.target.id && !e.target.id.startsWith('comp_') && e.target.id !== 'exp_gogo_age' && e.target.id !== 'exp_slow_age' && !cl.contains('property-update') && !cl.contains('windfall-update') && !cl.contains('debt-update') && !cl.contains('income-stream-update') && !cl.contains('dependent-update')) {
+                if (e.target.id && !e.target.id.startsWith('comp_') && e.target.id !== 'exp_gogo_age' && e.target.id !== 'exp_slow_age' && !cl.contains('property-update') && !cl.contains('windfall-update') && !cl.contains('debt-update') && !cl.contains('income-stream-update') && !cl.contains('leave-update') && !cl.contains('dependent-update')) {
                     this.state.inputs[e.target.id] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
                     this.ui.updateSidebarSync(e.target.id, e.target.value);
                 }
@@ -600,6 +603,7 @@ class RetirementPlanner {
         this.state.properties = [];
         this.state.windfalls = [];
         this.state.additionalIncome = [];
+        this.state.leaves = [];
         this.state.dependents = [];
         this.state.debt = [];
         for (const cat in this.expensesByCategory) this.expensesByCategory[cat].items = [];
@@ -609,7 +613,7 @@ class RetirementPlanner {
         if(document.getElementById('modeSingle')) document.getElementById('modeSingle').checked = false;
 
         document.querySelectorAll('input, select').forEach(el => {
-            if(el.id && !el.id.startsWith('comp_') && !el.classList.contains('property-update') && !el.classList.contains('windfall-update') && !el.classList.contains('income-stream-update') && !el.classList.contains('expense-update') && !el.classList.contains('debt-update') && !el.classList.contains('dependent-update')) {
+            if(el.id && !el.id.startsWith('comp_') && !el.classList.contains('property-update') && !el.classList.contains('windfall-update') && !el.classList.contains('income-stream-update') && !el.classList.contains('expense-update') && !el.classList.contains('debt-update') && !el.classList.contains('leave-update') && !el.classList.contains('dependent-update')) {
                 if (el.type === 'checkbox' || el.type === 'radio') {
                     if (el.name !== 'planMode') el.checked = false;
                 } else if (el.type === 'range') {
@@ -656,7 +660,7 @@ class RetirementPlanner {
             if (el) { el.checked = val; this.state.inputs[id] = val; }
         }
 
-        ['real-estate-container', 'windfall-container', 'p1-additional-income-container', 'p2-additional-income-container', 'dependents-container', 'debt-container'].forEach(id => {
+        ['real-estate-container', 'windfall-container', 'p1-additional-income-container', 'p2-additional-income-container', 'p1-leaves-container', 'p2-leaves-container', 'dependents-container', 'debt-container'].forEach(id => {
             if(document.getElementById(id)) document.getElementById(id).innerHTML = '';
         });
 
@@ -862,6 +866,7 @@ class RetirementPlanner {
         if(d.properties) { d.properties.forEach(p => { if(p.includeInNW === undefined) p.includeInNW = false; }); this.state.properties = d.properties; } this.data.renderProperties();
         this.state.windfalls = d.windfalls || []; this.data.renderWindfalls();
         this.state.additionalIncome = d.additionalIncome || []; this.data.renderAdditionalIncome();
+        this.state.leaves = d.leaves || []; this.data.renderLeaves();
         this.state.dependents = d.dependents || []; this.data.renderDependents();
         
         // Load debts correctly using the new object format
@@ -917,6 +922,7 @@ class RetirementPlanner {
             expensesData: structuredClone(this.expensesByCategory || {}), 
             windfalls: structuredClone(this.state.windfalls || []), 
             additionalIncome: structuredClone(this.state.additionalIncome || []),
+            leaves: structuredClone(this.state.leaves || []),
             dependents: structuredClone(this.state.dependents || []),
             debt: structuredClone(this.state.debt || []),
             nwTrajectory: (this.state.projectionData || []).map(d => Math.round(d.debugNW)),
