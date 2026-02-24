@@ -1,7 +1,7 @@
 /**
  * cppEngine.js
- * An exact-math Canada Pension Plan calculator engine.
- * Handles historical YMPE, the 17% General Drop-out, and Child Rearing Provision.
+ * Exact-math Canada Pension Plan calculator engine.
+ * Calculates Base CPP (17% Drop-out) + Enhanced Phase 1 (2019+) + Enhanced Phase 2 (2024+).
  */
 
 class CPPEngine {
@@ -23,25 +23,15 @@ class CPPEngine {
             2026: 73200
         };
         
-        // Year's Additional Maximum Pensionable Earnings (YAMPE) - Tier 2 starts 2024
-        // Note: For now, we calculate base CPP. Tier 2 is separate and simply added on top if desired later.
+        // Year's Additional Maximum Pensionable Earnings (YAMPE) - Phase 2 Enhanced CPP
         this.YAMPE = {
             2024: 73200, 2025: 79600, 2026: 83400 
         };
     }
 
-    /**
-     * The "Magic Paste" Parser
-     * Takes raw text copied directly from the Service Canada "Statement of Contributions" page
-     * and extracts the years and earnings.
-     */
     parseServiceCanadaText(rawText) {
         let records = [];
-        // Match patterns like "2020 $58,700.00 $2,898.00" or "2015 45000 1500"
         const lines = rawText.split('\n');
-        
-        // This regex looks for a 4 digit year, optionally some characters, then an optional $ sign, 
-        // then the earnings number (which might contain commas and decimals).
         const yearRegex = /^.*?(\d{4}).*?\$?\s*([\d,]+\.\d{2}|[\d,]+).*$/;
 
         lines.forEach(line => {
@@ -57,48 +47,12 @@ class CPPEngine {
             }
         });
 
-        // Remove duplicates (keeping the last parsed one if duplicates exist) and sort by year
         records = Array.from(new Map(records.map(item => [item.year, item])).values());
         return records.sort((a, b) => a.year - b.year);
     }
 
     /**
-     * Projects future earnings up to retirement age to give an accurate future estimate,
-     * not just a snapshot of the past.
-     */
-    buildLifetimeEarnings(historicalRecords, birthYear, currentYear, retYear, futureSalary, inflation) {
-        let lifetime = [...historicalRecords];
-        let existingYears = new Set(lifetime.map(r => r.year));
-
-        // Fill in missing past years with 0
-        for (let y = birthYear + 18; y <= currentYear - 1; y++) {
-            if (!existingYears.has(y)) {
-                lifetime.push({ year: y, earnings: 0 });
-            }
-        }
-
-        // Project future years
-        let currentSalary = futureSalary;
-        let lastYMPE = this.YMPE[2026];
-        
-        for (let y = currentYear; y < retYear; y++) {
-            if (!existingYears.has(y)) {
-                lifetime.push({ year: y, earnings: currentSalary, isProjected: true });
-            }
-            currentSalary *= (1 + inflation);
-            
-            // Inflate our internal YMPE table for future years to keep math accurate
-            if (!this.YMPE[y]) {
-                lastYMPE *= (1 + inflation);
-                this.YMPE[y] = lastYMPE;
-            }
-        }
-
-        return lifetime.sort((a, b) => a.year - b.year);
-    }
-
-    /**
-     * CORE MATH: Calculates the Base CPP amount using the 17% general drop-out
+     * Calculates the Base CPP amount using the 17% general drop-out
      */
     calculateBaseCPP(lifetimeRecords, birthYear, startPensionYear, childRearingYears = []) {
         const yearTurn18 = birthYear + 18;
@@ -106,7 +60,6 @@ class CPPEngine {
         
         if (monthsContributory <= 0) return { monthlyBase: 0, monthsContributoryTotal: 0, droppedCRDOYears: 0, droppedGeneralYears: 0, averageRatio: 0 };
 
-        // Calculate Unadjusted Pensionable Earnings (UPE) ratios
         let pensionableRatios = lifetimeRecords.map(r => {
             const ympe = this.YMPE[r.year];
             if (!ympe) return null;
@@ -120,46 +73,30 @@ class CPPEngine {
             };
         }).filter(r => r !== null && r.year >= yearTurn18 && r.year < startPensionYear);
 
-        // 1. Child Rearing Drop-Out (CRDO)
-        // Remove low earning years while caring for a child under 7
         let crdoDropped = 0;
-        let crdoDroppedYears = [];
         pensionableRatios = pensionableRatios.filter(r => {
-            // Simplification: We drop the year if the ratio is under 0.8 to help them, 
-            // the official CRA formula optimizes this drop to perfectly maximize the final pension.
             if (r.isChildRearing && r.ratio < 0.8) { 
                 crdoDropped++;
-                crdoDroppedYears.push(r.year);
                 monthsContributory -= 12;
                 return false;
             }
             return true;
         });
 
-        // Ensure we don't drop below 120 months (10 years) of contributions as per CRA rules
         const minMonths = 120;
-        
-        // 2. The 17% General Drop-Out
-        // We drop the lowest 17% of the REMAINING contributory months
         let generalDropoutMonths = Math.floor(monthsContributory * 0.17);
-        
         if (monthsContributory - generalDropoutMonths < minMonths) {
             generalDropoutMonths = Math.max(0, monthsContributory - minMonths);
         }
         
         const generalDropoutYears = Math.floor(generalDropoutMonths / 12);
         
-        // Sort by ratio to drop the lowest
         pensionableRatios.sort((a, b) => a.ratio - b.ratio);
-        
-        // Remove the lowest X years
         const finalRatios = pensionableRatios.slice(generalDropoutYears);
         
-        // 3. Calculate Average Ratio
         const totalRatio = finalRatios.reduce((sum, r) => sum + r.ratio, 0);
         const averageRatio = finalRatios.length > 0 ? (totalRatio / finalRatios.length) : 0;
 
-        // 4. Calculate Maximum Pension based on last 5 years average YMPE
         let last5YMPE = 0;
         let countedYears = 0;
         for(let i = 1; i <= 5; i++) {
@@ -171,7 +108,6 @@ class CPPEngine {
         }
         const avgYMPE = countedYears > 0 ? (last5YMPE / countedYears) : this.YMPE[2026];
 
-        // Base CPP is 25% of the average YMPE adjusted by your personal earnings ratio
         const monthlyBaseCPP = (avgYMPE * 0.25 * averageRatio) / 12;
 
         return {
@@ -180,8 +116,57 @@ class CPPEngine {
             droppedCRDOYears: crdoDropped,
             droppedGeneralYears: generalDropoutYears,
             averageRatio: averageRatio,
-            crdoDroppedList: crdoDroppedYears,
-            finalRatiosUsed: finalRatios
+            avgYMPEUsed: avgYMPE
+        };
+    }
+
+    /**
+     * Calculates the Enhanced CPP (Phase 1 and Phase 2)
+     * The enhancement is NOT subject to the 17% general drop-out, and the denominator is strictly 480 months (40 yrs)
+     */
+    calculateEnhancedCPP(lifetimeRecords, startPensionYear, avgYMPE) {
+        let phase1Sum = 0;
+        let phase2Sum = 0;
+
+        // The enhancement relies on the Average YMPE of the 5 years prior to taking the pension
+        // (We pass it in from the base calculation to ensure consistency)
+        const targetYMPE = avgYMPE; 
+        const targetYAMPE = targetYMPE * 1.14; // Phase 2 ceiling is ~14% higher than YMPE
+
+        lifetimeRecords.forEach(r => {
+            if (r.year >= 2019 && r.year < startPensionYear) {
+                let curYMPE = this.YMPE[r.year];
+                if (curYMPE) {
+                    // Phase 1 (First Additional Pensionable Earnings - FAPE)
+                    // Capped at YMPE. Inflated to the Target YMPE.
+                    let cappedEarnings = Math.min(r.earnings, curYMPE);
+                    let inflatedFAPE = cappedEarnings * (targetYMPE / curYMPE);
+                    phase1Sum += inflatedFAPE;
+                }
+            }
+
+            if (r.year >= 2024 && r.year < startPensionYear) {
+                let curYMPE = this.YMPE[r.year];
+                let curYAMPE = this.YAMPE[r.year] || (curYMPE * 1.14);
+                if (curYMPE && curYAMPE) {
+                    // Phase 2 (Second Additional Pensionable Earnings - SAPE)
+                    // Earnings *between* YMPE and YAMPE. Inflated to Target YAMPE.
+                    let tier2Earnings = Math.max(0, Math.min(r.earnings, curYAMPE) - curYMPE);
+                    let inflatedSAPE = tier2Earnings * (targetYAMPE / curYAMPE);
+                    phase2Sum += inflatedSAPE;
+                }
+            }
+        });
+
+        // The enhancement formulas divide by 480 months (40 years) regardless of your actual working years
+        // Phase 1 adds 8.33% replacement rate. Phase 2 adds 33.33% replacement rate on the higher tier.
+        const monthlyPhase1 = (0.08333 * phase1Sum) / 480;
+        const monthlyPhase2 = (0.33333 * phase2Sum) / 480;
+
+        return {
+            monthlyPhase1: monthlyPhase1,
+            monthlyPhase2: monthlyPhase2,
+            totalMonthlyEnhancement: monthlyPhase1 + monthlyPhase2
         };
     }
 }
