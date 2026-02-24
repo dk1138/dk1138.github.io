@@ -628,13 +628,29 @@ class Optimizers {
                     <div class="form-check form-switch mb-3">
                         <input class="form-check-input mt-1" type="checkbox" id="sm_use_accelerator" checked onchange="app.optimizers.calcSmithManeuver()">
                         <label class="form-check-label small text-white fw-bold" for="sm_use_accelerator">Use "Accelerator" Method</label>
-                        <div class="form-text text-muted" style="font-size: 0.65rem;">Applies tax refunds as a lump sum to the mortgage, freeing up more HELOC room instantly. Pays off mortgage faster.</div>
+                        <div class="form-text text-muted" style="font-size: 0.65rem;">Applies tax refunds as a lump sum to the mortgage, freeing up more HELOC room instantly.</div>
                     </div>
                     <div class="form-check form-switch mb-3">
                         <input class="form-check-input mt-1" type="checkbox" id="sm_use_day1" onchange="app.optimizers.calcSmithManeuver()">
                         <label class="form-check-label small text-white fw-bold" for="sm_use_day1">Deploy Initial Equity Day-1</label>
                         <div class="form-text text-muted" style="font-size: 0.65rem;">Immediately borrows all available 65% LTV HELOC room on Day 1 to invest.</div>
                     </div>
+                    
+                    <div class="mb-3 pt-3 border-top border-secondary mt-3">
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input mt-1 border-info" type="checkbox" id="sm_use_cash_damming" onchange="document.getElementById('sm_cash_dam_wrap').style.display = this.checked ? 'block' : 'none'; app.optimizers.calcSmithManeuver();">
+                            <label class="form-check-label small text-info fw-bold" for="sm_use_cash_damming">Enable Cash Damming</label>
+                            <div class="form-text text-muted" style="font-size: 0.65rem;">Redirect gross business/rental income to pay down the mortgage, while borrowing expenses from the HELOC.</div>
+                        </div>
+                        <div id="sm_cash_dam_wrap" style="display:none;" class="ps-4">
+                            <label class="form-label small text-muted mb-1">Annual Expenses to Dam</label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-transparent border-secondary text-muted">$</span>
+                                <input type="number" class="form-control border-secondary" id="sm_cash_dam_amt" value="24000" oninput="app.optimizers.calcSmithManeuver()">
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
                 <div class="col-lg-8 ps-lg-4 position-relative">
                     <ul class="nav nav-tabs border-secondary mb-3" id="sm-tabs" role="tablist">
@@ -657,8 +673,8 @@ class Optimizers {
                                         <tr>
                                             <th class="text-secondary text-uppercase border-secondary">Year</th>
                                             <th class="text-secondary text-uppercase border-secondary">Home Val</th>
-                                            <th class="text-secondary text-uppercase border-secondary text-danger">Std Mort.</th>
-                                            <th class="text-secondary text-uppercase border-secondary text-warning">SM Mort.</th>
+                                            <th class="text-secondary text-uppercase border-secondary text-danger" title="Standard Method Mortgage">Std Mort.</th>
+                                            <th class="text-secondary text-uppercase border-secondary text-warning" title="Smith Maneuver Mortgage">SM Mort.</th>
                                             <th class="text-secondary text-uppercase border-secondary text-danger">SM HELOC</th>
                                             <th class="text-secondary text-uppercase border-secondary text-info">SM Portfolio</th>
                                             <th class="text-secondary text-uppercase border-secondary text-success">Net Benefit</th>
@@ -710,8 +726,13 @@ class Optimizers {
         let rateHeloc = (parseFloat(document.getElementById('sm_heloc_rate')?.value) || 0) / 100;
         let rateInvest = (parseFloat(document.getElementById('sm_invest_return')?.value) || 0) / 100;
         let taxRate = (parseFloat(document.getElementById('sm_tax_rate')?.value) || 0) / 100;
+        
         let useAccelerator = document.getElementById('sm_use_accelerator')?.checked || false;
         let useDay1 = document.getElementById('sm_use_day1')?.checked || false;
+        
+        let useCashDam = document.getElementById('sm_use_cash_damming')?.checked || false;
+        let annualCashDamAmt = parseFloat(document.getElementById('sm_cash_dam_amt')?.value) || 0;
+        let monthlyCashDam = useCashDam ? (annualCashDamAmt / 12) : 0;
 
         if (balMortgage <= 0 || amortYears <= 0 || homeVal <= 0) {
             chartContainer.innerHTML = `<div class="text-muted p-3">Please enter valid property and mortgage details to run the simulation.</div>`;
@@ -767,7 +788,7 @@ class Optimizers {
         });
 
         let smMortgagePaidOffMonth = 0;
-        let stdMortgagePaidOffMonth = numPayments;
+        let stdMortgagePaidOffMonth = 0;
 
         // Simulate month by month
         for (let m = 1; m <= numPayments; m++) {
@@ -779,9 +800,13 @@ class Optimizers {
             if (stdMortgage > 0) {
                 let stdInterest = stdMortgage * monthlyMortgageRate;
                 let stdPrincipal = payment - stdInterest;
-                if (stdPrincipal > stdMortgage) stdPrincipal = stdMortgage;
+                if (stdPrincipal > stdMortgage) {
+                    stdPrincipal = stdMortgage;
+                    if(stdMortgagePaidOffMonth === 0) stdMortgagePaidOffMonth = m;
+                }
                 stdMortgage -= stdPrincipal;
             } else {
+                if(stdMortgagePaidOffMonth === 0) stdMortgagePaidOffMonth = m;
                 // If standard mortgage is paid off, redirect payment to standard portfolio
                 stdPortfolio += payment;
             }
@@ -800,20 +825,35 @@ class Optimizers {
                 }
                 smMortgage -= smPrincipal;
 
-                // Calculate available HELOC room
+                // Standard SM: Borrow exact principal paid to invest (if room exists)
                 let availHeloc = Math.max(0, Math.min(maxTotalDebt - smMortgage, maxHelocLimit) - smHeloc);
-                
-                // Borrow exact principal paid to invest (if room exists)
                 let borrowInvest = Math.min(smPrincipal, availHeloc);
                 smHeloc += borrowInvest;
                 smPortfolio += borrowInvest;
+
+                // Cash Damming Phase: Use business cashflow to pay down mortgage, borrow from HELOC to pay the business expense.
+                if (useCashDam && monthlyCashDam > 0 && smMortgage > 0) {
+                    // How much room is left on the HELOC right now?
+                    let damRoom = Math.max(0, Math.min(maxTotalDebt - smMortgage, maxHelocLimit) - smHeloc);
+                    
+                    // We can only dam up to our available room, or the remaining mortgage balance.
+                    let actualDam = Math.min(monthlyCashDam, damRoom, smMortgage);
+                    
+                    smMortgage -= actualDam;
+                    smHeloc += actualDam;
+                    // Note: Portfolio does NOT grow here. The borrowed money pays the plumber/taxes. The cash went to the mortgage.
+                }
+
             } else {
                 if(smMortgagePaidOffMonth === 0) smMortgagePaidOffMonth = m;
+                
                 // Mortgage is paid off! Redirect the payment to pay down the HELOC.
                 let helocPaydown = Math.min(payment, smHeloc);
                 smHeloc -= helocPaydown;
                 // Any leftover payment gets invested
                 if (payment > helocPaydown) smPortfolio += (payment - helocPaydown);
+                
+                // If mortgage is gone, cash damming stops. Business revenue just pays business expenses normally.
             }
 
             // 4. Calculate HELOC Interest & Capitalize
@@ -901,7 +941,6 @@ class Optimizers {
                 </div>
                 <div class="col-6">
                     <div class="card bg-primary bg-opacity-10 border-primary h-100 p-3 text-center position-relative overflow-hidden">
-                        <div class="position-absolute top-0 start-0 w-100 h-100 bg-primary opacity-25 pointer-events-none" style="background: radial-gradient(circle, rgba(13,110,253,0.3) 0%, rgba(0,0,0,0) 70%);"></div>
                         <div class="small text-primary text-uppercase fw-bold ls-1 mb-1"><i class="bi bi-arrow-repeat me-1"></i>Smith Maneuver</div>
                         <div class="fs-3 fw-bold ${finalNetBenefit >= 0 ? 'text-success' : 'text-danger'}">
                             ${finalNetBenefit >= 0 ? '+' : ''}$${Math.round(finalNetBenefit).toLocaleString()}
@@ -916,6 +955,7 @@ class Optimizers {
                     <div class="p-2 border border-secondary rounded bg-black bg-opacity-25 text-center">
                         <div class="fw-bold mb-1 text-white">Mortgage Gone</div>
                         <div class="text-info fs-6">${smMortgagePaidOffMonth > 0 ? `Year ${(smMortgagePaidOffMonth/12).toFixed(1)}` : 'N/A'}</div>
+                        ${useCashDam && smMortgagePaidOffMonth > 0 && stdMortgagePaidOffMonth > 0 ? `<div style="font-size:0.65rem;" class="text-success mt-1">(${((stdMortgagePaidOffMonth - smMortgagePaidOffMonth)/12).toFixed(1)} yrs faster)</div>` : ''}
                     </div>
                 </div>
                 <div class="col-md-3">
@@ -943,7 +983,7 @@ class Optimizers {
             </div>
             
             <div class="alert alert-secondary bg-transparent border-secondary mt-4 mb-0 p-3 small text-muted">
-                <strong>How the math works:</strong> We compare your Net Equity (Home + Portfolio - All Debts) against a standard mortgage path. It accurately enforces the Canadian 65% HELOC / 80% Total Debt LTV rules. The "Accelerator" pays down the non-deductible mortgage much faster, converting it into deductible debt, generating the wealth spread shown above.
+                <strong>How the math works:</strong> We compare your Net Equity (Home + Portfolio - All Debts) against a standard mortgage path. It accurately enforces the Canadian 65% HELOC / 80% Total Debt LTV rules. The "Accelerator" and "Cash Damming" methods rapidly convert your non-deductible mortgage into deductible debt, generating the massive wealth spread shown above.
             </div>
         `;
 
