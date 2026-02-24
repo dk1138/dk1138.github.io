@@ -12,6 +12,31 @@ class Optimizers {
     // ---------------- SMART OPTIMIZERS START ---------------- //
 
     // --- CPP SMART IMPORTER & ANALYZER (Today's Dollars) ---
+    
+    // Opens the modal and pre-fills user inputs from the active plan
+    openCPPModal() {
+        document.getElementById('cppTargetPlayer').value = 'p1';
+        this.updateCPPModalDefaults('p1');
+        const modalEl = document.getElementById('cppAnalyzerModal');
+        let m = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+        m.show();
+    }
+
+    // Updates the inputs if the user switches from P1 to P2
+    updateCPPModalDefaults(player) {
+        const retAge = this.app.getVal(`${player}_retireAge`) || 65;
+        const inc = this.app.getVal(`${player}_income`) || 0;
+        
+        const ageEl = document.getElementById('cppTargetAge');
+        const salEl = document.getElementById('cppFutureSalary');
+        
+        if (ageEl) ageEl.value = retAge;
+        if (salEl) salEl.value = inc.toLocaleString();
+        
+        const res = document.getElementById('cppResultsArea');
+        if (res) res.style.display = 'none';
+    }
+
     runCPPImporter() {
         const rawText = document.getElementById('cppPasteArea').value;
         const targetPlayer = document.getElementById('cppTargetPlayer').value;
@@ -77,6 +102,8 @@ class Optimizers {
 
             const fmt = n => '$' + Math.round(n).toLocaleString();
 
+            let infoBtn = `<i class="bi bi-info-circle text-muted ms-2 info-btn" style="cursor: help; font-size: 0.9rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="Today's Dollars" data-bs-content="This estimate is in <b>Today's Dollars</b>, calculated using the current year's Maximum Pensionable Earnings (YMPE) limit.<br><br>This aligns perfectly with your plan's 'Today\\'s $' settings, ensuring your projection engine doesn't double-count inflation."></i>`;
+
             let html = `
                 <h6 class="text-success fw-bold mb-3"><i class="bi bi-check-circle-fill me-2"></i>Analysis Complete</h6>
                 <div class="row g-3 mb-3 text-white small">
@@ -86,7 +113,9 @@ class Optimizers {
                 </div>
                 
                 <div class="card bg-info bg-opacity-10 border-info border-opacity-50 p-3 text-center mb-3">
-                    <div class="small fw-bold text-info text-uppercase ls-1 mb-1">Today's Dollar Baseline (Age 65)</div>
+                    <div class="small fw-bold text-info text-uppercase ls-1 mb-1 d-flex justify-content-center align-items-center">
+                        Today's Dollar Baseline (Age 65) ${infoBtn}
+                    </div>
                     <div class="display-6 fw-bold text-white">${fmt(annualBaseToday)}<span class="fs-5 text-muted fw-normal">/yr</span></div>
                     <div class="small text-muted mt-2">This value is expressed in <b>today's purchasing power</b>. Applying this will allow the main engine to grow it with inflation correctly.</div>
                 </div>
@@ -98,6 +127,9 @@ class Optimizers {
 
             resultsArea.innerHTML = html;
             resultsArea.style.display = 'block';
+            
+            // Re-initialize popovers for the dynamically generated HTML
+            setTimeout(() => { try { this.app.ui.initPopovers(); } catch(e){} }, 50);
 
         } catch (err) {
             console.error(err);
