@@ -257,9 +257,11 @@ class DataController {
         }); 
     }
 
+    // Hooks up the UI's Current Income & Taxation Display correctly with the Engine
     updateIncomeDisplay() {
         const prov = this.app.getRaw('tax_province'), cY = new Date().getFullYear();
         let add = { p1T:0, p1N:0, p2T:0, p2N:0 };
+        
         this.app.state.additionalIncome.forEach(s => {
             let sY, eY;
             if(s.startMode === 'ret_relative'){
@@ -289,8 +291,8 @@ class DataController {
         const p1Base = this.app.getVal('p1_income');
         const p2Base = this.app.getVal('p2_income');
 
-        const p1G = p1Base + add.p1T;
-        const p2G = p2Base + add.p2T;
+        const p1Earned = p1Base + add.p1T;
+        const p2Earned = p2Base + add.p2T;
 
         // Calculate Employee portion of RRSP Match to deduct from Net Take-Home
         let p1_match_rate = this.app.getVal('p1_rrsp_match') / 100;
@@ -303,7 +305,7 @@ class DataController {
         if(p2_tier <= 0) p2_tier = 1;
         let p2_emp_rrsp = (p2Base * p2_match_rate) / p2_tier;
 
-        const hhG = p1G + add.p1N + (this.app.state.mode==='Couple' ? p2G + add.p2N : 0);
+        const hhG = p1Earned + add.p1N + (this.app.state.mode==='Couple' ? p2Earned + add.p2N : 0);
         
         if(document.getElementById('household_gross_display')) document.getElementById('household_gross_display').innerHTML = `$${hhG.toLocaleString()} <span class="monthly-sub">($${Math.round(hhG/12).toLocaleString()}/mo)</span>`;
         
@@ -311,19 +313,24 @@ class DataController {
         const taxBrackets = engine.getInflatedTaxData(1);
 
         // Taxes are calculated on the taxable income (Gross minus RRSP deductions)
-        const p1Taxable = Math.max(0, p1G - p1_emp_rrsp);
-        const p2Taxable = Math.max(0, p2G - p2_emp_rrsp);
+        const p1Taxable = Math.max(0, p1Earned - p1_emp_rrsp);
+        const p2Taxable = Math.max(0, p2Earned - p2_emp_rrsp);
 
-        const p1D = engine.calculateTaxDetailed(p1Taxable, prov, taxBrackets);
-        const p2D = engine.calculateTaxDetailed(p2Taxable, prov, taxBrackets);
+        // Fetch current Non-Reg yield for accurate dividend tax credit in the current year UI display
+        let divInc1 = this.app.getVal('p1_nonreg') * (this.app.getVal('p1_nonreg_yield') / 100);
+        let divInc2 = this.app.state.mode === 'Couple' ? this.app.getVal('p2_nonreg') * (this.app.getVal('p2_nonreg_yield') / 100) : 0;
+
+        // Calculate tax detailed with proper earned income (for CPP/EI) and dividend income
+        const p1D = engine.calculateTaxDetailed(p1Taxable + divInc1, prov, taxBrackets, 0, 0, p1Earned, 1, divInc1);
+        const p2D = engine.calculateTaxDetailed(p2Taxable + divInc2, prov, taxBrackets, 0, 0, p2Earned, 1, divInc2);
         
         // Pass the RRSP deduction to the UI Controller to show in the breakdown
-        this.app.ui.renderTaxDetails('p1', p1G, p1D, p1_emp_rrsp); 
-        this.app.ui.renderTaxDetails('p2', p2G, p2D, p2_emp_rrsp);
+        this.app.ui.renderTaxDetails('p1', p1Earned + divInc1, p1D, p1_emp_rrsp); 
+        this.app.ui.renderTaxDetails('p2', p2Earned + divInc2, p2D, p2_emp_rrsp);
         
-        // Net Take-Home = Gross - Total Tax - RRSP Employee Deduction + Non-Taxable Income
-        const p1Net = (p1G - p1D.totalTax - p1_emp_rrsp) + add.p1N;
-        const p2Net = (p2G - p2D.totalTax - p2_emp_rrsp) + add.p2N;
+        // Net Take-Home = Gross + DivInc - Total Tax - RRSP Employee Deduction + Non-Taxable Income
+        const p1Net = (p1Earned + divInc1 - p1D.totalTax - p1_emp_rrsp) + add.p1N;
+        const p2Net = (p2Earned + divInc2 - p2D.totalTax - p2_emp_rrsp) + add.p2N;
 
         const hhN = p1Net + (this.app.state.mode==='Couple' ? p2Net : 0);
         
