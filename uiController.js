@@ -478,7 +478,7 @@ class UIController {
             
             aL += ln(`FHSA P1${fmtFlow(d.flows.contributions.p1.fhsa, d.wdBreakdown.p1['FHSA'])}`, d.assetsP1.fhsa) + (this.app.state.mode==='Couple'?ln(`FHSA P2${fmtFlow(d.flows.contributions.p2.fhsa, d.wdBreakdown.p2['FHSA'])}`, d.assetsP2.fhsa):'');
 
-            let r1Label = d.p1Age >= 72 ? 'RRIF' : 'RRSP';
+            let r1Label = d.p1Age >= 72 ? 'RRIF P1' : (d.assetsP1.rrif_acct > 0 ? 'RRSP/RRIF P1' : 'RRSP P1');
             let r1Wd = (d.wdBreakdown.p1['RRSP']||0) + (d.wdBreakdown.p1['RRIF']||0);
             let r1Info = '';
             if (d.p1Age < 72) {
@@ -488,10 +488,10 @@ class UIController {
                 let content = POPOVER_DICTIONARY.rrspContrib(fmtStr(d.rrspRoomP1 || 0), fmtStr(empMatch1), fmtStr(persDep1), fmtStr(totalDep1));
                 r1Info = this.buildPopoverIcon("Contribution Breakdown", content);
             }
-            aL += ln(`${r1Label} P1${r1Info}${fmtFlow(d.flows.contributions.p1.rrsp, r1Wd)}`, d.assetsP1.rrsp);
+            aL += ln(`${r1Label}${r1Info}${fmtFlow(d.flows.contributions.p1.rrsp, r1Wd)}`, d.assetsP1.rrsp + d.assetsP1.rrif_acct);
             
             if(this.app.state.mode === 'Couple') {
-                let r2Label = d.p2Age >= 72 ? 'RRIF' : 'RRSP';
+                let r2Label = d.p2Age >= 72 ? 'RRIF P2' : (d.assetsP2.rrif_acct > 0 ? 'RRSP/RRIF P2' : 'RRSP P2');
                 let r2Wd = (d.wdBreakdown.p2['RRSP']||0) + (d.wdBreakdown.p2['RRIF']||0);
                 let r2Info = '';
                 if (d.p2Age < 72) {
@@ -501,12 +501,12 @@ class UIController {
                     let content = POPOVER_DICTIONARY.rrspContrib(fmtStr(d.rrspRoomP2 || 0), fmtStr(empMatch2), fmtStr(persDep2), fmtStr(totalDep2));
                     r2Info = this.buildPopoverIcon("Contribution Breakdown", content);
                 }
-                aL += ln(`${r2Label} P2${r2Info}${fmtFlow(d.flows.contributions.p2.rrsp, r2Wd)}`, d.assetsP2.rrsp);
+                aL += ln(`${r2Label}${r2Info}${fmtFlow(d.flows.contributions.p2.rrsp, r2Wd)}`, d.assetsP2.rrsp + d.assetsP2.rrif_acct);
             }
 
             aL += ln("LIRF P1",d.assetsP1.lirf) + (this.app.state.mode==='Couple'?ln("LIRF P2",d.assetsP2.lirf):'');
             aL += ln(`LIF P1${fmtFlow(0, d.wdBreakdown.p1['LIF'])}`,d.assetsP1.lif) + (this.app.state.mode==='Couple'?ln(`LIF P2${fmtFlow(0, d.wdBreakdown.p2['LIF'])}`,d.assetsP2.lif):'');
-            aL += ln("Manual RRIF P1",d.assetsP1.rrif_acct) + (this.app.state.mode==='Couple'?ln("Manual RRIF P2",d.assetsP2.rrif_acct):'');
+            
             aL += ln(`Non-Reg P1${fmtFlow(d.flows.contributions.p1.nreg, d.wdBreakdown.p1['Non-Reg'])}`, d.assetsP1.nreg) + (this.app.state.mode==='Couple'?ln(`Non-Reg P2${fmtFlow(d.flows.contributions.p2.nreg, d.wdBreakdown.p2['Non-Reg'])}`, d.assetsP2.nreg):'');
             aL += ln(`Cash P1${fmtFlow(d.flows.contributions.p1.cash, d.wdBreakdown.p1['Cash'])}`, d.assetsP1.cash) + (this.app.state.mode==='Couple'?ln(`Cash P2${fmtFlow(d.flows.contributions.p2.cash, d.wdBreakdown.p2['Cash'])}`, d.assetsP2.cash):'');
             aL += ln(`Crypto P1${fmtFlow(d.flows.contributions.p1.crypto, d.wdBreakdown.p1['Crypto'])}`, d.assetsP1.crypto) + (this.app.state.mode==='Couple'?ln(`Crypto P2${fmtFlow(d.flows.contributions.p2.crypto, d.wdBreakdown.p2['Crypto'])}`, d.assetsP2.crypto):'');
