@@ -10,7 +10,7 @@ class FinanceEngine {
         this.properties = data.properties || [];
         this.windfalls = data.windfalls || [];
         this.additionalIncome = data.additionalIncome || [];
-        this.leaves = data.leaves || []; // New: Added Leaves of Absence
+        this.leaves = data.leaves || []; 
         this.strategies = data.strategies || { accum: [], decum: [] };
         this.dependents = data.dependents || []; 
         this.debt = data.debt || []; 
@@ -291,12 +291,10 @@ class FinanceEngine {
                         let ys = new Date(yr, 0, 1);
                         let ye = new Date(yr, 11, 31, 23, 59, 59);
 
-                        // Overlap of leave duration with the current calendar year
                         let overlapStart = new Date(Math.max(ls.getTime(), ys.getTime()));
                         let overlapEnd = new Date(Math.min(le.getTime(), ye.getTime()));
                         let leaveWeeksInYear = overlapStart < overlapEnd ? (overlapEnd - overlapStart) / (7 * 24 * 60 * 60 * 1000) : 0;
 
-                        // Overlap of Top-Up duration with the current calendar year
                         let topUpOverlapStart = new Date(Math.max(ls.getTime(), ys.getTime()));
                         let topUpOverlapEnd = new Date(Math.min(te.getTime(), ye.getTime()));
                         let topUpWeeksInYear = topUpOverlapStart < topUpOverlapEnd ? (topUpOverlapEnd - topUpOverlapStart) / (7 * 24 * 60 * 60 * 1000) : 0;
@@ -322,12 +320,11 @@ class FinanceEngine {
                     }
                 });
 
-                // Apply prorated income
-                workFraction = Math.max(0, workFraction); // Prevent negative fractions
+                workFraction = Math.max(0, workFraction);
                 let proratedInc = baseInc * workFraction;
                 
                 inf.gross += proratedInc + eiTotal + topUpTotal;
-                inf.earned += proratedInc + topUpTotal; // EI doesn't generate RRSP room, employer top-up does
+                inf.earned += proratedInc + topUpTotal; 
                 inf.eiMat += eiTotal;
                 inf.topUp += topUpTotal;
             }
@@ -335,7 +332,6 @@ class FinanceEngine {
             if(this.inputs[`${pfx}_db_enabled`]) {
                 const lStart = parseInt(this.getRaw(`${pfx}_db_lifetime_start`) || 60);
                 const bStart = parseInt(this.getRaw(`${pfx}_db_bridge_start`) || 60);
-                // Check if the input exists, default to true if it hasn't been set yet
                 const isIndexed = this.inputs[`${pfx}_db_indexed`] !== undefined ? this.inputs[`${pfx}_db_indexed`] : true;
                 const dbMultiplier = isIndexed ? bInf : 1.0;
                 
@@ -543,7 +539,7 @@ class FinanceEngine {
         }
     }
 
-    handleSurplus(amount, p1, p2, alive1, alive2, log, i, tfsaLim, rrspLim1, rrspLim2, cryptoLim, fhsaLim, respLim, deductionsObj) {
+    handleSurplus(amount, p1, p2, alive1, alive2, log, i, tfsaLim, rrspLim1, rrspLim2, cryptoLim, fhsaLim1, fhsaLim2, respLim, deductionsObj) {
         let r = amount;
         this.strategies.accum.forEach(t => { 
             if(r <= 0) return;
@@ -579,15 +575,15 @@ class FinanceEngine {
                     }
                 });
             }
-            else if (t === 'fhsa' && fhsaLim > 0) {
-                if(alive1 && r > 0 && p1.fhsa !== undefined) {
-                    let take = Math.min(r, fhsaLim); p1.fhsa += take;
+            else if (t === 'fhsa') {
+                if(alive1 && r > 0 && p1.fhsa !== undefined && fhsaLim1 > 0) {
+                    let take = Math.min(r, fhsaLim1); p1.fhsa += take;
                     if(log) log.contributions.p1.fhsa += take;
                     if(deductionsObj) deductionsObj.p1 += take;
                     r -= take;
                 }
-                if(alive2 && r > 0 && p2.fhsa !== undefined) {
-                    let take = Math.min(r, fhsaLim); p2.fhsa += take;
+                if(alive2 && r > 0 && p2.fhsa !== undefined && fhsaLim2 > 0) {
+                    let take = Math.min(r, fhsaLim2); p2.fhsa += take;
                     if(log) log.contributions.p2.fhsa += take;
                     if(deductionsObj) deductionsObj.p2 += take;
                     r -= take;
@@ -923,37 +919,20 @@ class FinanceEngine {
         
         const b = taxBrackets.FED.brackets;
 
-        // Helper to run a ceiling pass
         const runPass = (c1, c2, strategies) => {
             if (df > 1) executeWithdrawalStrategy(c1, c2, strategies);
         };
 
         if (fullyOptimizeTax) {
-            // Absolute Mathematical Optimal Sequence:
-            // 1. Taxable Yielding (NReg/Crypto) - Eliminates the annual tax drag on yields
-            // 2. Tax-Free (Cash/TFSA/FHSA/RESP) - Shields money completely from tax
-            // 3. Tax-Deferred (RRIF/LIF/RRSP) - Preserves pre-tax compounding for as long as possible
             const optimalStrats = ['nreg', 'crypto', 'cash', 'tfsa', 'fhsa', 'resp', 'rrif_acct', 'lif', 'lirf', 'rrsp'];
-
-            // Layer 1: Lowest Tax Bracket 
             runPass(b[0], b[0], optimalStrats);
-            
-            // Layer 2: OAS Threshold Protection
             if (optimizeOAS && (p1OasCeil < Infinity || p2OasCeil < Infinity)) {
                 runPass(Math.max(b[0], p1OasCeil), Math.max(b[0], p2OasCeil), optimalStrats);
             }
-
-            // Layer 3: Second Bracket
             if (b.length > 1) runPass(b[1], b[1], optimalStrats);
-            
-            // Layer 4: Third Bracket
             if (b.length > 2) runPass(b[2], b[2], optimalStrats);
-
-            // Layer 5: Exhaustion
             runPass(Infinity, Infinity, optimalStrats);
-
         } else {
-            // Manual strategy - Still use bracket smoothing to prevent accidental spikes
             runPass(b[0], b[0], strats);
             if (optimizeOAS) runPass(p1OasCeil, p2OasCeil, strats);
             runPass(Infinity, Infinity, strats);
@@ -1014,6 +993,11 @@ class FinanceEngine {
 
         let flowLog = null;
         let pendingRefund = { p1: 0, p2: 0 };
+        
+        let fhsaYearsP1 = person1.fhsa > 0 ? 1 : 0;
+        let fhsaYearsP2 = person2.fhsa > 0 ? 1 : 0;
+        let fhsaClosed1 = false;
+        let fhsaClosed2 = false;
 
         for (let i = 0; i <= yearsToRun; i++) {
             const yr = curY + i;
@@ -1278,9 +1262,11 @@ class FinanceEngine {
             }
 
             let actDeductions = { p1: 0, p2: 0 };
+            let actFhsaLim1 = fhsaClosed1 ? 0 : consts.fhsaLimit * bInf;
+            let actFhsaLim2 = fhsaClosed2 ? 0 : consts.fhsaLimit * bInf;
 
             if (surplus > 0) {
-                this.handleSurplus(surplus, person1, person2, alive1, alive2, flowLog, i, consts.tfsaLimit * bInf, rrspRoom1, rrspRoom2, consts.cryptoLimit * bInf, consts.fhsaLimit * bInf, consts.respLimit * bInf, actDeductions);
+                this.handleSurplus(surplus, person1, person2, alive1, alive2, flowLog, i, consts.tfsaLimit * bInf, rrspRoom1, rrspRoom2, consts.cryptoLimit * bInf, actFhsaLim1, actFhsaLim2, consts.respLimit * bInf, actDeductions);
                 
                 if (actDeductions.p1 > 0) {
                     let recalculatedTax1 = this.calculateTaxDetailed(taxableIncome1 - actDeductions.p1, this.getRaw('tax_province'), taxBrackets, inflows.p1.oas, oasThresholdInf);
@@ -1323,7 +1309,8 @@ class FinanceEngine {
 
             previousAFNI = Math.max(0, (taxableIncome1 - actDeductions.p1) + (taxableIncome2 - actDeductions.p2));
 
-            const assets1 = person1.tfsa + person1.tfsa_successor + person1.rrsp + person1.crypto + person1.nreg + person1.cash + person1.lirf + person1.lif + person1.rrif_acct + (person1.fhsa || 0) + (person1.resp || 0);
+            // RESP is excluded from standard Liquid Net Worth
+            const assets1 = person1.tfsa + person1.tfsa_successor + person1.rrsp + person1.crypto + person1.nreg + person1.cash + person1.lirf + person1.lif + person1.rrif_acct + (person1.fhsa || 0);
             const assets2 = this.mode === 'Couple' ? (person2.tfsa + person2.tfsa_successor + person2.rrsp + person2.crypto + person2.nreg + person2.cash + person2.lirf + person2.lif + person2.rrif_acct + (person2.fhsa || 0)) : 0;
             
             const liquidNW = (assets1 + assets2);
@@ -1370,7 +1357,7 @@ class FinanceEngine {
                     assetsP1: {...person1}, assetsP2: {...person2},
                     wdBreakdown: wdBreakdown,
                     flows: flowLog,
-                    events: inflows.events,
+                    events: inflows.events, // Will attach to this reference
                     householdNet: grossInflow, 
                     grossInflow: grossInflow, 
                     visualExpenses: expenses + mortgagePayment + debtRepayment + tax1.totalTax + tax2.totalTax,
@@ -1387,6 +1374,48 @@ class FinanceEngine {
                     matchTaxSavingsP1: matchTaxSavings1, matchTaxSavingsP2: matchTaxSavings2,
                     discTaxSavingsP1: pendingRefund.p1, discTaxSavingsP2: pendingRefund.p2
                 });
+            }
+
+            // End of Year FHSA Expiry Checks
+            if (alive1 && !fhsaClosed1) {
+                if (person1.fhsa > 0 || (detailed && flowLog && flowLog.contributions.p1.fhsa > 0)) {
+                    if (fhsaYearsP1 === 0) fhsaYearsP1 = 1;
+                    else fhsaYearsP1++;
+                }
+                if (fhsaYearsP1 >= 15 || age1 >= 71) {
+                    let transferAmt = person1.fhsa;
+                    if (transferAmt > 0) {
+                        if (age1 >= this.CONSTANTS.RRIF_START_AGE) person1.rrif_acct += transferAmt;
+                        else person1.rrsp += transferAmt;
+                        if (detailed) {
+                            if(!trackedEvents.has('FHSA Expired')) trackedEvents.add('FHSA Expired');
+                            projectionData[projectionData.length - 1].events.push('FHSA Expired');
+                        }
+                    }
+                    person1.fhsa = 0;
+                    fhsaClosed1 = true;
+                }
+            }
+            if (alive2 && !fhsaClosed2 && this.mode === 'Couple') {
+                if (person2.fhsa > 0 || (detailed && flowLog && flowLog.contributions.p2.fhsa > 0)) {
+                    if (fhsaYearsP2 === 0) fhsaYearsP2 = 1;
+                    else fhsaYearsP2++;
+                }
+                if (fhsaYearsP2 >= 15 || age2 >= 71) {
+                    let transferAmt = person2.fhsa;
+                    if (transferAmt > 0) {
+                        if (age2 >= this.CONSTANTS.RRIF_START_AGE) person2.rrif_acct += transferAmt;
+                        else person2.rrsp += transferAmt;
+                        if (detailed) {
+                            if(!trackedEvents.has('FHSA Expired')) trackedEvents.add('FHSA Expired');
+                            if(!projectionData[projectionData.length - 1].events.includes('FHSA Expired')) {
+                                projectionData[projectionData.length - 1].events.push('FHSA Expired');
+                            }
+                        }
+                    }
+                    person2.fhsa = 0;
+                    fhsaClosed2 = true;
+                }
             }
 
             consts.cppMax1 *= (1 + consts.inflation); consts.oasMax1 *= (1 + consts.inflation);
