@@ -841,3 +841,56 @@ class UIController {
                         borderColor: color,
                         borderWidth: 2,
                         borderDash: [5, 5],
+                        fill: false,
+                        tension: 0.3
+                    });
+                }
+            }
+        });
+
+        if (this.app.charts.nw) this.app.charts.nw.destroy();
+
+        const ctx = document.getElementById('chartNW').getContext('2d');
+        const isDark = document.documentElement.getAttribute('data-bs-theme') !== 'light';
+        const textColor = isDark ? '#cbd5e1' : '#475569';
+        const gridColor = isDark ? '#334155' : '#e2e8f0';
+
+        this.app.charts.nw = new Chart(ctx, {
+            type: 'line',
+            data: { labels, datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { labels: { color: textColor, font: { family: 'Inter', size: 13 } } },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) label += ': ';
+                                if (context.parsed.y !== null) {
+                                    label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(context.parsed.y);
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { ticks: { color: textColor }, grid: { color: gridColor } },
+                    y: { 
+                        ticks: { 
+                            color: textColor,
+                            callback: function(value) {
+                                if (value >= 1000000) return '$' + (value / 1000000).toFixed(1) + 'M';
+                                if (value >= 1000) return '$' + (value / 1000).toFixed(0) + 'k';
+                                return '$' + value;
+                            }
+                        }, 
+                        grid: { color: gridColor } 
+                    }
+                }
+            }
+        });
+    }
+}
