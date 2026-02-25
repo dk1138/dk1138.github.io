@@ -649,10 +649,15 @@ class FinanceEngine {
         const TOLERANCE = 50; 
         const strats = this.strategies.decum;
 
-        let hasBal = (p, t) => {
+        let hasBal = (p, t, pfx) => {
             if (t === 'tfsa') return (p.tfsa + (p.tfsa_successor || 0)) > 0;
             if (p[t] === undefined) return false;
-            return p[t] > 0;
+            if (p[t] <= 0) return false;
+            if (t === 'lif' || t === 'lirf') {
+                let maxL = pfx === 'p1' ? lifLimits.lifMax1 : lifLimits.lifMax2;
+                if (maxL <= 0.01) return false;
+            }
+            return true;
         };
 
         const wd = (p, t, a, pfx, mRate) => { 
@@ -776,7 +781,7 @@ class FinanceEngine {
                 
                 while(p1Idx < currentStrats.length) {
                     let type = currentStrats[p1Idx];
-                    if (!alive1 || !hasBal(p1, type)) { p1Idx++; continue; }
+                    if (!alive1 || !hasBal(p1, type, 'p1')) { p1Idx++; continue; }
                     let isTaxableAtAll = ['rrsp', 'rrif_acct', 'lif', 'lirf', 'nreg', 'crypto'].includes(type);
                     if (ceiling1 !== Infinity && isTaxableAtAll) {
                         if (ceiling1 - runInc1 <= 1) { p1Idx++; continue; }
@@ -786,7 +791,7 @@ class FinanceEngine {
                 
                 while(p2Idx < currentStrats.length) {
                     let type = currentStrats[p2Idx];
-                    if (!alive2 || !hasBal(p2, type)) { p2Idx++; continue; }
+                    if (!alive2 || !hasBal(p2, type, 'p2')) { p2Idx++; continue; }
                     let isTaxableAtAll = ['rrsp', 'rrif_acct', 'lif', 'lirf', 'nreg', 'crypto'].includes(type);
                     if (ceiling2 !== Infinity && isTaxableAtAll) {
                         if (ceiling2 - runInc2 <= 1) { p2Idx++; continue; }
@@ -858,10 +863,10 @@ class FinanceEngine {
                     let gotP2 = req2 > 0 ? wd(p2, p2Type, req2, 'p2', mR2) : {net: 0, tax: 0};
 
                     if (gotP1.net <= 0.01 && gotP1.tax <= 0.01 && req1 > 0) {
-                        p1[p1Type] = 0;
+                        if (!['lif', 'lirf'].includes(p1Type)) p1[p1Type] = 0;
                     }
                     if (gotP2.net <= 0.01 && gotP2.tax <= 0.01 && req2 > 0) {
-                        p2[p2Type] = 0;
+                        if (!['lif', 'lirf'].includes(p2Type)) p2[p2Type] = 0;
                     }
 
                     df -= (gotP1.net + gotP2.net);
@@ -897,7 +902,7 @@ class FinanceEngine {
                     let got = wd(pObj, tType, toTake, target, mR);
                     
                     if (got.net <= 0.01 && got.tax <= 0.01) {
-                        pObj[tType] = 0;
+                        if (!['lif', 'lirf'].includes(tType)) pObj[tType] = 0;
                     }
                     
                     df -= got.net;
