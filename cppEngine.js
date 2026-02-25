@@ -31,22 +31,72 @@ class CPPEngine {
 
     parseServiceCanadaText(rawText) {
         let records = [];
-        const lines = rawText.split('\n');
-        const yearRegex = /^.*?(\d{4}).*?\$?\s*([\d,]+\.\d{2}|[\d,]+).*$/;
+        
+        // Clean the text: unify newlines and spaces to treat as a stream
+        const cleanText = rawText.replace(/\r/g, '').replace(/\n/g, ' ').trim();
+        
+        // Pattern to find years (4 digits) or ranges (e.g., "2006 to 2007")
+        // Uses word boundaries (\b) to avoid matching parts of large dollar amounts
+        const yearPattern = /\b(\d{4})\b(?:\s+to\s+\b(\d{4})\b)?/g;
+        
+        let matches = [];
+        let match;
+        while ((match = yearPattern.exec(cleanText)) !== null) {
+            matches.push({
+                startYear: parseInt(match[1]),
+                endYear: match[2] ? parseInt(match[2]) : parseInt(match[1]),
+                index: match.index,
+                fullMatch: match[0]
+            });
+        }
+        
+        for (let i = 0; i < matches.length; i++) {
+            const current = matches[i];
+            // The segment for this year(s) starts after the year match and ends at the next year match
+            const nextIndex = matches[i + 1] ? matches[i + 1].index : cleanText.length;
+            const segment = cleanText.substring(current.index + current.fullMatch.length, nextIndex);
+            
+            // Extract all dollar amounts from the segment (handling commas and decimals)
+            const amountMatches = segment.match(/[\d,]+\.\d{2}/g) || segment.match(/[\d,]+/g) || [];
+            const amounts = amountMatches.map(a => parseFloat(a.replace(/,/g, '')));
+            
+            // If no amounts found, skip (likely header text or empty year)
+            if (amounts.length === 0) continue;
+            
+            // Apply logic to each year in the range
+            for (let year = current.startYear; year <= current.endYear; year++) {
+                let earnings = 0;
+                
+                // Rule-based parsing based on CPP enhancement periods
+                if (year < 2019) {
+                    // Pre-2019: [Base Contribution, Base Contribution Repeat, Base Earnings]
+                    // Usually 3 amounts; the last one is the earnings.
+                    earnings = amounts[amounts.length - 1];
+                } else if (year >= 2019 && year <= 2023) {
+                    // Phase 1 Enhanced: [Base Contrib, 1st Addtl Contrib, Total Contrib, Base Earnings, 1st Addtl Earnings]
+                    // Base Earnings is index 3.
+                    earnings = amounts.length >= 4 ? amounts[3] : amounts[amounts.length - 1];
+                } else if (year >= 2024) {
+                    // Phase 2 Enhanced: [BaseC, 1stC, 2ndC, TotalC, BaseE, 1stE, 2ndE]
+                    // Total Earnings for the engine calculation = Base Earnings (index 4) + 2nd Addtl Earnings (index 6).
+                    let baseE = amounts.length >= 5 ? amounts[4] : amounts[amounts.length - 1];
+                    let secondE = amounts.length >= 7 ? amounts[6] : 0;
+                    earnings = baseE + secondE;
+                }
+                
+                // Heuristic Fallback: Earnings are almost always significantly larger than contributions.
+                // If selected earnings < 1000 but larger amounts exist, take the maximum.
+                if (earnings < 1000 && Math.max(...amounts) > 1000) {
+                    earnings = Math.max(...amounts);
+                }
 
-        lines.forEach(line => {
-            const match = line.trim().match(yearRegex);
-            if (match) {
-                const year = parseInt(match[1]);
-                if (year >= 1966 && year <= new Date().getFullYear()) {
-                    let earnings = parseFloat(match[2].replace(/,/g, ''));
-                    if (!isNaN(earnings)) {
-                        records.push({ year: year, earnings: earnings });
-                    }
+                if (!isNaN(earnings) && year >= 1966 && year <= new Date().getFullYear() + 1) {
+                    records.push({ year: year, earnings: earnings });
                 }
             }
-        });
+        }
 
+        // De-duplicate (in case ranges overlap single years) and sort
         records = Array.from(new Map(records.map(item => [item.year, item])).values());
         return records.sort((a, b) => a.year - b.year);
     }
