@@ -280,7 +280,6 @@ class FinanceEngine {
                 let eiTotal = 0;
                 let topUpTotal = 0;
 
-                // --- Calculate Leaves of Absence (e.g. Maternity) ---
                 this.leaves.forEach(l => {
                     if (l.owner === pfx) {
                         let [ly, lm] = (l.start || "2026-01").split('-');
@@ -539,7 +538,7 @@ class FinanceEngine {
         }
     }
 
-    handleSurplus(amount, p1, p2, alive1, alive2, log, i, tfsaLim, rrspLim1, rrspLim2, cryptoLim, fhsaLim1, fhsaLim2, respLim, deductionsObj) {
+    handleSurplus(amount, p1, p2, alive1, alive2, log, i, tfsaLim, rrspLim1, rrspLim2, cryptoLim, fhsaLim1, fhsaLim2, respLim, deductionsObj, fhsaLifetimeRooms) {
         let r = amount;
         this.strategies.accum.forEach(t => { 
             if(r <= 0) return;
@@ -576,17 +575,21 @@ class FinanceEngine {
                 });
             }
             else if (t === 'fhsa') {
-                if(alive1 && r > 0 && p1.fhsa !== undefined && fhsaLim1 > 0) {
-                    let take = Math.min(r, fhsaLim1); p1.fhsa += take;
+                if(alive1 && r > 0 && p1.fhsa !== undefined && fhsaLim1 > 0 && fhsaLifetimeRooms && fhsaLifetimeRooms.p1 > 0) {
+                    let take = Math.min(r, fhsaLim1, fhsaLifetimeRooms.p1);
+                    p1.fhsa += take;
                     if(log) log.contributions.p1.fhsa += take;
                     if(deductionsObj) deductionsObj.p1 += take;
                     r -= take;
+                    fhsaLifetimeRooms.p1 -= take;
                 }
-                if(alive2 && r > 0 && p2.fhsa !== undefined && fhsaLim2 > 0) {
-                    let take = Math.min(r, fhsaLim2); p2.fhsa += take;
+                if(alive2 && r > 0 && p2.fhsa !== undefined && fhsaLim2 > 0 && fhsaLifetimeRooms && fhsaLifetimeRooms.p2 > 0) {
+                    let take = Math.min(r, fhsaLim2, fhsaLifetimeRooms.p2);
+                    p2.fhsa += take;
                     if(log) log.contributions.p2.fhsa += take;
                     if(deductionsObj) deductionsObj.p2 += take;
                     r -= take;
+                    fhsaLifetimeRooms.p2 -= take;
                 }
             }
             else if (t === 'resp' && respLim > 0) {
@@ -998,6 +1001,11 @@ class FinanceEngine {
         let fhsaYearsP2 = person2.fhsa > 0 ? 1 : 0;
         let fhsaClosed1 = false;
         let fhsaClosed2 = false;
+        
+        let fhsaLifetimeRooms = { 
+            p1: Math.max(0, 40000 - (this.getVal('p1_fhsa') || 0)), 
+            p2: Math.max(0, 40000 - (this.getVal('p2_fhsa') || 0)) 
+        };
 
         for (let i = 0; i <= yearsToRun; i++) {
             const yr = curY + i;
@@ -1266,7 +1274,7 @@ class FinanceEngine {
             let actFhsaLim2 = fhsaClosed2 ? 0 : consts.fhsaLimit * bInf;
 
             if (surplus > 0) {
-                this.handleSurplus(surplus, person1, person2, alive1, alive2, flowLog, i, consts.tfsaLimit * bInf, rrspRoom1, rrspRoom2, consts.cryptoLimit * bInf, actFhsaLim1, actFhsaLim2, consts.respLimit * bInf, actDeductions);
+                this.handleSurplus(surplus, person1, person2, alive1, alive2, flowLog, i, consts.tfsaLimit * bInf, rrspRoom1, rrspRoom2, consts.cryptoLimit * bInf, actFhsaLim1, actFhsaLim2, consts.respLimit * bInf, actDeductions, fhsaLifetimeRooms);
                 
                 if (actDeductions.p1 > 0) {
                     let recalculatedTax1 = this.calculateTaxDetailed(taxableIncome1 - actDeductions.p1, this.getRaw('tax_province'), taxBrackets, inflows.p1.oas, oasThresholdInf);
@@ -1357,7 +1365,7 @@ class FinanceEngine {
                     assetsP1: {...person1}, assetsP2: {...person2},
                     wdBreakdown: wdBreakdown,
                     flows: flowLog,
-                    events: inflows.events, // Will attach to this reference
+                    events: inflows.events, 
                     householdNet: grossInflow, 
                     grossInflow: grossInflow, 
                     visualExpenses: expenses + mortgagePayment + debtRepayment + tax1.totalTax + tax2.totalTax,
@@ -1366,6 +1374,8 @@ class FinanceEngine {
                     windfall: inflows.p1.windfallTaxable + (inflows.p1.windfallNonTax - appliedRefundP1) + inflows.p2.windfallTaxable + (inflows.p2.windfallNonTax - appliedRefundP2),
                     postRetP1: inflows.p1.postRet, postRetP2: inflows.p2.postRet,
                     invIncP1: (person1.nreg * person1.nreg_yield), invIncP2: (person2.nreg * person2.nreg_yield),
+                    invYieldMathP1: { bal: person1.nreg, rate: person1.nreg_yield, amt: (person1.nreg * person1.nreg_yield) },
+                    invYieldMathP2: { bal: person2.nreg, rate: person2.nreg_yield, amt: (person2.nreg * person2.nreg_yield) },
                     debugTotalInflow: grossInflow,
                     rrspRoomP1: rrspRoom1, rrspRoomP2: rrspRoom2,
                     rrspMatchP1: actEmpPortionP1, rrspTotalMatch1: totalMatch1,
