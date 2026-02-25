@@ -7,6 +7,7 @@ class Optimizers {
         this.app = app;
         this.currentOptPerson = 'p1';
         this.smChartInstance = null;
+        this.cppRecords = []; // Stores parsed CPP records for editing
     }
 
     // ---------------- SMART OPTIMIZERS START ---------------- //
@@ -1266,26 +1267,29 @@ class Optimizers {
 
     // ---------------- CPP IMPORTER ENGINE START ---------------- //
     runCPPImporter() {
-        const pfx = document.getElementById('cppTargetPlayer').value;
         const rawText = document.getElementById('cppPasteArea').value;
-        const targetAge = parseInt(document.getElementById('cppTargetAge').value) || 65;
-        const futureSalary = parseFloat(document.getElementById('cppFutureSalary').value.replace(/,/g, '')) || 0;
-        const resultsArea = document.getElementById('cppResultsArea');
-
         if (!rawText.trim()) {
             alert("Please paste your Service Canada earnings table first.");
             return;
         }
 
         const cppEngine = new CPPEngine();
-        let records = cppEngine.parseServiceCanadaText(rawText);
+        this.cppRecords = cppEngine.parseServiceCanadaText(rawText);
 
-        if (records.length === 0) {
+        if (this.cppRecords.length === 0) {
             alert("Could not find any valid earnings records. Please check your paste format.");
             return;
         }
 
-        // Get Player Info from the main application state
+        this.renderCPPResults();
+    }
+
+    renderCPPResults() {
+        const pfx = document.getElementById('cppTargetPlayer').value;
+        const targetAge = parseInt(document.getElementById('cppTargetAge').value) || 65;
+        const futureSalary = parseFloat(document.getElementById('cppFutureSalary').value.replace(/,/g, '')) || 0;
+        const resultsArea = document.getElementById('cppResultsArea');
+
         const dobStr = this.app.getRaw(`${pfx}_dob`);
         if (!dobStr) { 
             alert("Please set the player's Date of Birth in the Inputs tab first."); 
@@ -1295,27 +1299,49 @@ class Optimizers {
         const birthYear = parseInt(dobStr.split('-')[0]);
         const startPensionYear = birthYear + targetAge;
 
-        // Fill in future projections from the last year in records up to the retirement age
-        const lastYearInRecords = records[records.length - 1].year;
+        // Clone records for calculation so we don't permanently embed future projections into the raw data
+        let calcRecords = JSON.parse(JSON.stringify(this.cppRecords));
+
+        const lastYearInRecords = calcRecords.length > 0 ? calcRecords[calcRecords.length - 1].year : new Date().getFullYear();
         for (let y = lastYearInRecords + 1; y < startPensionYear; y++) {
-            records.push({ year: y, earnings: futureSalary });
+            calcRecords.push({ year: y, earnings: futureSalary });
         }
 
-        // Run calculations using the CPPEngine
-        const base = cppEngine.calculateBaseCPP(records, birthYear, startPensionYear);
-        const enhanced = cppEngine.calculateEnhancedCPP(records, startPensionYear, base.avgYMPEUsed);
+        const cppEngine = new CPPEngine();
+        const base = cppEngine.calculateBaseCPP(calcRecords, birthYear, startPensionYear);
+        const enhanced = cppEngine.calculateEnhancedCPP(calcRecords, startPensionYear, base.avgYMPEUsed);
         
         const totalMonthly = base.monthlyBase + enhanced.totalMonthlyEnhancement;
         const totalAnnual = totalMonthly * 12;
 
-        // Render Results UI into the modal
+        let tableRows = '';
+        this.cppRecords.forEach((r, idx) => {
+            tableRows += `
+                <tr>
+                    <td class="align-middle fw-bold text-muted">${r.year}</td>
+                    <td>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-transparent border-secondary text-muted">$</span>
+                            <input type="number" class="form-control border-secondary cpp-edit-val text-white" data-idx="${idx}" value="${r.earnings}">
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+
         resultsArea.style.display = 'block';
         resultsArea.innerHTML = `
-            <div class="card bg-black bg-opacity-25 border-primary shadow-sm mt-3">
-                <div class="card-header border-primary text-primary fw-bold small text-uppercase ls-1">
-                    <i class="bi bi-calculator me-2"></i>Analysis Results for ${pfx === 'p1' ? 'Player 1' : 'Player 2'}
-                </div>
-                <div class="card-body p-3">
+            <ul class="nav nav-pills mb-3 border-bottom border-secondary pb-3" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active py-1 px-3 small fw-bold" id="cpp-res-summary-tab" data-bs-toggle="pill" data-bs-target="#cpp-res-summary" type="button" role="tab">1. Summary</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link py-1 px-3 small fw-bold" id="cpp-res-data-tab" data-bs-toggle="pill" data-bs-target="#cpp-res-data" type="button" role="tab">2. Verify Parsed Data</button>
+                </li>
+            </ul>
+
+            <div class="tab-content">
+                <div class="tab-pane fade show active" id="cpp-res-summary" role="tabpanel">
                     <div class="row g-3 mb-4">
                         <div class="col-md-6">
                             <div class="p-2 border border-secondary rounded bg-black bg-opacity-25 text-center">
@@ -1333,10 +1359,10 @@ class Optimizers {
                         </div>
                     </div>
 
-                    <div class="small text-muted mb-3">
+                    <div class="small text-muted mb-3 p-3 border border-secondary rounded bg-black bg-opacity-25">
                         <div class="d-flex justify-content-between mb-1"><span>Base CPP (25% Replacement):</span> <span class="text-white">$${Math.round(base.monthlyBase * 12).toLocaleString()}/yr</span></div>
                         <div class="d-flex justify-content-between mb-1"><span>Enhanced CPP (Phase 1 & 2):</span> <span class="text-white">+$${Math.round(enhanced.totalMonthlyEnhancement * 12).toLocaleString()}/yr</span></div>
-                        <div class="d-flex justify-content-between pt-1 border-top border-secondary mt-1"><span>Total Estimated Benefit:</span> <span class="text-success fw-bold">$${Math.round(totalAnnual).toLocaleString()}/yr</span></div>
+                        <div class="d-flex justify-content-between pt-2 border-top border-secondary mt-2"><span>Total Estimated Benefit:</span> <span class="text-success fw-bold fs-6">$${Math.round(totalAnnual).toLocaleString()}/yr</span></div>
                     </div>
 
                     <div class="alert alert-secondary bg-transparent border-secondary p-2 mb-3" style="font-size: 0.7rem;">
@@ -1344,13 +1370,57 @@ class Optimizers {
                     </div>
 
                     <div class="d-grid">
-                        <button class="btn btn-success fw-bold" onclick="app.optimizers.applyCPPResult('${pfx}', ${Math.round(totalAnnual)}, ${targetAge})">
+                        <button class="btn btn-success fw-bold py-2" onclick="app.optimizers.applyCPPResult('${pfx}', ${Math.round(totalAnnual)}, ${targetAge})">
                             <i class="bi bi-check-circle-fill me-2"></i> Apply to Plan
+                        </button>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="cpp-res-data" role="tabpanel">
+                    <div class="alert alert-warning small bg-warning bg-opacity-10 border-warning p-2 mb-3" style="font-size: 0.75rem;">
+                        <i class="bi bi-exclamation-triangle me-1"></i> If the parser grabbed a contribution amount instead of pensionable earnings, correct it below and click Update.
+                    </div>
+                    <div class="table-responsive border border-secondary rounded shadow-sm" style="max-height: 300px; overflow-y: auto;">
+                        <table class="table table-sm table-dark table-striped align-middle mb-0">
+                            <thead class="sticky-top bg-black">
+                                <tr>
+                                    <th class="text-secondary small text-uppercase w-25 border-secondary ps-3">Year</th>
+                                    <th class="text-secondary small text-uppercase border-secondary pe-3">Pensionable Earnings</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${tableRows}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="d-grid mt-3">
+                        <button class="btn btn-outline-info fw-bold py-2" onclick="app.optimizers.updateAndRecalcCPP()">
+                            <i class="bi bi-arrow-clockwise me-2"></i> Update & Recalculate
                         </button>
                     </div>
                 </div>
             </div>
         `;
+    }
+
+    updateAndRecalcCPP() {
+        const inputs = document.querySelectorAll('.cpp-edit-val');
+        inputs.forEach(input => {
+            const idx = parseInt(input.getAttribute('data-idx'));
+            const val = parseFloat(input.value) || 0;
+            if (this.cppRecords[idx]) {
+                this.cppRecords[idx].earnings = val;
+            }
+        });
+
+        this.renderCPPResults();
+        
+        // Use Bootstrap JS to switch back to the summary tab
+        const summaryTab = document.getElementById('cpp-res-summary-tab');
+        if (summaryTab) {
+            const tab = new bootstrap.Tab(summaryTab);
+            tab.show();
+        }
     }
 
     applyCPPResult(pfx, amount, age) {
