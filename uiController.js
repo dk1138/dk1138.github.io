@@ -30,7 +30,8 @@ const POPOVER_DICTIONARY = {
              str += `<i>No deposits this year.</i>`;
          }
          return str;
-    }
+    },
+    invYieldMath: (bal, rate, amt) => `<b>Non-Reg Balance:</b> $${bal}<br><b>Yield Rate:</b> ${rate}%<hr class='my-1'><b>Taxable Yield:</b> $${amt}`
 };
 
 class UIController {
@@ -299,7 +300,14 @@ class UIController {
             }
             
             if(d.dbP1 > 0) groupP1 += sL("DB Pension", d.dbP1);
-            if(d.invIncP1 > 0) groupP1 += ln("Inv. Yield (Taxable)", d.invIncP1, "text-muted");
+            if(d.invIncP1 > 0) {
+                let label = "Inv. Yield (Taxable)";
+                if (d.invYieldMathP1) {
+                    let content = POPOVER_DICTIONARY.invYieldMath(fmtStr(d.invYieldMathP1.bal), (d.invYieldMathP1.rate*100).toFixed(2), fmtStr(d.invYieldMathP1.amt));
+                    label += this.buildPopoverIcon("Investment Yield Math", content);
+                }
+                groupP1 += ln(label, d.invIncP1, "text-muted");
+            }
             
             // P1 Withdrawal Builders
             Object.entries(d.wdBreakdown.p1).forEach(([t,a]) => {
@@ -360,7 +368,14 @@ class UIController {
                 }
                 
                 if(d.dbP2 > 0) groupP2 += sL("DB Pension", d.dbP2);
-                if(d.invIncP2 > 0) groupP2 += ln("Inv. Yield (Taxable)", d.invIncP2, "text-muted");
+                if(d.invIncP2 > 0) {
+                    let label = "Inv. Yield (Taxable)";
+                    if (d.invYieldMathP2) {
+                        let content = POPOVER_DICTIONARY.invYieldMath(fmtStr(d.invYieldMathP2.bal), (d.invYieldMathP2.rate*100).toFixed(2), fmtStr(d.invYieldMathP2.amt));
+                        label += this.buildPopoverIcon("Investment Yield Math", content);
+                    }
+                    groupP2 += ln(label, d.invIncP2, "text-muted");
+                }
                 
                 // P2 Withdrawal Builders
                 Object.entries(d.wdBreakdown.p2).forEach(([t,a]) => {
