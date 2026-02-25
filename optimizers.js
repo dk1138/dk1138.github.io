@@ -1267,21 +1267,42 @@ class Optimizers {
 
     // ---------------- CPP IMPORTER ENGINE START ---------------- //
     runCPPImporter() {
+        const fileInput = document.getElementById('cppHtmlUpload');
         const rawText = document.getElementById('cppPasteArea').value;
-        if (!rawText.trim()) {
-            alert("Please paste your Service Canada earnings table first.");
-            return;
-        }
-
         const cppEngine = new CPPEngine();
-        this.cppRecords = cppEngine.parseServiceCanadaText(rawText);
 
-        if (this.cppRecords.length === 0) {
-            alert("Could not find any valid earnings records. Please check your paste format.");
-            return;
+        if (fileInput && fileInput.files && fileInput.files.length > 0) {
+            // Read HTML File
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+            
+            reader.onload = (e) => {
+                const htmlContent = e.target.result;
+                this.cppRecords = cppEngine.parseServiceCanadaHTML(htmlContent);
+                
+                if (this.cppRecords.length === 0) {
+                    // Try fallback to text parser if HTML parser failed to find table
+                    this.cppRecords = cppEngine.parseServiceCanadaText(htmlContent);
+                }
+
+                if (this.cppRecords.length === 0) {
+                    alert("Could not extract records from the uploaded file. Please ensure it is the saved Service Canada Contributions page.");
+                    return;
+                }
+                this.renderCPPResults();
+            };
+            reader.readAsText(file);
+        } else if (rawText.trim()) {
+            // Read Pasted Text
+            this.cppRecords = cppEngine.parseServiceCanadaText(rawText);
+            if (this.cppRecords.length === 0) {
+                alert("Could not find any valid earnings records. Please check your paste format.");
+                return;
+            }
+            this.renderCPPResults();
+        } else {
+            alert("Please either upload a saved HTML webpage or paste your text data.");
         }
-
-        this.renderCPPResults();
     }
 
     renderCPPResults() {
