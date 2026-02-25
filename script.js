@@ -341,7 +341,15 @@ class RetirementPlanner {
             });
         }
 
-        if($('btnClearAll')) $('btnClearAll').addEventListener('click', () => this.showConfirm("Clear all data? This will wipe your current unsaved plan.", () => this.resetAllData()));
+        if($('btnClearAll')) $('btnClearAll').addEventListener('click', () => this.showConfirm("Reset current plan? This will wipe your current unsaved data.", () => this.resetAllData()));
+        
+        if($('btnDeleteAllScenarios')) $('btnDeleteAllScenarios').addEventListener('click', () => this.showConfirm("Are you sure you want to delete ALL saved plans? This cannot be undone.", () => {
+            localStorage.removeItem('rp_scenarios');
+            this.loadScenariosList();
+            if(this.loadModalInstance) this.loadModalInstance.hide();
+            this.ui.updateScenarioBadge(null);
+        }));
+
         if($('btnAddProperty')) $('btnAddProperty').addEventListener('click', () => this.data.addProperty());
         if($('btnAddWindfall')) $('btnAddWindfall').addEventListener('click', () => this.data.addWindfall());
         if($('btnAddChild')) $('btnAddChild').addEventListener('click', () => this.data.addDependent());
