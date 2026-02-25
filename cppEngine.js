@@ -29,6 +29,74 @@ class CPPEngine {
         };
     }
 
+    parseServiceCanadaHTML(htmlString) {
+        let records = [];
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlString, 'text/html');
+
+        // Find the main data table
+        const tables = doc.querySelectorAll('table');
+        let targetTable = null;
+        for (let table of tables) {
+            if (table.textContent.includes('Your pensionable earnings') || table.textContent.includes('contributions')) {
+                targetTable = table;
+                break;
+            }
+        }
+
+        if (!targetTable) return []; 
+
+        const rows = targetTable.querySelectorAll('tbody tr');
+        rows.forEach(row => {
+            const cells = row.querySelectorAll('th, td');
+            if (cells.length < 2) return;
+
+            const yearText = cells[0].textContent.trim();
+            // Match single year or ranges (e.g. "2006 to 2007")
+            const yearMatch = yearText.match(/(\d{4})(?:\s+to\s+(\d{4}))?/);
+            if (!yearMatch) return;
+
+            const startYear = parseInt(yearMatch[1]);
+            const endYear = yearMatch[2] ? parseInt(yearMatch[2]) : startYear;
+
+            let earnings = 0;
+
+            // Service Canada HTML tables have 14 columns:
+            // [0]: Year
+            // [1], [2]: Base Contrib
+            // [3], [4]: 1st Add Contrib
+            // [5], [6]: 2nd Add Contrib
+            // [7]: Total Contrib
+            // [8], [9]: Base Earnings
+            // [10], [11]: 1st Add Earnings
+            // [12], [13]: 2nd Add Earnings
+            if (cells.length >= 13) {
+                // Safely clean formatting (commas, spaces, $ signs)
+                let baseE = parseFloat((cells[8].textContent || '').replace(/[$,\sA-Za-z]/g, '')) || 0;
+                let secondE = parseFloat((cells[12].textContent || '').replace(/[$,\sA-Za-z]/g, '')) || 0;
+                earnings = baseE + secondE;
+            } else {
+                // Fallback for unexpected structural changes
+                let amounts = [];
+                for(let i = 1; i < cells.length; i++) {
+                    let val = parseFloat((cells[i].textContent || '').replace(/[$,\sA-Za-z]/g, ''));
+                    if(!isNaN(val)) amounts.push(val);
+                }
+                if(amounts.length > 0) earnings = Math.max(...amounts);
+            }
+
+            for (let year = startYear; year <= endYear; year++) {
+                if (year >= 1966 && year <= new Date().getFullYear() + 1) {
+                    records.push({ year: year, earnings: earnings });
+                }
+            }
+        });
+        
+        // Deduplicate
+        records = Array.from(new Map(records.map(item => [item.year, item])).values());
+        return records.sort((a, b) => a.year - b.year);
+    }
+
     parseServiceCanadaText(rawText) {
         let records = [];
         
@@ -36,7 +104,6 @@ class CPPEngine {
         const cleanText = rawText.replace(/\r/g, '').replace(/\n/g, ' ').trim();
         
         // Find all single years or ranges (e.g. "2008" or "2006 to 2007")
-        // We look for 4 digits that are immediately followed by a '$' or a space to safely extract mashed years.
         const yearPattern = /(19[6-9]\d|20[0-9]\d)(?:\s+to\s+(19[6-9]\d|20[0-9]\d))?(?=\$|\s)/g;
         
         let matches = [];
@@ -55,7 +122,6 @@ class CPPEngine {
             const nextIndex = matches[i + 1] ? matches[i + 1].index : cleanText.length;
             const segment = cleanText.substring(current.index + current.text.length, nextIndex);
             
-            // Extract all numeric currency values (with or without $) from this year's segment
             const amountMatches = segment.match(/\$?\b\d{1,3}(?:,\d{3})*\.\d{2}\b/g) || [];
             const amounts = amountMatches.map(a => parseFloat(a.replace(/[$,]/g, '')));
             
@@ -64,25 +130,16 @@ class CPPEngine {
             for (let year = current.startYear; year <= current.endYear; year++) {
                 let earnings = 0;
                 
-                // CPP Data Structure Rules based on the evolution of the table columns:
                 if (year < 2019) {
-                    // Pre-2019: [Base Contribution, Base Contrib Repeat, Base Earnings]
-                    // The last number in the group is always the earnings.
                     earnings = amounts[amounts.length - 1];
                 } else if (year >= 2019 && year <= 2023) {
-                    // 2019-2023: [Base Contrib, 1st Addtl Contrib, Total Contrib, Base Earnings, 1st Addtl Earnings]
-                    // We need the Base Earnings (index 3).
                     earnings = amounts.length >= 4 ? amounts[3] : amounts[amounts.length - 1];
                 } else if (year >= 2024) {
-                    // 2024+: [BaseC, 1stC, 2ndC, TotalC, BaseE, 1stE, 2ndE]
-                    // Total Earnings for math = Base Earnings (index 4) + 2nd Addtl Earnings (index 6).
                     let baseE = amounts.length >= 5 ? amounts[4] : amounts[amounts.length - 1];
                     let secondE = amounts.length >= 7 ? amounts[6] : 0;
                     earnings = baseE + secondE;
                 }
                 
-                // Heuristic Fallback: Earnings are much larger than contributions. 
-                // If we accidentally picked a small number but a large one exists, favor the large one.
                 if (earnings < 1000 && Math.max(...amounts) > 1000) {
                     earnings = Math.max(...amounts);
                 }
@@ -93,7 +150,6 @@ class CPPEngine {
             }
         }
 
-        // De-duplicate (ranges sometimes cover years explicitly listed) and sort
         records = Array.from(new Map(records.map(item => [item.year, item])).values());
         return records.sort((a, b) => a.year - b.year);
     }
