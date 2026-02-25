@@ -492,9 +492,17 @@ class UIController {
                 aL += ln("Other Liabilities", -d.debtRemaining, "text-danger");
             }
             
-            aL += ln("Liquid Net Worth",d.liquidNW,"text-info fw-bold")+ln("Total Real Estate Eq.",d.homeValue-d.mortgage);
+            aL += ln("Liquid Net Worth", d.liquidNW, "text-info fw-bold");
+            
+            if (d.reIncludedEq !== 0 || (d.reIncludedEq === 0 && d.reExcludedEq === 0)) {
+                aL += ln("Real Estate Eq. (In NW)", d.reIncludedEq);
+            }
             
             aL += `<div style="border-top: 1px dashed #555; margin: 6px 0 4px 0;"></div>`;
+            
+            if (d.reExcludedEq !== 0) {
+                aL += ln(`Real Estate Eq. (Excluded from NW)`, d.reExcludedEq, "text-muted");
+            }
             aL += ln(`RESP (Excluded from NW)${fmtFlow(d.flows.contributions.p1.resp, d.wdBreakdown.p1['RESP'])}`, d.assetsP1.resp, "text-muted");
 
             const rB = th==='light'?'bg-white border-bottom border-dark-subtle':'', rT = th==='light'?'text-dark':'text-white';
@@ -532,7 +540,7 @@ class UIController {
 
         const initialDf = this.app.getDiscountFactor(0);
         const initialLiquid = getLiquidAssets(this.app.state.projectionData[0]) / initialDf;
-        const initialHome = this.app.state.projectionData[0].homeValue / initialDf;
+        const initialHome = (this.app.state.projectionData[0].reIncludedValue !== undefined) ? this.app.state.projectionData[0].reIncludedValue / initialDf : this.app.state.projectionData[0].homeValue / initialDf;
 
         let compLabels = [];
         let compTaxFree = [];
@@ -595,7 +603,7 @@ class UIController {
                       (a2.rrsp||0) + (a2.rrif_acct||0) + (a2.lif||0) + (a2.lirf||0);
             let taxable = (a1.nreg||0) + (a1.cash||0) + (a2.nreg||0) + (a2.cash||0);
             let crypt = (a1.crypto||0) + (a2.crypto||0);
-            let re = (d.homeValue || 0) - (d.mortgage || 0);
+            let re = (d.reIncludedEq !== undefined) ? d.reIncludedEq : ((d.homeValue || 0) - (d.mortgage || 0));
 
             compTaxFree.push(Math.round(tfsa / df));
             compReg.push(Math.round(reg / df));
@@ -610,7 +618,7 @@ class UIController {
         const finalDf = this.app.getDiscountFactor(finalYear.year - new Date().getFullYear());
         const finalEstate = finalYear.debugNW / finalDf;
         const finalLiquid = getLiquidAssets(finalYear) / finalDf;
-        const finalHome = finalYear.homeValue / finalDf;
+        const finalHome = (finalYear.reIncludedValue !== undefined) ? finalYear.reIncludedValue / finalDf : finalYear.homeValue / finalDf;
 
         const totalLiquidGrowth = finalLiquid - initialLiquid + totalExp + totalTax + totalDebt - totalExternalInflow;
         const totalHomeGrowth = finalHome - initialHome;
@@ -833,56 +841,3 @@ class UIController {
                         borderColor: color,
                         borderWidth: 2,
                         borderDash: [5, 5],
-                        fill: false,
-                        tension: 0.3
-                    });
-                }
-            }
-        });
-
-        if (this.app.charts.nw) this.app.charts.nw.destroy();
-
-        const ctx = document.getElementById('chartNW').getContext('2d');
-        const isDark = document.documentElement.getAttribute('data-bs-theme') !== 'light';
-        const textColor = isDark ? '#cbd5e1' : '#475569';
-        const gridColor = isDark ? '#334155' : '#e2e8f0';
-
-        this.app.charts.nw = new Chart(ctx, {
-            type: 'line',
-            data: { labels, datasets },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { labels: { color: textColor, font: { family: 'Inter', size: 13 } } },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                let label = context.dataset.label || '';
-                                if (label) label += ': ';
-                                if (context.parsed.y !== null) {
-                                    label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(context.parsed.y);
-                                }
-                                return label;
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: { ticks: { color: textColor }, grid: { color: gridColor } },
-                    y: { 
-                        ticks: { 
-                            color: textColor,
-                            callback: function(value) {
-                                if (value >= 1000000) return '$' + (value / 1000000).toFixed(1) + 'M';
-                                if (value >= 1000) return '$' + (value / 1000).toFixed(0) + 'k';
-                                return '$' + value;
-                            }
-                        }, 
-                        grid: { color: gridColor } 
-                    }
-                }
-            }
-        });
-    }
-}
