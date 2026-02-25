@@ -718,7 +718,6 @@ class FinanceEngine {
                 else if (act === 'tfsa') logKey = 'TFSA';
                 else if (act === 'tfsa_successor') logKey = 'TFSA (Successor)';
                 else if (act === 'fhsa') logKey = 'FHSA';
-                else if (act === 'resp') logKey = 'RESP';
                 else if (act === 'nreg') logKey = 'Non-Reg';
                 else if (act === 'cash') logKey = 'Cash';
                 else if (act === 'crypto') logKey = 'Crypto';
@@ -883,7 +882,7 @@ class FinanceEngine {
                     let ceil = target === 'p1' ? ceiling1 : ceiling2;
                     let netRoom = getNetRoom(tType, inc, mR, pObj, ceil);
 
-                    if (p1Type && p2Type && p1Idx === p2Idx && !['tfsa','cash','fhsa','resp'].includes(tType)) {
+                    if (p1Type && p2Type && p1Idx === p2Idx && !['tfsa','cash','fhsa'].includes(tType)) {
                         let gap = Math.abs(runInc1 - runInc2);
                         let effRate = Math.min(mR || 0, 0.54);
                         
@@ -932,7 +931,8 @@ class FinanceEngine {
         };
 
         if (fullyOptimizeTax) {
-            const optimalStrats = ['nreg', 'crypto', 'cash', 'tfsa', 'fhsa', 'resp', 'rrif_acct', 'lif', 'lirf', 'rrsp'];
+            // Note: 'resp' is strictly excluded from optimal decumulation strings
+            const optimalStrats = ['nreg', 'crypto', 'cash', 'tfsa', 'fhsa', 'rrif_acct', 'lif', 'lirf', 'rrsp'];
             runPass(b[0], b[0], optimalStrats);
             if (optimizeOAS && (p1OasCeil < Infinity || p2OasCeil < Infinity)) {
                 runPass(Math.max(b[0], p1OasCeil), Math.max(b[0], p2OasCeil), optimalStrats);
@@ -1291,7 +1291,6 @@ class FinanceEngine {
                 }
             } else {
                 let cashFromNonTaxableWd = 0; 
-                // Increased convergence passes from 5 to 10 for absolute precision
                 for(let pass = 0; pass < 10; pass++) {
                     let dynTax1 = this.calculateTaxDetailed(taxableIncome1, this.getRaw('tax_province'), taxBrackets, inflows.p1.oas, oasThresholdInf);
                     let dynTax2 = this.calculateTaxDetailed(taxableIncome2, this.getRaw('tax_province'), taxBrackets, inflows.p2.oas, oasThresholdInf);
@@ -1323,14 +1322,17 @@ class FinanceEngine {
 
             previousAFNI = Math.max(0, (taxableIncome1 - actDeductions.p1) + (taxableIncome2 - actDeductions.p2));
 
+            // RESP is isolated and decoupled from Liquid Net Worth calculations
             const assets1 = person1.tfsa + person1.tfsa_successor + person1.rrsp + person1.crypto + person1.nreg + person1.cash + person1.lirf + person1.lif + person1.rrif_acct + (person1.fhsa || 0);
             const assets2 = this.mode === 'Couple' ? (person2.tfsa + person2.tfsa_successor + person2.rrsp + person2.crypto + person2.nreg + person2.cash + person2.lirf + person2.lif + person2.rrif_acct + (person2.fhsa || 0)) : 0;
             
             const liquidNW = (assets1 + assets2);
             
             let realEstateValue = 0, realEstateDebt = 0;
+            let reExcludedValue = 0, reExcludedDebt = 0;
             simProperties.forEach(p => { 
                 if(p.includeInNW) { realEstateValue += p.value; realEstateDebt += p.mortgage; } 
+                else { reExcludedValue += p.value; reExcludedDebt += p.mortgage; }
             });
             finalNetWorth = liquidNW + (realEstateValue - realEstateDebt);
 
@@ -1364,7 +1366,6 @@ class FinanceEngine {
                     pensionSplit: pensionSplitTransfer,
                     expenses: expenses, mortgagePay: mortgagePayment, debtRepayment,
                     debtRemaining: 0, 
-                    // Visual tolerance for display grid rounding artifacts: only show negative surplus if they are actually broke
                     surplus: (Math.abs(cashSurplus) < 100 && liquidNW > 100) ? 0 : cashSurplus,
                     debugNW: finalNetWorth,
                     liquidNW: liquidNW,
@@ -1375,8 +1376,11 @@ class FinanceEngine {
                     householdNet: grossInflow, 
                     grossInflow: grossInflow, 
                     visualExpenses: expenses + mortgagePayment + debtRepayment + tax1.totalTax + tax2.totalTax,
-                    mortgage: simProperties.reduce((s,p) => s + p.mortgage, 0), 
-                    homeValue: simProperties.reduce((s,p) => s + p.value, 0),
+                    mortgage: realEstateDebt + reExcludedDebt, 
+                    homeValue: realEstateValue + reExcludedValue,
+                    reIncludedEq: realEstateValue - realEstateDebt,
+                    reExcludedEq: reExcludedValue - reExcludedDebt,
+                    reIncludedValue: realEstateValue,
                     windfall: inflows.p1.windfallTaxable + (inflows.p1.windfallNonTax - appliedRefundP1) + inflows.p2.windfallTaxable + (inflows.p2.windfallNonTax - appliedRefundP2),
                     postRetP1: inflows.p1.postRet, postRetP2: inflows.p2.postRet,
                     invIncP1: (person1.nreg * person1.nreg_yield), invIncP2: (person2.nreg * person2.nreg_yield),
