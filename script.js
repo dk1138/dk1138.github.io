@@ -18,7 +18,7 @@ class RetirementPlanner {
                 leaves: [],
                 dependents: [], 
                 strategies: { 
-                    accum: ['tfsa', 'fhsa', 'resp', 'rrsp', 'nreg', 'cash', 'crypto', 'rrif_acct', 'lif', 'lirf'], 
+                    accum: ['tfsa', 'fhsa', 'resp', 'rrsp', 'nreg', 'cash', 'crypto', 'rrif_acct'], 
                     decum: ['rrif_acct', 'lif', 'rrsp', 'lirf', 'crypto', 'nreg', 'tfsa', 'fhsa', 'resp', 'cash'] 
                 },
                 mode: 'Couple',
@@ -128,7 +128,7 @@ class RetirementPlanner {
             dependents: structuredClone(this.state.dependents || []),
             debt: structuredClone(this.state.debt || []),
             strategies: { 
-                accum: [...(this.state.strategies?.accum || ['tfsa', 'fhsa', 'resp', 'rrsp', 'nreg', 'cash', 'crypto', 'rrif_acct', 'lif', 'lirf'])], 
+                accum: [...(this.state.strategies?.accum || ['tfsa', 'fhsa', 'resp', 'rrsp', 'nreg', 'cash', 'crypto', 'rrif_acct'])].filter(x => x !== 'lif' && x !== 'lirf'), 
                 decum: [...(this.state.strategies?.decum || ['rrif_acct', 'lif', 'rrsp', 'lirf', 'crypto', 'nreg', 'tfsa', 'fhsa', 'resp', 'cash'])] 
             },
             mode: this.state.mode || 'Couple',
@@ -834,13 +834,20 @@ class RetirementPlanner {
         this.state.inputs = {...(d.inputs||{})}; 
         
         this.state.strategies = {
-            accum: d.strategies?.accum || ['tfsa', 'fhsa', 'resp', 'rrsp', 'nreg', 'cash', 'crypto', 'rrif_acct', 'lif', 'lirf'],
+            accum: d.strategies?.accum || ['tfsa', 'fhsa', 'resp', 'rrsp', 'nreg', 'cash', 'crypto', 'rrif_acct'],
             decum: d.strategies?.decum || ['rrif_acct', 'lif', 'rrsp', 'lirf', 'crypto', 'nreg', 'tfsa', 'fhsa', 'resp', 'cash']
         };
 
         const allItems = ['tfsa', 'fhsa', 'resp', 'rrsp', 'rrif_acct', 'lif', 'lirf', 'nreg', 'cash', 'crypto'];
+        
+        // Force remove lif and lirf if they exist in a loaded save file
+        this.state.strategies.accum = this.state.strategies.accum.filter(x => x !== 'lif' && x !== 'lirf');
+
         allItems.forEach(item => {
-            if (!this.state.strategies.accum.includes(item)) this.state.strategies.accum.push(item);
+            // Prevent lif and lirf from being pushed back into the array
+            if (!['lif', 'lirf'].includes(item) && !this.state.strategies.accum.includes(item)) {
+                this.state.strategies.accum.push(item);
+            }
             if (!this.state.strategies.decum.includes(item)) this.state.strategies.decum.push(item);
         });
 
