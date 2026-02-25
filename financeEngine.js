@@ -1090,6 +1090,9 @@ class FinanceEngine {
             const preGrowthLirf2 = person2.lirf;
             const preGrowthLif2 = person2.lif;
 
+            const preGrowthNreg1 = person1.nreg;
+            const preGrowthNreg2 = person2.nreg;
+
             this.applyGrowth(person1, person2, isRet1, isRet2, this.inputs['asset_mode_advanced'], consts.inflation, i, simContext);
 
             const inflows = this.calcInflows(yr, i, person1, person2, age1, age2, alive1, alive2, isRet1, isRet2, consts, bInf, detailed ? trackedEvents : null);
@@ -1150,8 +1153,8 @@ class FinanceEngine {
             
             const taxBrackets = this.getInflatedTaxData(bInf);
 
-            let grossTaxable1 = inflows.p1.gross + inflows.p1.cpp + inflows.p1.oas + inflows.p1.pension + regMins.p1 + regMins.lifTaken1 + inflows.p1.windfallTaxable + (person1.nreg * person1.nreg_yield);
-            let grossTaxable2 = inflows.p2.gross + inflows.p2.cpp + inflows.p2.oas + inflows.p2.pension + regMins.p2 + regMins.lifTaken2 + inflows.p2.windfallTaxable + (alive2 ? (person2.nreg * person2.nreg_yield) : 0);
+            let grossTaxable1 = inflows.p1.gross + inflows.p1.cpp + inflows.p1.oas + inflows.p1.pension + regMins.p1 + regMins.lifTaken1 + inflows.p1.windfallTaxable + (preGrowthNreg1 * person1.nreg_yield);
+            let grossTaxable2 = inflows.p2.gross + inflows.p2.cpp + inflows.p2.oas + inflows.p2.pension + regMins.p2 + regMins.lifTaken2 + inflows.p2.windfallTaxable + (alive2 ? (preGrowthNreg2 * person2.nreg_yield) : 0);
 
             let taxWithoutMatch1 = alive1 ? this.calculateTaxDetailed(grossTaxable1, this.getRaw('tax_province'), taxBrackets, inflows.p1.oas, oasThresholdInf) : {totalTax: 0, margRate: 0};
             let taxWithoutMatch2 = alive2 ? this.calculateTaxDetailed(grossTaxable2, this.getRaw('tax_province'), taxBrackets, inflows.p2.oas, oasThresholdInf) : {totalTax: 0, margRate: 0};
@@ -1342,7 +1345,7 @@ class FinanceEngine {
                 const totalWithdrawals = Object.values(flowLog.withdrawals).reduce((a,b) => a + b, 0);
                 const p1GrossTotal = inflows.p1.gross + inflows.p1.cpp + inflows.p1.oas + inflows.p1.pension + inflows.p1.windfallTaxable + inflows.p1.windfallNonTax;
                 const p2GrossTotal = inflows.p2.gross + inflows.p2.cpp + inflows.p2.oas + inflows.p2.pension + inflows.p2.windfallTaxable + inflows.p2.windfallNonTax;
-                const totalYield = (person1.nreg * person1.nreg_yield) + (alive2 && this.mode === 'Couple' ? (person2.nreg * person2.nreg_yield) : 0);
+                const totalYield = (preGrowthNreg1 * person1.nreg_yield) + (alive2 && this.mode === 'Couple' ? (preGrowthNreg2 * person2.nreg_yield) : 0);
                 const grossInflow = p1GrossTotal + p2GrossTotal + totalYield + totalWithdrawals;
                 
                 const cashSurplus = grossInflow - (totalOutflows + tax1.totalTax + tax2.totalTax + totalMatch1 + totalMatch2);
@@ -1383,9 +1386,9 @@ class FinanceEngine {
                     reIncludedValue: realEstateValue,
                     windfall: inflows.p1.windfallTaxable + (inflows.p1.windfallNonTax - appliedRefundP1) + inflows.p2.windfallTaxable + (inflows.p2.windfallNonTax - appliedRefundP2),
                     postRetP1: inflows.p1.postRet, postRetP2: inflows.p2.postRet,
-                    invIncP1: (person1.nreg * person1.nreg_yield), invIncP2: (person2.nreg * person2.nreg_yield),
-                    invYieldMathP1: { bal: person1.nreg, rate: person1.nreg_yield, amt: (person1.nreg * person1.nreg_yield) },
-                    invYieldMathP2: { bal: person2.nreg, rate: person2.nreg_yield, amt: (person2.nreg * person2.nreg_yield) },
+                    invIncP1: (preGrowthNreg1 * person1.nreg_yield), invIncP2: (preGrowthNreg2 * person2.nreg_yield),
+                    invYieldMathP1: { bal: preGrowthNreg1, rate: person1.nreg_yield, amt: (preGrowthNreg1 * person1.nreg_yield) },
+                    invYieldMathP2: { bal: preGrowthNreg2, rate: person2.nreg_yield, amt: (preGrowthNreg2 * person2.nreg_yield) },
                     debugTotalInflow: grossInflow,
                     rrspRoomP1: rrspRoom1, rrspRoomP2: rrspRoom2,
                     rrspMatchP1: actEmpPortionP1, rrspTotalMatch1: totalMatch1,
