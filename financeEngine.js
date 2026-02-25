@@ -333,9 +333,14 @@ class FinanceEngine {
             }
             
             if(this.inputs[`${pfx}_db_enabled`]) {
-                const lStart = parseInt(this.getRaw(`${pfx}_db_lifetime_start`) || 60), bStart = parseInt(this.getRaw(`${pfx}_db_bridge_start`) || 60);
-                if(age >= lStart) inf.pension += this.getVal(`${pfx}_db_lifetime`) * 12 * bInf;
-                if(age >= bStart && age < 65) inf.pension += this.getVal(`${pfx}_db_bridge`) * 12 * bInf;
+                const lStart = parseInt(this.getRaw(`${pfx}_db_lifetime_start`) || 60);
+                const bStart = parseInt(this.getRaw(`${pfx}_db_bridge_start`) || 60);
+                // Check if the input exists, default to true if it hasn't been set yet
+                const isIndexed = this.inputs[`${pfx}_db_indexed`] !== undefined ? this.inputs[`${pfx}_db_indexed`] : true;
+                const dbMultiplier = isIndexed ? bInf : 1.0;
+                
+                if(age >= lStart) inf.pension += this.getVal(`${pfx}_db_lifetime`) * 12 * dbMultiplier;
+                if(age >= bStart && age < 65) inf.pension += this.getVal(`${pfx}_db_bridge`) * 12 * dbMultiplier;
             }
 
             if(this.inputs[`${pfx}_cpp_enabled`] && age >= parseInt(this.getRaw(`${pfx}_cpp_start`))) {
