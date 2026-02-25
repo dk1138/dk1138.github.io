@@ -9,12 +9,13 @@ const POPOVER_DICTIONARY = {
     oasClawback: (netInc, thresh, excess, repaymentText, maxInc) => `<b>Net Income:</b> $${netInc}<br><b>Threshold:</b> $${thresh}<br><b>Excess:</b> $${excess}<hr class='my-1'>${repaymentText}<br><span class='text-warning small' style='font-size:0.7rem;'>*Fully clawed back at $${maxInc}</span><br><span class='text-muted small' style='font-size:0.7rem;'>*Added to total taxes paid</span>`,
     minWithdrawalMath: (bal, factor, min, extraStr) => `<b>Jan 1st Balance:</b> $${bal}<br><b>Min Factor:</b> ${factor}%<br><b>Required Min:</b> $${min}${extraStr}`,
     capGains: (wd, acb, gain, tax) => `<b>Total Withdrawn:</b> $${wd}<br><b>Adjusted Cost Base (ACB):</b> -$${acb}<br><b>Capital Gain:</b> $${gain}<hr class='my-1'><b>Added to Taxable Income (50% Inclusion):</b> $${tax}`,
-    taxBreakdown: (fed, prov, cpp, oasCb, taxInc, avg, marg, matchSavStr, discSavStr) => {
+    taxBreakdown: (fed, prov, cpp, oasCb, taxInc, avg, marg, matchSavStr, discSavStr, splitStr) => {
         let str = `<b>Federal Tax:</b> $${fed}<br><b>Provincial Tax:</b> $${prov}<br><b>CPP/EI:</b> $${cpp}`;
         if (oasCb) str += `<br><b>OAS Clawback:</b> $${oasCb}`;
         str += `<hr class='my-1'><b>Taxable Income:</b> $${taxInc}<br><b>Average Rate:</b> ${avg}%<br><b>Marginal Rate:</b> ${marg}%`;
-        if (matchSavStr || discSavStr) {
+        if (matchSavStr || discSavStr || splitStr) {
             str += `<hr class='my-1'>`;
+            if (splitStr) str += `${splitStr}<br>`;
             if (matchSavStr) str += `<b>Payroll Tax Saved (RRSP Match):</b> <span class='text-success'>$${matchSavStr}</span><br>`;
             if (discSavStr) str += `<b>Est. Refund (Discretionary RRSP/FHSA):</b> <span class='text-success'>$${discSavStr}</span><br><span class='text-muted' style='font-size:0.7rem;'>*Refund will be added to next year's cash.</span>`;
         }
@@ -409,7 +410,7 @@ class UIController {
             if(groupP2) iL += `<div class="mb-2"><span class="text-purple fw-bold small text-uppercase" style="font-size:0.7rem; border-bottom:1px solid #334155; display:block; margin-bottom:4px;">Person 2</span>${groupP2}</div>`;
             if(groupOther) iL += `<div>${groupOther}</div>`;
             
-            const buildTaxInfo = (tDetails, pName, taxIncObjStr, matchSav, discSav) => {
+            const buildTaxInfo = (tDetails, pName, taxIncObjStr, matchSav, discSav, splitAmtIn, splitAmtOut) => {
                 if (!tDetails || tDetails.totalTax <= 0) return `Tax Paid ${pName}`;
                 
                 let taxInc = d[taxIncObjStr] || 1;
@@ -419,17 +420,26 @@ class UIController {
                 let mSavStr = matchSav > 0 ? fmtStr(matchSav) : null;
                 let dSavStr = discSav > 0 ? fmtStr(discSav) : null;
                 
+                let splitStr = null;
+                if (splitAmtIn > 0) splitStr = `<b>Pension Split (Received):</b> <span class='text-success'>+$${fmtStr(splitAmtIn)}</span>`;
+                if (splitAmtOut > 0) splitStr = `<b>Pension Split (Transferred Out):</b> <span class='text-warning'>-$${fmtStr(splitAmtOut)}</span>`;
+                
                 let content = POPOVER_DICTIONARY.taxBreakdown(
                     fmtStr(tDetails.fed), fmtStr(tDetails.prov), fmtStr(tDetails.cpp_ei),
                     tDetails.oas_clawback > 0 ? fmtStr(tDetails.oas_clawback) : null,
-                    fmtStr(taxInc), avgRate, margRate, mSavStr, dSavStr
+                    fmtStr(taxInc), avgRate, margRate, mSavStr, dSavStr, splitStr
                 );
 
                 return `Tax Paid ${pName}` + this.buildPopoverIcon(`${pName} Tax Breakdown`, content);
             };
 
-            let p1TaxLabel = buildTaxInfo(d.taxDetailsP1, 'P1', 'taxIncP1', d.matchTaxSavingsP1, d.discTaxSavingsP1);
-            let p2TaxLabel = this.app.state.mode === 'Couple' ? buildTaxInfo(d.taxDetailsP2, 'P2', 'taxIncP2', d.matchTaxSavingsP2, d.discTaxSavingsP2) : '';
+            let p1SplitIn = d.pensionSplit ? d.pensionSplit.p2ToP1 : 0;
+            let p1SplitOut = d.pensionSplit ? d.pensionSplit.p1ToP2 : 0;
+            let p1TaxLabel = buildTaxInfo(d.taxDetailsP1, 'P1', 'taxIncP1', d.matchTaxSavingsP1, d.discTaxSavingsP1, p1SplitIn, p1SplitOut);
+            
+            let p2SplitIn = d.pensionSplit ? d.pensionSplit.p1ToP2 : 0;
+            let p2SplitOut = d.pensionSplit ? d.pensionSplit.p2ToP1 : 0;
+            let p2TaxLabel = this.app.state.mode === 'Couple' ? buildTaxInfo(d.taxDetailsP2, 'P2', 'taxIncP2', d.matchTaxSavingsP2, d.discTaxSavingsP2, p2SplitIn, p2SplitOut) : '';
 
             let eL = ln("Living Exp",d.expenses) + ln("Mortgage",d.mortgagePay) + ln("Debt Repayment",d.debtRepayment);
             
