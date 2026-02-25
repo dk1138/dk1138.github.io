@@ -1202,7 +1202,7 @@
                     <div class="col-12 col-xl-6">
                         <div class="rp-card p-4 surface-card h-100 transition-all border-secondary">
                             <h6 class="text-white fw-bold mb-2 fs-5"><i class="bi bi-file-earmark-spreadsheet me-2 text-primary"></i>CPP Smart Importer & Analyzer</h6>
-                            <p class="small text-muted mb-4">Paste your Service Canada records directly into the app. We'll automatically calculate your exact lifetime average and apply the CRA 17% general drop-out rule to project your exact future CPP.</p>
+                            <p class="small text-muted mb-4">Upload your Service Canada records directly into the app. We'll accurately calculate your exact lifetime average and apply the CRA 17% drop-out rule to project your future CPP.</p>
                             <div class="d-grid mb-3 mt-auto">
                                 <button class="btn btn-outline-primary fw-bold py-2" data-bs-toggle="modal" data-bs-target="#cppAnalyzerModal">
                                     <i class="bi bi-box-arrow-in-right me-2"></i>Launch Importer
@@ -1447,7 +1447,7 @@
           </div>
           <div class="modal-body p-4 bg-input">
              <div class="alert alert-info bg-primary bg-opacity-10 border-primary border-opacity-25 text-white small">
-                <strong>How to use:</strong> Log in to your <a href="https://www.canada.ca/en/employment-social-development/services/my-account.html" target="_blank" class="text-info fw-bold">Service Canada</a> account. Navigate to your CPP Contributions page, highlight the entire table of your earnings (from the first year to the current year), copy it, and paste it directly into the box below.
+                <strong>How to use:</strong> Log in to your Service Canada account. Navigate to your CPP Contributions page, right-click anywhere, select <strong>"Save As..."</strong>, choose <strong>"Webpage, HTML Only"</strong>, and upload it below. 
              </div>
              
              <div class="mb-4">
@@ -1458,8 +1458,18 @@
                  </select>
              </div>
 
-             <label class="form-label fw-bold text-muted small text-uppercase ls-1">Paste Service Canada Table Here</label>
-             <textarea id="cppPasteArea" class="form-control bg-black bg-opacity-25 border-secondary text-white mb-3 font-monospace small" rows="6" placeholder="Paste text here... e.g.&#10;2023  $66,600.00  $3,754.45&#10;2022  $64,900.00  $3,499.80"></textarea>
+             <div class="p-3 border border-success border-opacity-50 rounded bg-success bg-opacity-10 mb-4">
+                 <label class="form-label fw-bold text-success small text-uppercase ls-1 mb-2"><i class="bi bi-filetype-html me-2"></i>Option 1: Upload Saved Webpage (Most Reliable)</label>
+                 <input class="form-control form-control-sm bg-black bg-opacity-25 border-success text-white mb-2" type="file" id="cppHtmlUpload" accept=".html,.htm">
+                 <div class="form-text text-success text-opacity-75" style="font-size: 0.7rem;">Right-click the Service Canada page, click <strong>"Save As..."</strong> (Format: Webpage, HTML Only), and upload that file here.</div>
+             </div>
+
+             <div class="text-center my-3 text-muted fw-bold small">--- OR ---</div>
+
+             <div class="p-3 border border-secondary rounded bg-black bg-opacity-25 mb-4">
+                 <label class="form-label fw-bold text-muted small text-uppercase ls-1 mb-2"><i class="bi bi-clipboard-data me-2"></i>Option 2: Paste Table Text</label>
+                 <textarea id="cppPasteArea" class="form-control bg-black bg-opacity-50 border-secondary text-white font-monospace small" rows="4" placeholder="Highlight the Service Canada table, copy, and paste text here..."></textarea>
+             </div>
              
              <div class="row g-3">
                  <div class="col-md-6">
