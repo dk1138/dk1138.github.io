@@ -32,12 +32,12 @@ class CPPEngine {
     parseServiceCanadaText(rawText) {
         let records = [];
         
-        // Clean the text: unify newlines and spaces to treat as a stream
+        // Clean text: Unify all white space and newlines into single spaces to handle mashed data
         const cleanText = rawText.replace(/\r/g, '').replace(/\n/g, ' ').trim();
         
-        // Pattern to find years (4 digits) or ranges (e.g., "2006 to 2007")
-        // Uses word boundaries (\b) to avoid matching parts of large dollar amounts
-        const yearPattern = /\b(\d{4})\b(?:\s+to\s+\b(\d{4})\b)?/g;
+        // Find all single years or ranges (e.g. "2008" or "2006 to 2007")
+        // We look for 4 digits that are immediately followed by a '$' or a space to safely extract mashed years.
+        const yearPattern = /(19[6-9]\d|20[0-9]\d)(?:\s+to\s+(19[6-9]\d|20[0-9]\d))?(?=\$|\s)/g;
         
         let matches = [];
         let match;
@@ -46,46 +46,43 @@ class CPPEngine {
                 startYear: parseInt(match[1]),
                 endYear: match[2] ? parseInt(match[2]) : parseInt(match[1]),
                 index: match.index,
-                fullMatch: match[0]
+                text: match[0]
             });
         }
         
         for (let i = 0; i < matches.length; i++) {
             const current = matches[i];
-            // The segment for this year(s) starts after the year match and ends at the next year match
             const nextIndex = matches[i + 1] ? matches[i + 1].index : cleanText.length;
-            const segment = cleanText.substring(current.index + current.fullMatch.length, nextIndex);
+            const segment = cleanText.substring(current.index + current.text.length, nextIndex);
             
-            // Extract all dollar amounts from the segment (handling commas and decimals)
-            const amountMatches = segment.match(/[\d,]+\.\d{2}/g) || segment.match(/[\d,]+/g) || [];
-            const amounts = amountMatches.map(a => parseFloat(a.replace(/,/g, '')));
+            // Extract all numeric currency values (with or without $) from this year's segment
+            const amountMatches = segment.match(/\$?\b\d{1,3}(?:,\d{3})*\.\d{2}\b/g) || [];
+            const amounts = amountMatches.map(a => parseFloat(a.replace(/[$,]/g, '')));
             
-            // If no amounts found, skip (likely header text or empty year)
             if (amounts.length === 0) continue;
             
-            // Apply logic to each year in the range
             for (let year = current.startYear; year <= current.endYear; year++) {
                 let earnings = 0;
                 
-                // Rule-based parsing based on CPP enhancement periods
+                // CPP Data Structure Rules based on the evolution of the table columns:
                 if (year < 2019) {
-                    // Pre-2019: [Base Contribution, Base Contribution Repeat, Base Earnings]
-                    // Usually 3 amounts; the last one is the earnings.
+                    // Pre-2019: [Base Contribution, Base Contrib Repeat, Base Earnings]
+                    // The last number in the group is always the earnings.
                     earnings = amounts[amounts.length - 1];
                 } else if (year >= 2019 && year <= 2023) {
-                    // Phase 1 Enhanced: [Base Contrib, 1st Addtl Contrib, Total Contrib, Base Earnings, 1st Addtl Earnings]
-                    // Base Earnings is index 3.
+                    // 2019-2023: [Base Contrib, 1st Addtl Contrib, Total Contrib, Base Earnings, 1st Addtl Earnings]
+                    // We need the Base Earnings (index 3).
                     earnings = amounts.length >= 4 ? amounts[3] : amounts[amounts.length - 1];
                 } else if (year >= 2024) {
-                    // Phase 2 Enhanced: [BaseC, 1stC, 2ndC, TotalC, BaseE, 1stE, 2ndE]
-                    // Total Earnings for the engine calculation = Base Earnings (index 4) + 2nd Addtl Earnings (index 6).
+                    // 2024+: [BaseC, 1stC, 2ndC, TotalC, BaseE, 1stE, 2ndE]
+                    // Total Earnings for math = Base Earnings (index 4) + 2nd Addtl Earnings (index 6).
                     let baseE = amounts.length >= 5 ? amounts[4] : amounts[amounts.length - 1];
                     let secondE = amounts.length >= 7 ? amounts[6] : 0;
                     earnings = baseE + secondE;
                 }
                 
-                // Heuristic Fallback: Earnings are almost always significantly larger than contributions.
-                // If selected earnings < 1000 but larger amounts exist, take the maximum.
+                // Heuristic Fallback: Earnings are much larger than contributions. 
+                // If we accidentally picked a small number but a large one exists, favor the large one.
                 if (earnings < 1000 && Math.max(...amounts) > 1000) {
                     earnings = Math.max(...amounts);
                 }
@@ -96,7 +93,7 @@ class CPPEngine {
             }
         }
 
-        // De-duplicate (in case ranges overlap single years) and sort
+        // De-duplicate (ranges sometimes cover years explicitly listed) and sort
         records = Array.from(new Map(records.map(item => [item.year, item])).values());
         return records.sort((a, b) => a.year - b.year);
     }
@@ -172,23 +169,18 @@ class CPPEngine {
 
     /**
      * Calculates the Enhanced CPP (Phase 1 and Phase 2)
-     * The enhancement is NOT subject to the 17% general drop-out, and the denominator is strictly 480 months (40 yrs)
      */
     calculateEnhancedCPP(lifetimeRecords, startPensionYear, avgYMPE) {
         let phase1Sum = 0;
         let phase2Sum = 0;
 
-        // The enhancement relies on the Average YMPE of the 5 years prior to taking the pension
-        // (We pass it in from the base calculation to ensure consistency)
         const targetYMPE = avgYMPE; 
-        const targetYAMPE = targetYMPE * 1.14; // Phase 2 ceiling is ~14% higher than YMPE
+        const targetYAMPE = targetYMPE * 1.14; 
 
         lifetimeRecords.forEach(r => {
             if (r.year >= 2019 && r.year < startPensionYear) {
                 let curYMPE = this.YMPE[r.year];
                 if (curYMPE) {
-                    // Phase 1 (First Additional Pensionable Earnings - FAPE)
-                    // Capped at YMPE. Inflated to the Target YMPE.
                     let cappedEarnings = Math.min(r.earnings, curYMPE);
                     let inflatedFAPE = cappedEarnings * (targetYMPE / curYMPE);
                     phase1Sum += inflatedFAPE;
@@ -199,17 +191,13 @@ class CPPEngine {
                 let curYMPE = this.YMPE[r.year];
                 let curYAMPE = this.YAMPE[r.year] || (curYMPE * 1.14);
                 if (curYMPE && curYAMPE) {
-                    // Phase 2 (Second Additional Pensionable Earnings - SAPE)
-                    // Earnings *between* YMPE and YAMPE. Inflated to Target YAMPE.
                     let tier2Earnings = Math.max(0, Math.min(r.earnings, curYAMPE) - curYMPE);
-                    let inflatedSAPE = tier2Earnings * (targetYAMPE / curYAMPE);
+                    let inflatedSAPE = tier2Earnings * (targetYAMPE / curYMPE);
                     phase2Sum += inflatedSAPE;
                 }
             }
         });
 
-        // The enhancement formulas divide by 480 months (40 years) regardless of your actual working years
-        // Phase 1 adds 8.33% replacement rate. Phase 2 adds 33.33% replacement rate on the higher tier.
         const monthlyPhase1 = (0.08333 * phase1Sum) / 480;
         const monthlyPhase2 = (0.33333 * phase2Sum) / 480;
 
