@@ -5,9 +5,9 @@
 
 const POPOVER_DICTIONARY = {
     compensation: (base, match) => `<b>Base Salary:</b> $${base}<br><b>Employer RRSP Match:</b> $${match}`,
-    rrspRefund: () => `Tax refund received this year resulting from your discretionary RRSP contributions made last year. Automatically added to your available cash.`,
+    rrspRefund: () => `Tax refund received this year resulting from your discretionary RRSP and/or FHSA contributions made last year. Automatically added to your available cash.`,
     oasClawback: (netInc, thresh, excess, repaymentText, maxInc) => `<b>Net Income:</b> $${netInc}<br><b>Threshold:</b> $${thresh}<br><b>Excess:</b> $${excess}<hr class='my-1'>${repaymentText}<br><span class='text-warning small' style='font-size:0.7rem;'>*Fully clawed back at $${maxInc}</span><br><span class='text-muted small' style='font-size:0.7rem;'>*Added to total taxes paid</span>`,
-    rrifMath: (bal, factor, min, extraStr) => `<b>Jan 1st Balance:</b> $${bal}<br><b>Min Factor:</b> ${factor}%<br><b>Required Min:</b> $${min}${extraStr}`,
+    minWithdrawalMath: (bal, factor, min, extraStr) => `<b>Jan 1st Balance:</b> $${bal}<br><b>Min Factor:</b> ${factor}%<br><b>Required Min:</b> $${min}${extraStr}`,
     capGains: (wd, acb, gain, tax) => `<b>Total Withdrawn:</b> $${wd}<br><b>Adjusted Cost Base (ACB):</b> -$${acb}<br><b>Capital Gain:</b> $${gain}<hr class='my-1'><b>Added to Taxable Income (50% Inclusion):</b> $${tax}`,
     taxBreakdown: (fed, prov, cpp, oasCb, taxInc, avg, marg, matchSavStr, discSavStr) => {
         let str = `<b>Federal Tax:</b> $${fed}<br><b>Provincial Tax:</b> $${prov}<br><b>CPP/EI:</b> $${cpp}`;
@@ -16,7 +16,7 @@ const POPOVER_DICTIONARY = {
         if (matchSavStr || discSavStr) {
             str += `<hr class='my-1'>`;
             if (matchSavStr) str += `<b>Payroll Tax Saved (RRSP Match):</b> <span class='text-success'>$${matchSavStr}</span><br>`;
-            if (discSavStr) str += `<b>Est. Refund (Discretionary RRSP):</b> <span class='text-success'>$${discSavStr}</span><br><span class='text-muted' style='font-size:0.7rem;'>*Refund will be added to next year's cash.</span>`;
+            if (discSavStr) str += `<b>Est. Refund (Discretionary RRSP/FHSA):</b> <span class='text-success'>$${discSavStr}</span><br><span class='text-muted' style='font-size:0.7rem;'>*Refund will be added to next year's cash.</span>`;
         }
         return str;
     },
@@ -278,8 +278,8 @@ class UIController {
             if(d.topUpP1 > 0) groupP1 += sL("Employer Top-Up", d.topUpP1, "text-success");
 
             if(d.rrspRefundP1 > 0) {
-                let rfInfo = this.buildPopoverIcon("RRSP Tax Refund", POPOVER_DICTIONARY.rrspRefund());
-                groupP1 += sL(`Tax Refund (RRSP)${rfInfo}`, d.rrspRefundP1, "text-success fw-bold");
+                let rfInfo = this.buildPopoverIcon("Tax Refund", POPOVER_DICTIONARY.rrspRefund());
+                groupP1 += sL(`Tax Refund (RRSP/FHSA)${rfInfo}`, d.rrspRefundP1, "text-success fw-bold");
             }
             if(d.postRetP1 > 0) groupP1 += sL("Post-Ret Work", d.postRetP1);
             if(d.ccbP1 > 0) groupP1 += sL("Canada Child Benefit (CCB)", d.ccbP1);
@@ -309,8 +309,14 @@ class UIController {
                     let m = d.wdBreakdown.p1.RRIF_math;
                     let extraWd = Math.max(0, a - m.min);
                     let extraStr = extraWd > 5 ? `<hr class='my-1'><b>Extra (Deficit) Wd:</b> $${fmtStr(extraWd)}` : '';
-                    let content = POPOVER_DICTIONARY.rrifMath(fmtStr(m.bal), (m.factor*100).toFixed(2), fmtStr(m.min), extraStr);
+                    let content = POPOVER_DICTIONARY.minWithdrawalMath(fmtStr(m.bal), (m.factor*100).toFixed(2), fmtStr(m.min), extraStr);
                     label += this.buildPopoverIcon("RRIF Withdrawal Math", content);
+                } else if(t === 'LIF' && d.wdBreakdown.p1.LIF_math) {
+                    let m = d.wdBreakdown.p1.LIF_math;
+                    let extraWd = Math.max(0, a - m.lifMin);
+                    let extraStr = extraWd > 5 ? `<hr class='my-1'><b>Extra (Deficit) Wd:</b> $${fmtStr(extraWd)}` : '';
+                    let content = POPOVER_DICTIONARY.minWithdrawalMath(fmtStr(m.lifBal), (m.factor*100).toFixed(2), fmtStr(m.lifMin), extraStr);
+                    label += this.buildPopoverIcon("LIF Withdrawal Math", content);
                 } else if ((t === 'Non-Reg' || t === 'Crypto') && d.wdBreakdown.p1[t + '_math']) {
                     let m = d.wdBreakdown.p1[t + '_math'];
                     let content = POPOVER_DICTIONARY.capGains(fmtStr(m.wd), fmtStr(m.acb), fmtStr(m.gain), fmtStr(m.tax));
@@ -334,8 +340,8 @@ class UIController {
                 if(d.topUpP2 > 0) groupP2 += sL("Employer Top-Up", d.topUpP2, "text-success");
 
                 if(d.rrspRefundP2 > 0) {
-                    let rfInfo = this.buildPopoverIcon("RRSP Tax Refund", POPOVER_DICTIONARY.rrspRefund());
-                    groupP2 += sL(`Tax Refund (RRSP)${rfInfo}`, d.rrspRefundP2, "text-success fw-bold");
+                    let rfInfo = this.buildPopoverIcon("Tax Refund", POPOVER_DICTIONARY.rrspRefund());
+                    groupP2 += sL(`Tax Refund (RRSP/FHSA)${rfInfo}`, d.rrspRefundP2, "text-success fw-bold");
                 }
                 if(d.postRetP2 > 0) groupP2 += sL("Post-Ret Work", d.postRetP2);
                 if(d.cppP2 > 0) groupP2 += sL("CPP", d.cppP2);
@@ -364,8 +370,14 @@ class UIController {
                         let m = d.wdBreakdown.p2.RRIF_math;
                         let extraWd = Math.max(0, a - m.min);
                         let extraStr = extraWd > 5 ? `<hr class='my-1'><b>Extra (Deficit) Wd:</b> $${fmtStr(extraWd)}` : '';
-                        let content = POPOVER_DICTIONARY.rrifMath(fmtStr(m.bal), (m.factor*100).toFixed(2), fmtStr(m.min), extraStr);
+                        let content = POPOVER_DICTIONARY.minWithdrawalMath(fmtStr(m.bal), (m.factor*100).toFixed(2), fmtStr(m.min), extraStr);
                         label += this.buildPopoverIcon("RRIF Withdrawal Math", content);
+                    } else if(t === 'LIF' && d.wdBreakdown.p2.LIF_math) {
+                        let m = d.wdBreakdown.p2.LIF_math;
+                        let extraWd = Math.max(0, a - m.lifMin);
+                        let extraStr = extraWd > 5 ? `<hr class='my-1'><b>Extra (Deficit) Wd:</b> $${fmtStr(extraWd)}` : '';
+                        let content = POPOVER_DICTIONARY.minWithdrawalMath(fmtStr(m.lifBal), (m.factor*100).toFixed(2), fmtStr(m.lifMin), extraStr);
+                        label += this.buildPopoverIcon("LIF Withdrawal Math", content);
                     } else if ((t === 'Non-Reg' || t === 'Crypto') && d.wdBreakdown.p2[t + '_math']) {
                         let m = d.wdBreakdown.p2[t + '_math'];
                         let content = POPOVER_DICTIONARY.capGains(fmtStr(m.wd), fmtStr(m.acb), fmtStr(m.gain), fmtStr(m.tax));
@@ -709,7 +721,7 @@ class UIController {
         if(d.oasP1>0) addRow(`OAS P1\n${fmt(v(d.oasP1))}`, potName, d.oasP1);
         if(d.dbP1>0) addRow(`DB Pension P1\n${fmt(v(d.dbP1))}`, potName, d.dbP1);
         if(d.invIncP1>0) addRow(`Inv. Yield P1\n${fmt(v(d.invIncP1))}`, potName, d.invIncP1);
-        if(d.rrspRefundP1>0) addRow(`RRSP Refund P1\n${fmt(v(d.rrspRefundP1))}`, potName, d.rrspRefundP1);
+        if(d.rrspRefundP1>0) addRow(`Tax Refund P1\n${fmt(v(d.rrspRefundP1))}`, potName, d.rrspRefundP1);
 
         let baseP2 = (d.incomeP2 || 0) - (d.eiMatP2 || 0) - (d.topUpP2 || 0);
         if(baseP2>0) addRow(`Employment P2\n${fmt(v(baseP2))}`, potName, baseP2);
@@ -721,7 +733,7 @@ class UIController {
         if(d.oasP2>0) addRow(`OAS P2\n${fmt(v(d.oasP2))}`, potName, d.oasP2);
         if(d.dbP2>0) addRow(`DB Pension P2\n${fmt(v(d.dbP2))}`, potName, d.dbP2);
         if(d.invIncP2>0) addRow(`Inv. Yield P2\n${fmt(v(d.invIncP2))}`, potName, d.invIncP2);
-        if(d.rrspRefundP2>0) addRow(`RRSP Refund P2\n${fmt(v(d.rrspRefundP2))}`, potName, d.rrspRefundP2);
+        if(d.rrspRefundP2>0) addRow(`Tax Refund P2\n${fmt(v(d.rrspRefundP2))}`, potName, d.rrspRefundP2);
 
         if(d.windfall>0) addRow(`Inheritance/Bonus\n${fmt(v(d.windfall))}`, potName, d.windfall);
 
