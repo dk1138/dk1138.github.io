@@ -433,11 +433,14 @@ class FinanceEngine {
             let baseBal = age >= this.CONSTANTS.RRIF_START_AGE ? (preRrsp + preRrif) : preRrif;
             let baseLifBal = age >= this.CONSTANTS.RRIF_START_AGE ? (preLirf + preLif) : preLif;
             
+            let reqRrifMin = baseBal * factor;
+            let reqLifMin = baseLifBal * factor;
+            
             let actualRrifTaken = 0;
             let actualLifTaken = 0;
             
             if (baseBal > 0) {
-                let minNeeded = baseBal * factor;
+                let minNeeded = reqRrifMin;
                 let tkRrif = Math.min(p.rrif_acct, minNeeded);
                 p.rrif_acct -= tkRrif;
                 actualRrifTaken += tkRrif;
@@ -451,7 +454,7 @@ class FinanceEngine {
             }
 
             if (baseLifBal > 0) {
-                let minNeeded = baseLifBal * factor;
+                let minNeeded = reqLifMin;
                 let tkLif = Math.min(p.lif, minNeeded);
                 p.lif -= tkLif;
                 actualLifTaken += tkLif;
@@ -470,9 +473,9 @@ class FinanceEngine {
                 details: { 
                     factor, 
                     bal: baseBal, 
-                    min: actualRrifTaken, 
+                    min: reqRrifMin, 
                     lifBal: baseLifBal, 
-                    lifMin: actualLifTaken 
+                    lifMin: reqLifMin 
                 } 
             };
         };
@@ -1260,6 +1263,7 @@ class FinanceEngine {
                 if(regMins.lifTaken1 > 0) { 
                     flowLog.withdrawals['P1 LIF'] = (flowLog.withdrawals['P1 LIF'] || 0) + regMins.lifTaken1; 
                     wdBreakdown.p1.LIF = regMins.lifTaken1; 
+                    wdBreakdown.p1.LIF_math = regMins.details.p1;
                 }
                 if(regMins.p2 > 0) { 
                     flowLog.withdrawals['P2 RRIF'] = (flowLog.withdrawals['P2 RRIF'] || 0) + regMins.p2; 
@@ -1269,6 +1273,7 @@ class FinanceEngine {
                 if(regMins.lifTaken2 > 0) { 
                     flowLog.withdrawals['P2 LIF'] = (flowLog.withdrawals['P2 LIF'] || 0) + regMins.lifTaken2; 
                     wdBreakdown.p2.LIF = regMins.lifTaken2; 
+                    wdBreakdown.p2.LIF_math = regMins.details.p2;
                 }
             }
 
