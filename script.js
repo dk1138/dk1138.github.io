@@ -19,7 +19,7 @@ class RetirementPlanner {
                 dependents: [], 
                 strategies: { 
                     accum: ['tfsa', 'fhsa', 'resp', 'rrsp', 'nreg', 'cash', 'crypto', 'rrif_acct'], 
-                    decum: ['rrif_acct', 'lif', 'rrsp', 'lirf', 'crypto', 'nreg', 'tfsa', 'fhsa', 'resp', 'cash'] 
+                    decum: ['rrif_acct', 'lif', 'rrsp', 'lirf', 'crypto', 'nreg', 'tfsa', 'fhsa', 'cash'] 
                 },
                 mode: 'Couple',
                 projectionData: [],
@@ -129,7 +129,7 @@ class RetirementPlanner {
             debt: structuredClone(this.state.debt || []),
             strategies: { 
                 accum: [...(this.state.strategies?.accum || ['tfsa', 'fhsa', 'resp', 'rrsp', 'nreg', 'cash', 'crypto', 'rrif_acct'])].filter(x => x !== 'lif' && x !== 'lirf'), 
-                decum: [...(this.state.strategies?.decum || ['rrif_acct', 'lif', 'rrsp', 'lirf', 'crypto', 'nreg', 'tfsa', 'fhsa', 'resp', 'cash'])] 
+                decum: [...(this.state.strategies?.decum || ['rrif_acct', 'lif', 'rrsp', 'lirf', 'crypto', 'nreg', 'tfsa', 'fhsa', 'cash'])].filter(x => x !== 'resp') 
             },
             mode: this.state.mode || 'Couple',
             expenseMode: this.state.expenseMode || 'Simple',
@@ -747,7 +747,6 @@ class RetirementPlanner {
         ]];
 
         const body = d.map(r => {
-            // FIX: Removed "this.app." and correctly called the internal method
             const df = this.getDiscountFactor(r.year - new Date().getFullYear());
             const fmtK = n => '$' + Math.round(n / df).toLocaleString();
             
@@ -835,20 +834,25 @@ class RetirementPlanner {
         
         this.state.strategies = {
             accum: d.strategies?.accum || ['tfsa', 'fhsa', 'resp', 'rrsp', 'nreg', 'cash', 'crypto', 'rrif_acct'],
-            decum: d.strategies?.decum || ['rrif_acct', 'lif', 'rrsp', 'lirf', 'crypto', 'nreg', 'tfsa', 'fhsa', 'resp', 'cash']
+            decum: d.strategies?.decum || ['rrif_acct', 'lif', 'rrsp', 'lirf', 'crypto', 'nreg', 'tfsa', 'fhsa', 'cash']
         };
 
         const allItems = ['tfsa', 'fhsa', 'resp', 'rrsp', 'rrif_acct', 'lif', 'lirf', 'nreg', 'cash', 'crypto'];
         
-        // Force remove lif and lirf if they exist in a loaded save file
+        // Force remove lif and lirf from accum if they exist in a loaded save file
         this.state.strategies.accum = this.state.strategies.accum.filter(x => x !== 'lif' && x !== 'lirf');
+        // Force remove resp from decum if it exists in a loaded save file
+        this.state.strategies.decum = this.state.strategies.decum.filter(x => x !== 'resp');
 
         allItems.forEach(item => {
-            // Prevent lif and lirf from being pushed back into the array
+            // Prevent lif and lirf from being pushed back into the accum array
             if (!['lif', 'lirf'].includes(item) && !this.state.strategies.accum.includes(item)) {
                 this.state.strategies.accum.push(item);
             }
-            if (!this.state.strategies.decum.includes(item)) this.state.strategies.decum.push(item);
+            // Prevent resp from being pushed back into decum array
+            if (item !== 'resp' && !this.state.strategies.decum.includes(item)) {
+                this.state.strategies.decum.push(item);
+            }
         });
 
         Object.entries(this.state.inputs).forEach(([id, val]) => { if(id.startsWith('comp_')) return; const el=document.getElementById(id); if(el) el.type==='checkbox'||el.type==='radio'?el.checked=val:el.value=val; });
