@@ -1263,4 +1263,126 @@ class Optimizers {
         });
     }
     // ---------------- MONTE CARLO ENGINE END ---------------- //
+
+    // ---------------- CPP IMPORTER ENGINE START ---------------- //
+    runCPPImporter() {
+        const pfx = document.getElementById('cppTargetPlayer').value;
+        const rawText = document.getElementById('cppPasteArea').value;
+        const targetAge = parseInt(document.getElementById('cppTargetAge').value) || 65;
+        const futureSalary = parseFloat(document.getElementById('cppFutureSalary').value.replace(/,/g, '')) || 0;
+        const resultsArea = document.getElementById('cppResultsArea');
+
+        if (!rawText.trim()) {
+            alert("Please paste your Service Canada earnings table first.");
+            return;
+        }
+
+        const cppEngine = new CPPEngine();
+        let records = cppEngine.parseServiceCanadaText(rawText);
+
+        if (records.length === 0) {
+            alert("Could not find any valid earnings records. Please check your paste format.");
+            return;
+        }
+
+        // Get Player Info from the main application state
+        const dobStr = this.app.getRaw(`${pfx}_dob`);
+        if (!dobStr) { 
+            alert("Please set the player's Date of Birth in the Inputs tab first."); 
+            return; 
+        }
+        
+        const birthYear = parseInt(dobStr.split('-')[0]);
+        const startPensionYear = birthYear + targetAge;
+
+        // Fill in future projections from the last year in records up to the retirement age
+        const lastYearInRecords = records[records.length - 1].year;
+        for (let y = lastYearInRecords + 1; y < startPensionYear; y++) {
+            records.push({ year: y, earnings: futureSalary });
+        }
+
+        // Run calculations using the CPPEngine
+        const base = cppEngine.calculateBaseCPP(records, birthYear, startPensionYear);
+        const enhanced = cppEngine.calculateEnhancedCPP(records, startPensionYear, base.avgYMPEUsed);
+        
+        const totalMonthly = base.monthlyBase + enhanced.totalMonthlyEnhancement;
+        const totalAnnual = totalMonthly * 12;
+
+        // Render Results UI into the modal
+        resultsArea.style.display = 'block';
+        resultsArea.innerHTML = `
+            <div class="card bg-black bg-opacity-25 border-primary shadow-sm mt-3">
+                <div class="card-header border-primary text-primary fw-bold small text-uppercase ls-1">
+                    <i class="bi bi-calculator me-2"></i>Analysis Results for ${pfx === 'p1' ? 'Player 1' : 'Player 2'}
+                </div>
+                <div class="card-body p-3">
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <div class="p-2 border border-secondary rounded bg-black bg-opacity-25 text-center">
+                                <div class="text-muted small mb-1">Estimated Annual CPP</div>
+                                <div class="fs-3 fw-bold text-success">$${Math.round(totalAnnual).toLocaleString()}</div>
+                                <div class="small text-muted">$${Math.round(totalMonthly).toLocaleString()} / month</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-2 border border-secondary rounded bg-black bg-opacity-25 text-center">
+                                <div class="text-muted small mb-1">Avg. Earnings Ratio</div>
+                                <div class="fs-3 fw-bold text-info">${(base.averageRatio * 100).toFixed(1)}%</div>
+                                <div class="small text-muted">of YMPE (Max)</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="small text-muted mb-3">
+                        <div class="d-flex justify-content-between mb-1"><span>Base CPP (25% Replacement):</span> <span class="text-white">$${Math.round(base.monthlyBase * 12).toLocaleString()}/yr</span></div>
+                        <div class="d-flex justify-content-between mb-1"><span>Enhanced CPP (Phase 1 & 2):</span> <span class="text-white">+$${Math.round(enhanced.totalMonthlyEnhancement * 12).toLocaleString()}/yr</span></div>
+                        <div class="d-flex justify-content-between pt-1 border-top border-secondary mt-1"><span>Total Estimated Benefit:</span> <span class="text-success fw-bold">$${Math.round(totalAnnual).toLocaleString()}/yr</span></div>
+                    </div>
+
+                    <div class="alert alert-secondary bg-transparent border-secondary p-2 mb-3" style="font-size: 0.7rem;">
+                        <i class="bi bi-info-circle me-1"></i> Includes <strong>17% general drop-out</strong> and projected earnings of <strong>$${futureSalary.toLocaleString()}</strong> until age <strong>${targetAge}</strong>.
+                    </div>
+
+                    <div class="d-grid">
+                        <button class="btn btn-success fw-bold" onclick="app.optimizers.applyCPPResult('${pfx}', ${Math.round(totalAnnual)}, ${targetAge})">
+                            <i class="bi bi-check-circle-fill me-2"></i> Apply to Plan
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    applyCPPResult(pfx, amount, age) {
+        const inputId = `${pfx}_cpp_est_base`;
+        const startId = `${pfx}_cpp_start`;
+        const startValId = `${pfx}_cpp_start_val`;
+
+        // Update the numeric input and state
+        const inputEl = document.getElementById(inputId);
+        if (inputEl) {
+            inputEl.value = amount.toLocaleString();
+            this.app.state.inputs[inputId] = amount;
+        }
+
+        // Update the start age slider and state
+        const startEl = document.getElementById(startId);
+        if (startEl) {
+            startEl.value = age;
+            this.app.state.inputs[startId] = age;
+            const labelEl = document.getElementById(startValId);
+            if (labelEl) labelEl.innerText = age;
+        }
+
+        // Close the modal
+        const modalEl = document.getElementById('cppAnalyzerModal');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+
+        // Refresh calculations across the app
+        this.app.run();
+        
+        alert(`Success! ${pfx === 'p1' ? 'Player 1' : 'Player 2'} CPP has been updated.`);
+    }
+    // ---------------- CPP IMPORTER ENGINE END ---------------- //
 }
