@@ -492,7 +492,7 @@ class RetirementPlanner {
             let total = 0;
             const accounts = ['tfsa', 'fhsa', 'resp', 'rrsp', 'lirf', 'lif', 'rrif_acct', 'nonreg', 'crypto', 'cash'];
             accounts.forEach(act => {
-                total += this.getVal(`${pfx}_${act}`);
+                total += this.getVal(`${pfx}_act`);
             });
             return total;
         };
@@ -788,16 +788,32 @@ class RetirementPlanner {
     }
 
     saveScenarioFromModal() {
-        const nm = document.getElementById('modalScenarioName').value;
+        const nm = document.getElementById('modalScenarioName').value.trim();
         if(!nm) { alert("Please enter a plan name."); return; }
-        this.saveScenarioData(nm);
-        if(this.saveModalInstance) { this.saveModalInstance.hide(); }
-        document.getElementById('modalScenarioName').value = '';
+        
+        const sc = JSON.parse(localStorage.getItem('rp_scenarios')||'[]');
+        const existingIdx = sc.findIndex(s => s.name.toLowerCase() === nm.toLowerCase());
+
+        if (existingIdx >= 0) {
+            this.showConfirm(`A plan named "${nm}" already exists. Do you want to overwrite it?`, () => {
+                this.saveScenarioData(nm, existingIdx);
+                if(this.saveModalInstance) { this.saveModalInstance.hide(); }
+                document.getElementById('modalScenarioName').value = '';
+            });
+        } else {
+            this.saveScenarioData(nm, -1);
+            if(this.saveModalInstance) { this.saveModalInstance.hide(); }
+            document.getElementById('modalScenarioName').value = '';
+        }
     }
 
-    saveScenarioData(name) {
+    saveScenarioData(name, overwriteIdx = -1) {
         let sc=JSON.parse(localStorage.getItem('rp_scenarios')||'[]'); 
-        sc.push({name: name, data: this.getCurrentSnapshot()}); 
+        if (overwriteIdx >= 0) {
+            sc[overwriteIdx] = {name: name, data: this.getCurrentSnapshot()};
+        } else {
+            sc.push({name: name, data: this.getCurrentSnapshot()}); 
+        }
         localStorage.setItem('rp_scenarios', JSON.stringify(sc)); 
         this.loadScenariosList(); 
         this.ui.updateScenarioBadge(name);
