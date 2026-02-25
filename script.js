@@ -492,7 +492,7 @@ class RetirementPlanner {
             let total = 0;
             const accounts = ['tfsa', 'fhsa', 'resp', 'rrsp', 'lirf', 'lif', 'rrif_acct', 'nonreg', 'crypto', 'cash'];
             accounts.forEach(act => {
-                total += this.getVal(`${pfx}_act`);
+                total += this.getVal(`${pfx}_${act}`);
             });
             return total;
         };
