@@ -429,7 +429,7 @@ class FinanceEngine {
             let baseLifBal = age >= this.CONSTANTS.RRIF_START_AGE ? (preLirf + preLif) : preLif;
             
             let reqRrifMin = baseBal * factor;
-            let reqLifMin = baseLifBal * factor;
+            let reqLifMin = age >= 55 ? (baseLifBal * factor) : 0;
             
             let actualRrifTaken = 0;
             let actualLifTaken = 0;
@@ -864,10 +864,10 @@ class FinanceEngine {
                     let gotP1 = req1 > 0 ? wd(p1, p1Type, req1, 'p1', mR1) : {net: 0, tax: 0};
                     let gotP2 = req2 > 0 ? wd(p2, p2Type, req2, 'p2', mR2) : {net: 0, tax: 0};
 
-                    if (gotP1.net <= 0.01 && gotP1.tax <= 0.01 && req1 > 0) {
+                    if (gotP1.net <= 0.01 && gotP1.tax <= 0.01 && req1 > 0.01) {
                         if (!['lif', 'lirf'].includes(p1Type)) p1[p1Type] = 0;
                     }
-                    if (gotP2.net <= 0.01 && gotP2.tax <= 0.01 && req2 > 0) {
+                    if (gotP2.net <= 0.01 && gotP2.tax <= 0.01 && req2 > 0.01) {
                         if (!['lif', 'lirf'].includes(p2Type)) p2[p2Type] = 0;
                     }
 
@@ -899,11 +899,16 @@ class FinanceEngine {
                     }
 
                     toTake = Math.min(toTake, netRoom);
-                    if (toTake < 10 && toTake < netRoom) toTake = Math.min(df, netRoom, 500);
+                    
+                    if (toTake <= 0.01) {
+                        if (target === 'p1') runInc1 = ceiling1;
+                        if (target === 'p2') runInc2 = ceiling2;
+                        continue;
+                    }
 
                     let got = wd(pObj, tType, toTake, target, mR);
                     
-                    if (got.net <= 0.01 && got.tax <= 0.01) {
+                    if (got.net <= 0.01 && got.tax <= 0.01 && toTake > 0.01) {
                         if (!['lif', 'lirf'].includes(tType)) pObj[tType] = 0;
                     }
                     
@@ -1286,7 +1291,8 @@ class FinanceEngine {
                 }
             } else {
                 let cashFromNonTaxableWd = 0; 
-                for(let pass = 0; pass < 5; pass++) {
+                // Increased convergence passes from 5 to 10 for absolute precision
+                for(let pass = 0; pass < 10; pass++) {
                     let dynTax1 = this.calculateTaxDetailed(taxableIncome1, this.getRaw('tax_province'), taxBrackets, inflows.p1.oas, oasThresholdInf);
                     let dynTax2 = this.calculateTaxDetailed(taxableIncome2, this.getRaw('tax_province'), taxBrackets, inflows.p2.oas, oasThresholdInf);
                     
@@ -1317,7 +1323,6 @@ class FinanceEngine {
 
             previousAFNI = Math.max(0, (taxableIncome1 - actDeductions.p1) + (taxableIncome2 - actDeductions.p2));
 
-            // RESP is excluded from standard Liquid Net Worth
             const assets1 = person1.tfsa + person1.tfsa_successor + person1.rrsp + person1.crypto + person1.nreg + person1.cash + person1.lirf + person1.lif + person1.rrif_acct + (person1.fhsa || 0);
             const assets2 = this.mode === 'Couple' ? (person2.tfsa + person2.tfsa_successor + person2.rrsp + person2.crypto + person2.nreg + person2.cash + person2.lirf + person2.lif + person2.rrif_acct + (person2.fhsa || 0)) : 0;
             
@@ -1359,7 +1364,8 @@ class FinanceEngine {
                     pensionSplit: pensionSplitTransfer,
                     expenses: expenses, mortgagePay: mortgagePayment, debtRepayment,
                     debtRemaining: 0, 
-                    surplus: Math.abs(cashSurplus) < 5 ? 0 : cashSurplus,
+                    // Visual tolerance for display grid rounding artifacts: only show negative surplus if they are actually broke
+                    surplus: (Math.abs(cashSurplus) < 100 && liquidNW > 100) ? 0 : cashSurplus,
                     debugNW: finalNetWorth,
                     liquidNW: liquidNW,
                     assetsP1: {...person1}, assetsP2: {...person2},
