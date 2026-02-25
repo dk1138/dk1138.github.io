@@ -51,7 +51,8 @@ class UIController {
             "Windfall": { icon: 'bi-gift-fill', color: 'text-success', title: "Inheritance/Bonus Received" },
             "Downsize": { icon: 'bi-box-seam-fill', color: 'text-primary', title: "Real Estate Downsizing" },
             "P1 Leave": { icon: 'bi-pause-circle-fill', color: 'text-warning', title: "Person 1 Leave of Absence" },
-            "P2 Leave": { icon: 'bi-pause-circle-fill', color: 'text-purple', title: "Person 2 Leave of Absence" }
+            "P2 Leave": { icon: 'bi-pause-circle-fill', color: 'text-purple', title: "Person 2 Leave of Absence" },
+            "FHSA Expired": { icon: 'bi-hourglass-bottom', color: 'text-secondary', title: "FHSA Expiry Reached (Rolled to RRSP/RRIF)" }
         };
     }
 
@@ -219,7 +220,6 @@ class UIController {
         return `<i class="bi ${d.icon} ${c}" title="${d.title}"></i>`;
     }
 
-    // Helper function to build Bootstrap popover icons cleanly
     buildPopoverIcon(title, content, colorClass = "text-muted", size = "0.75rem") {
         const safeContent = content.replace(/"/g, '&quot;');
         return ` <i class="bi bi-info-circle ${colorClass} ms-1 info-btn" style="font-size: ${size}; cursor: help;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-html="true" data-bs-custom-class="projection-popover" data-bs-title="${title}" data-bs-content="${safeContent}"></i>`;
@@ -287,14 +287,14 @@ class UIController {
             
             if(d.oasP1 > 0) {
                 let label = "OAS";
-                if (d.oasClawbackP1 > 0) {
-                    let excess = Math.max(0, (d.taxIncP1 || 0) - (d.oasThreshold || 0));
-                    let maxIncome = (d.oasThreshold || 0) + (d.oasP1 / 0.15);
-                    let repaymentText = (d.oasClawbackP1 >= d.oasP1 - 0.01) ? `<b>Repayment (100% Clawed Back):</b> $${fmtStr(d.oasClawbackP1)}` : `<b>Repayment (15% of excess):</b> $${fmtStr(d.oasClawbackP1)}`;
-                    
-                    let content = POPOVER_DICTIONARY.oasClawback(fmtStr(d.taxIncP1 || 0), fmtStr(d.oasThreshold || 0), fmtStr(excess), repaymentText, fmtStr(maxIncome));
-                    label += this.buildPopoverIcon("OAS Clawback Math", content);
-                }
+                let excess = Math.max(0, (d.taxIncP1 || 0) - (d.oasThreshold || 0));
+                let maxIncome = (d.oasThreshold || 0) + (d.oasP1 / 0.15);
+                let repaymentText = (d.oasClawbackP1 >= d.oasP1 - 0.01) ? `<b>Repayment (100% Clawed Back):</b> $${fmtStr(d.oasClawbackP1)}` : `<b>Repayment (15% of excess):</b> $${fmtStr(d.oasClawbackP1)}`;
+                if (d.oasClawbackP1 === 0) repaymentText = `<b>Repayment:</b> $0 (Under Threshold)`;
+                
+                let content = POPOVER_DICTIONARY.oasClawback(fmtStr(d.taxIncP1 || 0), fmtStr(d.oasThreshold || 0), fmtStr(excess), repaymentText, fmtStr(maxIncome));
+                label += this.buildPopoverIcon("OAS Clawback Math", content);
+                
                 groupP1 += sL(label, d.oasP1);
             }
             
@@ -348,14 +348,14 @@ class UIController {
                 
                 if(d.oasP2 > 0) {
                     let label = "OAS";
-                    if (d.oasClawbackP2 > 0) {
-                        let excess = Math.max(0, (d.taxIncP2 || 0) - (d.oasThreshold || 0));
-                        let maxIncome = (d.oasThreshold || 0) + (d.oasP2 / 0.15);
-                        let repaymentText = (d.oasClawbackP2 >= d.oasP2 - 0.01) ? `<b>Repayment (100% Clawed Back):</b> $${fmtStr(d.oasClawbackP2)}` : `<b>Repayment (15% of excess):</b> $${fmtStr(d.oasClawbackP2)}`;
-                        
-                        let content = POPOVER_DICTIONARY.oasClawback(fmtStr(d.taxIncP2 || 0), fmtStr(d.oasThreshold || 0), fmtStr(excess), repaymentText, fmtStr(maxIncome));
-                        label += this.buildPopoverIcon("OAS Clawback Math", content);
-                    }
+                    let excess = Math.max(0, (d.taxIncP2 || 0) - (d.oasThreshold || 0));
+                    let maxIncome = (d.oasThreshold || 0) + (d.oasP2 / 0.15);
+                    let repaymentText = (d.oasClawbackP2 >= d.oasP2 - 0.01) ? `<b>Repayment (100% Clawed Back):</b> $${fmtStr(d.oasClawbackP2)}` : `<b>Repayment (15% of excess):</b> $${fmtStr(d.oasClawbackP2)}`;
+                    if (d.oasClawbackP2 === 0) repaymentText = `<b>Repayment:</b> $0 (Under Threshold)`;
+                    
+                    let content = POPOVER_DICTIONARY.oasClawback(fmtStr(d.taxIncP2 || 0), fmtStr(d.oasThreshold || 0), fmtStr(excess), repaymentText, fmtStr(maxIncome));
+                    label += this.buildPopoverIcon("OAS Clawback Math", content);
+                    
                     groupP2 += sL(label, d.oasP2);
                 }
                 
@@ -439,7 +439,6 @@ class UIController {
             aL += ln(`TFSA (Successor) P1${fmtFlow(0, d.wdBreakdown.p1['TFSA (Successor)'])}`, d.assetsP1.tfsa_successor) + (this.app.state.mode==='Couple'?ln(`TFSA (Successor) P2${fmtFlow(0, d.wdBreakdown.p2['TFSA (Successor)'])}`, d.assetsP2.tfsa_successor):'');
             
             aL += ln(`FHSA P1${fmtFlow(d.flows.contributions.p1.fhsa, d.wdBreakdown.p1['FHSA'])}`, d.assetsP1.fhsa) + (this.app.state.mode==='Couple'?ln(`FHSA P2${fmtFlow(d.flows.contributions.p2.fhsa, d.wdBreakdown.p2['FHSA'])}`, d.assetsP2.fhsa):'');
-            aL += ln(`RESP P1${fmtFlow(d.flows.contributions.p1.resp, d.wdBreakdown.p1['RESP'])}`, d.assetsP1.resp);
 
             let r1Label = d.p1Age >= 72 ? 'RRIF' : 'RRSP';
             let r1Wd = (d.wdBreakdown.p1['RRSP']||0) + (d.wdBreakdown.p1['RRIF']||0);
@@ -480,6 +479,9 @@ class UIController {
             
             aL += ln("Liquid Net Worth",d.liquidNW,"text-info fw-bold")+ln("Total Real Estate Eq.",d.homeValue-d.mortgage);
             
+            aL += `<div style="border-top: 1px dashed #555; margin: 6px 0 4px 0;"></div>`;
+            aL += ln(`RESP (Excluded from NW)${fmtFlow(d.flows.contributions.p1.resp, d.wdBreakdown.p1['RESP'])}`, d.assetsP1.resp, "text-muted");
+
             const rB = th==='light'?'bg-white border-bottom border-dark-subtle':'', rT = th==='light'?'text-dark':'text-white';
             html += `<div class="grid-row-group" style="${th==='light'?'border-bottom:1px solid #ddd;':''}"><div class="grid-summary-row ${rB}" onclick="app.ui.toggleRow(this)"><div class="col-start col-timeline"><div class="d-flex align-items-center"><span class="fw-bold fs-6 me-1 ${rT}">${d.year}</span><span class="event-icons-inline">${d.events.map(k=>this.getIconHTML(k,th)).join('')}</span></div><span class="age-text ${rT}">${p1A} ${this.app.state.mode==='Couple'?'/ '+p2A:''}</span></div><div class="col-start">${stat}</div><div class="val-positive">${fmtK(d.grossInflow)}</div><div class="val-neutral text-danger">${fmtK(d.visualExpenses)}</div><div class="${d.surplus<0?'val-negative':'val-positive'}">${d.surplus>0?'+':''}${fmtK(d.surplus)}</div><div class="fw-bold ${rT}">${fmtK(d.debugNW)}</div><div class="text-center toggle-icon ${rT}"><i class="bi bi-chevron-down"></i></div></div><div class="grid-detail-wrapper"><div class="detail-container"><div class="detail-box surface-card"><div class="detail-title">Income Sources</div>${iL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total Gross Inflow</span> <span class="text-success fw-bold">${fmtK(d.grossInflow)}</span></div></div><div class="detail-box surface-card"><div class="detail-title">Outflows & Taxes</div>${eL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total Out</span> <span class="text-danger fw-bold">${fmtK(d.visualExpenses)}</span></div></div><div class="detail-box surface-card"><div class="detail-title">${assetTitle}</div>${aL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total NW</span> <span class="text-info fw-bold">${fmtK(d.debugNW)}</span></div></div></div></div></div>`;
         });
@@ -509,7 +511,7 @@ class UIController {
 
         let getLiquidAssets = (d) => {
             let a1 = d.assetsP1, a2 = d.assetsP2 || {};
-            return (a1.tfsa||0) + (a1.tfsa_successor||0) + (a1.fhsa||0) + (a1.resp||0) + (a1.rrsp||0) + (a1.rrif_acct||0) + (a1.lif||0) + (a1.lirf||0) + (a1.nreg||0) + (a1.cash||0) + (a1.crypto||0) +
+            return (a1.tfsa||0) + (a1.tfsa_successor||0) + (a1.fhsa||0) + (a1.rrsp||0) + (a1.rrif_acct||0) + (a1.lif||0) + (a1.lirf||0) + (a1.nreg||0) + (a1.cash||0) + (a1.crypto||0) +
                    (a2.tfsa||0) + (a2.tfsa_successor||0) + (a2.fhsa||0) + (a2.rrsp||0) + (a2.rrif_acct||0) + (a2.lif||0) + (a2.lirf||0) + (a2.nreg||0) + (a2.cash||0) + (a2.crypto||0);
         };
 
@@ -574,7 +576,7 @@ class UIController {
             let a1 = d.assetsP1, a2 = d.assetsP2 || {};
             
             let tfsa = (a1.tfsa||0) + (a1.tfsa_successor||0) + (a1.fhsa||0) + (a2.tfsa||0) + (a2.tfsa_successor||0) + (a2.fhsa||0);
-            let reg = (a1.rrsp||0) + (a1.rrif_acct||0) + (a1.lif||0) + (a1.lirf||0) + (a1.resp||0) + 
+            let reg = (a1.rrsp||0) + (a1.rrif_acct||0) + (a1.lif||0) + (a1.lirf||0) + 
                       (a2.rrsp||0) + (a2.rrif_acct||0) + (a2.lif||0) + (a2.lirf||0);
             let taxable = (a1.nreg||0) + (a1.cash||0) + (a2.nreg||0) + (a2.cash||0);
             let crypt = (a1.crypto||0) + (a2.crypto||0);
@@ -670,7 +672,7 @@ class UIController {
                     datasets: [
                         { label: 'Real Estate Equity', data: compRE, backgroundColor: 'rgba(16, 185, 129, 0.2)', borderColor: '#10b981', fill: true, tension: 0.4, pointRadius: 0 },
                         { label: 'Tax-Free (TFSA/FHSA)', data: compTaxFree, backgroundColor: 'rgba(59, 130, 246, 0.2)', borderColor: '#3b82f6', fill: true, tension: 0.4, pointRadius: 0 },
-                        { label: 'Registered (RRSP/RRIF/LIF/RESP)', data: compReg, backgroundColor: 'rgba(139, 92, 246, 0.2)', borderColor: '#8b5cf6', fill: true, tension: 0.4, pointRadius: 0 },
+                        { label: 'Registered (RRSP/RRIF/LIF)', data: compReg, backgroundColor: 'rgba(139, 92, 246, 0.2)', borderColor: '#8b5cf6', fill: true, tension: 0.4, pointRadius: 0 },
                         { label: 'Taxable (Cash/Non-Reg)', data: compTaxable, backgroundColor: 'rgba(245, 158, 11, 0.2)', borderColor: '#f59e0b', fill: true, tension: 0.4, pointRadius: 0 },
                         { label: 'Crypto', data: compCrypto, backgroundColor: 'rgba(236, 72, 153, 0.2)', borderColor: '#ec4899', fill: true, tension: 0.4, pointRadius: 0 }
                     ]
