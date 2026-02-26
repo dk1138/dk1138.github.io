@@ -227,6 +227,22 @@ class RetirementPlanner {
         this.data.renderStrategy();
     }
 
+    showAlert(message, isError = false) {
+        const modalEl = document.getElementById('genericAlertModal');
+        if (!modalEl) { alert(message); return; }
+        
+        document.getElementById('genericAlertMessage').textContent = message;
+        const titleEl = document.getElementById('genericAlertTitle');
+        if (titleEl) {
+            titleEl.innerHTML = isError 
+                ? '<i class="bi bi-exclamation-triangle text-danger me-2"></i><span class="text-danger">Notice</span>'
+                : '<i class="bi bi-check-circle text-success me-2"></i><span class="text-success">Success</span>';
+        }
+        
+        const alertModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        alertModal.show();
+    }
+
     showConfirm(message, onConfirm) {
         const modalEl = document.getElementById('confirmationModal');
         if(!modalEl) return onConfirm(); 
@@ -341,15 +357,7 @@ class RetirementPlanner {
             });
         }
 
-        if($('btnClearAll')) $('btnClearAll').addEventListener('click', () => this.showConfirm("Reset current plan? This will wipe your current unsaved data.", () => this.resetAllData()));
-        
-        if($('btnDeleteAllScenarios')) $('btnDeleteAllScenarios').addEventListener('click', () => this.showConfirm("Are you sure you want to delete ALL saved plans? This cannot be undone.", () => {
-            localStorage.removeItem('rp_scenarios');
-            this.loadScenariosList();
-            if(this.loadModalInstance) this.loadModalInstance.hide();
-            this.ui.updateScenarioBadge(null);
-        }));
-
+        if($('btnClearAll')) $('btnClearAll').addEventListener('click', () => this.showConfirm("Clear all data? This will wipe your current unsaved plan.", () => this.resetAllData()));
         if($('btnAddProperty')) $('btnAddProperty').addEventListener('click', () => this.data.addProperty());
         if($('btnAddWindfall')) $('btnAddWindfall').addEventListener('click', () => this.data.addWindfall());
         if($('btnAddChild')) $('btnAddChild').addEventListener('click', () => this.data.addDependent());
@@ -574,16 +582,16 @@ class RetirementPlanner {
                 let parsed = JSON.parse(event.target.result);
                 
                 if (this.isVersionTooOld(parsed.version, MIN_VERSION)) {
-                    alert('This save file is too old and is no longer compatible with this version of the planner.');
+                    this.showAlert('This save file is too old and is no longer compatible with this version of the planner.', true);
                     return; 
                 }
                 
                 this.loadStateToDOM(parsed); 
                 this.run(); 
                 this.ui.updateScenarioBadge(file.name.replace('.json',''));
-                alert('Plan loaded successfully.'); 
+                this.showAlert('Plan loaded successfully.'); 
             } 
-            catch(err) { alert('Error parsing JSON.'); console.error(err); }
+            catch(err) { this.showAlert('Error parsing JSON.', true); console.error(err); }
         };
         reader.readAsText(file); e.target.value = '';
     }
@@ -698,7 +706,7 @@ class RetirementPlanner {
     }
 
     exportToCSV() {
-        if (!this.state.projectionData.length) return alert("No data available.");
+        if (!this.state.projectionData.length) return this.showAlert("No data available.", true);
         const mode = this.state.mode, d = this.state.projectionData;
         
         const h = [
@@ -738,9 +746,9 @@ class RetirementPlanner {
     }
 
     exportToPDF() {
-        if (!this.state.projectionData.length) return alert("No data available.");
+        if (!this.state.projectionData.length) return this.showAlert("No data available.", true);
         if (typeof window.jspdf === 'undefined') {
-            alert("PDF library is still loading. Please try again in a few seconds.");
+            this.showAlert("PDF library is still loading. Please try again in a few seconds.", true);
             return;
         }
         
@@ -797,7 +805,7 @@ class RetirementPlanner {
 
     saveScenarioFromModal() {
         const nm = document.getElementById('modalScenarioName').value.trim();
-        if(!nm) { alert("Please enter a plan name."); return; }
+        if(!nm) { this.showAlert("Please enter a plan name.", true); return; }
         
         const sc = JSON.parse(localStorage.getItem('rp_scenarios')||'[]');
         const existingIdx = sc.findIndex(s => s.name.toLowerCase() === nm.toLowerCase());
@@ -825,7 +833,7 @@ class RetirementPlanner {
         localStorage.setItem('rp_scenarios', JSON.stringify(sc)); 
         this.loadScenariosList(); 
         this.ui.updateScenarioBadge(name);
-        alert(`"${name}" has been saved.`);
+        this.showAlert(`"${name}" has been saved.`);
     }
 
     loadScenariosList() {
