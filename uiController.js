@@ -597,10 +597,13 @@ class UIController {
             totalExp += d.expenses / df; 
             totalDebt += debt / df;
 
-            const benefits = d.benefitsP1 + (d.benefitsP2 || 0) + (d.ccbP1 || 0);
-            totalBenefits += benefits / df;
+            // Calculate pure CPP & OAS, strictly net of any clawbacks
+            const clawbacks = (d.oasClawbackP1 || 0) + (d.oasClawbackP2 || 0);
+            const pureRetBenefits = d.benefitsP1 + (d.benefitsP2 || 0) - clawbacks;
+            totalBenefits += pureRetBenefits / df;
 
-            const externalInflow = d.incomeP1 + (d.incomeP2 || 0) + (d.postRetP1 || 0) + (d.postRetP2 || 0) + benefits + d.dbP1 + (d.dbP2 || 0) + d.windfall;
+            // Ensure CCB is still added to the total cash flow math so the estate balances
+            const externalInflow = d.incomeP1 + (d.incomeP2 || 0) + (d.postRetP1 || 0) + (d.postRetP2 || 0) + pureRetBenefits + (d.ccbP1 || 0) + d.dbP1 + (d.dbP2 || 0) + d.windfall;
             totalExternalInflow += externalInflow / df;
 
             const isP1Ret = d.p1Age >= this.app.getVal('p1_retireAge');
