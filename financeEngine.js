@@ -1206,10 +1206,7 @@ class FinanceEngine {
 
             let ccbPayout = this.calculateCCBForYear(yr, this.dependents, previousAFNI, bInf);
             if (ccbPayout > 0 && alive1) {
-                inflows.p1.windfallNonTax += ccbPayout;
-                if(detailed) {
-                    inflows.p1.ccb = ccbPayout;
-                }
+                inflows.p1.ccb = ccbPayout;
             }
 
             let lifMax1 = (preGrowthLirf1 + preGrowthLif1) * this.getLifMaxFactor(age1 - 1, this.getRaw('tax_province'));
@@ -1281,7 +1278,7 @@ class FinanceEngine {
             let tax1 = alive1 ? this.calculateTaxDetailed(taxableIncome1, this.getRaw('tax_province'), taxBrackets, inflows.p1.oas, oasThresholdInf, inflows.p1.earned, bInf, divInc1) : {totalTax: 0, margRate: 0};
             let tax2 = alive2 ? this.calculateTaxDetailed(taxableIncome2, this.getRaw('tax_province'), taxBrackets, inflows.p2.oas, oasThresholdInf, inflows.p2.earned, bInf, divInc2) : {totalTax: 0, margRate: 0};
 
-            let netIncome1 = taxableIncome1 - tax1.totalTax + inflows.p1.windfallNonTax;
+            let netIncome1 = taxableIncome1 - tax1.totalTax + inflows.p1.windfallNonTax + (inflows.p1.ccb || 0);
             let netIncome2 = alive2 ? taxableIncome2 - tax2.totalTax + inflows.p2.windfallNonTax : 0;
             
             let totalNetIncome = netIncome1 + netIncome2;
@@ -1337,7 +1334,7 @@ class FinanceEngine {
                     tax1 = dynTax1; 
                     tax2 = dynTax2;
 
-                    let dynNet1 = taxableIncome1 - dynTax1.totalTax + inflows.p1.windfallNonTax;
+                    let dynNet1 = taxableIncome1 - dynTax1.totalTax + inflows.p1.windfallNonTax + (inflows.p1.ccb || 0);
                     let dynNet2 = alive2 ? taxableIncome2 - dynTax2.totalTax + inflows.p2.windfallNonTax : 0;
                     let dynTotalNet = dynNet1 + dynNet2;
                     
@@ -1354,7 +1351,7 @@ class FinanceEngine {
                 
                 tax1 = this.calculateTaxDetailed(taxableIncome1, this.getRaw('tax_province'), taxBrackets, inflows.p1.oas, oasThresholdInf, inflows.p1.earned, bInf, divInc1);
                 tax2 = this.calculateTaxDetailed(taxableIncome2, this.getRaw('tax_province'), taxBrackets, inflows.p2.oas, oasThresholdInf, inflows.p2.earned, bInf, divInc2);
-                netIncome1 = taxableIncome1 - tax1.totalTax + inflows.p1.windfallNonTax;
+                netIncome1 = taxableIncome1 - tax1.totalTax + inflows.p1.windfallNonTax + (inflows.p1.ccb || 0);
                 netIncome2 = alive2 ? taxableIncome2 - tax2.totalTax + inflows.p2.windfallNonTax : 0;
                 surplus = (netIncome1 + netIncome2) - totalOutflows;
             }
@@ -1379,7 +1376,7 @@ class FinanceEngine {
                 nwArray.push(finalNetWorth);
             } else {
                 const totalWithdrawals = Object.values(flowLog.withdrawals).reduce((a,b) => a + b, 0);
-                const p1GrossTotal = inflows.p1.gross + inflows.p1.cpp + inflows.p1.oas + inflows.p1.pension + inflows.p1.windfallTaxable + inflows.p1.windfallNonTax;
+                const p1GrossTotal = inflows.p1.gross + inflows.p1.cpp + inflows.p1.oas + inflows.p1.pension + inflows.p1.windfallTaxable + inflows.p1.windfallNonTax + (inflows.p1.ccb || 0);
                 const p2GrossTotal = inflows.p2.gross + inflows.p2.cpp + inflows.p2.oas + inflows.p2.pension + inflows.p2.windfallTaxable + inflows.p2.windfallNonTax;
                 const totalYield = divInc1 + divInc2;
                 const grossInflow = p1GrossTotal + p2GrossTotal + totalYield + totalWithdrawals;
