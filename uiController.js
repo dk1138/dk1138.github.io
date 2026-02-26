@@ -700,61 +700,84 @@ class UIController {
         const textColor = isDark ? '#cbd5e1' : '#475569';
         const gridColor = isDark ? '#334155' : '#e2e8f0';
 
+        // OPTIMIZATION: Update existing donut chart instead of destroying it
         if (document.getElementById('chartLifetimeDonut') && typeof Chart !== 'undefined') {
-            if (this.app.charts.donut) this.app.charts.donut.destroy();
-            const ctxD = document.getElementById('chartLifetimeDonut').getContext('2d');
-            this.app.charts.donut = new Chart(ctxD, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Taxes Paid', 'Living Expenses', 'Debt & Mortgages', 'Final Estate Value'],
-                    datasets: [{
-                        data: [Math.round(totalTax), Math.round(totalExp), Math.round(totalDebt), Math.max(0, Math.round(finalEstate))],
-                        backgroundColor: ['#ef4444', '#f59e0b', '#8b5cf6', '#10b981'],
-                        borderWidth: 0,
-                        hoverOffset: 4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutout: '65%',
-                    plugins: {
-                        legend: { position: 'right', labels: { color: textColor, font: { family: 'Inter', size: 12 }, padding: 15 } },
-                        tooltip: { callbacks: { label: function(context) { let label = context.label || ''; if (label) label += ': '; if (context.parsed !== null) label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(context.parsed); return label; } } }
+            const donutData = [Math.round(totalTax), Math.round(totalExp), Math.round(totalDebt), Math.max(0, Math.round(finalEstate))];
+            
+            if (this.app.charts.donut) {
+                this.app.charts.donut.data.datasets[0].data = donutData;
+                this.app.charts.donut.options.plugins.legend.labels.color = textColor;
+                this.app.charts.donut.update();
+            } else {
+                const ctxD = document.getElementById('chartLifetimeDonut').getContext('2d');
+                this.app.charts.donut = new Chart(ctxD, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Taxes Paid', 'Living Expenses', 'Debt & Mortgages', 'Final Estate Value'],
+                        datasets: [{
+                            data: donutData,
+                            backgroundColor: ['#ef4444', '#f59e0b', '#8b5cf6', '#10b981'],
+                            borderWidth: 0,
+                            hoverOffset: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '65%',
+                        plugins: {
+                            legend: { position: 'right', labels: { color: textColor, font: { family: 'Inter', size: 12 }, padding: 15 } },
+                            tooltip: { callbacks: { label: function(context) { let label = context.label || ''; if (label) label += ': '; if (context.parsed !== null) label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(context.parsed); return label; } } }
+                        }
                     }
-                }
-            });
+                });
+            }
         }
 
+        // OPTIMIZATION: Update existing composition chart instead of destroying it
         if (document.getElementById('chartComposition') && typeof Chart !== 'undefined') {
-            if (this.app.charts.comp) this.app.charts.comp.destroy();
-            const ctxC = document.getElementById('chartComposition').getContext('2d');
-            this.app.charts.comp = new Chart(ctxC, {
-                type: 'line',
-                data: {
-                    labels: compLabels,
-                    datasets: [
-                        { label: 'Real Estate Equity', data: compRE, backgroundColor: 'rgba(16, 185, 129, 0.2)', borderColor: '#10b981', fill: true, tension: 0.4, pointRadius: 0 },
-                        { label: 'Tax-Free (TFSA/FHSA)', data: compTaxFree, backgroundColor: 'rgba(59, 130, 246, 0.2)', borderColor: '#3b82f6', fill: true, tension: 0.4, pointRadius: 0 },
-                        { label: 'Registered (RRSP/RRIF/LIF)', data: compReg, backgroundColor: 'rgba(139, 92, 246, 0.2)', borderColor: '#8b5cf6', fill: true, tension: 0.4, pointRadius: 0 },
-                        { label: 'Taxable (Cash/Non-Reg)', data: compTaxable, backgroundColor: 'rgba(245, 158, 11, 0.2)', borderColor: '#f59e0b', fill: true, tension: 0.4, pointRadius: 0 },
-                        { label: 'Crypto', data: compCrypto, backgroundColor: 'rgba(236, 72, 153, 0.2)', borderColor: '#ec4899', fill: true, tension: 0.4, pointRadius: 0 }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    interaction: { mode: 'index', intersect: false },
-                    scales: {
-                        x: { stacked: true, title: { display: true, text: 'P1 Age', color: textColor }, ticks: { color: textColor }, grid: { color: gridColor } },
-                        y: { stacked: true, ticks: { color: textColor, callback: function(value) { if (value >= 1000000) return '$' + (value / 1000000).toFixed(1) + 'M'; if (value >= 1000) return '$' + (value / 1000).toFixed(0) + 'k'; return '$' + value; } }, grid: { color: gridColor } }
+            if (this.app.charts.comp) {
+                this.app.charts.comp.data.labels = compLabels;
+                this.app.charts.comp.data.datasets[0].data = compRE;
+                this.app.charts.comp.data.datasets[1].data = compTaxFree;
+                this.app.charts.comp.data.datasets[2].data = compReg;
+                this.app.charts.comp.data.datasets[3].data = compTaxable;
+                this.app.charts.comp.data.datasets[4].data = compCrypto;
+                this.app.charts.comp.options.scales.x.ticks.color = textColor;
+                this.app.charts.comp.options.scales.y.ticks.color = textColor;
+                this.app.charts.comp.options.scales.x.grid.color = gridColor;
+                this.app.charts.comp.options.scales.y.grid.color = gridColor;
+                this.app.charts.comp.options.plugins.legend.labels.color = textColor;
+                this.app.charts.comp.update();
+            } else {
+                const ctxC = document.getElementById('chartComposition').getContext('2d');
+                this.app.charts.comp = new Chart(ctxC, {
+                    type: 'line',
+                    data: {
+                        labels: compLabels,
+                        datasets: [
+                            { label: 'Real Estate Equity', data: compRE, backgroundColor: 'rgba(16, 185, 129, 0.2)', borderColor: '#10b981', fill: true, tension: 0.4, pointRadius: 0 },
+                            { label: 'Tax-Free (TFSA/FHSA)', data: compTaxFree, backgroundColor: 'rgba(59, 130, 246, 0.2)', borderColor: '#3b82f6', fill: true, tension: 0.4, pointRadius: 0 },
+                            { label: 'Registered (RRSP/RRIF/LIF)', data: compReg, backgroundColor: 'rgba(139, 92, 246, 0.2)', borderColor: '#8b5cf6', fill: true, tension: 0.4, pointRadius: 0 },
+                            { label: 'Taxable (Cash/Non-Reg)', data: compTaxable, backgroundColor: 'rgba(245, 158, 11, 0.2)', borderColor: '#f59e0b', fill: true, tension: 0.4, pointRadius: 0 },
+                            { label: 'Crypto', data: compCrypto, backgroundColor: 'rgba(236, 72, 153, 0.2)', borderColor: '#ec4899', fill: true, tension: 0.4, pointRadius: 0 }
+                        ]
                     },
-                    plugins: {
-                        legend: { position: 'top', labels: { color: textColor, font: { family: 'Inter', size: 12 }, usePointStyle: true, pointStyle: 'circle' } },
-                        tooltip: { callbacks: { label: function(context) { let label = context.dataset.label || ''; if (label) label += ': '; if (context.parsed.y !== null) label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(context.parsed.y); return label; } } }
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { mode: 'index', intersect: false },
+                        scales: {
+                            x: { stacked: true, title: { display: true, text: 'P1 Age', color: textColor }, ticks: { color: textColor }, grid: { color: gridColor } },
+                            y: { stacked: true, ticks: { color: textColor, callback: function(value) { if (value >= 1000000) return '$' + (value / 1000000).toFixed(1) + 'M'; if (value >= 1000) return '$' + (value / 1000).toFixed(0) + 'k'; return '$' + value; } }, grid: { color: gridColor } }
+                        },
+                        plugins: {
+                            legend: { position: 'top', labels: { color: textColor, font: { family: 'Inter', size: 12 }, usePointStyle: true, pointStyle: 'circle' } },
+                            tooltip: { callbacks: { label: function(context) { let label = context.dataset.label || ''; if (label) label += ': '; if (context.parsed.y !== null) label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(context.parsed.y); return label; } } }
+                        }
                     }
-                }
-            });
+                });
+            }
         }
     }
 
@@ -889,49 +912,59 @@ class UIController {
             }
         });
 
-        if (this.app.charts.nw) this.app.charts.nw.destroy();
-
-        const ctx = document.getElementById('chartNW').getContext('2d');
         const isDark = document.documentElement.getAttribute('data-bs-theme') !== 'light';
         const textColor = isDark ? '#cbd5e1' : '#475569';
         const gridColor = isDark ? '#334155' : '#e2e8f0';
 
-        this.app.charts.nw = new Chart(ctx, {
-            type: 'line',
-            data: { labels, datasets },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { labels: { color: textColor, font: { family: 'Inter', size: 13 } } },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                let label = context.dataset.label || '';
-                                if (label) label += ': ';
-                                if (context.parsed.y !== null) {
-                                    label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(context.parsed.y);
+        // OPTIMIZATION: Update existing chart instead of destroying it
+        if (this.app.charts.nw) {
+            this.app.charts.nw.data.labels = labels;
+            this.app.charts.nw.data.datasets = datasets;
+            this.app.charts.nw.options.scales.x.ticks.color = textColor;
+            this.app.charts.nw.options.scales.y.ticks.color = textColor;
+            this.app.charts.nw.options.scales.x.grid.color = gridColor;
+            this.app.charts.nw.options.scales.y.grid.color = gridColor;
+            this.app.charts.nw.options.plugins.legend.labels.color = textColor;
+            this.app.charts.nw.update();
+        } else {
+            const ctx = document.getElementById('chartNW').getContext('2d');
+            this.app.charts.nw = new Chart(ctx, {
+                type: 'line',
+                data: { labels, datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: textColor, font: { family: 'Inter', size: 13 } } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) label += ': ';
+                                    if (context.parsed.y !== null) {
+                                        label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(context.parsed.y);
+                                    }
+                                    return label;
                                 }
-                                return label;
                             }
                         }
-                    }
-                },
-                scales: {
-                    x: { ticks: { color: textColor }, grid: { color: gridColor } },
-                    y: { 
-                        ticks: { 
-                            color: textColor,
-                            callback: function(value) {
-                                if (value >= 1000000) return '$' + (value / 1000000).toFixed(1) + 'M';
-                                if (value >= 1000) return '$' + (value / 1000).toFixed(0) + 'k';
-                                return '$' + value;
-                            }
-                        }, 
-                        grid: { color: gridColor } 
+                    },
+                    scales: {
+                        x: { ticks: { color: textColor }, grid: { color: gridColor } },
+                        y: { 
+                            ticks: { 
+                                color: textColor,
+                                callback: function(value) {
+                                    if (value >= 1000000) return '$' + (value / 1000000).toFixed(1) + 'M';
+                                    if (value >= 1000) return '$' + (value / 1000).toFixed(0) + 'k';
+                                    return '$' + value;
+                                }
+                            }, 
+                            grid: { color: gridColor } 
+                        }
                     }
                 }
-            }
-        });
+            });
+        }
     }
 }
