@@ -59,11 +59,14 @@
         </button>
         
         <div class="d-none d-xl-block text-end border-start border-secondary ps-3 ms-1">
-          <div class="d-flex align-items-center gap-3">
-            <div class="form-check form-switch mb-0">
-              <input class="form-check-input" type="checkbox" id="useRealDollars">
-              <label class="form-check-label small text-nowrap fw-medium" for="useRealDollars">Today's $</label>
+          <div class="d-flex align-items-center">
+            <div class="form-check form-switch mb-0 d-flex align-items-center">
+              <input class="form-check-input mt-0" type="checkbox" id="useRealDollars">
+              <label class="form-check-label small text-nowrap fw-bold text-info ms-2" for="useRealDollars">Today's $</label>
             </div>
+            <button type="button" class="btn btn-link p-0 ms-2 text-muted info-btn d-flex align-items-center" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="Today's Dollars (Real vs. Nominal)" data-bs-content="Strips the estimated inflation out of your future projections. This lets you view your future wealth and expenses in terms of the purchasing power that money has <b>today</b>.">
+              <i class="bi bi-info-circle" style="font-size:0.85rem;"></i>
+            </button>
           </div>
         </div>
       </div>
