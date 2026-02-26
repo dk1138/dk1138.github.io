@@ -38,7 +38,7 @@ class RetirementPlanner {
             this.alertModalInstance = null;
             this.saveModalInstance = null;
             this.loadModalInstance = null;
-            this.sliderTimeout = null;
+            this.sankeyFrame = null; // Replaced sliderTimeout with requestAnimationFrame reference
 
             this.expensesByCategory = {
                 "Housing": { items: [ { name: "Property Tax", curr: 6000, ret: 6000, trans: 6000, gogo: 6000, slow: 6000, nogo: 6000, freq: 1 }, { name: "Enbridge (Gas)", curr: 120, ret: 120, trans: 120, gogo: 120, slow: 120, nogo: 120, freq: 12 }, { name: "Enercare (HWT)", curr: 45, ret: 45, trans: 45, gogo: 45, slow: 45, nogo: 45, freq: 12 }, { name: "Alectra (Hydro)", curr: 150, ret: 150, trans: 150, gogo: 150, slow: 150, nogo: 150, freq: 12 }, { name: "RH Water", curr: 80, ret: 80, trans: 80, gogo: 80, slow: 80, nogo: 80, freq: 12 } ] },
@@ -454,8 +454,10 @@ class RetirementPlanner {
                     document.querySelectorAll('.grid-row-group')[index].style.backgroundColor = 'rgba(255,193,7,0.1)';
                     document.querySelectorAll('.grid-row-group')[index].scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
-                clearTimeout(this.sliderTimeout);
-                this.sliderTimeout = setTimeout(() => this.ui.drawSankey(index), 50);
+                
+                // OPTIMIZATION: Use requestAnimationFrame for optimal Sankey layout timing instead of an arbitrary setTimeout
+                if (this.sankeyFrame) cancelAnimationFrame(this.sankeyFrame);
+                this.sankeyFrame = requestAnimationFrame(() => this.ui.drawSankey(index));
             }
         });
 
@@ -571,7 +573,10 @@ class RetirementPlanner {
                 const d = this.state.projectionData[cur];
                 if(document.getElementById('sliderYearDisplay')) document.getElementById('sliderYearDisplay').innerText = d.year;
                 if(document.getElementById('cfAgeDisplay')) document.getElementById('cfAgeDisplay').innerText = this.state.mode === 'Couple' ? `(P1: ${d.p1Age} / P2: ${d.p2Age})` : `(Age: ${d.p1Age})`;
-                clearTimeout(this.sliderTimeout); this.sliderTimeout = setTimeout(() => this.ui.drawSankey(cur), 50);
+                
+                // OPTIMIZATION: requestAnimationFrame replaces the timeout loop for Sankey
+                if (this.sankeyFrame) cancelAnimationFrame(this.sankeyFrame);
+                this.sankeyFrame = requestAnimationFrame(() => this.ui.drawSankey(cur));
             }
             this.ui.renderProjectionGrid();
             this.ui.renderComparisonChart();
