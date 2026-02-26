@@ -1,6 +1,6 @@
 /**
  * Retirement Planner Pro - Core Application Controller
- * Version 10.14.4 (Performance & UX Optimizations)
+ * Version 10.14.5 (Custom Modals & Scenario Management Fixes)
  */
 
 import { FINANCIAL_CONSTANTS } from './config.js';
@@ -8,7 +8,7 @@ import { FINANCIAL_CONSTANTS } from './config.js';
 class RetirementPlanner {
     constructor() {
         try {
-            this.APP_VERSION = "10.14.4";
+            this.APP_VERSION = "10.14.5";
             this.state = {
                 inputs: {},
                 debt: [],
@@ -35,6 +35,7 @@ class RetirementPlanner {
 
             this.charts = { nw: null, sankey: null, mc: null }; 
             this.confirmModal = null; 
+            this.alertModalInstance = null;
             this.saveModalInstance = null;
             this.loadModalInstance = null;
             this.sliderTimeout = null;
@@ -162,6 +163,9 @@ class RetirementPlanner {
                 if(document.getElementById('confirmationModal')) {
                     this.confirmModal = new bootstrap.Modal(document.getElementById('confirmationModal'));
                 }
+                if(document.getElementById('alertModal')) {
+                    this.alertModalInstance = new bootstrap.Modal(document.getElementById('alertModal'));
+                }
                 if(document.getElementById('saveScenarioModal')) {
                     this.saveModalInstance = new bootstrap.Modal(document.getElementById('saveScenarioModal'));
                 }
@@ -227,25 +231,12 @@ class RetirementPlanner {
         this.data.renderStrategy();
     }
 
-    showAlert(message, isError = false) {
-        const modalEl = document.getElementById('genericAlertModal');
-        if (!modalEl) { alert(message); return; }
-        
-        document.getElementById('genericAlertMessage').textContent = message;
-        const titleEl = document.getElementById('genericAlertTitle');
-        if (titleEl) {
-            titleEl.innerHTML = isError 
-                ? '<i class="bi bi-exclamation-triangle text-danger me-2"></i><span class="text-danger">Notice</span>'
-                : '<i class="bi bi-check-circle text-success me-2"></i><span class="text-success">Success</span>';
-        }
-        
-        const alertModal = bootstrap.Modal.getOrCreateInstance(modalEl);
-        alertModal.show();
-    }
-
     showConfirm(message, onConfirm) {
         const modalEl = document.getElementById('confirmationModal');
-        if(!modalEl) return onConfirm(); 
+        if(!modalEl) {
+            if (confirm(message)) onConfirm();
+            return; 
+        }
 
         modalEl.querySelector('.modal-body').textContent = message;
         const btn = document.getElementById('btnConfirmAction');
@@ -259,6 +250,20 @@ class RetirementPlanner {
         });
         
         if(this.confirmModal) this.confirmModal.show();
+    }
+
+    showAlert(message, title = 'Notice') {
+        let icon = 'bi-info-circle text-info';
+        if (title === 'Success' || title === 'Plan Saved') icon = 'bi-check-circle text-success';
+        if (title.includes('Error') || title === 'Outdated File') icon = 'bi-exclamation-circle text-danger';
+
+        if(this.alertModalInstance) {
+            document.getElementById('alertModalTitle').innerHTML = `<i class="bi ${icon} me-2"></i>${title}`;
+            document.getElementById('alertModalBody').innerHTML = message;
+            this.alertModalInstance.show();
+        } else {
+            alert(message);
+        }
     }
 
     syncStateFromDOM() {
@@ -357,7 +362,16 @@ class RetirementPlanner {
             });
         }
 
-        if($('btnClearAll')) $('btnClearAll').addEventListener('click', () => this.showConfirm("Clear all data? This will wipe your current unsaved plan.", () => this.resetAllData()));
+        if($('btnClearAll')) $('btnClearAll').addEventListener('click', () => this.showConfirm("Reset current plan? This will wipe your current unsaved data.", () => this.resetAllData()));
+        
+        if($('btnDeleteAllScenarios')) $('btnDeleteAllScenarios').addEventListener('click', () => this.showConfirm("Are you sure you want to delete ALL saved plans? This cannot be undone.", () => {
+            localStorage.removeItem('rp_scenarios');
+            this.loadScenariosList();
+            if(this.loadModalInstance) this.loadModalInstance.hide();
+            this.ui.updateScenarioBadge(null);
+            this.showAlert("All saved plans have been deleted.", "Success");
+        }));
+
         if($('btnAddProperty')) $('btnAddProperty').addEventListener('click', () => this.data.addProperty());
         if($('btnAddWindfall')) $('btnAddWindfall').addEventListener('click', () => this.data.addWindfall());
         if($('btnAddChild')) $('btnAddChild').addEventListener('click', () => this.data.addDependent());
@@ -582,16 +596,16 @@ class RetirementPlanner {
                 let parsed = JSON.parse(event.target.result);
                 
                 if (this.isVersionTooOld(parsed.version, MIN_VERSION)) {
-                    this.showAlert('This save file is too old and is no longer compatible with this version of the planner.', true);
+                    this.showAlert('This save file is too old and is no longer compatible with this version of the planner.', 'Outdated File');
                     return; 
                 }
                 
                 this.loadStateToDOM(parsed); 
                 this.run(); 
                 this.ui.updateScenarioBadge(file.name.replace('.json',''));
-                this.showAlert('Plan loaded successfully.'); 
+                this.showAlert('Plan loaded successfully.', 'Success'); 
             } 
-            catch(err) { this.showAlert('Error parsing JSON.', true); console.error(err); }
+            catch(err) { this.showAlert('Error parsing JSON.', 'Error'); console.error(err); }
         };
         reader.readAsText(file); e.target.value = '';
     }
@@ -706,7 +720,7 @@ class RetirementPlanner {
     }
 
     exportToCSV() {
-        if (!this.state.projectionData.length) return this.showAlert("No data available.", true);
+        if (!this.state.projectionData.length) { this.showAlert("No data available to export.", "Export Error"); return; }
         const mode = this.state.mode, d = this.state.projectionData;
         
         const h = [
@@ -746,9 +760,9 @@ class RetirementPlanner {
     }
 
     exportToPDF() {
-        if (!this.state.projectionData.length) return this.showAlert("No data available.", true);
+        if (!this.state.projectionData.length) { this.showAlert("No data available to export.", "Export Error"); return; }
         if (typeof window.jspdf === 'undefined') {
-            this.showAlert("PDF library is still loading. Please try again in a few seconds.", true);
+            this.showAlert("PDF library is still loading. Please try again in a few seconds.", "Loading");
             return;
         }
         
@@ -805,7 +819,7 @@ class RetirementPlanner {
 
     saveScenarioFromModal() {
         const nm = document.getElementById('modalScenarioName').value.trim();
-        if(!nm) { this.showAlert("Please enter a plan name.", true); return; }
+        if(!nm) { this.showAlert("Please enter a plan name.", "Validation Error"); return; }
         
         const sc = JSON.parse(localStorage.getItem('rp_scenarios')||'[]');
         const existingIdx = sc.findIndex(s => s.name.toLowerCase() === nm.toLowerCase());
@@ -833,7 +847,41 @@ class RetirementPlanner {
         localStorage.setItem('rp_scenarios', JSON.stringify(sc)); 
         this.loadScenariosList(); 
         this.ui.updateScenarioBadge(name);
-        this.showAlert(`"${name}" has been saved.`);
+        this.showAlert(`"${name}" has been saved.`, "Plan Saved");
+    }
+
+    loadScenario(idx) {
+        const sc = JSON.parse(localStorage.getItem('rp_scenarios') || '[]');
+        if (sc[idx]) {
+            this.loadStateToDOM(sc[idx].data);
+            this.run();
+            this.ui.updateScenarioBadge(sc[idx].name);
+            if (this.loadModalInstance) this.loadModalInstance.hide();
+            this.showAlert('Plan loaded successfully.', 'Success');
+        }
+    }
+
+    exportScenario(idx) {
+        const sc = JSON.parse(localStorage.getItem('rp_scenarios') || '[]');
+        if (sc[idx]) {
+            const data = sc[idx].data;
+            const name = sc[idx].name;
+            const a = document.createElement('a');
+            a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
+            a.download = name.replace(/\s+/g, '_').toLowerCase() + ".json";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        }
+    }
+
+    deleteScenario(idx) {
+        this.showConfirm("Are you sure you want to delete this plan?", () => {
+            let sc = JSON.parse(localStorage.getItem('rp_scenarios') || '[]');
+            sc.splice(idx, 1);
+            localStorage.setItem('rp_scenarios', JSON.stringify(sc));
+            this.loadScenariosList();
+        });
     }
 
     loadScenariosList() {
