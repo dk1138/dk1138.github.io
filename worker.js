@@ -17,10 +17,9 @@ self.onmessage = function(e) {
         }
         
         for (let i = 0; i < data.simulations; i++) {
-            // CRITICAL: Deep clone the engine data for EVERY simulation run.
-            // This ensures that simulation #1 doesn't drain the portfolio 
-            // and leave simulation #2 starting with $0.
-            const clonedData = JSON.parse(JSON.stringify(data));
+            // OPTIMIZATION: Deep clone the engine data for EVERY simulation run using structuredClone.
+            // This is much faster and safer than JSON.parse(JSON.stringify())
+            const clonedData = structuredClone(data);
             const engine = new FinanceEngine(clonedData);
             
             let simContext = { method: clonedData.method };
