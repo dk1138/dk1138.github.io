@@ -32,7 +32,15 @@ const POPOVER_DICTIONARY = {
          }
          return str;
     },
-    invYieldMath: (bal, rate, amt) => `<b>Non-Reg Balance:</b> $${bal}<br><b>Yield Rate:</b> ${rate}%<hr class='my-1'><b>Taxable Yield:</b> $${amt}`
+    invYieldMath: (bal, rate, amt) => `<b>Non-Reg Balance:</b> $${bal}<br><b>Yield Rate:</b> ${rate}%<hr class='my-1'><b>Taxable Yield:</b> $${amt}`,
+    windfallBreakdown: (events) => {
+        let str = `Total non-employment, one-time cash inflows.<br><span class='text-muted small'>Includes custom Windfalls/Inheritances and surpluses from downsizing Real Estate.</span>`;
+        let triggered = events.filter(e => e === 'Windfall' || e === 'Downsize');
+        if (triggered.length > 0) {
+            str += `<hr class='my-1'><b>Events this year:</b><br>&bull; ${triggered.join('<br>&bull; ')}`;
+        }
+        return str;
+    }
 };
 
 class UIController {
@@ -297,7 +305,6 @@ class UIController {
                 groupP1 += sL(`Tax Refund (RRSP/FHSA)${rfInfo}`, d.rrspRefundP1, "text-success fw-bold");
             }
             if(d.postRetP1 > 0) groupP1 += sL("Post-Ret Work", d.postRetP1);
-            if(d.ccbP1 > 0) groupP1 += sL("Canada Child Benefit (CCB)", d.ccbP1);
             if(d.cppP1 > 0) groupP1 += sL("CPP", d.cppP1);
             
             if(d.oasP1 > 0) {
@@ -416,7 +423,15 @@ class UIController {
                 });
             }
 
-            if(d.windfall > 0) groupOther += ln("Inheritance/Bonus", d.windfall, "text-success fw-bold");
+            // Household / Universal Line Items
+            if(d.ccbP1 > 0) groupOther += ln("Canada Child Benefit (CCB)", d.ccbP1, "text-info fw-bold");
+            
+            if(d.windfall > 0) {
+                let label = "Windfall / Inheritance";
+                let content = POPOVER_DICTIONARY.windfallBreakdown(d.events || []);
+                label += this.buildPopoverIcon("Windfall Breakdown", content);
+                groupOther += ln(label, d.windfall, "text-success fw-bold");
+            }
 
             let iL = '';
             if(groupP1) iL += `<div class="mb-2"><span class="text-info fw-bold small text-uppercase" style="font-size:0.7rem; border-bottom:1px solid #334155; display:block; margin-bottom:4px;">Person 1</span>${groupP1}</div>`;
