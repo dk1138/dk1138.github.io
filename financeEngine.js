@@ -3,6 +3,7 @@
  * Shared financial logic core for both the main UI thread and Web Workers.
  * This eliminates logic duplication and ensures consistency across the app.
  */
+import { parseFormattedNumber } from './utils.js';
 
 class FinanceEngine {
     constructor(data) {
@@ -23,7 +24,7 @@ class FinanceEngine {
 
     getVal(id) {
         let raw = this.inputs[id] !== undefined ? this.inputs[id] : 0;
-        return Number(String(raw).replace(/,/g, '')) || 0;
+        return parseFormattedNumber(raw);
     }
 
     getRaw(id) {
