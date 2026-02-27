@@ -101,7 +101,7 @@
                         <div class="d-flex align-items-center">
                             <i class="bi bi-person-vcard text-primary fs-4 me-3"></i>
                             <h5 class="mb-0 me-2 fw-bold text-uppercase ls-1">1. Personal Information</h5>
-                            <button type="button" class="btn btn-link p-0 text-muted info-btn" data-bs-toggle="popover" data-bs-title="Personal Details" data-bs-content="Set your Date of Birth and targeted Retirement Age. <b>Life Expectancy</b> defines how long the simulation runs (ensuring you don't run out of money too early).">
+                            <button type="button" class="btn btn-link p-0 text-muted info-btn" data-bs-toggle="popover" data-bs-title="Personal Details" data-bs-content="Set your Age (or Date of Birth) and targeted Retirement Age. <b>Life Expectancy</b> defines how long the simulation runs (ensuring you don't run out of money too early).">
                               <i class="bi bi-info-circle"></i>
                             </button>
                         </div>
@@ -120,10 +120,14 @@
                             <div class="position-absolute top-0 start-0 w-100 border-top border-info border-3"></div>
                             <h6 class="text-info fw-bold mb-4 text-uppercase ls-1"><i class="bi bi-person-fill me-2"></i>Player 1 (P1)</h6>
                             <div class="mb-4">
-                              <label class="form-label">Date of Birth</label>
-                              <div class="d-flex align-items-center gap-3">
-                                <input type="month" class="form-control live-calc" id="p1_dob" value="1988-09" required style="max-width: 200px;">
-                                <span class="badge bg-info bg-opacity-10 text-info border border-info px-3 py-2 rounded-pill fs-6" id="p1_age">-- years old</span>
+                              <label class="form-label text-muted fw-bold">Age or Date of Birth</label>
+                              <div class="d-flex align-items-center gap-2">
+                                <div class="input-group" style="max-width: 140px;">
+                                   <input type="number" class="form-control live-calc fw-bold text-info" id="p1_age_input" value="38" min="18" max="100" placeholder="Age">
+                                   <span class="input-group-text bg-info bg-opacity-10 border-info text-info">yrs</span>
+                                </div>
+                                <span class="text-muted small fw-bold px-1">OR</span>
+                                <input type="month" class="form-control live-calc" id="p1_dob" value="1988-01" style="max-width: 150px;">
                               </div>
                             </div>
                             <div class="row g-4">
@@ -137,10 +141,14 @@
                             <div class="position-absolute top-0 start-0 w-100 border-top border-purple border-3" style="border-color: var(--purple) !important;"></div>
                             <h6 class="text-purple fw-bold mb-4 text-uppercase ls-1"><i class="bi bi-person-fill me-2"></i>Player 2 (P2)</h6>
                             <div class="mb-4">
-                              <label class="form-label">Date of Birth</label>
-                              <div class="d-flex align-items-center gap-3">
-                                <input type="month" class="form-control live-calc" id="p2_dob" value="1992-07" style="max-width: 200px;">
-                                <span class="badge bg-purple bg-opacity-10 text-purple border border-purple px-3 py-2 rounded-pill fs-6" style="color: var(--purple) !important; border-color: var(--purple) !important; background-color: rgba(139, 92, 246, 0.1) !important;" id="p2_age">-- years old</span>
+                              <label class="form-label text-muted fw-bold">Age or Date of Birth</label>
+                              <div class="d-flex align-items-center gap-2">
+                                <div class="input-group" style="max-width: 140px;">
+                                   <input type="number" class="form-control live-calc fw-bold text-purple" style="color: var(--purple) !important;" id="p2_age_input" value="34" min="18" max="100" placeholder="Age">
+                                   <span class="input-group-text bg-purple bg-opacity-10 border-purple text-purple" style="color: var(--purple) !important; border-color: var(--purple) !important;">yrs</span>
+                                </div>
+                                <span class="text-muted small fw-bold px-1">OR</span>
+                                <input type="month" class="form-control live-calc" id="p2_dob" value="1992-01" style="max-width: 150px;">
                               </div>
                             </div>
                             <div class="row g-4">
