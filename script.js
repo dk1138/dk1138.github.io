@@ -566,7 +566,8 @@ class RetirementPlanner {
     updateAssetTotals() {
         const sumAssets = (pfx) => {
             let total = 0;
-            const accounts = ['tfsa', 'fhsa', 'resp', 'rrsp', 'lirf', 'lif', 'rrif_acct', 'nonreg', 'crypto', 'cash'];
+            // Removed 'resp' so the Input Tab matches the Engine's Liquid Net Worth exactly
+            const accounts = ['tfsa', 'fhsa', 'rrsp', 'lirf', 'lif', 'rrif_acct', 'nonreg', 'crypto', 'cash'];
             accounts.forEach(act => {
                 total += this.getVal(`${pfx}_${act}`);
             });
@@ -579,9 +580,13 @@ class RetirementPlanner {
 
         const fmt = n => '$' + Math.round(n).toLocaleString();
 
-        if (document.getElementById('p1_total_assets_display')) document.getElementById('p1_total_assets_display').innerText = fmt(p1Total);
-        if (document.getElementById('p2_total_assets_display')) document.getElementById('p2_total_assets_display').innerText = fmt(p2Total);
-        if (document.getElementById('hh_total_assets_display')) document.getElementById('hh_total_assets_display').innerText = fmt(hhTotal);
+        const p1Display = document.getElementById('p1_total_assets_display');
+        const p2Display = document.getElementById('p2_total_assets_display');
+        const hhDisplay = document.getElementById('hh_total_assets_display');
+
+        if (p1Display) p1Display.innerText = fmt(p1Total);
+        if (p2Display) p2Display.innerText = fmt(p2Total);
+        if (hhDisplay) hhDisplay.innerText = fmt(hhTotal);
     }
 
     updateStrategyVisuals() {
@@ -615,8 +620,12 @@ class RetirementPlanner {
                 let cur = parseInt(slider.value), max = this.state.projectionData.length - 1;
                 slider.max = max; if(cur > max) { slider.value = 0; cur = 0; }
                 const d = this.state.projectionData[cur];
-                if(document.getElementById('sliderYearDisplay')) document.getElementById('sliderYearDisplay').innerText = d.year;
-                if(document.getElementById('cfAgeDisplay')) document.getElementById('cfAgeDisplay').innerText = this.state.mode === 'Couple' ? `(P1: ${d.p1Age} / P2: ${d.p2Age})` : `(Age: ${d.p1Age})`;
+                
+                const sliderYearDisplay = document.getElementById('sliderYearDisplay');
+                const cfAgeDisplay = document.getElementById('cfAgeDisplay');
+                
+                if(sliderYearDisplay) sliderYearDisplay.innerText = d.year;
+                if(cfAgeDisplay) cfAgeDisplay.innerText = this.state.mode === 'Couple' ? `(P1: ${d.p1Age} / P2: ${d.p2Age})` : `(Age: ${d.p1Age})`;
                 
                 // OPTIMIZATION: requestAnimationFrame replaces the timeout loop for Sankey
                 if (this.sankeyFrame) cancelAnimationFrame(this.sankeyFrame);
