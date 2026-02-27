@@ -647,9 +647,15 @@ class DataController {
         const o = []; 
         document.getElementById(id).querySelectorAll('.strat-item').forEach(i => o.push(i.getAttribute('data-key')));
         
+        // OPTIMIZATION: Use a Set for O(1) lookups and guaranteed deduplication
+        const uniqueSet = new Set(o);
         const orig = type === 'accum' ? this.app.state.strategies.accum : this.app.state.strategies.decum;
+        
         orig.forEach(k => {
-            if (!o.includes(k)) o.push(k);
+            if (!uniqueSet.has(k)) {
+                uniqueSet.add(k);
+                o.push(k);
+            }
         });
 
         if (type === 'accum') this.app.state.strategies.accum = o; 
