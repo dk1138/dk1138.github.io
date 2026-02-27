@@ -37,7 +37,7 @@ class RetirementPlanner {
             this.confirmModal = null; 
             this.saveModalInstance = null;
             this.loadModalInstance = null;
-            this.sankeyFrame = null; // Replaced sliderTimeout with requestAnimationFrame reference
+            this.sankeyFrame = null;
 
             this.expensesByCategory = {
                 "Housing": { items: [ { name: "Property Tax", curr: 6000, ret: 6000, trans: 6000, gogo: 6000, slow: 6000, nogo: 6000, freq: 1 }, { name: "Enbridge (Gas)", curr: 120, ret: 120, trans: 120, gogo: 120, slow: 120, nogo: 120, freq: 12 }, { name: "Enercare (HWT)", curr: 45, ret: 45, trans: 45, gogo: 45, slow: 45, nogo: 45, freq: 12 }, { name: "Alectra (Hydro)", curr: 150, ret: 150, trans: 150, gogo: 150, slow: 150, nogo: 150, freq: 12 }, { name: "RH Water", curr: 80, ret: 80, trans: 80, gogo: 80, slow: 80, nogo: 80, freq: 12 } ] },
@@ -248,7 +248,6 @@ class RetirementPlanner {
         if(this.confirmModal) this.confirmModal.show();
     }
 
-    // OPTIMIZATION: Replaced blocking modal with a non-blocking toast
     showAlert(message, title = 'Notice') {
         const toastEl = document.getElementById('appToast');
         if (toastEl) {
@@ -325,7 +324,6 @@ class RetirementPlanner {
             closeWidgetBtn.addEventListener('click', () => widgetCard.classList.remove('active'));
         }
 
-        // Global changes for settings
         document.body.addEventListener('change', (e) => {
             if (e.target.id === 'expense_mode_advanced') {
                 this.state.expenseMode = e.target.checked ? 'Advanced' : 'Simple';
@@ -386,7 +384,6 @@ class RetirementPlanner {
         if($('btnExportJSON')) $('btnExportJSON').addEventListener('click', () => this.exportCurrentToJSON());
         if($('fileUpload')) $('fileUpload').addEventListener('change', e => this.handleFileUpload(e));
         
-        // OPTIMIZATION: Target the form container instead of the whole body
         const formContainer = document.getElementById('financialForm') || document.body;
         
         formContainer.addEventListener('input', e => {
@@ -394,7 +391,22 @@ class RetirementPlanner {
             
             if (cl.contains('formatted-num')) this.formatInput(e.target);
 
-            // Handle standard inputs (skip special dynamically generated ones)
+            // Handle Age overrides (calculate DOB defaulting to Jan)
+            if (e.target.id === 'p1_age_input' || e.target.id === 'p2_age_input') {
+                const pfx = e.target.id.split('_')[0];
+                const age = parseInt(e.target.value);
+                if (!isNaN(age)) {
+                    const year = new Date().getFullYear() - age;
+                    const dob = `${year}-01`;
+                    const dobInput = document.getElementById(`${pfx}_dob`);
+                    if (dobInput) dobInput.value = dob;
+                    this.state.inputs[`${pfx}_dob`] = dob;
+                    this.ui.updateAgeDisplay(pfx);
+                    this.debouncedRun();
+                }
+                return;
+            }
+
             if (cl.contains('live-calc') && e.target.id && !e.target.id.startsWith('comp_') && 
                 e.target.id !== 'exp_gogo_age' && e.target.id !== 'exp_slow_age' && 
                 !cl.contains('property-update') && !cl.contains('windfall-update') && 
@@ -407,7 +419,6 @@ class RetirementPlanner {
             }
         });
 
-        // Delegate Dynamic Array updates directly to their respective containers to limit event bubbling
         const delegateContainer = (id, classMatch, callback) => {
             const container = document.getElementById(id);
             if(container) {
@@ -420,7 +431,6 @@ class RetirementPlanner {
             }
         };
 
-        // Attach specific delegates
         delegateContainer('real-estate-container', 'property-update', (target) => {
             const { idx, field } = target.dataset;
             let val = target.type === 'checkbox' ? target.checked : target.value;
@@ -469,6 +479,7 @@ class RetirementPlanner {
 
         if($('p1_dob')) $('p1_dob').addEventListener('change', () => this.ui.updateAgeDisplay('p1'));
         if($('p2_dob')) $('p2_dob').addEventListener('change', () => this.ui.updateAgeDisplay('p2'));
+        
         document.getElementsByName('planMode').forEach(r => r.addEventListener('change', () => { 
             if($('modeCouple')) this.state.mode = $('modeCouple').checked ? 'Couple' : 'Single';
             this.ui.toggleModeDisplay(); this.run(); this.data.calcExpenses();
@@ -486,7 +497,6 @@ class RetirementPlanner {
                     document.querySelectorAll('.grid-row-group')[index].scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
                 
-                // OPTIMIZATION: Use requestAnimationFrame for optimal Sankey layout timing instead of an arbitrary setTimeout
                 if (this.sankeyFrame) cancelAnimationFrame(this.sankeyFrame);
                 this.sankeyFrame = requestAnimationFrame(() => this.ui.drawSankey(index));
             }
@@ -566,10 +576,9 @@ class RetirementPlanner {
     updateAssetTotals() {
         const sumAssets = (pfx) => {
             let total = 0;
-            // Removed 'resp' so the Input Tab matches the Engine's Liquid Net Worth exactly
             const accounts = ['tfsa', 'fhsa', 'rrsp', 'lirf', 'lif', 'rrif_acct', 'nonreg', 'crypto', 'cash'];
             accounts.forEach(act => {
-                total += this.getVal(`${pfx}_${act}`);
+                total += this.getVal(`${pfx}_act`);
             });
             return total;
         };
@@ -627,7 +636,6 @@ class RetirementPlanner {
                 if(sliderYearDisplay) sliderYearDisplay.innerText = d.year;
                 if(cfAgeDisplay) cfAgeDisplay.innerText = this.state.mode === 'Couple' ? `(P1: ${d.p1Age} / P2: ${d.p2Age})` : `(Age: ${d.p1Age})`;
                 
-                // OPTIMIZATION: requestAnimationFrame replaces the timeout loop for Sankey
                 if (this.sankeyFrame) cancelAnimationFrame(this.sankeyFrame);
                 this.sankeyFrame = requestAnimationFrame(() => this.ui.drawSankey(cur));
             }
@@ -831,7 +839,6 @@ class RetirementPlanner {
         const mode = this.state.mode;
         const d = this.state.projectionData;
 
-        // Create a focused, high-level summary suitable for a PDF page
         const head = [[
             "Year", "Age (P1" + (mode === 'Couple' ? '/P2)' : ')'), "Gross Inflow", "Total Taxes", "Living Exp & Debt", "Surplus/Deficit", "Liquid Portfolio", "Total Net Worth"
         ]];
@@ -979,17 +986,13 @@ class RetirementPlanner {
 
         const allItems = ['tfsa', 'fhsa', 'resp', 'rrsp', 'rrif_acct', 'lif', 'lirf', 'nreg', 'cash', 'crypto'];
         
-        // Force remove lif and lirf from accum if they exist in a loaded save file
         this.state.strategies.accum = this.state.strategies.accum.filter(x => x !== 'lif' && x !== 'lirf');
-        // Force remove resp from decum if it exists in a loaded save file
         this.state.strategies.decum = this.state.strategies.decum.filter(x => x !== 'resp');
 
         allItems.forEach(item => {
-            // Prevent lif and lirf from being pushed back into the accum array
             if (!['lif', 'lirf'].includes(item) && !this.state.strategies.accum.includes(item)) {
                 this.state.strategies.accum.push(item);
             }
-            // Prevent resp from being pushed back into decum array
             if (item !== 'resp' && !this.state.strategies.decum.includes(item)) {
                 this.state.strategies.decum.push(item);
             }
@@ -1014,7 +1017,6 @@ class RetirementPlanner {
         this.state.leaves = d.leaves || []; this.data.renderLeaves();
         this.state.dependents = d.dependents || []; this.data.renderDependents();
         
-        // Load debts correctly using the new object format
         if (d.debt && d.debt.length > 0) {
             if (typeof d.debt[0] === 'string' || typeof d.debt[0] === 'number') {
                 this.state.debt = d.debt.map(v => ({ name: "Legacy Debt", amount: Number(String(v).replace(/,/g,'')) || 0, start: new Date().toISOString().slice(0, 7) }));
