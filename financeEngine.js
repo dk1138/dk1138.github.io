@@ -997,7 +997,7 @@ class FinanceEngine {
         };
         
         let person2 = { 
-            tfsa: this.getVal('p2_tfsa'), tfsa_successor: 0, fhsa: this.getVal('p2_fhsa'), 
+            tfsa: this.getVal('p2_tfsa'), tfsa_successor: 0, fhsa: this.getVal('p2_fhsa'), resp: this.getVal('p2_resp'),
             rrsp: this.getVal('p2_rrsp'), cash: this.getVal('p2_cash'), nreg: this.getVal('p2_nonreg'), 
             crypto: this.getVal('p2_crypto'), lirf: this.getVal('p2_lirf'), lif: this.getVal('p2_lif'), 
             rrif_acct: this.getVal('p2_rrif_acct'), inc: this.getVal('p2_income'), 
@@ -1076,11 +1076,12 @@ class FinanceEngine {
                     person2.crypto_acb += person1.crypto_acb;
                     
                     if (person1.fhsa) person2.fhsa = (person2.fhsa || 0) + person1.fhsa;
+                    if (person1.resp) person2.resp = (person2.resp || 0) + person1.resp;
 
                     person1.tfsa = 0; person1.tfsa_successor = 0;
                     person1.rrsp = 0; person1.rrif_acct = 0; person1.lif = 0; person1.lirf = 0;
                     person1.nreg = 0; person1.acb = 0; person1.cash = 0; person1.crypto = 0; person1.crypto_acb = 0;
-                    person1.fhsa = 0;
+                    person1.fhsa = 0; person1.resp = 0;
                 }
             }
             if (this.mode === 'Couple' && !alive2 && !trackedEvents.has('P2 Dies')) {
@@ -1099,11 +1100,12 @@ class FinanceEngine {
                     person1.crypto_acb += person2.crypto_acb;
                     
                     if (person2.fhsa) person1.fhsa = (person1.fhsa || 0) + person2.fhsa;
+                    if (person2.resp) person1.resp = (person1.resp || 0) + person2.resp;
                     
                     person2.tfsa = 0; person2.tfsa_successor = 0;
                     person2.rrsp = 0; person2.rrif_acct = 0; person2.lif = 0; person2.lirf = 0;
                     person2.nreg = 0; person2.acb = 0; person2.cash = 0; person2.crypto = 0; person2.crypto_acb = 0;
-                    person2.fhsa = 0;
+                    person2.fhsa = 0; person2.resp = 0;
                 }
             }
 
@@ -1358,9 +1360,9 @@ class FinanceEngine {
 
             previousAFNI = Math.max(0, (taxableIncome1 - actDeductions.p1) + (taxableIncome2 - actDeductions.p2));
 
-            // RESP is isolated and decoupled from Liquid Net Worth calculations
-            const assets1 = person1.tfsa + person1.tfsa_successor + person1.rrsp + person1.crypto + person1.nreg + person1.cash + person1.lirf + person1.lif + person1.rrif_acct + (person1.fhsa || 0);
-            const assets2 = this.mode === 'Couple' ? (person2.tfsa + person2.tfsa_successor + person2.rrsp + person2.crypto + person2.nreg + person2.cash + person2.lirf + person2.lif + person2.rrif_acct + (person2.fhsa || 0)) : 0;
+            // Include RESP in Liquid Net Worth calculations to match the Input tab
+            const assets1 = person1.tfsa + person1.tfsa_successor + person1.rrsp + person1.crypto + person1.nreg + person1.cash + person1.lirf + person1.lif + person1.rrif_acct + (person1.fhsa || 0) + (person1.resp || 0);
+            const assets2 = this.mode === 'Couple' ? (person2.tfsa + person2.tfsa_successor + person2.rrsp + person2.crypto + person2.nreg + person2.cash + person2.lirf + person2.lif + person2.rrif_acct + (person2.fhsa || 0) + (person2.resp || 0)) : 0;
             
             const liquidNW = (assets1 + assets2);
             
