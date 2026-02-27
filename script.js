@@ -35,7 +35,6 @@ class RetirementPlanner {
 
             this.charts = { nw: null, sankey: null, mc: null }; 
             this.confirmModal = null; 
-            this.alertModalInstance = null;
             this.saveModalInstance = null;
             this.loadModalInstance = null;
             this.sankeyFrame = null; // Replaced sliderTimeout with requestAnimationFrame reference
@@ -163,9 +162,6 @@ class RetirementPlanner {
                 if(document.getElementById('confirmationModal')) {
                     this.confirmModal = new bootstrap.Modal(document.getElementById('confirmationModal'));
                 }
-                if(document.getElementById('alertModal')) {
-                    this.alertModalInstance = new bootstrap.Modal(document.getElementById('alertModal'));
-                }
                 if(document.getElementById('saveScenarioModal')) {
                     this.saveModalInstance = new bootstrap.Modal(document.getElementById('saveScenarioModal'));
                 }
@@ -252,17 +248,22 @@ class RetirementPlanner {
         if(this.confirmModal) this.confirmModal.show();
     }
 
+    // OPTIMIZATION: Replaced blocking modal with a non-blocking toast
     showAlert(message, title = 'Notice') {
-        let icon = 'bi-info-circle text-info';
-        if (title === 'Success' || title === 'Plan Saved') icon = 'bi-check-circle text-success';
-        if (title.includes('Error') || title === 'Outdated File') icon = 'bi-exclamation-circle text-danger';
+        const toastEl = document.getElementById('appToast');
+        if (toastEl) {
+            let icon = 'bi-info-circle text-info';
+            if (title === 'Success' || title === 'Plan Saved') icon = 'bi-check-circle-fill text-success';
+            if (title.includes('Error') || title === 'Outdated File' || title === 'Validation Error') icon = 'bi-exclamation-triangle-fill text-danger';
 
-        if(this.alertModalInstance) {
-            document.getElementById('alertModalTitle').innerHTML = `<i class="bi ${icon} me-2"></i>${title}`;
-            document.getElementById('alertModalBody').innerHTML = message;
-            this.alertModalInstance.show();
+            document.getElementById('toastIcon').className = `bi ${icon} me-2 fs-5`;
+            document.getElementById('toastTitle').innerText = title;
+            document.getElementById('toastBody').innerHTML = message;
+
+            const toast = new bootstrap.Toast(toastEl, { delay: 4000 });
+            toast.show();
         } else {
-            alert(message);
+            alert(`${title}: ${message}`);
         }
     }
 
@@ -324,6 +325,7 @@ class RetirementPlanner {
             closeWidgetBtn.addEventListener('click', () => widgetCard.classList.remove('active'));
         }
 
+        // Global changes for settings
         document.body.addEventListener('change', (e) => {
             if (e.target.id === 'expense_mode_advanced') {
                 this.state.expenseMode = e.target.checked ? 'Advanced' : 'Simple';
@@ -384,57 +386,86 @@ class RetirementPlanner {
         if($('btnExportJSON')) $('btnExportJSON').addEventListener('click', () => this.exportCurrentToJSON());
         if($('fileUpload')) $('fileUpload').addEventListener('change', e => this.handleFileUpload(e));
         
-        document.body.addEventListener('input', e => {
+        // OPTIMIZATION: Target the form container instead of the whole body
+        const formContainer = document.getElementById('financialForm') || document.body;
+        
+        formContainer.addEventListener('input', e => {
             const cl = e.target.classList;
-            if (cl.contains('live-calc')) {
-                if (cl.contains('formatted-num')) this.formatInput(e.target);
-                if (e.target.id && !e.target.id.startsWith('comp_') && e.target.id !== 'exp_gogo_age' && e.target.id !== 'exp_slow_age' && !cl.contains('property-update') && !cl.contains('windfall-update') && !cl.contains('debt-update') && !cl.contains('income-stream-update') && !cl.contains('leave-update') && !cl.contains('dependent-update')) {
-                    this.state.inputs[e.target.id] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-                    this.ui.updateSidebarSync(e.target.id, e.target.value);
-                }
+            
+            if (cl.contains('formatted-num')) this.formatInput(e.target);
+
+            // Handle standard inputs (skip special dynamically generated ones)
+            if (cl.contains('live-calc') && e.target.id && !e.target.id.startsWith('comp_') && 
+                e.target.id !== 'exp_gogo_age' && e.target.id !== 'exp_slow_age' && 
+                !cl.contains('property-update') && !cl.contains('windfall-update') && 
+                !cl.contains('debt-update') && !cl.contains('income-stream-update') && 
+                !cl.contains('leave-update') && !cl.contains('dependent-update')) {
+                
+                this.state.inputs[e.target.id] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+                this.ui.updateSidebarSync(e.target.id, e.target.value);
                 this.debouncedRun();
-            }
-            if (cl.contains('expense-update')) {
-                const { cat, idx, field } = e.target.dataset;
-                let val = ['curr', 'ret', 'trans', 'gogo', 'slow', 'nogo'].includes(field) ? Number(e.target.value.replace(/,/g, '')) || 0 : (field === 'freq' ? parseInt(e.target.value) : e.target.value);
-                if (this.expensesByCategory[cat]?.items[idx]) this.expensesByCategory[cat].items[idx][field] = val;
-                if (cl.contains('formatted-num')) this.formatInput(e.target);
-                this.debouncedRun(); this.data.calcExpenses(); 
-            }
-            if (cl.contains('property-update')) {
-                const { idx, field } = e.target.dataset;
-                let val = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-                if (['value', 'mortgage', 'payment', 'sellAge', 'replacementValue'].includes(field)) val = Number(String(val).replace(/,/g, '')) || 0;
-                else if (['growth', 'rate'].includes(field)) val = parseFloat(val) || 0;
-                if (this.state.properties[idx]) {
-                    this.state.properties[idx][field] = val;
-                    if(field === 'payment') this.state.properties[idx].manual = true;
-                    if(!['payment', 'name', 'includeInNW', 'sellEnabled', 'sellAge', 'replacementValue'].includes(field)) { this.state.properties[idx].manual = false; this.data.calculateSingleMortgage(idx); }
-                    if(field === 'payment') this.debouncedPayoffUpdate(idx);
-                }
-                if (cl.contains('formatted-num')) this.formatInput(e.target);
-                if(field !== 'payment') this.debouncedRun();
-            }
-            if (cl.contains('windfall-update')) {
-                const { idx, field } = e.target.dataset;
-                let val = e.target.type === 'checkbox' ? e.target.checked : (field === 'amount' ? Number(e.target.value.replace(/,/g, '')) || 0 : e.target.value);
-                if (this.state.windfalls[idx]) { this.state.windfalls[idx][field] = val; if(field === 'freq') this.data.renderWindfalls(); }
-                if (cl.contains('formatted-num')) this.formatInput(e.target);
-                this.debouncedRun();
-            }
-            if (cl.contains('income-stream-update')) {
-                const { idx, field } = e.target.dataset;
-                let val = e.target.type === 'checkbox' ? e.target.checked : (['amount', 'growth', 'startRel', 'duration'].includes(field) ? Number(e.target.value.replace(/,/g, '')) || 0 : e.target.value);
-                if (this.state.additionalIncome[idx]) {
-                    this.state.additionalIncome[idx][field] = val;
-                    if (field === 'startMode' || field === 'endMode') {
-                        this.data.renderAdditionalIncome();
-                    }
-                }
-                if (cl.contains('formatted-num')) this.formatInput(e.target);
-                this.data.updateIncomeDisplay(); this.debouncedRun();
             }
         });
+
+        // Delegate Dynamic Array updates directly to their respective containers to limit event bubbling
+        const delegateContainer = (id, classMatch, callback) => {
+            const container = document.getElementById(id);
+            if(container) {
+                container.addEventListener('input', e => {
+                    if (e.target.classList.contains(classMatch)) {
+                        if (e.target.classList.contains('formatted-num')) this.formatInput(e.target);
+                        callback(e.target);
+                    }
+                });
+            }
+        };
+
+        // Attach specific delegates
+        delegateContainer('real-estate-container', 'property-update', (target) => {
+            const { idx, field } = target.dataset;
+            let val = target.type === 'checkbox' ? target.checked : target.value;
+            if (['value', 'mortgage', 'payment', 'sellAge', 'replacementValue'].includes(field)) val = Number(String(val).replace(/,/g, '')) || 0;
+            else if (['growth', 'rate'].includes(field)) val = parseFloat(val) || 0;
+            if (this.state.properties[idx]) {
+                this.state.properties[idx][field] = val;
+                if(field === 'payment') this.state.properties[idx].manual = true;
+                if(!['payment', 'name', 'includeInNW', 'sellEnabled', 'sellAge', 'replacementValue'].includes(field)) { 
+                    this.state.properties[idx].manual = false; 
+                    this.data.calculateSingleMortgage(idx); 
+                }
+                if(field === 'payment') this.debouncedPayoffUpdate(idx);
+            }
+            if(field !== 'payment') this.debouncedRun();
+        });
+
+        delegateContainer('windfall-container', 'windfall-update', (target) => {
+            const { idx, field } = target.dataset;
+            let val = target.type === 'checkbox' ? target.checked : (field === 'amount' ? Number(target.value.replace(/,/g, '')) || 0 : target.value);
+            if (this.state.windfalls[idx]) { 
+                this.state.windfalls[idx][field] = val; 
+                if(field === 'freq') this.data.renderWindfalls(); 
+            }
+            this.debouncedRun();
+        });
+
+        delegateContainer('expensesTable', 'expense-update', (target) => {
+            const { cat, idx, field } = target.dataset;
+            let val = ['curr', 'ret', 'trans', 'gogo', 'slow', 'nogo'].includes(field) ? Number(target.value.replace(/,/g, '')) || 0 : (field === 'freq' ? parseInt(target.value) : target.value);
+            if (this.expensesByCategory[cat]?.items[idx]) this.expensesByCategory[cat].items[idx][field] = val;
+            this.debouncedRun(); 
+            this.data.calcExpenses(); 
+        });
+
+        delegateContainer('debt-container', 'debt-update', (target) => {
+            const { idx, field } = target.dataset;
+            let val = target.value;
+            if (field === 'amount') val = Number(val.replace(/,/g, '')) || 0;
+            if (this.state.debt[idx]) this.state.debt[idx][field] = val;
+            this.debouncedRun();
+        });
+
+        delegateContainer('p1-additional-income-container', 'income-stream-update', (target) => this.handleIncomeStreamUpdate(target));
+        delegateContainer('p2-additional-income-container', 'income-stream-update', (target) => this.handleIncomeStreamUpdate(target));
 
         if($('p1_dob')) $('p1_dob').addEventListener('change', () => this.ui.updateAgeDisplay('p1'));
         if($('p2_dob')) $('p2_dob').addEventListener('change', () => this.ui.updateAgeDisplay('p2'));
@@ -486,6 +517,19 @@ class RetirementPlanner {
             if(e.target.classList.contains('toggle-btn')) this.ui.toggleGroup(e.target.dataset.type);
             if(e.target.classList.contains('opt-apply')) this.applyOpt(e.target.dataset.target);
         });
+    }
+
+    handleIncomeStreamUpdate(target) {
+        const { idx, field } = target.dataset;
+        let val = target.type === 'checkbox' ? target.checked : (['amount', 'growth', 'startRel', 'duration'].includes(field) ? Number(target.value.replace(/,/g, '')) || 0 : target.value);
+        if (this.state.additionalIncome[idx]) {
+            this.state.additionalIncome[idx][field] = val;
+            if (field === 'startMode' || field === 'endMode') {
+                this.data.renderAdditionalIncome();
+            }
+        }
+        this.data.updateIncomeDisplay(); 
+        this.debouncedRun();
     }
 
     findOptimal() {
