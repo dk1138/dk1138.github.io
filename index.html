@@ -76,9 +76,9 @@
         <div class="col-12">
             <ul class="nav nav-tabs border-0 flex-nowrap overflow-auto hide-scrollbar m-0" id="myTab" role="tablist">
                 <li class="nav-item" role="presentation"><button class="nav-link active" id="plan-tab" data-bs-toggle="tab" data-bs-target="#plan-pane" type="button" role="tab"><i class="bi bi-pencil-square me-2"></i>Inputs</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link" id="strategy-tab" data-bs-toggle="tab" data-bs-target="#strategy-pane" type="button" role="tab"><i class="bi bi-sliders me-2"></i>Strategy</button></li>
                 <li class="nav-item" role="presentation"><button class="nav-link" id="dashboard-tab" data-bs-toggle="tab" data-bs-target="#dashboard-pane" type="button" role="tab"><i class="bi bi-clipboard2-data me-2"></i>Summary</button></li>
                 <li class="nav-item" role="presentation"><button class="nav-link" id="summary-tab" data-bs-toggle="tab" data-bs-target="#summary-pane" type="button" role="tab"><i class="bi bi-table me-2"></i>Projection</button></li>
-                <li class="nav-item" role="presentation"><button class="nav-link" id="strategy-tab" data-bs-toggle="tab" data-bs-target="#strategy-pane" type="button" role="tab"><i class="bi bi-sliders me-2"></i>Strategy</button></li>
                 <li class="nav-item" role="presentation"><button class="nav-link" id="risk-tab" data-bs-toggle="tab" data-bs-target="#risk-pane" type="button" role="tab"><i class="bi bi-activity me-2"></i>Risk (Monte Carlo)</button></li>
                 <li class="nav-item" role="presentation"><button class="nav-link" id="cashflow-tab" data-bs-toggle="tab" data-bs-target="#cashflow-pane" type="button" role="tab"><i class="bi bi-diagram-3 me-2"></i>Cash Flow</button></li>
                 <li class="nav-item" role="presentation"><button class="nav-link" id="sim-tab" data-bs-toggle="tab" data-bs-target="#sim-pane" type="button" role="tab"><i class="bi bi-magic me-2"></i>Calculators / Optimizers</button></li>
@@ -866,6 +866,145 @@
                 </form>
               </div>
 
+              <div class="tab-pane fade p-4 p-md-5" id="strategy-pane" role="tabpanel">
+                
+                <div class="row g-4 mb-4 pb-4 border-bottom border-secondary">
+                  <div class="col-md-6 border-end border-secondary pe-md-4">
+                    <div class="d-flex align-items-center mb-4 pb-2 border-bottom border-success border-opacity-50">
+                        <div class="bg-success bg-opacity-10 text-success p-2 rounded me-3 d-flex"><i class="bi bi-piggy-bank fs-3"></i></div>
+                        <h5 class="text-success mb-0 fw-bold text-uppercase ls-1 me-2">Accumulation Strategy</h5>
+                        <button type="button" class="btn btn-link p-0 text-muted info-btn" data-bs-toggle="popover" data-bs-title="Savings Priority" data-bs-content="<b>Drag and Drop</b> the items below to change the order.<br><br>When you have extra money at the end of the year, this list determines which account gets filled first (e.g., max out TFSA, then RRSP, then Cash).">
+                        <i class="bi bi-info-circle"></i>
+                        </button>
+                    </div>
+                    <p class="small text-muted mb-4 px-2">Drag to prioritize where surplus cash is saved. Top items fill first.</p>
+                    <div id="strat-accum-container" class="px-2"></div>
+                  </div>
+
+                  <div class="col-md-6 ps-md-4">
+                    <div class="d-flex align-items-center mb-4 pb-2 border-bottom border-warning border-opacity-50">
+                        <div class="bg-warning bg-opacity-10 text-warning p-2 rounded me-3 d-flex"><i class="bi bi-wallet2 fs-3"></i></div>
+                        <h5 class="text-warning mb-0 fw-bold text-uppercase ls-1 me-2">Decumulation Strategy</h5>
+                        <button type="button" class="btn btn-link p-0 text-muted info-btn" data-bs-toggle="popover" data-bs-title="Withdrawal Order" data-bs-content="<b>Drag and Drop</b> to prioritize.<br><br>When you retire (or spend more than you earn), this determines which assets are sold first to cover your expenses. Optimizing this can save significant tax dollars.">
+                        <i class="bi bi-info-circle"></i>
+                        </button>
+                    </div>
+                    <p class="small text-muted mb-4 px-2">Drag to prioritize withdrawal sources during retirement/deficits.</p>
+                    <div id="strat-decumulation" class="px-2 transition-all"></div>
+                  </div>
+                </div>
+
+                <div class="row g-4">
+                  <div class="col-md-6 border-end border-secondary pe-md-4 d-flex flex-column">
+                    <div class="rp-card surface-card h-100">
+                        <div class="card-header border-secondary text-uppercase small fw-bold text-muted d-flex justify-content-between align-items-center">
+                            <span>Annual Contribution Limits</span>
+                            <a href="https://www.canada.ca/en/revenue-agency/services/tax/individuals/topics/rrsps-related-plans/contributing-a-rrsp-prpp/contributions-affect-your-rrsp-prpp-deduction-limit.html" target="_blank" class="text-muted info-btn" title="CRA Limits Info"><i class="bi bi-box-arrow-up-right"></i></a>
+                        </div>
+                        <div class="card-body p-3">
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <label class="form-label small text-success fw-bold d-flex align-items-center">TFSA Annual Limit
+                                        <i class="bi bi-info-circle text-muted ms-1 info-btn" style="cursor: help; font-size: 0.75rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-html="true" data-bs-title="TFSA Limits" data-bs-content="Annual contribution room added. <br><a href='https://www.canada.ca/en/revenue-agency/services/tax/individuals/topics/tax-free-savings-account/contributions.html' target='_blank' class='text-info'>CRA TFSA Guidelines</a>"></i>
+                                    </label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">$</span>
+                                        <input type="text" class="form-control live-calc formatted-num border-secondary" id="cfg_tfsa_limit" value="7,000">
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small text-warning fw-bold">RRSP Max Limit</label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">$</span>
+                                        <input type="text" class="form-control live-calc formatted-num border-secondary" id="cfg_rrsp_limit" value="32,960">
+                                    </div>
+                                    <div class="form-text text-muted" style="font-size: 0.65rem;">Cap applied to 18% of inc.</div>
+                                </div>
+                            </div>
+                            <div class="row g-2 mt-2 pt-2 border-top border-secondary">
+                                <div class="col-6">
+                                    <label class="form-label small text-info fw-bold d-flex align-items-center">FHSA Annual Limit
+                                    </label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">$</span>
+                                        <input type="text" class="form-control live-calc formatted-num border-secondary" id="cfg_fhsa_limit" value="8,000">
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small text-primary fw-bold d-flex align-items-center">RESP Target (CESG)
+                                        <i class="bi bi-info-circle text-muted ms-1 info-btn" style="cursor: help; font-size: 0.75rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="RESP Target" data-bs-content="Amount to contribute annually to maximize the 20% grant."></i>
+                                    </label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">$</span>
+                                        <input type="text" class="form-control live-calc formatted-num border-secondary" id="cfg_resp_limit" value="2,500">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row g-2 mt-2 pt-2 border-top border-secondary">
+                                <div class="col-12">
+                                    <label class="form-label small text-info fw-bold d-flex align-items-center">Crypto Annual Limit
+                                        <i class="bi bi-info-circle text-muted ms-1 info-btn" style="cursor: help; font-size: 0.75rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="Crypto Accumulation Cap" data-bs-content="Caps how much surplus cash is allocated to Crypto each year. Any remaining cash flows to the next account in your Accumulation Strategy."></i>
+                                    </label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">$</span>
+                                        <input type="text" class="form-control live-calc formatted-num border-secondary" id="cfg_crypto_limit" value="5,000">
+                                        <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">/ yr</span>
+                                    </div>
+                                    <div class="form-text text-muted" style="font-size: 0.65rem;">Applies per person. Use 999,999 for unlimited.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                  </div>
+
+                  <div class="col-md-6 ps-md-4 d-flex flex-column gap-4">
+                    <div class="rp-card surface-card">
+                        <div class="card-header border-secondary text-uppercase small fw-bold text-muted d-flex align-items-center">
+                            <span class="me-2">Tax & Benefit Optimization</span>
+                        </div>
+                        <div class="card-body p-3">
+                            <div class="form-check form-switch ms-2 mb-3">
+                                <input class="form-check-input live-calc fs-5 mt-0" type="checkbox" id="fully_optimize_tax" role="switch">
+                                <label class="form-check-label ms-2 small fw-bold text-success" style="margin-top: 2px;" for="fully_optimize_tax">Fully Optimize to Reduce Tax</label>
+                                <div class="small text-muted mt-1">Overrides drag-and-drop order. Automatically melts down RRSPs in low tax brackets and uses TFSA/Non-Reg in high brackets to minimize lifetime tax.</div>
+                            </div>
+                            <div class="form-check form-switch ms-2 mb-0 border-top border-secondary pt-3">
+                                <input class="form-check-input live-calc fs-5 mt-0" type="checkbox" id="oas_clawback_optimize" role="switch">
+                                <label class="form-check-label ms-2 small fw-bold text-info" style="margin-top: 2px;" for="oas_clawback_optimize">Optimize to Avoid OAS Clawback</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="rp-card surface-card flex-grow-1">
+                        <div class="card-header border-secondary text-uppercase small fw-bold text-muted d-flex align-items-center">
+                            <span class="me-2">Exceptions & Overrides</span>
+                            <i class="bi bi-info-circle text-muted info-btn" style="cursor: help; font-size: 0.85rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="Exceptions & Overrides" data-bs-content="Specific rules to skip contributions during the first year, useful if you have recently made lump-sum deposits before starting the plan."></i>
+                        </div>
+                        <div class="card-body p-3">
+                            <div class="form-check ms-2 mb-3">
+                            <input class="form-check-input live-calc mt-1" type="checkbox" id="skip_first_tfsa_p1">
+                            <label class="form-check-label small fw-medium" for="skip_first_tfsa_p1">Player 1: Skip 1st Year TFSA Contrib.</label>
+                            </div>
+                            <div class="form-check ms-2 mb-4 pb-3 border-bottom border-secondary">
+                            <input class="form-check-input live-calc mt-1" type="checkbox" id="skip_first_rrsp_p1">
+                            <label class="form-check-label small fw-medium" for="skip_first_rrsp_p1">Player 1: Skip 1st Year RRSP Contrib.</label>
+                            </div>
+                            <div class="p2-column">
+                            <div class="form-check ms-2 mb-3">
+                                <input class="form-check-input live-calc mt-1" type="checkbox" id="skip_first_tfsa_p2">
+                                <label class="form-check-label small fw-medium text-purple" style="color: var(--purple) !important;" for="skip_first_tfsa_p2">Player 2: Skip 1st Year TFSA Contrib.</label>
+                            </div>
+                            <div class="form-check ms-2 mb-2">
+                                <input class="form-check-input live-calc mt-1" type="checkbox" id="skip_first_rrsp_p2">
+                                <label class="form-check-label small fw-medium text-purple" style="color: var(--purple) !important;" for="skip_first_rrsp_p2">Player 2: Skip 1st Year RRSP Contrib.</label>
+                            </div>
+                            </div>
+                        </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div class="tab-pane fade p-4 p-md-5" id="dashboard-pane" role="tabpanel">
                   <h5 class="text-muted small text-uppercase fw-bold ls-1 mb-4 pb-2 border-bottom border-secondary">
                       <i class="bi bi-clipboard2-data text-primary me-2"></i>Lifetime Summary
@@ -1011,145 +1150,6 @@
                     <div class="table-container border-0 rounded-0" id="summaryTableContainer" style="max-height: 85vh; overflow-y: auto;">
                       <div id="projectionGrid"></div>
                       <table class="summary-table" id="oldSummaryTable" style="display:none;"></table>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="tab-pane fade p-4 p-md-5" id="strategy-pane" role="tabpanel">
-                
-                <div class="row g-4 mb-4 pb-4 border-bottom border-secondary">
-                  <div class="col-md-6 border-end border-secondary pe-md-4">
-                    <div class="d-flex align-items-center mb-4 pb-2 border-bottom border-success border-opacity-50">
-                        <div class="bg-success bg-opacity-10 text-success p-2 rounded me-3 d-flex"><i class="bi bi-piggy-bank fs-3"></i></div>
-                        <h5 class="text-success mb-0 fw-bold text-uppercase ls-1 me-2">Accumulation Strategy</h5>
-                        <button type="button" class="btn btn-link p-0 text-muted info-btn" data-bs-toggle="popover" data-bs-title="Savings Priority" data-bs-content="<b>Drag and Drop</b> the items below to change the order.<br><br>When you have extra money at the end of the year, this list determines which account gets filled first (e.g., max out TFSA, then RRSP, then Cash).">
-                        <i class="bi bi-info-circle"></i>
-                        </button>
-                    </div>
-                    <p class="small text-muted mb-4 px-2">Drag to prioritize where surplus cash is saved. Top items fill first.</p>
-                    <div id="strat-accum-container" class="px-2"></div>
-                  </div>
-
-                  <div class="col-md-6 ps-md-4">
-                    <div class="d-flex align-items-center mb-4 pb-2 border-bottom border-warning border-opacity-50">
-                        <div class="bg-warning bg-opacity-10 text-warning p-2 rounded me-3 d-flex"><i class="bi bi-wallet2 fs-3"></i></div>
-                        <h5 class="text-warning mb-0 fw-bold text-uppercase ls-1 me-2">Decumulation Strategy</h5>
-                        <button type="button" class="btn btn-link p-0 text-muted info-btn" data-bs-toggle="popover" data-bs-title="Withdrawal Order" data-bs-content="<b>Drag and Drop</b> to prioritize.<br><br>When you retire (or spend more than you earn), this determines which assets are sold first to cover your expenses. Optimizing this can save significant tax dollars.">
-                        <i class="bi bi-info-circle"></i>
-                        </button>
-                    </div>
-                    <p class="small text-muted mb-4 px-2">Drag to prioritize withdrawal sources during retirement/deficits.</p>
-                    <div id="strat-decumulation" class="px-2 transition-all"></div>
-                  </div>
-                </div>
-
-                <div class="row g-4">
-                  <div class="col-md-6 border-end border-secondary pe-md-4 d-flex flex-column">
-                    <div class="rp-card surface-card h-100">
-                        <div class="card-header border-secondary text-uppercase small fw-bold text-muted d-flex justify-content-between align-items-center">
-                            <span>Annual Contribution Limits</span>
-                            <a href="https://www.canada.ca/en/revenue-agency/services/tax/individuals/topics/rrsps-related-plans/contributing-a-rrsp-prpp/contributions-affect-your-rrsp-prpp-deduction-limit.html" target="_blank" class="text-muted info-btn" title="CRA Limits Info"><i class="bi bi-box-arrow-up-right"></i></a>
-                        </div>
-                        <div class="card-body p-3">
-                            <div class="row g-2">
-                                <div class="col-6">
-                                    <label class="form-label small text-success fw-bold d-flex align-items-center">TFSA Annual Limit
-                                        <i class="bi bi-info-circle text-muted ms-1 info-btn" style="cursor: help; font-size: 0.75rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-html="true" data-bs-title="TFSA Limits" data-bs-content="Annual contribution room added. <br><a href='https://www.canada.ca/en/revenue-agency/services/tax/individuals/topics/tax-free-savings-account/contributions.html' target='_blank' class='text-info'>CRA TFSA Guidelines</a>"></i>
-                                    </label>
-                                    <div class="input-group input-group-sm">
-                                        <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">$</span>
-                                        <input type="text" class="form-control live-calc formatted-num border-secondary" id="cfg_tfsa_limit" value="7,000">
-                                    </div>
-                                </div>
-                                <div class="col-6">
-                                    <label class="form-label small text-warning fw-bold">RRSP Max Limit</label>
-                                    <div class="input-group input-group-sm">
-                                        <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">$</span>
-                                        <input type="text" class="form-control live-calc formatted-num border-secondary" id="cfg_rrsp_limit" value="32,960">
-                                    </div>
-                                    <div class="form-text text-muted" style="font-size: 0.65rem;">Cap applied to 18% of inc.</div>
-                                </div>
-                            </div>
-                            <div class="row g-2 mt-2 pt-2 border-top border-secondary">
-                                <div class="col-6">
-                                    <label class="form-label small text-info fw-bold d-flex align-items-center">FHSA Annual Limit
-                                    </label>
-                                    <div class="input-group input-group-sm">
-                                        <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">$</span>
-                                        <input type="text" class="form-control live-calc formatted-num border-secondary" id="cfg_fhsa_limit" value="8,000">
-                                    </div>
-                                </div>
-                                <div class="col-6">
-                                    <label class="form-label small text-primary fw-bold d-flex align-items-center">RESP Target (CESG)
-                                        <i class="bi bi-info-circle text-muted ms-1 info-btn" style="cursor: help; font-size: 0.75rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="RESP Target" data-bs-content="Amount to contribute annually to maximize the 20% grant."></i>
-                                    </label>
-                                    <div class="input-group input-group-sm">
-                                        <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">$</span>
-                                        <input type="text" class="form-control live-calc formatted-num border-secondary" id="cfg_resp_limit" value="2,500">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="row g-2 mt-2 pt-2 border-top border-secondary">
-                                <div class="col-12">
-                                    <label class="form-label small text-info fw-bold d-flex align-items-center">Crypto Annual Limit
-                                        <i class="bi bi-info-circle text-muted ms-1 info-btn" style="cursor: help; font-size: 0.75rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="Crypto Accumulation Cap" data-bs-content="Caps how much surplus cash is allocated to Crypto each year. Any remaining cash flows to the next account in your Accumulation Strategy."></i>
-                                    </label>
-                                    <div class="input-group input-group-sm">
-                                        <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">$</span>
-                                        <input type="text" class="form-control live-calc formatted-num border-secondary" id="cfg_crypto_limit" value="5,000">
-                                        <span class="input-group-text bg-black bg-opacity-25 border-secondary text-muted">/ yr</span>
-                                    </div>
-                                    <div class="form-text text-muted" style="font-size: 0.65rem;">Applies per person. Use 999,999 for unlimited.</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                  </div>
-
-                  <div class="col-md-6 ps-md-4 d-flex flex-column gap-4">
-                    <div class="rp-card surface-card">
-                        <div class="card-header border-secondary text-uppercase small fw-bold text-muted d-flex align-items-center">
-                            <span class="me-2">Tax & Benefit Optimization</span>
-                        </div>
-                        <div class="card-body p-3">
-                            <div class="form-check form-switch ms-2 mb-3">
-                                <input class="form-check-input live-calc fs-5 mt-0" type="checkbox" id="fully_optimize_tax" role="switch">
-                                <label class="form-check-label ms-2 small fw-bold text-success" style="margin-top: 2px;" for="fully_optimize_tax">Fully Optimize to Reduce Tax</label>
-                                <div class="small text-muted mt-1">Overrides drag-and-drop order. Automatically melts down RRSPs in low tax brackets and uses TFSA/Non-Reg in high brackets to minimize lifetime tax.</div>
-                            </div>
-                            <div class="form-check form-switch ms-2 mb-0 border-top border-secondary pt-3">
-                                <input class="form-check-input live-calc fs-5 mt-0" type="checkbox" id="oas_clawback_optimize" role="switch">
-                                <label class="form-check-label ms-2 small fw-bold text-info" style="margin-top: 2px;" for="oas_clawback_optimize">Optimize to Avoid OAS Clawback</label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="rp-card surface-card flex-grow-1">
-                        <div class="card-header border-secondary text-uppercase small fw-bold text-muted d-flex align-items-center">
-                            <span class="me-2">Exceptions & Overrides</span>
-                            <i class="bi bi-info-circle text-muted info-btn" style="cursor: help; font-size: 0.85rem;" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-title="Exceptions & Overrides" data-bs-content="Specific rules to skip contributions during the first year, useful if you have recently made lump-sum deposits before starting the plan."></i>
-                        </div>
-                        <div class="card-body p-3">
-                            <div class="form-check ms-2 mb-3">
-                            <input class="form-check-input live-calc mt-1" type="checkbox" id="skip_first_tfsa_p1">
-                            <label class="form-check-label small fw-medium" for="skip_first_tfsa_p1">Player 1: Skip 1st Year TFSA Contrib.</label>
-                            </div>
-                            <div class="form-check ms-2 mb-4 pb-3 border-bottom border-secondary">
-                            <input class="form-check-input live-calc mt-1" type="checkbox" id="skip_first_rrsp_p1">
-                            <label class="form-check-label small fw-medium" for="skip_first_rrsp_p1">Player 1: Skip 1st Year RRSP Contrib.</label>
-                            </div>
-                            <div class="p2-column">
-                            <div class="form-check ms-2 mb-3">
-                                <input class="form-check-input live-calc mt-1" type="checkbox" id="skip_first_tfsa_p2">
-                                <label class="form-check-label small fw-medium text-purple" style="color: var(--purple) !important;" for="skip_first_tfsa_p2">Player 2: Skip 1st Year TFSA Contrib.</label>
-                            </div>
-                            <div class="form-check ms-2 mb-2">
-                                <input class="form-check-input live-calc mt-1" type="checkbox" id="skip_first_rrsp_p2">
-                                <label class="form-check-label small fw-medium text-purple" style="color: var(--purple) !important;" for="skip_first_rrsp_p2">Player 2: Skip 1st Year RRSP Contrib.</label>
-                            </div>
-                            </div>
-                        </div>
                     </div>
                   </div>
                 </div>
