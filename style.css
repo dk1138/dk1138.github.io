@@ -694,32 +694,6 @@ body:not(.is-couple) .p2-column:not(td):not(th) { display: none; }
 .modal-footer { border-top-color: var(--border-color); }
 .btn-close-white { filter: invert(1) grayscale(100%) brightness(200%); }
 
-/* RESPONSIVE */
-@media (max-width: 768px) {
-  .nav-tabs {
-    flex-wrap: nowrap;
-    overflow-x: scroll;
-    justify-content: flex-start;
-  }
-  .nav-item { min-width: 100px; }
-  .household-row { text-align: center; margin-bottom: 1rem; }
-  
-  /* Widget stays attached to screen on mobile */
-  .floating-widget-container {
-    bottom: 20px;
-    right: 20px;
-  }
-
-  .fab-btn {
-    width: 44px;
-    height: 44px;
-  }
-
-  .fab-btn i {
-    font-size: 1.2rem !important;
-  }
-}
-
 /* Info Button Styling */
 .info-btn {
     transition: all 0.2s ease;
@@ -763,4 +737,78 @@ body:not(.is-couple) .p2-column:not(td):not(th) { display: none; }
 
 .projection-popover .popover-body {
     white-space: nowrap;
+}
+
+
+/* --- MOBILE OPTIMIZED PROJECTION GRID --- */
+@media (max-width: 768px) {
+  .nav-tabs {
+    flex-wrap: nowrap;
+    overflow-x: scroll;
+    justify-content: flex-start;
+  }
+  .nav-item { min-width: 100px; }
+  .household-row { text-align: center; margin-bottom: 1rem; }
+  
+  /* Widget stays attached to screen on mobile */
+  .floating-widget-container {
+    bottom: 20px;
+    right: 20px;
+  }
+
+  .fab-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .fab-btn i {
+    font-size: 1.2rem !important;
+  }
+
+  /* Hide standard headers on mobile */
+  .grid-header { 
+    display: none; 
+  }
+  
+  /* Convert grid rows to stacked cards */
+  .grid-summary-row {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 15px;
+    gap: 8px;
+    position: relative;
+  }
+
+  /* Force all columns to span full width and use flexbox to separate label from value */
+  .grid-summary-row > div { 
+    width: 100%; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center;
+    text-align: right !important; 
+  }
+
+  /* Inject pseudo-labels for context since headers are hidden */
+  .grid-summary-row > div:nth-child(2)::before { content: "Status:"; font-weight: bold; color: var(--text-muted); }
+  .grid-summary-row > div:nth-child(3)::before { content: "Gross Inflow:"; font-weight: bold; color: var(--text-muted); }
+  .grid-summary-row > div:nth-child(4)::before { content: "Total Out:"; font-weight: bold; color: var(--text-muted); }
+  .grid-summary-row > div:nth-child(5)::before { content: "Surplus:"; font-weight: bold; color: var(--text-muted); }
+  .grid-summary-row > div:nth-child(6)::before { content: "Net Worth:"; font-weight: bold; color: var(--text-muted); }
+
+  /* Style the year/timeline row to act as the card header */
+  .col-timeline { 
+    position: static; 
+    border-right: none; 
+    border-bottom: 1px solid var(--border-color); 
+    padding-bottom: 10px; 
+    margin-bottom: 5px; 
+    flex-direction: row; 
+    justify-content: space-between;
+  }
+  
+  /* Detail container needs to stack its columns */
+  .detail-container {
+    grid-template-columns: 1fr;
+  }
 }
