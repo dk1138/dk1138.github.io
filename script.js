@@ -4,6 +4,7 @@
  */
 
 import { FINANCIAL_CONSTANTS } from './config.js';
+import { parseFormattedNumber, formatNumber } from './utils.js';
 
 class RetirementPlanner {
     constructor() {
@@ -278,7 +279,7 @@ class RetirementPlanner {
 
     getVal(id) {
         let raw = this.state.inputs[id] !== undefined ? this.state.inputs[id] : (document.getElementById(id)?.value || 0);
-        return Number(String(raw).replace(/,/g, '')) || 0;
+        return parseFormattedNumber(raw);
     }
 
     getRaw(id) { 
@@ -294,9 +295,9 @@ class RetirementPlanner {
         const start = el.selectionStart;
         const oldValLength = el.value.length;
 
-        const v = String(el.value).replace(/,/g, ''); 
-        if(!isNaN(v) && v !== '') {
-            const newVal = Number(v).toLocaleString('en-US');
+        const v = parseFormattedNumber(el.value); 
+        if(v !== 0 || el.value === '0') {
+            const newVal = formatNumber(v);
             el.value = newVal;
 
             if (document.activeElement === el) {
@@ -434,7 +435,7 @@ class RetirementPlanner {
         delegateContainer('real-estate-container', 'property-update', (target) => {
             const { idx, field } = target.dataset;
             let val = target.type === 'checkbox' ? target.checked : target.value;
-            if (['value', 'mortgage', 'payment', 'sellAge', 'replacementValue'].includes(field)) val = Number(String(val).replace(/,/g, '')) || 0;
+            if (['value', 'mortgage', 'payment', 'sellAge', 'replacementValue'].includes(field)) val = parseFormattedNumber(val);
             else if (['growth', 'rate'].includes(field)) val = parseFloat(val) || 0;
             if (this.state.properties[idx]) {
                 this.state.properties[idx][field] = val;
@@ -450,7 +451,7 @@ class RetirementPlanner {
 
         delegateContainer('windfall-container', 'windfall-update', (target) => {
             const { idx, field } = target.dataset;
-            let val = target.type === 'checkbox' ? target.checked : (field === 'amount' ? Number(target.value.replace(/,/g, '')) || 0 : target.value);
+            let val = target.type === 'checkbox' ? target.checked : (field === 'amount' ? parseFormattedNumber(target.value) : target.value);
             if (this.state.windfalls[idx]) { 
                 this.state.windfalls[idx][field] = val; 
                 if(field === 'freq') this.data.renderWindfalls(); 
@@ -460,7 +461,7 @@ class RetirementPlanner {
 
         delegateContainer('expensesTable', 'expense-update', (target) => {
             const { cat, idx, field } = target.dataset;
-            let val = ['curr', 'ret', 'trans', 'gogo', 'slow', 'nogo'].includes(field) ? Number(target.value.replace(/,/g, '')) || 0 : (field === 'freq' ? parseInt(target.value) : target.value);
+            let val = ['curr', 'ret', 'trans', 'gogo', 'slow', 'nogo'].includes(field) ? parseFormattedNumber(target.value) : (field === 'freq' ? parseInt(target.value) : target.value);
             if (this.expensesByCategory[cat]?.items[idx]) this.expensesByCategory[cat].items[idx][field] = val;
             this.debouncedRun(); 
             this.data.calcExpenses(); 
@@ -469,7 +470,7 @@ class RetirementPlanner {
         delegateContainer('debt-container', 'debt-update', (target) => {
             const { idx, field } = target.dataset;
             let val = target.value;
-            if (field === 'amount') val = Number(val.replace(/,/g, '')) || 0;
+            if (field === 'amount') val = parseFormattedNumber(val);
             if (this.state.debt[idx]) this.state.debt[idx][field] = val;
             this.debouncedRun();
         });
@@ -531,7 +532,7 @@ class RetirementPlanner {
 
     handleIncomeStreamUpdate(target) {
         const { idx, field } = target.dataset;
-        let val = target.type === 'checkbox' ? target.checked : (['amount', 'growth', 'startRel', 'duration'].includes(field) ? Number(target.value.replace(/,/g, '')) || 0 : target.value);
+        let val = target.type === 'checkbox' ? target.checked : (['amount', 'growth', 'startRel', 'duration'].includes(field) ? parseFormattedNumber(target.value) : target.value);
         if (this.state.additionalIncome[idx]) {
             this.state.additionalIncome[idx][field] = val;
             if (field === 'startMode' || field === 'endMode') {
@@ -1019,7 +1020,7 @@ class RetirementPlanner {
         
         if (d.debt && d.debt.length > 0) {
             if (typeof d.debt[0] === 'string' || typeof d.debt[0] === 'number') {
-                this.state.debt = d.debt.map(v => ({ name: "Legacy Debt", amount: Number(String(v).replace(/,/g,'')) || 0, start: new Date().toISOString().slice(0, 7) }));
+                this.state.debt = d.debt.map(v => ({ name: "Legacy Debt", amount: parseFormattedNumber(v) || 0, start: new Date().toISOString().slice(0, 7) }));
             } else {
                 this.state.debt = d.debt;
             }
