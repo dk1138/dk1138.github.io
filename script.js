@@ -325,6 +325,7 @@ class RetirementPlanner {
             closeWidgetBtn.addEventListener('click', () => widgetCard.classList.remove('active'));
         }
 
+        // Global Change Delegator
         document.body.addEventListener('change', (e) => {
             if (e.target.id === 'expense_mode_advanced') {
                 this.state.expenseMode = e.target.checked ? 'Advanced' : 'Simple';
@@ -339,11 +340,41 @@ class RetirementPlanner {
                 document.querySelectorAll('.lbl-ret').forEach(el => el.innerText = isAdv ? 'Pre-Ret(%)' : 'Return (%)');
                 this.run();
             }
+            
+            // Handle Data-Action for select dropdowns
+            if (e.target.dataset.action === 'toggle-mc-vol') {
+                const wrap = $('mc_vol_wrap');
+                if(wrap) wrap.style.display = e.target.value === 'historical' ? 'none' : 'block';
+            }
+
             if (e.target.classList.contains('live-calc') && (e.target.tagName === 'SELECT' || e.target.type === 'checkbox' || e.target.type === 'radio')) {
                 if(e.target.id && !e.target.id.startsWith('comp_')) this.state.inputs[e.target.id] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
                 if(e.target.id && e.target.id.includes('_enabled')) this.ui.updateBenefitVisibility();
                 if(e.target.id === 'fully_optimize_tax') this.updateStrategyVisuals();
                 this.findOptimal(); this.run(); this.data.calcExpenses(); 
+            }
+        });
+
+        // Global Click Delegator
+        document.body.addEventListener('click', e => {
+            if(e.target.classList.contains('toggle-btn')) this.ui.toggleGroup(e.target.dataset.type);
+            if(e.target.classList.contains('opt-apply')) this.applyOpt(e.target.dataset.target);
+            
+            const actionEl = e.target.closest('[data-action]');
+            if (actionEl) {
+                const action = actionEl.dataset.action;
+                if (action === 'trigger-file-upload') $('fileUpload').click();
+                if (action === 'run-optimizer') {
+                    const type = actionEl.dataset.type;
+                    if (type === 'rrsp') this.optimizers.runRRSPOptimizer();
+                    if (type === 'gross-up') this.optimizers.runRRSPGrossUpOptimizer();
+                    if (type === 'smith') this.optimizers.runSmithManeuverOptimizer();
+                    if (type === 'cpp') this.optimizers.runCPPImporter();
+                    if (type === 'monte-carlo') this.optimizers.runMonteCarlo();
+                }
+                if (action === 'add-leave') {
+                    this.data.addLeave(actionEl.dataset.player);
+                }
             }
         });
 
@@ -387,10 +418,17 @@ class RetirementPlanner {
         
         const formContainer = document.getElementById('financialForm') || document.body;
         
+        // Form Input Delegator
         formContainer.addEventListener('input', e => {
             const cl = e.target.classList;
             
             if (cl.contains('formatted-num')) this.formatInput(e.target);
+            
+            // Handle new Data-Sync-Target logic replacing inline oninput
+            if (e.target.dataset.syncTarget) {
+                const targetEl = document.getElementById(e.target.dataset.syncTarget);
+                if (targetEl) targetEl.innerText = e.target.value;
+            }
 
             // Handle Age overrides (calculate DOB defaulting to Jan)
             if (e.target.id === 'p1_age_input' || e.target.id === 'p2_age_input') {
@@ -523,11 +561,6 @@ class RetirementPlanner {
         if($('btnModalSaveScenario')) {
             $('btnModalSaveScenario').addEventListener('click', () => this.saveScenarioFromModal());
         }
-
-        document.body.addEventListener('click', e => {
-            if(e.target.classList.contains('toggle-btn')) this.ui.toggleGroup(e.target.dataset.type);
-            if(e.target.classList.contains('opt-apply')) this.applyOpt(e.target.dataset.target);
-        });
     }
 
     handleIncomeStreamUpdate(target) {
