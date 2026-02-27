@@ -138,7 +138,8 @@ class UIController {
     toggleModeDisplay() {
         const c = this.app.state.mode === 'Couple'; 
         document.body.classList.toggle('is-couple', c);
-        document.querySelectorAll('.p2-column').forEach(el => { if(!['TH','TD'].includes(el.tagName)) el.style.display = c ? '' : 'none'; });
+        
+        // Let CSS handle the bulk of visibility instead of DOM loops
         if(this.app.charts.nw) this.app.charts.nw.resize();
         if(this.app.charts.donut) this.app.charts.donut.resize();
         if(this.app.charts.comp) this.app.charts.comp.resize();
@@ -170,21 +171,29 @@ class UIController {
     }
 
     updateAgeDisplay(pfx) {
-        const dI = this.app.getRaw(`${pfx}_dob`), el = document.getElementById(`${pfx}_age`);
-        if(!dI){ el.innerHTML="--"; return; }
+        const dI = this.app.getRaw(`${pfx}_dob`), 
+              ageInput = document.getElementById(`${pfx}_age_input`);
         
-        const age = Math.abs(new Date(Date.now() - new Date(dI+"-01").getTime()).getUTCFullYear() - 1970);
-        if (isNaN(age)) return;
-        el.innerHTML = age + " years old";
+        if(!dI){ return; }
+        
+        const ageDate = new Date(Date.now() - new Date(dI+"-01").getTime());
+        const exactAge = Math.abs(ageDate.getUTCFullYear() - 1970);
+        
+        if (isNaN(exactAge)) return;
+
+        // Sync the age input if the user wasn't actively typing in it
+        if (ageInput && document.activeElement !== ageInput) {
+            ageInput.value = exactAge;
+        }
 
         const slider = document.getElementById(`qa_${pfx}_retireAge_range`);
         if (slider) {
-            slider.min = age;
-            if (parseInt(slider.value) < age) {
-                slider.value = age;
-                this.app.state.inputs[`${pfx}_retireAge`] = age;
+            slider.min = exactAge;
+            if (parseInt(slider.value) < exactAge) {
+                slider.value = exactAge;
+                this.app.state.inputs[`${pfx}_retireAge`] = exactAge;
                 const label = document.getElementById(`qa_${pfx}_retireAge_val`);
-                if(label) label.innerText = age;
+                if(label) label.innerText = exactAge;
                 this.app.debouncedRun();
             }
         }
@@ -544,7 +553,47 @@ class UIController {
             aL += ln(`RESP (Excluded from NW)${fmtFlow(d.flows.contributions.p1.resp, d.wdBreakdown.p1['RESP'])}`, d.assetsP1.resp, "text-muted");
 
             const rB = th==='light'?'bg-white border-bottom border-dark-subtle':'', rT = th==='light'?'text-dark':'text-white';
-            html += `<div class="grid-row-group" style="${th==='light'?'border-bottom:1px solid #ddd;':''}"><div class="grid-summary-row ${rB}" onclick="app.ui.toggleRow(this)"><div class="col-start col-timeline"><div class="d-flex align-items-center"><span class="fw-bold fs-6 me-1 ${rT}">${d.year}</span><span class="event-icons-inline">${d.events.map(k=>this.getIconHTML(k,th)).join('')}</span></div><span class="age-text ${rT}">${p1A} ${this.app.state.mode==='Couple'?'/ '+p2A:''}${depAgesStr}</span></div><div class="col-start">${stat}</div><div class="val-positive">${fmtK(d.grossInflow)}</div><div class="val-neutral text-danger">${fmtK(d.visualExpenses)}</div><div class="${d.surplus<0?'val-negative':'val-positive'}">${d.surplus>0?'+':''}${fmtK(d.surplus)}</div><div class="fw-bold ${rT}">${fmtK(d.debugNW)}</div><div class="text-center toggle-icon ${rT}"><i class="bi bi-chevron-down"></i></div></div><div class="grid-detail-wrapper"><div class="detail-container"><div class="detail-box surface-card"><div class="detail-title">Income Sources</div>${iL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total Gross Inflow</span> <span class="text-success fw-bold">${fmtK(d.grossInflow)}</span></div></div><div class="detail-box surface-card"><div class="detail-title">Outflows & Taxes</div>${eL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total Out</span> <span class="text-danger fw-bold">${fmtK(d.visualExpenses)}</span></div></div><div class="detail-box surface-card"><div class="detail-title">${assetTitle}</div>${aL}<div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;"><span class="text-white">Total NW</span> <span class="text-info fw-bold">${fmtK(d.debugNW)}</span></div></div></div></div></div>`;
+            const buildRow = () => `
+                <div class="grid-row-group" style="${th==='light'?'border-bottom:1px solid #ddd;':''}">
+                    <div class="grid-summary-row ${rB}" onclick="app.ui.toggleRow(this)">
+                        <div class="col-start col-timeline">
+                            <div class="d-flex align-items-center">
+                                <span class="fw-bold fs-6 me-1 ${rT}">${d.year}</span>
+                                <span class="event-icons-inline">${d.events.map(k=>this.getIconHTML(k,th)).join('')}</span>
+                            </div>
+                            <span class="age-text ${rT}">${p1A} ${this.app.state.mode==='Couple'?'/ '+p2A:''}${depAgesStr}</span>
+                        </div>
+                        <div class="col-start">${stat}</div>
+                        <div class="val-positive">${fmtK(d.grossInflow)}</div>
+                        <div class="val-neutral text-danger">${fmtK(d.visualExpenses)}</div>
+                        <div class="${d.surplus<0?'val-negative':'val-positive'}">${d.surplus>0?'+':''}${fmtK(d.surplus)}</div>
+                        <div class="fw-bold ${rT}">${fmtK(d.debugNW)}</div>
+                        <div class="text-center toggle-icon ${rT}"><i class="bi bi-chevron-down"></i></div>
+                    </div>
+                    <div class="grid-detail-wrapper">
+                        <div class="detail-container">
+                            <div class="detail-box surface-card">
+                                <div class="detail-title">Income Sources</div>${iL}
+                                <div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;">
+                                    <span class="text-white">Total Gross Inflow</span> <span class="text-success fw-bold">${fmtK(d.grossInflow)}</span>
+                                </div>
+                            </div>
+                            <div class="detail-box surface-card">
+                                <div class="detail-title">Outflows & Taxes</div>${eL}
+                                <div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;">
+                                    <span class="text-white">Total Out</span> <span class="text-danger fw-bold">${fmtK(d.visualExpenses)}</span>
+                                </div>
+                            </div>
+                            <div class="detail-box surface-card">
+                                <div class="detail-title">${assetTitle}</div>${aL}
+                                <div class="detail-item mt-auto" style="border-top:1px solid #444; margin-top:5px; padding-top:5px;">
+                                    <span class="text-white">Total NW</span> <span class="text-info fw-bold">${fmtK(d.debugNW)}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            html += buildRow();
         });
         const grid = document.getElementById('projectionGrid'); if(grid) grid.innerHTML = html;
         
@@ -597,12 +646,10 @@ class UIController {
             totalExp += d.expenses / df; 
             totalDebt += debt / df;
 
-            // Calculate pure CPP & OAS, strictly net of any clawbacks
             const clawbacks = (d.oasClawbackP1 || 0) + (d.oasClawbackP2 || 0);
             const pureRetBenefits = d.benefitsP1 + (d.benefitsP2 || 0) - clawbacks;
             totalBenefits += pureRetBenefits / df;
 
-            // Ensure CCB is still added to the total cash flow math so the estate balances
             const externalInflow = d.incomeP1 + (d.incomeP2 || 0) + (d.postRetP1 || 0) + (d.postRetP2 || 0) + pureRetBenefits + (d.ccbP1 || 0) + d.dbP1 + (d.dbP2 || 0) + d.windfall;
             totalExternalInflow += externalInflow / df;
 
@@ -700,7 +747,6 @@ class UIController {
         const textColor = isDark ? '#cbd5e1' : '#475569';
         const gridColor = isDark ? '#334155' : '#e2e8f0';
 
-        // OPTIMIZATION: Update existing donut chart instead of destroying it
         if (document.getElementById('chartLifetimeDonut') && typeof Chart !== 'undefined') {
             const donutData = [Math.round(totalTax), Math.round(totalExp), Math.round(totalDebt), Math.max(0, Math.round(finalEstate))];
             
@@ -734,7 +780,6 @@ class UIController {
             }
         }
 
-        // OPTIMIZATION: Update existing composition chart instead of destroying it
         if (document.getElementById('chartComposition') && typeof Chart !== 'undefined') {
             if (this.app.charts.comp) {
                 this.app.charts.comp.data.labels = compLabels;
@@ -916,7 +961,6 @@ class UIController {
         const textColor = isDark ? '#cbd5e1' : '#475569';
         const gridColor = isDark ? '#334155' : '#e2e8f0';
 
-        // OPTIMIZATION: Update existing chart instead of destroying it
         if (this.app.charts.nw) {
             this.app.charts.nw.data.labels = labels;
             this.app.charts.nw.data.datasets = datasets;
